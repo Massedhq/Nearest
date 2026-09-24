@@ -15,7 +15,7 @@ export default async function Interests() {
   const cats = await db.select({ id: categories.id, name: categories.name }).from(categories).where(eq(categories.active, true)).orderBy(asc(categories.sort));
   const mine = new Set(profile.interests ?? []);
   return (
-    <div className="scr light">
+    <div className="scr">
       <div className="top"><span className="sp" /><div className="t" /><Link className="link small" href="/verify/access">Skip</Link></div>
       <div className="body">
         <Steps at={4} />

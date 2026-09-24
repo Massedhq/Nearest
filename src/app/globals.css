@@ -174,8 +174,41 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .scr.light .badge{color:#2E7D4F}
 .chipradio{position:relative;cursor:pointer}
 .chipradio input{position:absolute;opacity:0;pointer-events:none}
-.chipradio:has(input:checked){background:#141414;color:#F4EFE6;border-color:#141414}
+.chipradio:has(input:checked){background:#ECE8E1;color:#0A0A0A;border-color:#ECE8E1}
+.scr.light .chipradio:has(input:checked){background:#141414;color:#F4EFE6;border-color:#141414}
 .chipradio:has(input:focus-visible){outline:2px solid #E3C58A;outline-offset:2px}
 .opt{padding:10px 12px;border-radius:10px;cursor:pointer}
 .opt.active{background:#F4EFE6}
 .scr:not(.light) .opt.active{background:#1C1C1F}
+
+/* ---- cream box on the black page (sign-up and sign-in boxes) ---- */
+.lightbox{background:#F4EFE6;color:#141414;border-radius:22px;padding:22px;display:flex;flex-direction:column;gap:14px}
+.lightbox .muted,.lightbox .lbl,.lightbox .field label,.lightbox .eyebrow{color:#6B665E}
+.lightbox .iconbtn{background:#FFFFFF;border-color:#E2DBCF;color:#141414}
+.lightbox .steps span{background:#E2DBCF}
+.lightbox .steps span.on{background:#141414}
+.lightbox .field input,.lightbox .field select,.lightbox .field textarea{background:#FFFFFF;border-color:#E2DBCF;color:#141414}
+.lightbox .btn{background:#141414;color:#F4EFE6!important}
+.lightbox .btn.ghost{background:transparent;color:#141414!important;border-color:#141414}
+.lightbox .card{background:#FFFFFF;border-color:#E2DBCF}
+.lightbox .card.warn{background:#FBF3E2;border-color:#E3C58A}
+.lightbox .err{color:#B3261E}
+.lightbox .link{color:#141414}
+.lightbox .chip{background:#FFFFFF;border-color:#E2DBCF;color:#141414}
+.lightbox .chip.on{background:#141414;color:#F4EFE6;border-color:#141414}
+.lightbox .check{background:#FFFFFF;border-color:#E2DBCF}
+.lightbox .check.on{border-color:#141414}
+.lightbox .check input{accent-color:#141414}
+.lightbox .card.pearl{background:#141414;color:#F4EFE6;border-color:#141414}
+.lightbox .card.pearl .muted,.lightbox .card.pearl .eyebrow{color:#B9B3A9}
+.lightbox .search{background:#FFFFFF;border-color:#E2DBCF;color:#6B665E}
+.lightbox .search input{color:#141414}
+.lightbox .otp input{background:#FFFFFF;border-color:#E2DBCF;color:#141414}
+.lightbox .otp input:focus{border-color:#141414}
+.lightbox .cam{background:#FFFFFF;border-color:#E2DBCF;color:#141414}
+.lightbox .okmsg{color:#2E7D4F}
+.lightbox .badge{color:#2E7D4F}
+.lightbox .chipradio:has(input:checked){background:#141414;color:#F4EFE6;border-color:#141414}
+.card.pearl .link{color:#0A0A0A}
+.scr:not(.light) .chipradio:has(input:checked){background:#ECE8E1;color:#0A0A0A;border-color:#ECE8E1}
+.lightbox .chipradio:has(input:checked){background:#141414;color:#F4EFE6;border-color:#141414}

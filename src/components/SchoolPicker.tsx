@@ -60,7 +60,7 @@ export function SchoolPicker({ schools, counties, cities, links, initialId }: {
       {selected ? (
         <div className="card pearl" style={{ gap: 8 }}>
           <input type="hidden" name="schoolId" value={selected.id} />
-          <div className="row between"><span className="eyebrow">Selected</span><button type="button" className="link small" style={{ color: "#F4EFE6" }} onClick={() => { setSelected(null); setTimeout(() => input.current?.focus(), 0); }}>Change</button></div>
+          <div className="row between"><span className="eyebrow">Selected</span><button type="button" className="link small" style={{ color: "#0A0A0A" }} onClick={() => { setSelected(null); setTimeout(() => input.current?.focus(), 0); }}>Change</button></div>
           <div className="row between"><span>School</span><span className="b" style={{ textAlign: "right" }}>{selected.name}</span></div>
           <div className="row between"><span>City</span><span className="b">{selected.city}</span></div>
           <div className="row between"><span>County</span><span className="b">{counties.find((c) => c.id === countyId)?.name ?? ""}</span></div>

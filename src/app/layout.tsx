@@ -3,7 +3,7 @@ import "@fontsource-variable/bodoni-moda";
 import "@fontsource-variable/bodoni-moda/wght-italic.css";
 import "@fontsource-variable/manrope";
 import { ClerkProvider } from "@clerk/nextjs";
-import { clerkAppearance } from "@/lib/clerk-appearance";
+import { clerkLightAppearance } from "@/lib/clerk-appearance";
 import { SwRegister } from "@/components/SwRegister";
 import "./globals.css";
 
@@ -24,7 +24,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider appearance={clerkAppearance}>
+    <ClerkProvider appearance={clerkLightAppearance}>
       <html lang="en">
         <body>
           {children}

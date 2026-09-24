@@ -12,12 +12,12 @@ export default async function StudentSignUp() {
   if (userId) redirect("/go");
   const open = await getFlag("status.student_registration");
   return (
-    <div className="scr light">
+    <div className="scr">
       <TopBar title="Welcome to Nearest" back="/" />
       <div className="body">
         <Steps at={1} />
         {open ? (
-          <StudentSignUpForm />
+          <div className="lightbox"><StudentSignUpForm /></div>
         ) : (
           <div className="card warn"><span className="b">Registration is closed right now.</span><span className="small muted">Check back soon.</span></div>
         )}

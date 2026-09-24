@@ -12,7 +12,7 @@ export default async function VerifyId() {
   const step = await verifyStep(user.id, profile);
   if (step !== "/verify/id") redirect(step ?? "/home");
   return (
-    <div className="scr light">
+    <div className="scr">
       <TopBar title="Get Verified" back="/verify" />
       <div className="body">
         <Steps at={3} />

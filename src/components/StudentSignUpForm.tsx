@@ -88,7 +88,7 @@ export function StudentSignUpForm() {
     return (
       <div className="col g16">
         <h1 className="disp h1">Verify your email</h1>
-        <p className="muted p">We sent a 6-digit code to <span className="b" style={{ color: "#141414" }}>{email}</span>.</p>
+        <p className="muted p">We sent a 6-digit code to <span className="b" style={{ color: "#ECE8E1" }}>{email}</span>.</p>
         <div className="otp" role="group" aria-label="6-digit code">
           {digits.map((d, i) => (
             <input

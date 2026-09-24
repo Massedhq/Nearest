@@ -18,7 +18,7 @@ export default async function Onboarding() {
   if (await createStudentFromSignUp()) redirect("/verify");
   // Fallback (e.g. signed up another way): ask for the missing details.
   return (
-    <div className="scr light">
+    <div className="scr">
       <TopBar title="Welcome to Nearest" />
       <div className="body">
         <Steps at={1} />

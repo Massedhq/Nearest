@@ -26,7 +26,7 @@ export default async function VerifySchool() {
     db.select().from(cityCounties),
   ]);
   return (
-    <div className="scr light">
+    <div className="scr">
       <TopBar />
       <div className="body">
         <Steps at={2} />
