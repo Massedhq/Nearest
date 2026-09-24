@@ -1,44 +1,90 @@
 import Image from "next/image";
 import Link from "next/link";
-import { eq } from "drizzle-orm";
-import { db, professionalProfiles } from "@/db";
+import { and, asc, eq, gte, inArray } from "drizzle-orm";
+import { db, modelCalls, proOpenings } from "@/db";
 import { Icon } from "@/components/Icon";
 import { Tabs } from "@/components/Tabs";
-import { ComingSoon } from "@/components/ComingSoon";
-import { getViewer } from "@/lib/viewer";
+import { requirePro, setupSteps, setupComplete } from "@/lib/pro";
+import { chicagoNow, fmtDate, fmtTime, label12, money } from "@/lib/time";
 
 export const metadata = { title: "Today" };
 
-function greeting() {
-  const h = Number(new Date().toLocaleString("en-US", { hour: "numeric", hour12: false, timeZone: "America/Chicago" }));
-  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+function greeting(minutes: number) {
+  return minutes < 720 ? "Good morning" : minutes < 1020 ? "Good afternoon" : "Good evening";
 }
 
 export default async function ProHome() {
-  const viewer = await getViewer();
-  const u = viewer!.user!;
-  const profile = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, u.id) });
-  const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "America/Chicago" });
+  const { viewer, user, profile } = await requirePro();
+  const now = chicagoNow();
+  const [steps, calls, openings] = await Promise.all([
+    setupSteps(user.id),
+    db.select().from(modelCalls).where(and(eq(modelCalls.userId, user.id), inArray(modelCalls.status, ["open", "full"]), gte(modelCalls.startsAt, new Date()))).orderBy(asc(modelCalls.startsAt)).limit(3),
+    db.select().from(proOpenings).where(and(eq(proOpenings.userId, user.id), eq(proOpenings.day, now.date))).orderBy(asc(proOpenings.startTime)),
+  ]);
+  const approved = profile.reviewStatus === "approved";
+  const left = steps.filter((s) => !s.done && !s.optional);
+  const next = left[0];
+
   return (
     <div className="scr">
       <div className="top" style={{ justifyContent: "space-between" }}>
         <Image src="/brand/nearest-monogram.png" alt="Nearest" width={48} height={48} />
-        {viewer?.admin ? <Link className="chip" href="/workspace"><Icon name="switch" size="s" /> Switch workspace</Link> : <span />}
+        {viewer.admin ? <Link className="chip" href="/workspace"><Icon name="switch" size="s" /> Switch workspace</Link> : <span />}
         <span className="iconbtn" aria-label="Notifications"><Icon name="bell" /></span>
       </div>
       <div className="body">
-        <div><p className="eyebrow p">{today}</p><h1 className="disp h1">{greeting()}, {u.firstName}</h1></div>
-        {profile?.cohort === "FOUNDING" && (
+        <div><p className="eyebrow p">{fmtDate(new Date(), { weekday: "long", month: "short", day: "numeric" })}</p><h1 className="disp h1">{greeting(now.minutes)}, {user.firstName}</h1></div>
+
+        {!approved && (
+          <div className="card" style={{ gap: 12 }}>
+            <div className="row between"><span className="eyebrow">Set up your business</span><span className="xs muted">{steps.filter((s) => s.done).length} of {steps.length}</span></div>
+            <div className="bar"><i style={{ width: `${Math.round((steps.filter((s) => s.done).length / steps.length) * 100)}%` }} /></div>
+            {profile.reviewStatus === "submitted" ? (
+              <span className="small">Submitted — Nearest is reviewing your profile.</span>
+            ) : profile.reviewStatus === "rejected" ? (
+              <><span className="small err">Changes needed: {profile.reviewNote}</span><Link className="btn sm" href="/pro/setup/review" style={{ width: "100%" }}>Review &amp; resubmit</Link></>
+            ) : setupComplete(steps) ? (
+              <Link className="btn sm" href="/pro/setup/review" style={{ width: "100%" }}>Preview &amp; submit</Link>
+            ) : (
+              <Link className="btn sm" href={next?.href ?? "/pro/setup/profile"} style={{ width: "100%" }}>Continue: {next?.label}</Link>
+            )}
+          </div>
+        )}
+
+        {profile.cohort === "FOUNDING" && (
           <div className="card pearl"><span className="tag solid" style={{ background: "#0A0A0A", color: "#ECE8E1", alignSelf: "flex-start" }}>Founding Professional</span><span className="small">Your founding rate is locked to your account.</span></div>
         )}
-        <div className="card">
-          <span className="eyebrow">Get ready to go live</span>
-          <div className="row small"><Icon name="check" size="s" /><span className="grow">Email verified</span><span className="tag ok">Done</span></div>
-          <div className="row small"><Icon name="shield" size="s" /><span className="grow">Identity verification</span><span className="tag">Phase 2</span></div>
-          <div className="row small"><Icon name="grid" size="s" /><span className="grow">Profile, services &amp; hours</span><span className="tag">Phase 2</span></div>
+
+        <Link className="card" href="/pro/today" style={{ textDecoration: "none" }}>
+          <div className="row">
+            <Icon name="bolt" />
+            <div className="grow">
+              <div className="b">Available Today</div>
+              <div className="xs muted">{openings.length ? openings.map((o) => label12(o.startTime)).join(" • ") : approved ? "Post openings before 12:00 PM" : "Unlocks after approval"}</div>
+            </div>
+            <Icon name="right" size="s" />
+          </div>
+        </Link>
+
+        <div className="row between"><h3 className="eyebrow p">Your model calls</h3><Link className="link small" href="/pro/model-calls">See all</Link></div>
+        {calls.length === 0 && <p className="small muted p">No upcoming model calls.</p>}
+        {calls.map((c) => (
+          <div key={c.id} className="item">
+            <div className="grow"><div className="b">{c.serviceName}</div><div className="xs muted">{fmtDate(c.startsAt)} • {fmtTime(c.startsAt)} • {money(c.priceCents)}</div></div>
+            <span className="tag">{c.spots - c.spotsTaken} spot{c.spots - c.spotsTaken === 1 ? "" : "s"} left</span>
+          </div>
+        ))}
+        {approved ? (
+          <Link className="btn" href="/pro/model-calls/new"><Icon name="plus" /> Create a model call</Link>
+        ) : (
+          <button className="btn dis" type="button" disabled><Icon name="plus" /> Create a model call — after approval</button>
+        )}
+
+        <div className="grid3" style={{ gap: 10 }}>
+          <Link className="card" href="/pro/calendar" style={{ textDecoration: "none", padding: 12, alignItems: "center", gap: 6 }}><Icon name="lock" /><span className="xs">Block time</span></Link>
+          <Link className="card" href="/pro/setup/services?edit=1" style={{ textDecoration: "none", padding: 12, alignItems: "center", gap: 6 }}><Icon name="grid" /><span className="xs">Services</span></Link>
+          <Link className="card" href="/pro/setup/portfolio?edit=1" style={{ textDecoration: "none", padding: 12, alignItems: "center", gap: 6 }}><Icon name="camera" /><span className="xs">Add work</span></Link>
         </div>
-        <button className="btn" type="button" disabled style={{ opacity: 0.5 }}><Icon name="plus" /> Create a model call</button>
-        <ComingSoon title="Calendar, Available Today and model calls" phase="Phase 2" />
       </div>
       <Tabs kind="pro" active="Today" />
     </div>

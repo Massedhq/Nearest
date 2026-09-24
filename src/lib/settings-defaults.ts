@@ -27,6 +27,7 @@ export const SETTINGS: Record<string, SettingDef> = {
   "enforce.pro_suspension_days": { label: "Pro suspension", group: "Professional enforcement", type: "number", unit: "days", value: 30 },
   "enforce.unpaid_fine_termination_days": { label: "Unpaid fine termination", group: "Professional enforcement", type: "number", unit: "days", value: 30 },
   "growth.founding_capacity": { label: "Founding capacity", group: "Growth", type: "number", value: 750 },
+  "growth.second_cohort_end": { label: "$20 pricing through pro #", group: "Growth", type: "number", value: 3500 },
   "growth.target_per_city": { label: "Target per city", group: "Growth", type: "number", value: 5 },
   "growth.invite_expiry_days": { label: "Invitation expiry", group: "Growth", type: "number", unit: "days", value: 7 },
   "sub.termination_days": { label: "Subscription termination", group: "Growth", type: "number", unit: "days", value: 90 },

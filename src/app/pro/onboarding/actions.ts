@@ -58,11 +58,9 @@ export async function completePro(_: FormState, form: FormData): Promise<FormSta
     cohort = "FOUNDING";
     invitationId = claimed.id;
   } else {
-    const [{ n }] = await db
-      .select({ n: sql<number>`count(*)::int` })
-      .from(professionalProfiles)
-      .where(eq(professionalProfiles.cohort, "SECOND"));
-    cohort = n < 750 ? "SECOND" : "STANDARD";
+    // $20 pricing runs through pro #growth.second_cohort_end (3,500 by default), then standard pricing.
+    const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(professionalProfiles);
+    cohort = n < Number(settings["growth.second_cohort_end"]) ? "SECOND" : "STANDARD";
   }
 
   await db.insert(professionalProfiles).values({ userId: user.id, cohort, invitationId }).onConflictDoNothing();

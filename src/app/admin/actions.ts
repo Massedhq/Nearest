@@ -8,6 +8,8 @@ import { logActivity } from "@/lib/log";
 import { getSettings } from "@/lib/settings";
 import { SETTINGS, STATUS_KEYS } from "@/lib/settings-defaults";
 import { foundingOpen } from "@/lib/invites";
+import { sendInviteEmail } from "@/lib/email";
+import { headers } from "next/headers";
 
 export type FormState = { error?: string; ok?: string };
 
@@ -84,8 +86,21 @@ export async function createInvite(_: FormState, form: FormData): Promise<FormSt
       .returning();
     if (row) {
       await logActivity({ actorUserId: user.id, action: "invite.created", targetType: "invitation", targetId: code, after: { name, contact, city: city.name, category } });
+      let emailed = "0";
+      if (contact.includes("@")) {
+        const h = await headers();
+        const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
+        const res = await sendInviteEmail({
+          to: contact, name, city: city.name, code, link: `${origin}/pro/invite/${code}`,
+          expires: expiresAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Chicago" }),
+        });
+        if (res.sent) {
+          emailed = "1";
+          await logActivity({ actorUserId: user.id, action: "invite.emailed", targetType: "invitation", targetId: code, after: contact });
+        }
+      }
       revalidatePath("/admin/founding");
-      redirect(`/admin/founding?new=${encodeURIComponent(code)}`);
+      redirect(`/admin/founding?new=${encodeURIComponent(code)}&emailed=${emailed}`);
     }
   }
   return { error: "Couldn't generate a unique code. Try again." };

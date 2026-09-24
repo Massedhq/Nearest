@@ -5,6 +5,8 @@ import { AdminHead } from "@/components/AdminHead";
 import { requireAdmin } from "@/lib/admin";
 import { expireStaleInvites, foundingOpen } from "@/lib/invites";
 import { revokeInvite, closeFounding } from "@/app/admin/actions";
+import { emailInvite } from "@/app/admin/pro-actions";
+import { emailEnabled } from "@/lib/email";
 import { InviteForm } from "./InviteForm";
 import { CopyLink } from "./CopyLink";
 
@@ -13,10 +15,10 @@ export const metadata = { title: "Founding 750" };
 const TAG: Record<string, string> = { invited: "", registered: "ok", expired: "bad", declined: "", revoked: "bad" };
 const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Chicago" });
 
-export default async function Founding({ searchParams }: { searchParams: Promise<{ new?: string }> }) {
+export default async function Founding({ searchParams }: { searchParams: Promise<{ new?: string; emailed?: string }> }) {
   const { role } = await requireAdmin();
   await expireStaleInvites();
-  const [{ new: newCode }, f, rows, cityList, stats] = await Promise.all([
+  const [{ new: newCode, emailed }, f, rows, cityList, stats] = await Promise.all([
     searchParams,
     foundingOpen(),
     db
@@ -39,7 +41,10 @@ export default async function Founding({ searchParams }: { searchParams: Promise
       <AdminHead eyebrow="Launch cohort" title="Founding 750" />
       {newCode && (
         <div className="card ok" style={{ gap: 10 }}>
-          <span className="b">Invitation {newCode} created. Send this link to the professional:</span>
+          <span className="b">
+            Invitation {newCode} created.{" "}
+            {emailed === "1" ? "It was emailed to them. You can also share this link:" : emailEnabled() ? "Email didn't send, so share this link with them:" : "Send this link to the professional:"}
+          </span>
           <CopyLink url={`${origin}/pro/invite/${newCode}`} />
         </div>
       )}
@@ -69,7 +74,12 @@ export default async function Founding({ searchParams }: { searchParams: Promise
                 <td><span className={`tag ${TAG[i.status]}`}>{i.status}</span></td>
                 <td>{i.status === "invited" ? fmt(i.expiresAt) : "—"}</td>
                 <td>{i.status === "invited" && (
-                  <form action={revokeInvite}><input type="hidden" name="id" value={i.id} /><button className="link small" type="submit">Revoke</button></form>
+                  <div className="row">
+                    {emailEnabled() && i.contact.includes("@") && (
+                      <form action={emailInvite}><input type="hidden" name="id" value={i.id} /><button className="link small" type="submit">Email</button></form>
+                    )}
+                    <form action={revokeInvite}><input type="hidden" name="id" value={i.id} /><button className="link small" type="submit">Revoke</button></form>
+                  </div>
                 )}</td>
               </tr>
             ))}

@@ -35,13 +35,10 @@ export function AdminNav() {
 export const SECTION_TITLES: Record<string, [string, string]> = {
   coverage: ["DFW Coverage", "Phase 6"],
   students: ["Students", "Phase 3"],
-  professionals: ["Professionals", "Phase 2"],
-  verification: ["Verification Queue", "Phase 2"],
   bookings: ["Bookings", "Phase 3"],
   incidents: ["Incident Review", "Phase 4"],
   enforcement: ["Enforcement", "Phase 5"],
   appeals: ["Appeals", "Phase 5"],
   money: ["Money", "Phase 3"],
   marketing: ["Marketing", "Phase 6"],
-  marketplace: ["Marketplace", "Phase 2"],
 };

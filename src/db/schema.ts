@@ -1,5 +1,5 @@
 import {
-  pgTable, pgEnum, uuid, text, date, timestamp, boolean, integer, jsonb, bigserial, primaryKey, index,
+  pgTable, pgEnum, uuid, text, date, timestamp, boolean, integer, jsonb, bigserial, primaryKey, index, uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -9,6 +9,13 @@ export const studentVerification = pgEnum("student_verification", ["unverified",
 export const identityStatus = pgEnum("identity_status", ["unverified", "pending", "verified", "rejected"]);
 export const cohort = pgEnum("cohort", ["FOUNDING", "SECOND", "STANDARD"]);
 export const inviteStatus = pgEnum("invite_status", ["invited", "registered", "expired", "declined", "revoked"]);
+export const serviceMode = pgEnum("service_mode", ["come_to_me", "travel", "both"]);
+export const aslLevel = pgEnum("asl_level", ["none", "basic", "conversational", "fluent"]);
+export const reviewStatus = pgEnum("review_status", ["draft", "submitted", "approved", "rejected"]);
+export const credentialStatus = pgEnum("credential_status", ["pending", "verified", "rejected"]);
+export const hoursKind = pgEnum("hours_kind", ["regular", "after_school"]);
+export const portfolioSource = pgEnum("portfolio_source", ["upload", "instagram", "tiktok", "nearest"]);
+export const modelCallStatus = pgEnum("model_call_status", ["open", "full", "cancelled", "completed"]);
 export const adminRole = pgEnum("admin_role", ["OWNER", "ADMIN", "MARKETING_ADMIN", "OPERATIONS_ADMIN", "SUPPORT"]);
 
 const ts = (name: string) => timestamp(name, { withTimezone: true });
@@ -79,8 +86,127 @@ export const professionalProfiles = pgTable("professional_profiles", {
   invitationId: uuid("invitation_id").references(() => invitations.id),
   identityStatus: identityStatus("identity_status").notNull().default("unverified"),
   searchable: boolean("searchable").notNull().default(false),
+  // Phase 2: profile
+  bio: text("bio"),
+  yearsExperience: integer("years_experience"),
+  photoUrl: text("photo_url"),
+  instagram: text("instagram"),
+  tiktok: text("tiktok"),
+  website: text("website"),
+  showInstagram: boolean("show_instagram").notNull().default(false),
+  // Phase 2: location (street address is private; never sent to students before appointment day)
+  countyId: integer("county_id").references(() => counties.id),
+  cityId: integer("city_id").references(() => cities.id),
+  zip: text("zip"),
+  addressLine: text("address_line"),
+  serviceMode: serviceMode("service_mode"),
+  travelRadiusMi: integer("travel_radius_mi"),
+  // Phase 2: communication
+  languages: text("languages").array(),
+  aslLevel: aslLevel("asl_level").notNull().default("none"),
+  textCommunication: boolean("text_communication").notNull().default(false),
+  // Phase 2: availability
+  acceptsAfterSchool: boolean("accepts_after_school").notNull().default(false),
+  vacationMode: boolean("vacation_mode").notNull().default(false),
+  // Phase 2: review
+  reviewStatus: reviewStatus("review_status").notNull().default("draft"),
+  reviewNote: text("review_note"),
+  submittedAt: ts("submitted_at"),
+  approvedAt: ts("approved_at"),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
+
+export const categories = pgTable("categories", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  name: text("name").notNull().unique(),
+  licenseRequired: boolean("license_required").notNull().default(false),
+  licenseLabel: text("license_label"),
+  sort: integer("sort").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+});
+
+export const catalogServices = pgTable("catalog_services", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  categoryId: integer("category_id").notNull().references(() => categories.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  sort: integer("sort").notNull().default(0),
+}, (t) => [uniqueIndex("catalog_services_cat_name").on(t.categoryId, t.name)]);
+
+export const proServices = pgTable("pro_services", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  categoryId: integer("category_id").notNull().references(() => categories.id),
+  name: text("name").notNull(),
+  priceCents: integer("price_cents").notNull(),
+  durationMin: integer("duration_min").notNull(),
+  active: boolean("active").notNull().default(true),
+  sort: integer("sort").notNull().default(0),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("pro_services_user_idx").on(t.userId)]);
+
+export const proHours = pgTable("pro_hours", {
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  kind: hoursKind("kind").notNull(),
+  weekday: integer("weekday").notNull(), // 0 = Sunday … 6 = Saturday
+  startTime: text("start_time").notNull(), // "HH:MM" America/Chicago
+  endTime: text("end_time").notNull(),
+}, (t) => [primaryKey({ columns: [t.userId, t.kind, t.weekday] })]);
+
+export const proBlocks = pgTable("pro_blocks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  startsAt: ts("starts_at").notNull(),
+  endsAt: ts("ends_at").notNull(),
+  reason: text("reason"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("pro_blocks_user_idx").on(t.userId)]);
+
+// "Available Today" openings. One row per open start time on a given Chicago date.
+export const proOpenings = pgTable("pro_openings", {
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  day: date("day").notNull(),
+  startTime: text("start_time").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.userId, t.day, t.startTime] })]);
+
+export const portfolioItems = pgTable("portfolio_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  source: portfolioSource("source").notNull().default("upload"),
+  featured: boolean("featured").notNull().default(false),
+  sort: integer("sort").notNull().default(0),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("portfolio_user_idx").on(t.userId)]);
+
+export const proCredentials = pgTable("pro_credentials", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  categoryId: integer("category_id").notNull().references(() => categories.id),
+  licenseType: text("license_type").notNull(),
+  licenseNumber: text("license_number").notNull(),
+  issuingState: text("issuing_state").notNull().default("Texas"),
+  expiresOn: date("expires_on"),
+  status: credentialStatus("status").notNull().default("pending"),
+  reviewNote: text("review_note"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [uniqueIndex("pro_credentials_user_cat").on(t.userId, t.categoryId)]);
+
+export const modelCalls = pgTable("model_calls", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  categoryId: integer("category_id").references(() => categories.id),
+  serviceName: text("service_name").notNull(),
+  startsAt: ts("starts_at").notNull(),
+  durationMin: integer("duration_min").notNull(),
+  priceCents: integer("price_cents").notNull(),
+  spots: integer("spots").notNull().default(1),
+  spotsTaken: integer("spots_taken").notNull().default(0),
+  requirements: text("requirements").array(),
+  about: text("about"),
+  status: modelCallStatus("status").notNull().default("open"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("model_calls_user_idx").on(t.userId), index("model_calls_starts_idx").on(t.startsAt)]);
 
 export const adminMembers = pgTable("admin_members", {
   userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),

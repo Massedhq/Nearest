@@ -1,26 +1,21 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-const isPublic = createRouteMatcher([
-  "/",
-  "/sign-in(.*)",
-  "/sign-up(.*)",
-  "/pro",
-  "/pro/sign-in(.*)",
-  "/pro/sign-up(.*)",
-  "/pro/invite/(.*)",
-  "/pro/manifest.webmanifest",
-  "/admin/sign-in(.*)",
-  "/admin/sign-up(.*)",
-  "/manifest.webmanifest",
-  "/sw.js",
-]);
+// Pages anyone can open. Everything else needs a signed-in user; role checks
+// happen again in each layout, page and server action (never only here).
+const PUBLIC_EXACT = new Set(["/", "/pro", "/manifest.webmanifest", "/pro/manifest.webmanifest", "/sw.js"]);
+const PUBLIC_PREFIX = ["/sign-in", "/sign-up", "/pro/sign-in", "/pro/sign-up", "/pro/invite/", "/admin/sign-in", "/admin/sign-up"];
+
+function isPublic(path: string) {
+  return PUBLIC_EXACT.has(path) || PUBLIC_PREFIX.some((p) => path === p || path.startsWith(p.endsWith("/") ? p : `${p}/`));
+}
 
 export default clerkMiddleware(async (auth, req) => {
-  if (isPublic(req)) return;
+  const path = req.nextUrl.pathname;
+  if (isPublic(path)) return;
   const { userId } = await auth();
   if (userId) return;
-  const path = req.nextUrl.pathname;
+  if (path.startsWith("/api/")) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
   const signIn = path.startsWith("/admin") ? "/admin/sign-in" : path.startsWith("/pro") ? "/pro/sign-in" : "/sign-in";
   const url = new URL(signIn, req.url);
   url.searchParams.set("redirect_url", req.nextUrl.pathname + req.nextUrl.search);
