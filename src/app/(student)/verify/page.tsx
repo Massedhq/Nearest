@@ -1,30 +1,29 @@
 import { redirect } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
-import { db, schools, cities } from "@/db";
+import { db, schools, cities, counties, cityCounties } from "@/db";
 import { requireStudent } from "@/lib/student";
 import { TopBar } from "@/components/TopBar";
 import { ActionForm } from "@/components/ActionForm";
 import { saveSchool, requestSchool } from "@/app/verify-actions";
+import { SchoolPicker } from "@/components/SchoolPicker";
 
 export const metadata = { title: "Your school" };
 
-const TYPE: Record<string, string> = { high_school: "High schools", college: "Colleges", trade: "Trade schools" };
 
 export default async function VerifySchool() {
   const { profile } = await requireStudent();
   if (profile.verificationStatus === "verified") redirect("/home");
-  const rows = await db
-    .select({ id: schools.id, name: schools.name, type: schools.type, city: cities.name })
-    .from(schools)
-    .innerJoin(cities, eq(cities.id, schools.cityId))
-    .where(eq(schools.active, true))
-    .orderBy(asc(cities.name), asc(schools.name));
-  const groups = new Map<string, typeof rows>();
-  for (const r of rows) {
-    const k = `${r.city} — ${TYPE[r.type]}`;
-    if (!groups.has(k)) groups.set(k, []);
-    groups.get(k)!.push(r);
-  }
+  const [rows, countyList, cityList, links] = await Promise.all([
+    db
+      .select({ id: schools.id, name: schools.name, type: schools.type, city: cities.name, cityId: schools.cityId })
+      .from(schools)
+      .innerJoin(cities, eq(cities.id, schools.cityId))
+      .where(eq(schools.active, true))
+      .orderBy(asc(schools.name)),
+    db.select({ id: counties.id, name: counties.name }).from(counties).orderBy(asc(counties.name)),
+    db.select({ id: cities.id, name: cities.name }).from(cities).where(eq(cities.active, true)).orderBy(asc(cities.name)),
+    db.select().from(cityCounties),
+  ]);
   const year = new Date().getFullYear();
   const years = Array.from({ length: 7 }, (_, i) => year + i);
   const yearSelect = (id: string) => (
@@ -43,14 +42,7 @@ export default async function VerifySchool() {
         <h1 className="disp h1">Where do you go to school?</h1>
         <p className="muted small p">Nearest is only for verified students in participating areas.</p>
         <ActionForm action={saveSchool} submitLabel="Continue">
-          <div className="field"><label htmlFor="schoolId">School</label>
-            <select id="schoolId" name="schoolId" defaultValue={profile.schoolId ?? ""} required>
-              <option value="" disabled>Choose your school</option>
-              {[...groups.entries()].map(([g, list]) => (
-                <optgroup key={g} label={g}>{list.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</optgroup>
-              ))}
-            </select>
-          </div>
+          <SchoolPicker schools={rows} counties={countyList} cities={cityList} links={links} initialId={profile.schoolId} />
           {yearSelect("graduationYear")}
         </ActionForm>
         <details className="card">
