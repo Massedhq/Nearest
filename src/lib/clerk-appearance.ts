@@ -21,3 +21,32 @@ export const clerkAppearance = {
     cardBox: { width: "100%", boxShadow: "none", border: "1px solid #242427" },
   },
 };
+
+// Cream + black, for the student sign-up flow.
+export const clerkLightAppearance = {
+  variables: {
+    colorBackground: "#FFFFFF",
+    colorForeground: "#141414",
+    colorPrimary: "#141414",
+    colorPrimaryForeground: "#F4EFE6",
+    colorInput: "#F7F3EC",
+    colorInputForeground: "#141414",
+    colorMuted: "#F4EFE6",
+    colorMutedForeground: "#6B665E",
+    colorBorder: "#E2DBCF",
+    colorNeutral: "#141414",
+    colorDanger: "#B3261E",
+    colorSuccess: "#2E7D4F",
+    borderRadius: "14px",
+    fontFamily: "var(--font-body), system-ui, sans-serif",
+  },
+  elements: {
+    rootBox: { width: "100%" },
+    cardBox: { width: "100%", boxShadow: "none", border: "1px solid #E2DBCF" },
+  },
+};
+
+// Admin sign-in: no "Sign up" link. Owner logins are created in the Clerk dashboard.
+export const clerkNoSignUpAppearance = {
+  elements: { footerAction: { display: "none" } },
+};

@@ -143,3 +143,17 @@ body{min-height:100dvh}
 .tbl .empty{color:#6E6A63;text-align:center;padding:28px}
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #E3C58A;outline-offset:2px}
 @media (max-width:900px){.adm{grid-template-columns:1fr}.side{position:static;height:auto;flex-direction:row;flex-wrap:wrap}.navh{width:100%}.kpis,.k4,.k3,.acols,.acols.even{grid-template-columns:1fr 1fr}.main{padding:20px}}
+
+/* ---- light (cream) screens: student sign-up flow ---- */
+.scr.light{background:#F4EFE6;color:#141414}
+.scr.light .muted,.scr.light .lbl,.scr.light .field label,.scr.light .eyebrow{color:#6B665E}
+.scr.light .iconbtn{background:#FFFFFF;border-color:#E2DBCF;color:#141414}
+.scr.light .steps span{background:#E2DBCF}
+.scr.light .steps span.on{background:#141414}
+.scr.light .field input,.scr.light .field select,.scr.light .field textarea{background:#FFFFFF;border-color:#E2DBCF;color:#141414}
+.scr.light .btn{background:#141414;color:#F4EFE6!important}
+.scr.light .btn.ghost{background:transparent;color:#141414!important;border-color:#141414}
+.scr.light .card{background:#FFFFFF;border-color:#E2DBCF}
+.scr.light .card.warn{background:#FBF3E2;border-color:#E3C58A}
+.scr.light .err{color:#B3261E}
+.scr.light .link{color:#141414}
