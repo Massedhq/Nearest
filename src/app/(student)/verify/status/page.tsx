@@ -12,10 +12,10 @@ export default async function VerifyStatus() {
   if (profile.verificationStatus === "unverified") redirect("/verify");
   const rejected = profile.verificationStatus === "rejected";
   return (
-    <div className="scr">
+    <div className="scr light">
       <div className="top"><span className="sp" /><div className="t">Verification</div><span className="sp" /></div>
       <div className="body" style={{ alignItems: "center", textAlign: "center" }}>
-        <div style={{ width: 104, height: 104, borderRadius: 52, border: "2px solid #ECE8E1", display: "flex", alignItems: "center", justifyContent: "center", marginTop: 40 }}>
+        <div style={{ width: 104, height: 104, borderRadius: 52, border: "2px solid #141414", display: "flex", alignItems: "center", justifyContent: "center", marginTop: 40 }}>
           <Icon name={rejected ? "alert" : "clock"} size="xl" />
         </div>
         <h1 className="disp h1">{rejected ? "We couldn't verify you yet" : "Verification in review"}</h1>

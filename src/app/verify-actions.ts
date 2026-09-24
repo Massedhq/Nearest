@@ -59,7 +59,7 @@ export async function submitIdDocs(_: FormState, form: FormData): Promise<FormSt
     .set({ verificationStatus: "pending", idSubmittedAt: new Date(), reviewNote: null })
     .where(eq(studentProfiles.userId, user.id));
   revalidatePath("/verify/status");
-  redirect("/verify/status");
+  redirect(profile.onboardingCompletedAt ? "/verify/status" : "/verify/interests");
 }
 
 export async function restartVerification() {
@@ -67,4 +67,31 @@ export async function restartVerification() {
   if (profile.verificationStatus !== "rejected") return;
   await db.update(studentProfiles).set({ verificationStatus: "unverified" }).where(eq(studentProfiles.userId, user.id));
   redirect("/verify/id");
+}
+
+export async function saveInterests(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireStudent();
+  const picks = form.getAll("interest").map(String).filter(Boolean).slice(0, 20);
+  await db.update(studentProfiles).set({ interests: picks }).where(eq(studentProfiles.userId, user.id));
+  redirect("/verify/access");
+}
+
+export async function saveAccess(_: FormState, form: FormData): Promise<FormState> {
+  const { user, profile } = await requireStudent();
+  await db
+    .update(studentProfiles)
+    .set({
+      prefersText: form.get("prefersText") === "on",
+      wantsAsl: form.get("wantsAsl") === "on",
+      showAccessibility: form.get("showAccessibility") === "on",
+      onboardingCompletedAt: profile.onboardingCompletedAt ?? new Date(),
+    })
+    .where(eq(studentProfiles.userId, user.id));
+  redirect(profile.verificationStatus === "verified" ? "/home" : "/verify/status");
+}
+
+export async function skipAccess() {
+  const { user, profile } = await requireStudent();
+  await db.update(studentProfiles).set({ onboardingCompletedAt: profile.onboardingCompletedAt ?? new Date() }).where(eq(studentProfiles.userId, user.id));
+  redirect(profile.verificationStatus === "verified" ? "/home" : "/verify/status");
 }

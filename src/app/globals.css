@@ -157,3 +157,25 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .scr.light .card.warn{background:#FBF3E2;border-color:#E3C58A}
 .scr.light .err{color:#B3261E}
 .scr.light .link{color:#141414}
+
+.scr.light .chip{background:#FFFFFF;border-color:#E2DBCF;color:#141414}
+.scr.light .chip.on{background:#141414;color:#F4EFE6;border-color:#141414}
+.scr.light .check{background:#FFFFFF;border-color:#E2DBCF}
+.scr.light .check.on{border-color:#141414}
+.scr.light .check input{accent-color:#141414}
+.scr.light .card.pearl{background:#141414;color:#F4EFE6;border-color:#141414}
+.scr.light .card.pearl .muted,.scr.light .card.pearl .eyebrow{color:#B9B3A9}
+.scr.light .search{background:#FFFFFF;border-color:#E2DBCF;color:#6B665E}
+.scr.light .search input{color:#141414}
+.scr.light .otp input{background:#FFFFFF;border-color:#E2DBCF;color:#141414}
+.scr.light .otp input:focus{border-color:#141414}
+.scr.light .cam{background:#FFFFFF;border-color:#E2DBCF;color:#141414}
+.scr.light .okmsg{color:#2E7D4F}
+.scr.light .badge{color:#2E7D4F}
+.chipradio{position:relative;cursor:pointer}
+.chipradio input{position:absolute;opacity:0;pointer-events:none}
+.chipradio:has(input:checked){background:#141414;color:#F4EFE6;border-color:#141414}
+.chipradio:has(input:focus-visible){outline:2px solid #E3C58A;outline-offset:2px}
+.opt{padding:10px 12px;border-radius:10px;cursor:pointer}
+.opt.active{background:#F4EFE6}
+.scr:not(.light) .opt.active{background:#1C1C1F}

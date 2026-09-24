@@ -40,3 +40,24 @@ export async function completeStudent(_: FormState, form: FormData): Promise<For
   if (user) await db.insert(studentProfiles).values({ userId: user.id }).onConflictDoNothing();
   redirect("/verify");
 }
+
+/** Called right after the email code: builds the student account from what they typed on the sign-up screen. */
+export async function createStudentFromSignUp(): Promise<boolean> {
+  const viewer = await getViewer();
+  if (!viewer || viewer.user) return false;
+  if (!(await getFlag("status.student_registration"))) return false;
+  const c = await clerkContact();
+  const firstName = c?.clerkUser.firstName?.trim() ?? "";
+  const lastName = c?.clerkUser.lastName?.trim() ?? "";
+  if (!c?.email || !c.emailVerifiedAt || !c.dob || !validDob(c.dob) || !validName(firstName) || !validName(lastName)) return false;
+  const [user] = await db
+    .insert(users)
+    .values({
+      clerkUserId: viewer.clerkUserId, accountType: "student", firstName, lastName, dateOfBirth: c.dob,
+      phone: c.phone ?? c.typedPhone, phoneVerifiedAt: c.phoneVerifiedAt, email: c.email, emailVerifiedAt: c.emailVerifiedAt,
+    })
+    .onConflictDoNothing()
+    .returning();
+  if (user) await db.insert(studentProfiles).values({ userId: user.id }).onConflictDoNothing();
+  return true;
+}

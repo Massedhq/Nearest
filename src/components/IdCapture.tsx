@@ -33,7 +33,7 @@ function Shot({ name, label, hint, capture, value, onPick, icon }: { name: strin
         // eslint-disable-next-line @next/next/no-img-element
         <img src={value} alt={label} style={{ maxHeight: 150, maxWidth: "100%", borderRadius: 12 }} />
       ) : (
-        <span style={{ color: "#A8A399" }}><Icon name={icon} size="xl" /></span>
+        <span className="muted"><Icon name={icon} size="xl" /></span>
       )}
       <span className="small b">{value ? `Retake ${label.toLowerCase()}` : label}</span>
       <span className="xs muted" style={{ textAlign: "center" }}>{err || hint}</span>

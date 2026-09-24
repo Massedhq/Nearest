@@ -58,13 +58,12 @@ export function SchoolPicker({ schools, counties, cities, links, initialId }: {
       </div>
 
       {selected ? (
-        <div className="field">
-          <span className="lbl">School</span>
+        <div className="card pearl" style={{ gap: 8 }}>
           <input type="hidden" name="schoolId" value={selected.id} />
-          <div className="check on" style={{ justifyContent: "space-between" }}>
-            <div className="col g4"><span className="b">{selected.name}</span><span className="xs muted">{selected.city} • {TYPE[selected.type]}</span></div>
-            <button type="button" className="link small" onClick={() => { setSelected(null); setTimeout(() => input.current?.focus(), 0); }}>Change</button>
-          </div>
+          <div className="row between"><span className="eyebrow">Selected</span><button type="button" className="link small" style={{ color: "#F4EFE6" }} onClick={() => { setSelected(null); setTimeout(() => input.current?.focus(), 0); }}>Change</button></div>
+          <div className="row between"><span>School</span><span className="b" style={{ textAlign: "right" }}>{selected.name}</span></div>
+          <div className="row between"><span>City</span><span className="b">{selected.city}</span></div>
+          <div className="row between"><span>County</span><span className="b">{counties.find((c) => c.id === countyId)?.name ?? ""}</span></div>
         </div>
       ) : (
         <div className="field" style={{ position: "relative" }}>
@@ -104,16 +103,16 @@ export function SchoolPicker({ schools, counties, cities, links, initialId }: {
                   aria-selected={i === active}
                   onMouseDown={(e) => { e.preventDefault(); choose(s); }}
                   onMouseEnter={() => setActive(i)}
-                  style={{ padding: "10px 12px", borderRadius: 10, cursor: "pointer", background: i === active ? "#1C1C1F" : "transparent" }}
+                  className={`opt${i === active ? " active" : ""}`}
                 >
                   <div className="b small">{s.name}</div>
-                  <div className="xs muted">{TYPE[s.type]}</div>
+                  <div className="xs muted">{s.city} • {counties.find((c) => c.id === countyId)?.name} County • {TYPE[s.type]}</div>
                 </li>
               ))}
             </ul>
           )}
           {cityId !== "" && (inCity.length === 0 || (q.trim().length >= 3 && matches.length === 0)) && (
-            <p className="xs muted p">{inCity.length === 0 ? "No schools listed in this city yet." : `No school in this city matches “${q.trim()}”.`} Use <span className="b" style={{ color: "#ECE8E1" }}>Can&apos;t find my school?</span> below.</p>
+            <p className="xs muted p">{inCity.length === 0 ? "No schools listed in this city yet." : `No school in this city matches “${q.trim()}”.`} Use <span className="b">Can&apos;t find my school?</span> below.</p>
           )}
         </div>
       )}

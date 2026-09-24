@@ -64,6 +64,10 @@ export const studentProfiles = pgTable("student_profiles", {
   graduationYear: integer("graduation_year"),
   prefersText: boolean("prefers_text").notNull().default(false),
   wantsAsl: boolean("wants_asl").notNull().default(false),
+  // Sign-up steps 4–5 (optional)
+  interests: text("interests").array(),
+  showAccessibility: boolean("show_accessibility").notNull().default(false),
+  onboardingCompletedAt: ts("onboarding_completed_at"),
   // Phase 3A: manual verification
   idSubmittedAt: ts("id_submitted_at"),
   reviewNote: text("review_note"),

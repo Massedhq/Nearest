@@ -41,6 +41,8 @@ export async function clerkContact() {
     phoneVerifiedAt: phone?.verification?.status === "verified" ? now : null,
     door: (cu.unsafeMetadata?.door as string | undefined) ?? null,
     invite: (cu.unsafeMetadata?.invite as string | undefined) ?? null,
+    dob: (cu.unsafeMetadata?.dob as string | undefined) ?? null,
+    typedPhone: (cu.unsafeMetadata?.phone as string | undefined)?.slice(0, 30) || null,
   };
 }
 

@@ -3,12 +3,13 @@ import { asc, eq } from "drizzle-orm";
 import { db, schools, cities, counties, cityCounties } from "@/db";
 import { requireStudent } from "@/lib/student";
 import { TopBar } from "@/components/TopBar";
+import { Steps } from "@/components/Steps";
 import { ActionForm } from "@/components/ActionForm";
-import { saveSchool, requestSchool } from "@/app/verify-actions";
 import { SchoolPicker } from "@/components/SchoolPicker";
+import { GradYears } from "@/components/GradYears";
+import { saveSchool, requestSchool } from "@/app/verify-actions";
 
 export const metadata = { title: "Your school" };
-
 
 export default async function VerifySchool() {
   const { profile } = await requireStudent();
@@ -24,26 +25,16 @@ export default async function VerifySchool() {
     db.select({ id: cities.id, name: cities.name }).from(cities).where(eq(cities.active, true)).orderBy(asc(cities.name)),
     db.select().from(cityCounties),
   ]);
-  const year = new Date().getFullYear();
-  const years = Array.from({ length: 7 }, (_, i) => year + i);
-  const yearSelect = (id: string) => (
-    <div className="field"><label htmlFor={id}>Expected graduation year</label>
-      <select id={id} name="graduationYear" defaultValue={profile.graduationYear ?? ""} required>
-        <option value="" disabled>Choose</option>
-        {years.map((y) => <option key={y} value={y}>{y}</option>)}
-      </select>
-    </div>
-  );
   return (
-    <div className="scr">
-      <TopBar title="Get Verified" />
+    <div className="scr light">
+      <TopBar />
       <div className="body">
-        <div className="steps" aria-label="Step 1 of 2"><span className="on" /><span /></div>
+        <Steps at={2} />
         <h1 className="disp h1">Where do you go to school?</h1>
         <p className="muted small p">Nearest is only for verified students in participating areas.</p>
         <ActionForm action={saveSchool} submitLabel="Continue">
           <SchoolPicker schools={rows} counties={countyList} cities={cityList} links={links} initialId={profile.schoolId} />
-          {yearSelect("graduationYear")}
+          <GradYears value={profile.graduationYear} />
         </ActionForm>
         <details className="card">
           <summary className="b" style={{ cursor: "pointer" }}>Can&apos;t find my school?</summary>
@@ -56,7 +47,7 @@ export default async function VerifySchool() {
                 <select id="rtype" name="type" defaultValue="high_school"><option value="high_school">High school</option><option value="college">College</option><option value="trade">Trade school</option></select>
               </div>
             </div>
-            {yearSelect("rgrad")}
+            <GradYears value={profile.graduationYear} />
           </ActionForm>
         </details>
       </div>
