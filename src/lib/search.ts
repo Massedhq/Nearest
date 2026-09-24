@@ -1,6 +1,6 @@
 import "server-only";
 import { and, asc, desc, eq, gt, inArray, sql, type SQL } from "drizzle-orm";
-import { db, professionalProfiles, proServices, proOpenings, portfolioItems, cities, modelCalls } from "@/db";
+import { db, professionalProfiles, proServices, proOpenings, portfolioItems, cities, modelCalls, reviews } from "@/db";
 import { chicagoNow } from "./time";
 
 export type Filters = { q?: string; cat?: string; today?: string; after?: string; under?: string; asl?: string; area?: string };
@@ -46,6 +46,8 @@ export async function searchPros(f: Filters, area: Area) {
       city: cities.name,
       minPrice: sql<number | null>`(select min(price_cents) from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active)`,
       firstService: sql<string | null>`(select name from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active order by s.sort limit 1)`,
+      rating: sql<number | null>`(select round(avg(r.rating)::numeric, 1)::float from ${reviews} r where r.pro_id = ${professionalProfiles.userId} and not r.hidden)`,
+      reviewCount: sql<number>`(select count(*)::int from ${reviews} r where r.pro_id = ${professionalProfiles.userId} and not r.hidden)`,
       openings: sql<string[] | null>`(select array_agg(o.start_time order by o.start_time) from ${proOpenings} o where o.user_id = ${professionalProfiles.userId} and o.day = ${today})`,
     })
     .from(professionalProfiles)

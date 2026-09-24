@@ -7,7 +7,7 @@ import { Icon } from "./Icon";
 type Save = (urls: string[]) => Promise<{ error?: string }>;
 
 /** Uploads photos straight to Blob storage, then records them with `save`. */
-export function Uploader({ userId, folder, save, multiple = true, label }: { userId: string; folder: string; save: Save; multiple?: boolean; label: string }) {
+export function Uploader({ userId, folder, save, multiple = true, label, root = "pros" }: { userId: string; folder: string; save: Save; multiple?: boolean; label: string; root?: "pros" | "students" }) {
   const input = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const [busy, setBusy] = useState("");
@@ -22,7 +22,7 @@ export function Uploader({ userId, folder, save, multiple = true, label }: { use
         const f = files[i];
         setBusy(`Uploading ${i + 1} of ${files.length}…`);
         const ext = (f.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
-        const blob = await upload(`pros/${userId}/${folder}/${Date.now()}.${ext}`, f, { access: "public", handleUploadUrl: "/api/blob" });
+        const blob = await upload(`${root}/${userId}/${folder}/${Date.now()}.${ext}`, f, { access: "public", handleUploadUrl: "/api/blob" });
         urls.push(blob.url);
       }
       const res = await save(urls);

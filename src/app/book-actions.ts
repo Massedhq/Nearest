@@ -2,7 +2,8 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { and, eq, gt, inArray, ne, or, lt } from "drizzle-orm";
-import { db, bookings, proServices, modelCalls, professionalProfiles } from "@/db";
+import { db, bookings, proServices, modelCalls, professionalProfiles, cities } from "@/db";
+import { geocode } from "@/lib/geo";
 import { requireVerifiedStudent } from "@/lib/student";
 import { liveProWhere } from "@/lib/search";
 import { openSlots } from "@/lib/availability";
@@ -14,6 +15,28 @@ import { chicagoToUtc } from "@/lib/time";
 import type { FormState } from "@/components/ActionForm";
 
 const HOLD_MIN = 31; // Stripe Checkout sessions must stay open at least 30 minutes.
+
+type Where = { locationType: "pro" | "student"; locationAddress: string; lat: number | null; lng: number | null };
+
+/** Works out where the appointment happens and snapshots it on the booking. */
+async function resolveLocation(pro: typeof professionalProfiles.$inferSelect, form: FormData, forceProPlace = false): Promise<Where | { error: string }> {
+  const city = pro.cityId ? await db.query.cities.findFirst({ where: eq(cities.id, pro.cityId) }) : null;
+  const wantsStudent = !forceProPlace && (pro.serviceMode === "travel" || (pro.serviceMode === "both" && form.get("where") === "student"));
+  if (!wantsStudent && pro.addressLine) {
+    let lat = pro.lat, lng = pro.lng;
+    if (lat == null && city && pro.zip) {
+      const pt = await geocode(pro.addressLine, city.name, pro.zip);
+      if (pt) { lat = pt.lat; lng = pt.lng; await db.update(professionalProfiles).set({ lat, lng }).where(eq(professionalProfiles.userId, pro.userId)); }
+    }
+    return { locationType: "pro", locationAddress: `${pro.addressLine}, ${city?.name ?? ""}, TX ${pro.zip ?? ""}`.trim(), lat, lng };
+  }
+  const street = String(form.get("street") ?? "").trim().slice(0, 160);
+  const sCity = String(form.get("city") ?? "").trim().slice(0, 60);
+  const zip = String(form.get("zip") ?? "").trim();
+  if (!street || !sCity || !/^\d{5}$/.test(zip)) return { error: "Enter the address where the professional should come (street, city and 5-digit ZIP)." };
+  const pt = await geocode(street, sCity, zip);
+  return { locationType: "student", locationAddress: `${street}, ${sCity}, TX ${zip}`, lat: pt?.lat ?? null, lng: pt?.lng ?? null };
+}
 
 async function livePro(proId: string) {
   const [p] = await db.select().from(professionalProfiles).where(and(eq(professionalProfiles.userId, proId), ...liveProWhere(null, "all"))).limit(1);
@@ -39,7 +62,7 @@ async function checkout(b: typeof bookings.$inferSelect, email: string | null, p
 /** Creates a held booking, then sends the student to Stripe (or confirms right away when credit covers it). */
 async function createAndPay(opts: {
   studentId: string; email: string | null; proId: string; proName: string; serviceId?: string; modelCallId?: string;
-  serviceName: string; startsAt: Date; durationMin: number; priceCents: number;
+  serviceName: string; startsAt: Date; durationMin: number; priceCents: number; where: Where;
 }): Promise<FormState> {
   const s = await getSettings();
   if (s["status.bookings"] !== true) return { error: "Booking is paused right now. Please try again soon." };
@@ -54,6 +77,7 @@ async function createAndPay(opts: {
     serviceName: opts.serviceName, startsAt: opts.startsAt, endsAt, priceCents: opts.priceCents, depositCents: deposit,
     creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge,
     holdExpiresAt: new Date(Date.now() + HOLD_MIN * 60000),
+    locationType: opts.where.locationType, locationAddress: opts.where.locationAddress, lat: opts.where.lat, lng: opts.where.lng,
   }).returning();
 
   // Double-booking guard: if an earlier active booking overlaps this time, give up this one.
@@ -87,7 +111,9 @@ export async function bookService(_: FormState, form: FormData): Promise<FormSta
   const pro = await livePro(svc.userId);
   if (!pro) return { error: "This professional isn't taking bookings right now." };
   if (!(await openSlots(svc.userId, svc.durationMin, day)).includes(time)) return { error: "That time was just taken or is no longer available. Please pick another." };
-  return createAndPay({
+  const where = await resolveLocation(pro, form);
+  if ("error" in where) return { error: where.error };
+  return createAndPay({ where,
     studentId: user.id, email: user.email, proId: svc.userId, proName: pro.businessName ?? "your professional", serviceId: svc.id,
     serviceName: svc.name, startsAt: chicagoToUtc(day, time), durationMin: svc.durationMin, priceCents: svc.priceCents,
   });
@@ -103,7 +129,9 @@ export async function bookModelCall(_: FormState, form: FormData): Promise<FormS
   if (!pro) return { error: "This professional isn't taking bookings right now." };
   const mine = await db.query.bookings.findFirst({ where: and(eq(bookings.modelCallId, id), eq(bookings.studentId, user.id), inArray(bookings.status, ["confirmed", "pending_payment"])) });
   if (mine?.status === "confirmed") return { error: "You already have a spot in this model call." };
-  return createAndPay({
+  const where = await resolveLocation(pro, form, Boolean(pro.addressLine));
+  if ("error" in where) return { error: where.error };
+  return createAndPay({ where,
     studentId: user.id, email: user.email, proId: call.userId, proName: pro.businessName ?? "your professional", modelCallId: call.id,
     serviceName: `${call.serviceName} (Model Call)`, startsAt: call.startsAt, durationMin: call.durationMin, priceCents: call.priceCents,
   });

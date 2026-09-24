@@ -7,7 +7,7 @@ const ASL: Record<string, string> = { basic: "Basic", conversational: "Conversat
 
 type P = {
   userId: string; businessName: string | null; photoUrl: string | null; aslLevel: string; city: string | null;
-  minPrice: number | null; firstService: string | null; openings: string[] | null; photos: string[];
+  minPrice: number | null; firstService: string | null; openings: string[] | null; photos: string[]; rating?: number | null; reviewCount?: number;
 };
 
 export function ProResult({ p }: { p: P }) {
@@ -23,7 +23,7 @@ export function ProResult({ p }: { p: P }) {
             {p.aslLevel !== "none" && <span className="badge pearl"><Icon name="hand" size="s" /> ASL — {ASL[p.aslLevel]}</span>}
           </div>
           <div className="row small" style={{ gap: 12 }}>
-            <span className="badge gold"><Icon name="star" size="s" /> New Professional</span>
+            <span className="badge gold"><Icon name="star" size="s" /> {p.reviewCount ? `${p.rating} (${p.reviewCount})` : "New Professional"}</span>
             <span className="muted row" style={{ gap: 4 }}><Icon name="pin" size="s" /> {p.city}</span>
           </div>
         </div>

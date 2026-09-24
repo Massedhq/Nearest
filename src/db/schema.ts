@@ -1,5 +1,5 @@
 import {
-  pgTable, pgEnum, uuid, text, date, timestamp, boolean, integer, jsonb, bigserial, primaryKey, index, uniqueIndex,
+  pgTable, pgEnum, uuid, text, date, timestamp, boolean, integer, jsonb, bigserial, primaryKey, index, uniqueIndex, doublePrecision,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -18,7 +18,8 @@ export const portfolioSource = pgEnum("portfolio_source", ["upload", "instagram"
 export const modelCallStatus = pgEnum("model_call_status", ["open", "full", "cancelled", "completed"]);
 export const schoolType = pgEnum("school_type", ["high_school", "college", "trade"]);
 export const schoolRequestStatus = pgEnum("school_request_status", ["pending", "added", "dismissed"]);
-export const bookingStatus = pgEnum("booking_status", ["pending_payment", "confirmed", "completed", "cancelled_student", "cancelled_pro", "expired"]);
+export const bookingStatus = pgEnum("booking_status", ["pending_payment", "confirmed", "completed", "cancelled_student", "cancelled_pro", "expired", "no_show"]);
+export const incidentStatus = pgEnum("incident_status", ["open", "pro_fault", "not_substantiated"]);
 export const adminRole = pgEnum("admin_role", ["OWNER", "ADMIN", "MARKETING_ADMIN", "OPERATIONS_ADMIN", "SUPPORT"]);
 
 const ts = (name: string) => timestamp(name, { withTimezone: true });
@@ -68,6 +69,7 @@ export const studentProfiles = pgTable("student_profiles", {
   interests: text("interests").array(),
   showAccessibility: boolean("show_accessibility").notNull().default(false),
   onboardingCompletedAt: ts("onboarding_completed_at"),
+  noShowCount: integer("no_show_count").notNull().default(0),
   // Phase 3A: manual verification
   idSubmittedAt: ts("id_submitted_at"),
   reviewNote: text("review_note"),
@@ -140,6 +142,8 @@ export const professionalProfiles = pgTable("professional_profiles", {
   cityId: integer("city_id").references(() => cities.id),
   zip: text("zip"),
   addressLine: text("address_line"),
+  lat: doublePrecision("lat"),
+  lng: doublePrecision("lng"),
   serviceMode: serviceMode("service_mode"),
   travelRadiusMi: integer("travel_radius_mi"),
   // Phase 2: communication
@@ -322,6 +326,20 @@ export const bookings = pgTable("bookings", {
   stripeChargeId: text("stripe_charge_id"),
   stripeFeeCents: integer("stripe_fee_cents"),
   transferId: text("transfer_id"),
+  // Phase 4: where it happens (snapshot at booking) and appointment-day events
+  locationType: text("location_type").notNull().default("pro"), // "pro" | "student"
+  locationAddress: text("location_address"),
+  lat: doublePrecision("lat"),
+  lng: doublePrecision("lng"),
+  checkedInAt: ts("checked_in_at"),
+  checkinDistanceFt: integer("checkin_distance_ft"),
+  checkinAccuracyFt: integer("checkin_accuracy_ft"),
+  startedAt: ts("started_at"),
+  finishedAt: ts("finished_at"),
+  serviceConfirmedAt: ts("service_confirmed_at"),
+  photoUrl: text("photo_url"),
+  photoForPortfolio: boolean("photo_for_portfolio"),
+  noShowAt: ts("no_show_at"),
   paidAt: ts("paid_at"),
   releasedAt: ts("released_at"),
   cancelledAt: ts("cancelled_at"),
@@ -338,3 +356,39 @@ export const credits = pgTable("credits", {
   bookingId: uuid("booking_id").references(() => bookings.id),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("credits_student_idx").on(t.studentId)]);
+
+export const messages = pgTable("messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  bookingId: uuid("booking_id").notNull().references(() => bookings.id, { onDelete: "cascade" }),
+  senderId: uuid("sender_id").notNull().references(() => users.id),
+  body: text("body").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("messages_booking_idx").on(t.bookingId, t.createdAt)]);
+
+export const reviews = pgTable("reviews", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  bookingId: uuid("booking_id").notNull().unique().references(() => bookings.id),
+  studentId: uuid("student_id").notNull().references(() => users.id),
+  proId: uuid("pro_id").notNull().references(() => users.id),
+  rating: integer("rating").notNull(),
+  body: text("body"),
+  hidden: boolean("hidden").notNull().default(false),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("reviews_pro_idx").on(t.proId)]);
+
+export const incidents = pgTable("incidents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  bookingId: uuid("booking_id").notNull().references(() => bookings.id),
+  reporterId: uuid("reporter_id").notNull().references(() => users.id),
+  reason: text("reason").notNull(),
+  details: text("details"),
+  lat: doublePrecision("lat"),
+  lng: doublePrecision("lng"),
+  accuracyFt: integer("accuracy_ft"),
+  distanceFt: integer("distance_ft"),
+  status: incidentStatus("status").notNull().default("open"),
+  decisionNote: text("decision_note"),
+  decidedBy: uuid("decided_by").references(() => users.id),
+  decidedAt: ts("decided_at"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("incidents_status_idx").on(t.status)]);

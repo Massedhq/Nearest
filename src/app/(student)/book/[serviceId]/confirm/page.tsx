@@ -12,6 +12,8 @@ import { ActionForm } from "@/components/ActionForm";
 import { PriceBox, Terms } from "@/components/BookingTerms";
 import { Icon } from "@/components/Icon";
 import { bookService } from "@/app/book-actions";
+import { WherePicker } from "@/components/WherePicker";
+import { cities } from "@/db";
 
 export const metadata = { title: "Review your appointment" };
 
@@ -29,6 +31,8 @@ export default async function Confirm({ params, searchParams }: { params: Promis
   const deposit = Math.min(Number(s["appt.deposit_cents"]), svc.priceCents);
   const use = applyCredits(svc.priceCents, await creditBalances(user.id, svc.userId));
   const starts = chicagoToUtc(day, time);
+  const city = pro.cityId ? await db.query.cities.findFirst({ where: eq(cities.id, pro.cityId) }) : null;
+  const travels = pro.serviceMode === "travel" || pro.serviceMode === "both" || !pro.addressLine;
   return (
     <div className="scr">
       <TopBar title="Review your appointment" back={`/book/${svc.id}?day=${day}`} />
@@ -38,7 +42,7 @@ export default async function Confirm({ params, searchParams }: { params: Promis
           <hr className="hr" />
           <div className="row small"><Icon name="cal" size="s" /> {fmtDate(starts, { weekday: "long", month: "long", day: "numeric" })} • {fmtTime(starts)}</div>
           <div className="row small"><Icon name="clock" size="s" /> {svc.durationMin} minutes</div>
-          <div className="row small top-a"><Icon name="pin" size="s" /><span>Address shared at 12:00 AM on your appointment day.</span></div>
+          {!travels && <div className="row small top-a"><Icon name="pin" size="s" /><span>At the professional&apos;s place in {city?.name}. Address shared at 12:00 AM on your appointment day.</span></div>}
         </div>
         <PriceBox price={svc.priceCents} deposit={deposit} pro={use.pro} general={use.general} charge={use.charge} />
         <Terms deposit={deposit} cutoffHours={Number(s["cancel.cutoff_hours"])} graceMin={Number(s["appt.grace_minutes"])} />
@@ -46,6 +50,7 @@ export default async function Confirm({ params, searchParams }: { params: Promis
           <input type="hidden" name="serviceId" value={svc.id} />
           <input type="hidden" name="day" value={day} />
           <input type="hidden" name="time" value={time} />
+          {travels && <WherePicker mode={pro.serviceMode === "both" && pro.addressLine ? "both" : "travel"} proCity={city?.name ?? ""} />}
           <label className="check"><input type="checkbox" name="agree" required />I agree to the booking &amp; cancellation terms</label>
         </ActionForm>
       </div>

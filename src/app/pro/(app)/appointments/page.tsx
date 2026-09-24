@@ -4,8 +4,8 @@ import { requirePro } from "@/lib/pro";
 import { bookingCode } from "@/lib/bookings";
 import { fmtDate, fmtTime, money } from "@/lib/time";
 import { TopBar } from "@/components/TopBar";
-import { ActionForm } from "@/components/ActionForm";
-import { proCancelBooking } from "@/app/pro/pay-actions";
+import Link from "next/link";
+import { Icon } from "@/components/Icon";
 
 export const metadata = { title: "Appointments" };
 
@@ -29,12 +29,7 @@ export default async function Appointments() {
             <div className="small">{fmtDate(b.startsAt, { weekday: "long", month: "short", day: "numeric" })} • {fmtTime(b.startsAt)} – {fmtTime(b.endsAt)}</div>
             <div className="row between small"><span>{first} {last?.[0]}. • Verified Student</span><span className="b">{money(b.priceCents)}</span></div>
             <span className="xs muted">Paid in full • held until the student releases it</span>
-            {b.startsAt.getTime() > Date.now() && (
-              <details><summary className="link small" style={{ cursor: "pointer" }}>Cancel appointment</summary>
-                <p className="xs muted p" style={{ margin: "8px 0" }}>The student gets the full amount back as Nearest credit, and it counts toward your cancellation rate.</p>
-                <ActionForm action={proCancelBooking} submitLabel="Cancel appointment" buttonClass="btn danger sm"><input type="hidden" name="id" value={b.id} /></ActionForm>
-              </details>
-            )}
+            <Link className="btn ghost sm" href={`/pro/appointments/${b.id}`} style={{ width: "100%" }}>{b.checkedInAt ? <><Icon name="check" size="s" /> Client checked in — open</> : "Open appointment"}</Link>
           </div>
         ))}
         {past.length > 0 && <h3 className="eyebrow p">Past &amp; cancelled</h3>}

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getFlag } from "@/lib/settings";
 import { notFound } from "next/navigation";
 import { and, asc, desc, eq } from "drizzle-orm";
-import { db, professionalProfiles, proServices, portfolioItems, proHours, proOpenings, cities } from "@/db";
+import { db, professionalProfiles, proServices, portfolioItems, proHours, proOpenings, cities, reviews } from "@/db";
 import { requireVerifiedStudent } from "@/lib/student";
 import { openModelCalls } from "@/lib/search";
 import { chicagoNow, label12, money, WEEKDAYS } from "@/lib/time";
@@ -34,6 +34,8 @@ export default async function ProProfile({ params }: { params: Promise<{ id: str
     openModelCalls(null, "all", id),
   ]);
   const bookingOpen = await getFlag("status.bookings");
+  const revs = await db.select().from(reviews).where(and(eq(reviews.proId, id), eq(reviews.hidden, false))).orderBy(desc(reviews.createdAt)).limit(20);
+  const avg = revs.length ? Math.round((revs.reduce((a, r) => a + r.rating, 0) / revs.length) * 10) / 10 : null;
   const initials = (p.businessName ?? "N").split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
   const langs = (p.languages ?? []).filter((l) => l !== "ASL");
 
@@ -46,7 +48,7 @@ export default async function ProProfile({ params }: { params: Promise<{ id: str
           <div className="col g4"><h1 className="disp h2">{p.businessName}</h1><span className="badge"><Icon name="shield" size="s" /> Approved by Nearest</span></div>
         </div>
         <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
-          <span className="tag"><Icon name="star" size="s" /> New Professional</span>
+          <span className="tag"><Icon name="star" size="s" /> {avg ? `${avg} • ${revs.length} verified review${revs.length === 1 ? "" : "s"}` : "New Professional"}</span>
           <span className="tag"><Icon name="pin" size="s" /> {city?.name}</span>
           {p.aslLevel !== "none" && <span className="tag"><Icon name="hand" size="s" /> ASL — {ASL[p.aslLevel]}</span>}
           {p.textCommunication && <span className="tag"><Icon name="msg" size="s" /> Text</span>}
@@ -80,6 +82,19 @@ export default async function ProProfile({ params }: { params: Promise<{ id: str
           <>
             <h3 className="eyebrow p">Model calls</h3>
             {calls.map((c) => <ModelCallCard key={c.call.id} c={c} showPro={false} />)}
+          </>
+        )}
+
+        {revs.length > 0 && (
+          <>
+            <h3 className="eyebrow p">Verified booking reviews</h3>
+            {revs.map((r) => (
+              <div key={r.id} className="card">
+                <div className="row between"><span className="stars" aria-label={`${r.rating} out of 5`}>{"★".repeat(r.rating)}<span style={{ opacity: 0.3 }}>{"★".repeat(5 - r.rating)}</span></span><span className="xs muted">{r.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Chicago" })}</span></div>
+                {r.body && <p className="p small">{r.body}</p>}
+                <span className="badge xs"><Icon name="check" size="s" /> Verified Booking</span>
+              </div>
+            ))}
           </>
         )}
 

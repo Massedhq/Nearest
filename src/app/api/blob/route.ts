@@ -11,8 +11,10 @@ export async function POST(request: Request) {
       request,
       onBeforeGenerateToken: async (pathname) => {
         const viewer = await getViewer();
-        if (viewer?.user?.accountType !== "professional") throw new Error("Only professionals can upload.");
-        if (!pathname.startsWith(`pros/${viewer.user.id}/`)) throw new Error("Invalid upload path.");
+        const u = viewer?.user;
+        // Pros upload portfolio/profile photos; students upload their appointment result photo.
+        const ok = u && ((u.accountType === "professional" && pathname.startsWith(`pros/${u.id}/`)) || (u.accountType === "student" && pathname.startsWith(`students/${u.id}/`)));
+        if (!ok) throw new Error("Invalid upload.");
         return {
           allowedContentTypes: ["image/jpeg", "image/png", "image/webp"],
           maximumSizeInBytes: 15 * 1024 * 1024,

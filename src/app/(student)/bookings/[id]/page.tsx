@@ -8,7 +8,11 @@ import { fmtDate, fmtTime, money } from "@/lib/time";
 import { TopBar } from "@/components/TopBar";
 import { ActionForm } from "@/components/ActionForm";
 import { Icon } from "@/components/Icon";
-import { cancelMyBooking, releaseMyPayment, resumePayment } from "@/app/book-actions";
+import { cancelMyBooking, resumePayment } from "@/app/book-actions";
+import Link from "next/link";
+import { addressUnlocked, checkinOpen, finishOpen } from "@/lib/appointment";
+import { studentCheckIn } from "@/app/day-actions";
+import { LocateForm } from "@/components/LocateButton";
 
 export const metadata = { title: "Appointment" };
 
@@ -32,6 +36,7 @@ export default async function Booking({ params, searchParams }: { params: Promis
   const hoursAway = (b.startsAt.getTime() - Date.now()) / 3600000;
   const early = hoursAway >= Number(s["cancel.cutoff_hours"]);
   const started = hoursAway <= 0;
+  void started;
   const justBooked = (sp.session_id || sp.booked) && b.status === "confirmed";
 
   return (
@@ -49,7 +54,12 @@ export default async function Booking({ params, searchParams }: { params: Promis
         <div className="card">
           <div className="row"><Icon name="cal" /><div className="grow"><div className="b">{fmtDate(b.startsAt, { weekday: "long", month: "long", day: "numeric" })}</div><div className="small muted">{fmtTime(b.startsAt)} – {fmtTime(b.endsAt)}</div></div></div>
           <hr className="hr" />
-          <div className="row"><Icon name="lock" /><div className="grow"><div className="b">Address</div><div className="small muted">Unlocks at 12:00 AM on your appointment day (coming with appointment-day tools).</div></div></div>
+          {addressUnlocked(b) || b.locationType === "student" ? (
+            <div className="row top-a"><Icon name="pin" /><div className="grow"><div className="b">{b.locationType === "student" ? "At your place" : "Address"}</div><div className="small">{b.locationAddress ?? "Your professional will message you the address."}</div>
+              {b.locationAddress && b.locationType === "pro" && <a className="link small" href={`https://maps.google.com/?q=${encodeURIComponent(b.locationAddress)}`} target="_blank" rel="noreferrer">Get directions</a>}</div></div>
+          ) : (
+            <div className="row"><Icon name="lock" /><div className="grow"><div className="b">Address locked</div><div className="small muted">Unlocks at 12:00 AM on your appointment day. Only you will see it.</div></div></div>
+          )}
         </div>
         <div className="card">
           <div className="row between"><span>Service</span><span className="num">{money(b.priceCents)}</span></div>
@@ -62,13 +72,27 @@ export default async function Booking({ params, searchParams }: { params: Promis
           <form action={resumePayment}><input type="hidden" name="id" value={b.id} /><button className="btn" type="submit">Finish payment</button></form>
         )}
 
-        {b.status === "confirmed" && started && (
-          <div className="card">
-            <span className="b">How did it go?</span>
-            <span className="small muted">Release payment once your service is complete. Photos and reviews arrive with appointment-day tools.</span>
-            <ActionForm action={releaseMyPayment} submitLabel={`Release ${money(total)}`}><input type="hidden" name="id" value={b.id} /></ActionForm>
+        {b.status === "confirmed" && (
+          <Link className="btn ghost" href={`/bookings/${b.id}/messages`}><Icon name="msg" /> Message {pro}</Link>
+        )}
+
+        {b.status === "confirmed" && checkinOpen(b) && !b.checkedInAt && b.locationType === "pro" && (
+          <div className="card" style={{ alignItems: "center", textAlign: "center", padding: 22 }}>
+            <span className="disp h2">You&apos;re here?</span>
+            <span className="small muted">We&apos;ll confirm you&apos;re at the appointment location.</span>
+            <LocateForm action={studentCheckIn} label="CHECK IN" big><input type="hidden" name="id" value={b.id} /></LocateForm>
           </div>
         )}
+        {b.checkedInAt && b.status === "confirmed" && !finishOpen(b) && (
+          <div className="card ok"><div className="row"><Icon name="check" /><div className="grow"><div className="b">Checked in{b.checkinDistanceFt != null ? " — location confirmed" : ""}</div><div className="small muted">{fmtTime(b.checkedInAt)}{b.startedAt ? " • service in progress" : " • your professional has been notified"}</div></div></div></div>
+        )}
+        {b.status === "confirmed" && finishOpen(b) && (
+          <Link className="btn" href={`/bookings/${b.id}/finish`}>Finish your appointment</Link>
+        )}
+        {b.status === "confirmed" && checkinOpen(b) && (
+          <Link className="btn danger" href={`/bookings/${b.id}/problem`}><Icon name="flag" /> Report a problem</Link>
+        )}
+        {b.status === "no_show" && <div className="card bad small"><span className="b">Marked as a no-show</span><span className="muted">The deposit was forfeited; the rest became credit with {pro}.</span></div>}
 
         {b.status === "confirmed" && !started && (
           <details className="card">

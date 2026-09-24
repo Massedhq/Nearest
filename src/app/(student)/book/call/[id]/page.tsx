@@ -11,6 +11,7 @@ import { ActionForm } from "@/components/ActionForm";
 import { PriceBox, Terms } from "@/components/BookingTerms";
 import { Icon } from "@/components/Icon";
 import { bookModelCall } from "@/app/book-actions";
+import { WherePicker } from "@/components/WherePicker";
 
 export const metadata = { title: "Book a model call" };
 
@@ -45,6 +46,7 @@ export default async function BookCall({ params }: { params: Promise<{ id: strin
             <Terms deposit={deposit} cutoffHours={Number(s["cancel.cutoff_hours"])} graceMin={Number(s["appt.grace_minutes"])} />
             <ActionForm action={bookModelCall} submitLabel={use.charge > 0 ? "Continue to payment" : "Claim my spot"}>
               <input type="hidden" name="modelCallId" value={call.id} />
+              {!pro.addressLine && <WherePicker mode="travel" proCity="" />}
               <label className="check"><input type="checkbox" name="agree" required />I meet the requirements and agree to the booking terms</label>
             </ActionForm>
           </>

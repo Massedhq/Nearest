@@ -63,10 +63,16 @@ export default async function ProHome() {
           </Link>
         )}
 
+        {upcoming.filter((b) => b.checkedInAt && !b.startedAt).map((b) => (
+          <Link key={`ci-${b.id}`} className="card ok" href={`/pro/appointments/${b.id}`} style={{ textDecoration: "none" }}>
+            <div className="row"><Icon name="check" /><div className="grow"><div className="b">Your {fmtTime(b.startsAt)} client has checked in</div><div className="xs muted">Tap to start service</div></div><Icon name="right" size="s" /></div>
+          </Link>
+        ))}
+
         <div className="row between"><h3 className="eyebrow p">Upcoming appointments</h3><Link className="link small" href="/pro/appointments">See all</Link></div>
         {upcoming.length === 0 && <p className="small muted p">No upcoming appointments.</p>}
         {upcoming.map((b) => (
-          <Link key={b.id} className="item" href="/pro/appointments">
+          <Link key={b.id} className="item" href={`/pro/appointments/${b.id}`}>
             <span className="b num" style={{ width: 84 }}>{fmtTime(b.startsAt)}</span>
             <div className="grow"><div>{b.serviceName}</div><div className="xs muted">{fmtDate(b.startsAt)}</div></div>
             <span className="tag ok">Confirmed</span>

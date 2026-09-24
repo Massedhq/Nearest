@@ -8,6 +8,7 @@ import {
 import { requirePro, setupSteps, nextStep, setupComplete } from "@/lib/pro";
 import { getSettings } from "@/lib/settings";
 import { chicagoNow, chicagoToUtc, toMinutes } from "@/lib/time";
+import { geocode } from "@/lib/geo";
 import type { FormState } from "@/components/ActionForm";
 
 const str = (f: FormData, k: string, max = 500) => String(f.get(k) ?? "").trim().slice(0, max);
@@ -128,10 +129,12 @@ export async function saveLocation(_: FormState, form: FormData): Promise<FormSt
   const link = await db.query.cityCounties.findFirst({ where: eq(cityCounties.cityId, cityId) });
   const city = await db.query.cities.findFirst({ where: eq(cities.id, cityId) });
   if (!city) return { error: "Choose your city." };
+  const point = addressLine ? await geocode(addressLine, city.name, zip) : null;
   await db
     .update(professionalProfiles)
-    .set({ cityId, countyId: link?.countyId ?? null, zip, addressLine: addressLine || null, serviceMode: mode, travelRadiusMi: mode === "come_to_me" ? null : radius })
+    .set({ cityId, countyId: link?.countyId ?? null, zip, addressLine: addressLine || null, lat: point?.lat ?? null, lng: point?.lng ?? null, serviceMode: mode, travelRadiusMi: mode === "come_to_me" ? null : radius })
     .where(eq(professionalProfiles.userId, user.id));
+  if (addressLine && !point && isEdit(form)) return { ok: "Saved. We couldn't map this address — double-check the street and ZIP so check-in works." };
   return done(user.id, "location", form);
 }
 
