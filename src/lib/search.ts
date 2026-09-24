@@ -1,6 +1,6 @@
 import "server-only";
 import { and, asc, desc, eq, gt, inArray, sql, type SQL } from "drizzle-orm";
-import { db, professionalProfiles, proServices, proOpenings, portfolioItems, cities, modelCalls, reviews } from "@/db";
+import { db, professionalProfiles, proServices, proOpenings, portfolioItems, cities, modelCalls, reviews, fines } from "@/db";
 import { chicagoNow } from "./time";
 
 export type Filters = { q?: string; cat?: string; today?: string; after?: string; under?: string; asl?: string; area?: string };
@@ -16,6 +16,9 @@ export function liveProWhere(area: Area, areaMode: string | undefined) {
     inArray(professionalProfiles.subscriptionStatus, ["trialing", "active"]),
     eq(professionalProfiles.identityStatus, "verified"),
     eq(professionalProfiles.payoutsEnabled, true),
+    // Not suspended, and no fine past its due date.
+    sql`(${professionalProfiles.suspendedUntil} is null or ${professionalProfiles.suspendedUntil} < now())`,
+    sql`not exists (select 1 from ${fines} f where f.pro_id = ${professionalProfiles.userId} and f.status = 'outstanding' and f.due_at < now())`,
   ];
   if (area && areaMode === "city") w.push(eq(professionalProfiles.cityId, area.cityId));
   else if (area?.countyId && areaMode !== "all") w.push(eq(professionalProfiles.countyId, area.countyId));

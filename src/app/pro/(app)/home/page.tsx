@@ -6,6 +6,7 @@ import { Icon } from "@/components/Icon";
 import { Tabs } from "@/components/Tabs";
 import { requirePro, setupSteps, setupComplete } from "@/lib/pro";
 import { chicagoNow, fmtDate, fmtTime, label12, money } from "@/lib/time";
+import { proStanding } from "@/lib/enforcement";
 
 export const metadata = { title: "Today" };
 
@@ -24,6 +25,7 @@ export default async function ProHome() {
   ]);
   const payReady = ["trialing", "active"].includes(profile.subscriptionStatus ?? "") && profile.identityStatus === "verified" && profile.payoutsEnabled;
   const approved = profile.reviewStatus === "approved";
+  const standing = await proStanding(user.id);
   const left = steps.filter((s) => !s.done && !s.optional);
   const next = left[0];
 
@@ -36,6 +38,15 @@ export default async function ProHome() {
       </div>
       <div className="body">
         <div><p className="eyebrow p">{fmtDate(new Date(), { weekday: "long", month: "short", day: "numeric" })}</p><h1 className="disp h1">{greeting(now.minutes)}, {user.firstName}</h1></div>
+
+        {(standing.fines.length > 0 || standing.suspendedUntil) && (
+          <Link className={`card ${standing.overdue.length || standing.suspendedUntil ? "bad" : "warn"}`} href="/pro/account-status" style={{ textDecoration: "none" }}>
+            <div className="row"><Icon name="alert" /><div className="grow">
+              <div className="b">{standing.suspendedUntil ? `Suspended until ${fmtDate(standing.suspendedUntil)}` : `${money(standing.fines[0].amountCents)} fine outstanding`}</div>
+              <div className="xs muted">{standing.suspendedUntil ? "Hidden from students" : `Due ${fmtDate(standing.fines[0].dueAt)}`}</div>
+            </div><Icon name="right" size="s" /></div>
+          </Link>
+        )}
 
         {!approved && (
           <div className="card" style={{ gap: 12 }}>

@@ -20,6 +20,9 @@ export const schoolType = pgEnum("school_type", ["high_school", "college", "trad
 export const schoolRequestStatus = pgEnum("school_request_status", ["pending", "added", "dismissed"]);
 export const bookingStatus = pgEnum("booking_status", ["pending_payment", "confirmed", "completed", "cancelled_student", "cancelled_pro", "expired", "no_show"]);
 export const incidentStatus = pgEnum("incident_status", ["open", "pro_fault", "not_substantiated"]);
+export const fineStatus = pgEnum("fine_status", ["outstanding", "paid", "waived"]);
+export const appealStatus = pgEnum("appeal_status", ["under_review", "upheld", "overturned"]);
+export const payoutStatus = pgEnum("payout_status", ["approved", "paid"]);
 export const adminRole = pgEnum("admin_role", ["OWNER", "ADMIN", "MARKETING_ADMIN", "OPERATIONS_ADMIN", "SUPPORT"]);
 
 const ts = (name: string) => timestamp(name, { withTimezone: true });
@@ -70,6 +73,8 @@ export const studentProfiles = pgTable("student_profiles", {
   showAccessibility: boolean("show_accessibility").notNull().default(false),
   onboardingCompletedAt: ts("onboarding_completed_at"),
   noShowCount: integer("no_show_count").notNull().default(0),
+  bookingSuspendedUntil: ts("booking_suspended_until"),
+  suspensionReason: text("suspension_reason"), // "no_shows" | "incomplete_completion" | "admin"
   // Phase 3A: manual verification
   idSubmittedAt: ts("id_submitted_at"),
   reviewNote: text("review_note"),
@@ -162,6 +167,10 @@ export const professionalProfiles = pgTable("professional_profiles", {
   trialEndsAt: ts("trial_ends_at"),
   currentPeriodEnd: ts("current_period_end"),
   identitySessionId: text("identity_session_id"),
+  // Phase 5: enforcement + partner attribution
+  suspendedUntil: ts("suspended_until"),
+  suspensionReason: text("suspension_reason"),
+  referredBy: uuid("referred_by"), // partner (admin user) who brought this pro in
   // Phase 2: review
   reviewStatus: reviewStatus("review_status").notNull().default("draft"),
   reviewNote: text("review_note"),
@@ -265,6 +274,7 @@ export const modelCalls = pgTable("model_calls", {
 export const adminMembers = pgTable("admin_members", {
   userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
   role: adminRole("role").notNull(),
+  partnerCode: text("partner_code"), // unique per partner; enforced in src/lib/partner.ts (no DB constraint so upgrades never prompt)
   active: boolean("active").notNull().default(true),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
@@ -392,3 +402,50 @@ export const incidents = pgTable("incidents", {
   decidedAt: ts("decided_at"),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("incidents_status_idx").on(t.status)]);
+
+export const fines = pgTable("fines", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  proId: uuid("pro_id").notNull().references(() => users.id),
+  bookingId: uuid("booking_id").references(() => bookings.id),
+  incidentId: uuid("incident_id").references(() => incidents.id),
+  amountCents: integer("amount_cents").notNull(),
+  reason: text("reason").notNull(),
+  status: fineStatus("status").notNull().default("outstanding"),
+  dueAt: ts("due_at").notNull(),
+  paidAt: ts("paid_at"),
+  stripeCheckoutId: text("stripe_checkout_id"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("fines_pro_idx").on(t.proId)]);
+
+export const appeals = pgTable("appeals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  kind: text("kind").notNull(), // "student_suspension" | "pro_fine" | "pro_suspension"
+  targetId: text("target_id"),
+  explanation: text("explanation").notNull(),
+  status: appealStatus("status").notNull().default("under_review"),
+  decisionNote: text("decision_note"),
+  decidedBy: uuid("decided_by").references(() => users.id),
+  decidedAt: ts("decided_at"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("appeals_status_idx").on(t.status)]);
+
+// Membership payments pros actually made (from Stripe invoices). Drives MRR and partner earnings.
+export const membershipPayments = pgTable("membership_payments", {
+  stripeInvoiceId: text("stripe_invoice_id").primaryKey(),
+  proId: uuid("pro_id").notNull().references(() => users.id),
+  amountCents: integer("amount_cents").notNull(),
+  paidAt: ts("paid_at").notNull(),
+}, (t) => [index("membership_payments_paid_idx").on(t.paidAt)]);
+
+export const partnerPayouts = pgTable("partner_payouts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  partnerId: uuid("partner_id").notNull().references(() => users.id),
+  month: text("month").notNull(), // "YYYY-MM"
+  amountCents: integer("amount_cents").notNull(),
+  status: payoutStatus("status").notNull().default("approved"),
+  approvedBy: uuid("approved_by").references(() => users.id),
+  approvedAt: ts("approved_at").notNull().defaultNow(),
+  paidAt: ts("paid_at"),
+  note: text("note"),
+}, (t) => [uniqueIndex("partner_payouts_partner_month").on(t.partnerId, t.month)]);

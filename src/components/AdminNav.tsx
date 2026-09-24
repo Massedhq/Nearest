@@ -7,7 +7,7 @@ const NAV: [string, [string, string, string][]][] = [
   ["Overview", [["Command Center", "home", "/admin"], ["Founding 750", "sparkle", "/admin/founding"], ["DFW Coverage", "map", "/admin/coverage"]]],
   ["People", [["Students", "users", "/admin/students"], ["Schools", "school", "/admin/schools"], ["Professionals", "store", "/admin/professionals"], ["Verification Queue", "shield", "/admin/verification"]]],
   ["Operations", [["Bookings", "cal", "/admin/bookings"], ["Incident Review", "flag", "/admin/incidents"], ["Enforcement", "gavel", "/admin/enforcement"], ["Appeals", "file", "/admin/appeals"]]],
-  ["Business", [["Money", "wallet", "/admin/money"], ["Marketing", "chart", "/admin/marketing"], ["Marketplace", "grid", "/admin/marketplace"]]],
+  ["Business", [["Money", "wallet", "/admin/money"], ["Sales Track", "chart", "/admin/sales"], ["Marketing", "chart", "/admin/marketing"], ["Marketplace", "grid", "/admin/marketplace"]]],
   ["Owner", [["Rules & Settings", "gear", "/admin/settings"], ["Team & Activity Log", "log", "/admin/team"]]],
 ];
 
@@ -34,7 +34,5 @@ export function AdminNav() {
 
 export const SECTION_TITLES: Record<string, [string, string]> = {
   coverage: ["DFW Coverage", "Phase 6"],
-  enforcement: ["Enforcement", "Phase 5"],
-  appeals: ["Appeals", "Phase 5"],
   marketing: ["Marketing", "Phase 6"],
 };

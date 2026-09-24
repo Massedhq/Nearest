@@ -1,5 +1,5 @@
 import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
-import { db, bookings, credits, professionalProfiles } from "@/db";
+import { db, bookings, credits, professionalProfiles, membershipPayments } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
 import { requireAdmin } from "@/lib/admin";
 import { money } from "@/lib/time";
@@ -10,7 +10,7 @@ export default async function Money() {
   await requireAdmin();
   const since = new Date(Date.now() - 30 * 86400000);
   const n = sql<number>`count(*)::int`;
-  const [subs, volume, held, released, fees, creditOut, generalOut] = await Promise.all([
+  const [subs, volume, held, released, fees, creditOut, generalOut, collected] = await Promise.all([
     db.select({ cohort: professionalProfiles.cohort, status: professionalProfiles.subscriptionStatus, n }).from(professionalProfiles).groupBy(professionalProfiles.cohort, professionalProfiles.subscriptionStatus),
     db.select({ v: sql<number>`coalesce(sum(${bookings.chargedCents}),0)::int`, n }).from(bookings).where(and(inArray(bookings.status, ["confirmed", "completed", "cancelled_student", "cancelled_pro"]), gte(bookings.paidAt, since))),
     db.select({ v: sql<number>`coalesce(sum(${bookings.priceCents}),0)::int`, n }).from(bookings).where(eq(bookings.status, "confirmed")),
@@ -18,6 +18,7 @@ export default async function Money() {
     db.select({ v: sql<number>`coalesce(sum(${bookings.stripeFeeCents}),0)::int` }).from(bookings).where(gte(bookings.paidAt, since)),
     db.select({ v: sql<number>`coalesce(sum(${credits.amountCents}),0)::int` }).from(credits),
     db.select({ v: sql<number>`coalesce(sum(${credits.amountCents}),0)::int` }).from(credits).where(isNull(credits.proId)),
+    db.select({ v: sql<number>`coalesce(sum(${membershipPayments.amountCents}),0)::int` }).from(membershipPayments).where(gte(membershipPayments.paidAt, since)),
   ]);
   const rate: Record<string, number> = { FOUNDING: 1000, SECOND: 2000, STANDARD: 3000 };
   const paying = subs.filter((s) => s.status === "active");
@@ -40,6 +41,7 @@ export default async function Money() {
               <tr key={c}><td>{c}</td><td>{money(rate[c])}/mo</td><td>{subs.find((s) => s.cohort === c && s.status === "active")?.n ?? 0}</td><td>{subs.find((s) => s.cohort === c && s.status === "trialing")?.n ?? 0}</td></tr>
             ))}
           </tbody></table>
+          <div className="row between small"><span className="muted">Membership payments collected (30d)</span><span>{money(collected[0].v)}</span></div>
           {pastDue > 0 && <span className="tag bad" style={{ alignSelf: "flex-start" }}>{pastDue} past due</span>}
         </div>
         <div className="card" style={{ gap: 12 }}>

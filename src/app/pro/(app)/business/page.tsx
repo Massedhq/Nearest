@@ -17,6 +17,7 @@ const STATUS: Record<string, [string, string]> = {
 
 const LINKS: [string, string, string][] = [
   ["card", "Membership, ID & payouts", "/pro/payments"],
+  ["shield", "Account status", "/pro/account-status"],
   ["cal", "Appointments", "/pro/appointments"],
   ["eye", "Preview my profile", "/pro/setup/review"],
   ["user", "Profile & photo", "/pro/setup/profile?edit=1"],

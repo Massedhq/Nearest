@@ -6,6 +6,7 @@ import { chicagoNow, TZ } from "./time";
 import { distanceFt, withinRadius } from "./geo";
 import { bookingCode, releasePayment } from "./bookings";
 import { stripe } from "./stripe";
+import { checkNoShowLimit } from "./enforcement";
 
 type Booking = typeof bookings.$inferSelect;
 
@@ -64,6 +65,7 @@ export async function markNoShow(b: Booking) {
   if (b.creditGeneralCents > 0) back.push({ studentId: b.studentId, proId: null, amountCents: b.creditGeneralCents, reason: `No-show ${bookingCode(b.number)}`, bookingId: b.id });
   if (back.length) await db.insert(credits).values(back);
   await db.update(studentProfiles).set({ noShowCount: sql`${studentProfiles.noShowCount} + 1` }).where(eq(studentProfiles.userId, b.studentId));
+  await checkNoShowLimit(b.studentId);
   const pro = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, b.proId) });
   if (forfeit > 0 && pro?.stripeAccountId && pro.payoutsEnabled) {
     try {

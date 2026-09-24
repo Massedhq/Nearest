@@ -5,6 +5,8 @@ import { db, incidents } from "@/db";
 import { requireAdmin } from "@/lib/admin";
 import { logActivity } from "@/lib/log";
 import { cancelAsProFault } from "@/lib/bookings";
+import { penalizePro } from "@/lib/enforcement";
+import { bookings } from "@/db";
 import type { FormState } from "@/components/ActionForm";
 
 export async function decideIncident(_: FormState, form: FormData): Promise<FormState> {
@@ -20,8 +22,12 @@ export async function decideIncident(_: FormState, form: FormData): Promise<Form
     .where(and(eq(incidents.id, id), eq(incidents.status, "open")))
     .returning();
   if (!inc) return { error: "Already decided." };
-  if (decision === "pro_fault") await cancelAsProFault(inc.bookingId, "Professional fault confirmed");
+  if (decision === "pro_fault") {
+    await cancelAsProFault(inc.bookingId, "Professional fault confirmed");
+    const b = await db.query.bookings.findFirst({ where: eq(bookings.id, inc.bookingId) });
+    if (b) await penalizePro(b.proId, b.id, inc.id);
+  }
   await logActivity({ actorUserId: user.id, action: `incident.${decision}`, targetType: "incident", targetId: inc.id, after: note });
   revalidatePath("/admin", "layout");
-  return { ok: decision === "pro_fault" ? "Confirmed. The student received the full amount as Nearest credit." : "Closed as not substantiated." };
+  return { ok: decision === "pro_fault" ? "Confirmed. The student received full Nearest credit, and the professional was fined." : "Closed as not substantiated." };
 }

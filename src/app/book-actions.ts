@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq, gt, inArray, ne, or, lt } from "drizzle-orm";
 import { db, bookings, proServices, modelCalls, professionalProfiles, cities } from "@/db";
 import { geocode } from "@/lib/geo";
+import { studentSuspendedUntil } from "@/lib/enforcement";
 import { requireVerifiedStudent } from "@/lib/student";
 import { liveProWhere } from "@/lib/search";
 import { openSlots } from "@/lib/availability";
@@ -101,7 +102,8 @@ async function createAndPay(opts: {
 }
 
 export async function bookService(_: FormState, form: FormData): Promise<FormState> {
-  const { user } = await requireVerifiedStudent();
+  const { user, profile } = await requireVerifiedStudent();
+  if (studentSuspendedUntil(profile)) return { error: "Booking is temporarily unavailable on your account." };
   if (form.get("agree") !== "on") return { error: "Please agree to the booking and cancellation terms." };
   const serviceId = String(form.get("serviceId") ?? "");
   const day = String(form.get("day") ?? "");
@@ -120,7 +122,8 @@ export async function bookService(_: FormState, form: FormData): Promise<FormSta
 }
 
 export async function bookModelCall(_: FormState, form: FormData): Promise<FormState> {
-  const { user } = await requireVerifiedStudent();
+  const { user, profile } = await requireVerifiedStudent();
+  if (studentSuspendedUntil(profile)) return { error: "Booking is temporarily unavailable on your account." };
   if (form.get("agree") !== "on") return { error: "Please agree to the booking and cancellation terms." };
   const id = String(form.get("modelCallId") ?? "");
   const call = await db.query.modelCalls.findFirst({ where: and(eq(modelCalls.id, id), eq(modelCalls.status, "open")) });

@@ -7,13 +7,34 @@ import { Tabs } from "@/components/Tabs";
 import { ProResult } from "@/components/ProResult";
 import { requireVerifiedStudent } from "@/lib/student";
 import { searchPros, type Filters } from "@/lib/search";
+import { studentSuspendedUntil, SUSPENSION_TEXT } from "@/lib/enforcement";
+import { fmtDate } from "@/lib/time";
 
 export const metadata = { title: "Explore" };
 
 const QUICK: [keyof Filters, string, string][] = [["today", "bolt", "Available Today"], ["after", "school", "After School"], ["under", "dollar", "Under $25"], ["asl", "hand", "ASL"]];
 
 export default async function Home({ searchParams }: { searchParams: Promise<Filters> }) {
-  const { user, area } = await requireVerifiedStudent();
+  const { user, area, profile } = await requireVerifiedStudent();
+  const until = studentSuspendedUntil(profile);
+  if (until) {
+    return (
+      <div className="scr">
+        <div className="top"><span className="sp" /><div className="t">Explore</div><span className="sp" /></div>
+        <div className="body">
+          <div className="card bad" style={{ padding: 22, gap: 12 }}>
+            <span className="iconbtn" style={{ borderColor: "#6A2F26", color: "#F2A38F" }}><Icon name="lock" /></span>
+            <h1 className="disp h2">Booking temporarily unavailable</h1>
+            <p className="p muted">{SUSPENSION_TEXT[profile.suspensionReason ?? "admin"]}</p>
+            <div className="row between"><span className="small muted">Booking available again</span><span className="b">{fmtDate(until, { month: "long", day: "numeric", year: "numeric" })}</span></div>
+          </div>
+          <div className="card small"><span className="eyebrow">You can still</span><div className="row"><Icon name="check" size="s" /> View your account and past bookings</div><div className="row"><Icon name="check" size="s" /> Read messages</div><div className="row"><Icon name="check" size="s" /> Keep your credits — they don&apos;t expire</div></div>
+          <Link className="btn ghost" href="/appeal">Request review</Link>
+        </div>
+        <Tabs kind="student" active="Explore" />
+      </div>
+    );
+  }
   const f = await searchParams;
   const [cats, pros] = await Promise.all([
     db.select({ id: categories.id, name: categories.name }).from(categories).where(eq(categories.active, true)).orderBy(asc(categories.sort)),

@@ -6,6 +6,8 @@ import { getViewer, clerkContact } from "@/lib/viewer";
 import { getSettings } from "@/lib/settings";
 import { checkInvite, INVITE_MESSAGES } from "@/lib/invites";
 import { validName, validDob } from "@/lib/validate";
+import { partnerByCode } from "@/lib/partner";
+import { adminMembers } from "@/db";
 
 export type FormState = { error?: string };
 
@@ -63,6 +65,14 @@ export async function completePro(_: FormState, form: FormData): Promise<FormSta
     cohort = n < Number(settings["growth.second_cohort_end"]) ? "SECOND" : "STANDARD";
   }
 
-  await db.insert(professionalProfiles).values({ userId: user.id, cohort, invitationId }).onConflictDoNothing();
+  // Partner attribution: whoever created the invitation, otherwise the ?ref= code used at sign-up.
+  let referredBy: string | null = null;
+  if (invitationId) {
+    const inv = await db.query.invitations.findFirst({ where: eq(invitations.id, invitationId) });
+    const isPartner = inv ? await db.query.adminMembers.findFirst({ where: and(eq(adminMembers.userId, inv.createdBy), eq(adminMembers.role, "OWNER")) }) : null;
+    referredBy = isPartner ? inv!.createdBy : null;
+  }
+  referredBy ??= await partnerByCode(c.ref);
+  await db.insert(professionalProfiles).values({ userId: user.id, cohort, invitationId, referredBy }).onConflictDoNothing();
   redirect("/go");
 }

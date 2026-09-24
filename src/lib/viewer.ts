@@ -42,6 +42,7 @@ export async function clerkContact() {
     door: (cu.unsafeMetadata?.door as string | undefined) ?? null,
     invite: (cu.unsafeMetadata?.invite as string | undefined) ?? null,
     dob: (cu.unsafeMetadata?.dob as string | undefined) ?? null,
+    ref: (cu.unsafeMetadata?.ref as string | undefined) ?? null,
     typedPhone: (cu.unsafeMetadata?.phone as string | undefined)?.slice(0, 30) || null,
   };
 }

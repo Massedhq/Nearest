@@ -6,8 +6,8 @@ import { getFlag } from "@/lib/settings";
 
 export const metadata = { title: "Join as a professional" };
 
-export default async function ProSignUp({ searchParams }: { searchParams: Promise<{ invite?: string }> }) {
-  const { invite } = await searchParams;
+export default async function ProSignUp({ searchParams }: { searchParams: Promise<{ invite?: string; ref?: string }> }) {
+  const { invite, ref } = await searchParams;
   const check = invite ? await checkInvite(invite) : null;
   const regOpen = await getFlag("status.pro_registration");
   const code = check?.ok ? check.invite.code : null;
@@ -27,7 +27,7 @@ export default async function ProSignUp({ searchParams }: { searchParams: Promis
           <>
             <p className="muted small p">We&apos;ll email you a 6-digit code to verify your account. Your email is never shown to customers.</p>
             <div className="clerk-wrap">
-              <SignUp routing="path" path="/pro/sign-up" signInUrl="/pro/sign-in" forceRedirectUrl={redirectTo} unsafeMetadata={{ door: "pro", invite: code ?? undefined }} />
+              <SignUp routing="path" path="/pro/sign-up" signInUrl="/pro/sign-in" forceRedirectUrl={redirectTo} unsafeMetadata={{ door: "pro", invite: code ?? undefined, ref: ref?.slice(0, 20) || undefined }} />
             </div>
           </>
         ) : (
