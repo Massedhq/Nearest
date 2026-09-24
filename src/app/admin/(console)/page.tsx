@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { desc, eq, sql } from "drizzle-orm";
-import { db, users, invitations, activityLog, professionalProfiles, proCredentials } from "@/db";
+import { db, users, invitations, activityLog, professionalProfiles, proCredentials, studentProfiles } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
 import { StatusPanel } from "@/components/StatusPanel";
 import { requireAdmin } from "@/lib/admin";
@@ -14,7 +14,7 @@ const count = async (q: Promise<{ n: number }[]>) => (await q)[0]?.n ?? 0;
 export default async function CommandCenter() {
   const { user, role } = await requireAdmin();
   await expireStaleInvites();
-  const [settings, founding, pros, students, activeCities, pending, recent, toReview, licenses] = await Promise.all([
+  const [settings, founding, pros, students, activeCities, pending, recent, toReview, licenses, studentsToVerify] = await Promise.all([
     getSettings(),
     foundingCount(),
     count(db.select({ n: sql<number>`count(*)::int` }).from(users).where(eq(users.accountType, "professional"))),
@@ -29,6 +29,7 @@ export default async function CommandCenter() {
       .limit(5),
     count(db.select({ n: sql<number>`count(*)::int` }).from(professionalProfiles).where(eq(professionalProfiles.reviewStatus, "submitted"))),
     count(db.select({ n: sql<number>`count(*)::int` }).from(proCredentials).where(eq(proCredentials.status, "pending"))),
+    count(db.select({ n: sql<number>`count(*)::int` }).from(studentProfiles).where(eq(studentProfiles.verificationStatus, "pending"))),
   ]);
   const capacity = Number(settings["growth.founding_capacity"]);
   const pct = Math.min(100, Math.round((founding / capacity) * 100));
@@ -51,7 +52,7 @@ export default async function CommandCenter() {
             <span className="eyebrow">Needs attention</span>
             <div className="grid3">
               <Link className="card" href="/admin/founding" style={{ textDecoration: "none", background: "#0A0A0B", gap: 8 }}><span className="stat">{pending}</span><span className="xs muted">Invitations waiting</span></Link>
-              <Link className="card" href="/admin/verification" style={{ textDecoration: "none", background: "#0A0A0B", gap: 8 }}><span className="stat">{toReview + licenses}</span><span className="xs muted">Profiles &amp; licenses to verify</span></Link>
+              <Link className="card" href="/admin/verification" style={{ textDecoration: "none", background: "#0A0A0B", gap: 8 }}><span className="stat">{toReview + licenses + studentsToVerify}</span><span className="xs muted">Students, pros &amp; licenses to verify</span></Link>
               <div className="card" style={{ background: "#0A0A0B", gap: 8 }}><span className="stat">{activeCities}</span><span className="xs muted">Cities with a founding pro</span></div>
             </div>
           </div>

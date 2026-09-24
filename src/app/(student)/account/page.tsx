@@ -1,13 +1,15 @@
 import { SignOutButton } from "@clerk/nextjs";
 import { Icon } from "@/components/Icon";
 import { Tabs } from "@/components/Tabs";
-import { getViewer, displayName, initials } from "@/lib/viewer";
+import { displayName, initials } from "@/lib/viewer";
+import { requireStudent, schoolArea } from "@/lib/student";
 
 export const metadata = { title: "Account" };
 
 export default async function Account() {
-  const viewer = await getViewer();
-  const u = viewer?.user;
+  const { user: u, profile } = await requireStudent();
+  const area = profile.schoolId ? await schoolArea(profile.schoolId) : null;
+  const verified = profile.verificationStatus === "verified";
   return (
     <div className="scr">
       <div className="top"><span className="sp" /><div className="t">Account</div><span className="sp" /></div>
@@ -16,7 +18,8 @@ export default async function Account() {
           <div className="avatar lg">{initials(u)}</div>
           <div className="col g4">
             <span className="disp h2">{displayName(u)}</span>
-            <span className="badge mute"><Icon name="shield" size="s" /> Student verification arrives in Phase 3</span>
+            <span className={`badge${verified ? "" : " mute"}`}><Icon name="shield" size="s" /> {verified ? "Verified Student" : "Verification in progress"}</span>
+            {area && <span className="xs muted">{area.school}{profile.reverifyBy ? ` • Reverify by ${profile.reverifyBy}` : ""}</span>}
           </div>
         </div>
         <div className="card small">

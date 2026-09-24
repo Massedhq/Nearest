@@ -1,6 +1,9 @@
 import Image from "next/image";
 import { asc, eq } from "drizzle-orm";
-import { db, users, professionalProfiles, proServices, proCredentials, categories, cities, portfolioItems } from "@/db";
+import { db, users, professionalProfiles, proServices, proCredentials, categories, cities, portfolioItems, studentProfiles, schools, schoolRequests } from "@/db";
+import { and } from "drizzle-orm";
+import { StudentReject } from "@/components/StudentReject";
+import { approveStudent } from "@/app/admin/student-actions";
 import { AdminHead } from "@/components/AdminHead";
 import { RejectForm } from "@/components/RejectForm";
 import { requireAdmin } from "@/lib/admin";
@@ -11,7 +14,7 @@ export const metadata = { title: "Verification Queue" };
 
 export default async function Verification() {
   await requireAdmin();
-  const [pending, creds] = await Promise.all([
+  const [pending, creds, studentsPending] = await Promise.all([
     db
       .select({ p: professionalProfiles, u: users, city: cities.name })
       .from(professionalProfiles)
@@ -27,7 +30,16 @@ export default async function Verification() {
       .innerJoin(professionalProfiles, eq(professionalProfiles.userId, proCredentials.userId))
       .where(eq(proCredentials.status, "pending"))
       .orderBy(asc(proCredentials.createdAt)),
+    db
+      .select({ s: studentProfiles, u: users, school: schools.name, reqName: schoolRequests.name, reqCity: schoolRequests.cityName })
+      .from(studentProfiles)
+      .innerJoin(users, eq(users.id, studentProfiles.userId))
+      .leftJoin(schools, eq(schools.id, studentProfiles.schoolId))
+      .leftJoin(schoolRequests, and(eq(schoolRequests.userId, studentProfiles.userId), eq(schoolRequests.status, "pending")))
+      .where(eq(studentProfiles.verificationStatus, "pending"))
+      .orderBy(asc(studentProfiles.idSubmittedAt)),
   ]);
+  const age = (dob: string | null) => (dob ? Math.floor((Date.now() - new Date(`${dob}T12:00:00Z`).getTime()) / (365.25 * 86400000)) : null);
   const details = await Promise.all(
     pending.map(async ({ p }) => ({
       services: await db.select().from(proServices).where(eq(proServices.userId, p.userId)).orderBy(asc(proServices.sort)),
@@ -37,7 +49,38 @@ export default async function Verification() {
 
   return (
     <>
-      <AdminHead eyebrow={`${pending.length} profile${pending.length === 1 ? "" : "s"} • ${creds.length} license${creds.length === 1 ? "" : "s"}`} title="Verification Queue" />
+      <AdminHead eyebrow={`${studentsPending.length} student${studentsPending.length === 1 ? "" : "s"} • ${pending.length} profile${pending.length === 1 ? "" : "s"} • ${creds.length} license${creds.length === 1 ? "" : "s"}`} title="Verification Queue" />
+      <span className="eyebrow">Students</span>
+      {studentsPending.length === 0 && <div className="card"><span className="small muted">No students waiting.</span></div>}
+      {studentsPending.map(({ s, u, school, reqName, reqCity }) => (
+        <div key={s.userId} className="card" style={{ gap: 12 }}>
+          <div className="row between">
+            <div><div className="b">{u.firstName} {u.lastName}</div><div className="xs muted">{u.email} • age {age(u.dateOfBirth) ?? "?"} • class of {s.graduationYear}</div></div>
+            {school ? (
+              <form action={approveStudent}><input type="hidden" name="userId" value={s.userId} /><button className="btn sm" type="submit">Verify student</button></form>
+            ) : (
+              <a className="btn ghost sm" href="/admin/schools">Add their school first</a>
+            )}
+          </div>
+          <div className="row small"><span className="muted">School:</span> {school ?? <span className="tag warn">Requested: {reqName} ({reqCity})</span>}</div>
+          <div className="acols even">
+            <div className="grid2">
+              <figure style={{ margin: 0 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`/api/admin/id-doc/${s.userId}/school_id`} alt="School ID" style={{ width: "100%", borderRadius: 10, border: "1px solid #2A2A2D" }} />
+                <figcaption className="xs muted">School ID (view logged)</figcaption>
+              </figure>
+              <figure style={{ margin: 0 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`/api/admin/id-doc/${s.userId}/selfie`} alt="Selfie" style={{ width: "100%", borderRadius: 10, border: "1px solid #2A2A2D" }} />
+                <figcaption className="xs muted">Selfie (view logged)</figcaption>
+              </figure>
+            </div>
+            <StudentReject userId={s.userId} />
+          </div>
+          <p className="xs muted p">Check the name and school match, the ID looks current, and the selfie matches the ID photo. Photos are deleted as soon as you decide.</p>
+        </div>
+      ))}
       <div className="card" style={{ gap: 12, overflowX: "auto" }}>
         <span className="eyebrow">Licenses to check</span>
         <p className="xs muted p">Look each one up on the TDLR license search, then mark it.</p>

@@ -19,7 +19,7 @@ export function ProCard({ p, services, photos, city }: {
         {p.photoUrl ? <Image src={p.photoUrl} alt="" width={52} height={52} style={{ borderRadius: 26, objectFit: "cover" }} /> : <div className="avatar">{initials}</div>}
         <div className="col g4 grow">
           <span className="h3">{p.businessName ?? "Your business name"}</span>
-          <span className="badge"><Icon name="shield" size="s" /> Identity Verified</span>
+          <span className="badge"><Icon name="shield" size="s" /> Approved by Nearest</span>
           {p.aslLevel !== "none" && <span className="badge pearl"><Icon name="hand" size="s" /> ASL — {ASL_LABEL[p.aslLevel]}</span>}
           <div className="row small" style={{ gap: 12 }}>
             <span className="muted row" style={{ gap: 4 }}><Icon name="pin" size="s" /> {city ?? "Your city"}</span>

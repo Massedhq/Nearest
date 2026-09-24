@@ -16,6 +16,8 @@ export const credentialStatus = pgEnum("credential_status", ["pending", "verifie
 export const hoursKind = pgEnum("hours_kind", ["regular", "after_school"]);
 export const portfolioSource = pgEnum("portfolio_source", ["upload", "instagram", "tiktok", "nearest"]);
 export const modelCallStatus = pgEnum("model_call_status", ["open", "full", "cancelled", "completed"]);
+export const schoolType = pgEnum("school_type", ["high_school", "college", "trade"]);
+export const schoolRequestStatus = pgEnum("school_request_status", ["pending", "added", "dismissed"]);
 export const adminRole = pgEnum("admin_role", ["OWNER", "ADMIN", "MARKETING_ADMIN", "OPERATIONS_ADMIN", "SUPPORT"]);
 
 const ts = (name: string) => timestamp(name, { withTimezone: true });
@@ -61,8 +63,42 @@ export const studentProfiles = pgTable("student_profiles", {
   graduationYear: integer("graduation_year"),
   prefersText: boolean("prefers_text").notNull().default(false),
   wantsAsl: boolean("wants_asl").notNull().default(false),
+  // Phase 3A: manual verification
+  idSubmittedAt: ts("id_submitted_at"),
+  reviewNote: text("review_note"),
+  verifiedAt: ts("verified_at"),
+  reverifyBy: date("reverify_by"),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
+
+export const schools = pgTable("schools", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  name: text("name").notNull(),
+  type: schoolType("type").notNull(),
+  cityId: integer("city_id").notNull().references(() => cities.id),
+  active: boolean("active").notNull().default(true),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [uniqueIndex("schools_name_city").on(t.name, t.cityId)]);
+
+export const schoolRequests = pgTable("school_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  cityName: text("city_name").notNull(),
+  type: schoolType("type").notNull(),
+  status: schoolRequestStatus("status").notNull().default("pending"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+// School ID + selfie for manual review. Private: only admins can open them (every view is logged),
+// and both rows are deleted as soon as the student is approved or rejected.
+export const studentIdDocs = pgTable("student_id_docs", {
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(), // "school_id" | "selfie"
+  mime: text("mime").notNull(),
+  dataB64: text("data_b64").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.userId, t.kind] })]);
 
 export const invitations = pgTable("invitations", {
   id: uuid("id").primaryKey().defaultRandom(),

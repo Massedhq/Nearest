@@ -53,6 +53,9 @@ Every admin write (invite, pause, refund, setting change, status switch) inserts
 
 - Phase 1 (foundation) is built. See `docs/PHASE-1.md`.
 - Phase 2 (professional side) is built. See `docs/PHASE-2.md`.
+- Phase 3A (student verification, search, model calls) is built. See `docs/PHASE-3A.md`.
+- Student ID photos live only in `student_id_docs`, are served only through the logged admin route, and are deleted on every decision. Never display or export them anywhere else.
+- Student pages start with `requireVerifiedStudent()` (`src/lib/student.ts`). Students only ever see pros matched by `liveProWhere()` (`src/lib/search.ts`).
 - Photos upload straight from the browser to Vercel Blob through `/api/blob`. Never accept file bodies in server actions.
 - Pro pages and actions start with `requirePro()` (`src/lib/pro.ts`). Admin ones start with `requireAdmin()`.
 - Chicago time helpers live in `src/lib/time.ts`. Always store UTC and convert with `chicagoToUtc`.

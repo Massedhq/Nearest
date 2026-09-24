@@ -38,5 +38,5 @@ export async function completeStudent(_: FormState, form: FormData): Promise<For
     .onConflictDoNothing()
     .returning();
   if (user) await db.insert(studentProfiles).values({ userId: user.id }).onConflictDoNothing();
-  redirect("/home");
+  redirect("/verify");
 }
