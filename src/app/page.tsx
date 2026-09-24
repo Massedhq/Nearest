@@ -12,7 +12,7 @@ export default async function Welcome() {
         <Image src="/brand/nearest-wordmark.png" alt="Nearest" width={380} height={253} priority style={{ width: "100%", maxWidth: 380, height: "auto" }} />
         <p className="disp" style={{ fontSize: 24, textAlign: "center", margin: "-8px 0 0", fontStyle: "italic" }}>Find who&apos;s available near you.</p>
         <p className="muted small" style={{ textAlign: "center", margin: "14px 0 0", maxWidth: 290 }}>
-          Verified professionals across DFW. Book, pay and finish your appointment in one place.
+          Book, pay and finish your appointment in one place.
         </p>
       </div>
       <div className="body" style={{ flex: "none", gap: 12 }}>
