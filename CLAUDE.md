@@ -54,6 +54,9 @@ Every admin write (invite, pause, refund, setting change, status switch) inserts
 - Phase 1 (foundation) is built. See `docs/PHASE-1.md`.
 - Phase 2 (professional side) is built. See `docs/PHASE-2.md`.
 - Phase 3A (student verification, search, model calls) is built. See `docs/PHASE-3A.md`.
+- Phase 3B (booking, payments, membership, Stripe Identity, payouts) is built. See `docs/PHASE-3B.md`.
+- All money logic lives in `src/lib/bookings.ts` and `src/lib/credits.ts`. Money is integer cents. Never refund cash; cancellations create `credits` rows.
+- Booking availability is computed only by `openSlots()` in `src/lib/availability.ts`. Never duplicate those rules.
 - Student ID photos live only in `student_id_docs`, are served only through the logged admin route, and are deleted on every decision. Never display or export them anywhere else.
 - Student pages start with `requireVerifiedStudent()` (`src/lib/student.ts`). Students only ever see pros matched by `liveProWhere()` (`src/lib/search.ts`).
 - Photos upload straight from the browser to Vercel Blob through `/api/blob`. Never accept file bodies in server actions.

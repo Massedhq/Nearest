@@ -12,6 +12,10 @@ export function liveProWhere(area: Area, areaMode: string | undefined) {
     eq(professionalProfiles.reviewStatus, "approved"),
     eq(professionalProfiles.searchable, true),
     eq(professionalProfiles.vacationMode, false),
+    // Live only when membership is trialing/active, ID is verified and payouts are set up.
+    inArray(professionalProfiles.subscriptionStatus, ["trialing", "active"]),
+    eq(professionalProfiles.identityStatus, "verified"),
+    eq(professionalProfiles.payoutsEnabled, true),
   ];
   if (area && areaMode === "city") w.push(eq(professionalProfiles.cityId, area.cityId));
   else if (area?.countyId && areaMode !== "all") w.push(eq(professionalProfiles.countyId, area.countyId));

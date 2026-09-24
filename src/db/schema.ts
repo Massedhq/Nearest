@@ -18,6 +18,7 @@ export const portfolioSource = pgEnum("portfolio_source", ["upload", "instagram"
 export const modelCallStatus = pgEnum("model_call_status", ["open", "full", "cancelled", "completed"]);
 export const schoolType = pgEnum("school_type", ["high_school", "college", "trade"]);
 export const schoolRequestStatus = pgEnum("school_request_status", ["pending", "added", "dismissed"]);
+export const bookingStatus = pgEnum("booking_status", ["pending_payment", "confirmed", "completed", "cancelled_student", "cancelled_pro", "expired"]);
 export const adminRole = pgEnum("admin_role", ["OWNER", "ADMIN", "MARKETING_ADMIN", "OPERATIONS_ADMIN", "SUPPORT"]);
 
 const ts = (name: string) => timestamp(name, { withTimezone: true });
@@ -144,6 +145,15 @@ export const professionalProfiles = pgTable("professional_profiles", {
   // Phase 2: availability
   acceptsAfterSchool: boolean("accepts_after_school").notNull().default(false),
   vacationMode: boolean("vacation_mode").notNull().default(false),
+  // Phase 3B: Stripe
+  stripeAccountId: text("stripe_account_id"),
+  payoutsEnabled: boolean("payouts_enabled").notNull().default(false),
+  stripeCustomerId: text("stripe_customer_id"),
+  subscriptionId: text("subscription_id"),
+  subscriptionStatus: text("subscription_status"), // trialing | active | past_due | canceled | ...
+  trialEndsAt: ts("trial_ends_at"),
+  currentPeriodEnd: ts("current_period_end"),
+  identitySessionId: text("identity_session_id"),
   // Phase 2: review
   reviewStatus: reviewStatus("review_status").notNull().default("draft"),
   reviewNote: text("review_note"),
@@ -286,3 +296,41 @@ export const adminMembersRelations = relations(adminMembers, ({ one }) => ({
 }));
 
 export type User = typeof users.$inferSelect;
+
+export const bookings = pgTable("bookings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  number: bigserial("number", { mode: "number" }).notNull(), // shown as NEA-10001…
+  studentId: uuid("student_id").notNull().references(() => users.id),
+  proId: uuid("pro_id").notNull().references(() => users.id),
+  serviceId: uuid("service_id"),
+  modelCallId: uuid("model_call_id").references(() => modelCalls.id),
+  serviceName: text("service_name").notNull(),
+  startsAt: ts("starts_at").notNull(),
+  endsAt: ts("ends_at").notNull(),
+  priceCents: integer("price_cents").notNull(),
+  depositCents: integer("deposit_cents").notNull(),
+  creditProCents: integer("credit_pro_cents").notNull().default(0),
+  creditGeneralCents: integer("credit_general_cents").notNull().default(0),
+  chargedCents: integer("charged_cents").notNull().default(0),
+  status: bookingStatus("status").notNull().default("pending_payment"),
+  holdExpiresAt: ts("hold_expires_at"),
+  stripeCheckoutId: text("stripe_checkout_id"),
+  stripeChargeId: text("stripe_charge_id"),
+  stripeFeeCents: integer("stripe_fee_cents"),
+  transferId: text("transfer_id"),
+  paidAt: ts("paid_at"),
+  releasedAt: ts("released_at"),
+  cancelledAt: ts("cancelled_at"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("bookings_pro_starts_idx").on(t.proId, t.startsAt), index("bookings_student_idx").on(t.studentId)]);
+
+// Credit ledger. Balance = sum(amount). pro_id null = general Nearest credit usable with any professional.
+export const credits = pgTable("credits", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  studentId: uuid("student_id").notNull().references(() => users.id),
+  proId: uuid("pro_id").references(() => users.id),
+  amountCents: integer("amount_cents").notNull(),
+  reason: text("reason").notNull(),
+  bookingId: uuid("booking_id").references(() => bookings.id),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("credits_student_idx").on(t.studentId)]);

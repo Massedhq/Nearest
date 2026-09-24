@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { and, asc, eq, gte, inArray } from "drizzle-orm";
-import { db, modelCalls, proOpenings } from "@/db";
+import { db, modelCalls, proOpenings, bookings } from "@/db";
 import { Icon } from "@/components/Icon";
 import { Tabs } from "@/components/Tabs";
 import { requirePro, setupSteps, setupComplete } from "@/lib/pro";
@@ -16,11 +16,13 @@ function greeting(minutes: number) {
 export default async function ProHome() {
   const { viewer, user, profile } = await requirePro();
   const now = chicagoNow();
-  const [steps, calls, openings] = await Promise.all([
+  const [steps, calls, openings, upcoming] = await Promise.all([
     setupSteps(user.id),
     db.select().from(modelCalls).where(and(eq(modelCalls.userId, user.id), inArray(modelCalls.status, ["open", "full"]), gte(modelCalls.startsAt, new Date()))).orderBy(asc(modelCalls.startsAt)).limit(3),
     db.select().from(proOpenings).where(and(eq(proOpenings.userId, user.id), eq(proOpenings.day, now.date))).orderBy(asc(proOpenings.startTime)),
+    db.select().from(bookings).where(and(eq(bookings.proId, user.id), eq(bookings.status, "confirmed"), gte(bookings.endsAt, new Date()))).orderBy(asc(bookings.startsAt)).limit(4),
   ]);
+  const payReady = ["trialing", "active"].includes(profile.subscriptionStatus ?? "") && profile.identityStatus === "verified" && profile.payoutsEnabled;
   const approved = profile.reviewStatus === "approved";
   const left = steps.filter((s) => !s.done && !s.optional);
   const next = left[0];
@@ -54,6 +56,22 @@ export default async function ProHome() {
         {profile.cohort === "FOUNDING" && (
           <div className="card pearl"><span className="tag solid" style={{ background: "#0A0A0A", color: "#ECE8E1", alignSelf: "flex-start" }}>Founding Professional</span><span className="small">Your founding rate is locked to your account.</span></div>
         )}
+
+        {approved && !payReady && (
+          <Link className="card warn" href="/pro/payments" style={{ textDecoration: "none" }}>
+            <div className="row"><Icon name="card" /><div className="grow"><div className="b">Finish membership, ID and payouts</div><div className="xs muted">Students can book you once these are done.</div></div><Icon name="right" size="s" /></div>
+          </Link>
+        )}
+
+        <div className="row between"><h3 className="eyebrow p">Upcoming appointments</h3><Link className="link small" href="/pro/appointments">See all</Link></div>
+        {upcoming.length === 0 && <p className="small muted p">No upcoming appointments.</p>}
+        {upcoming.map((b) => (
+          <Link key={b.id} className="item" href="/pro/appointments">
+            <span className="b num" style={{ width: 84 }}>{fmtTime(b.startsAt)}</span>
+            <div className="grow"><div>{b.serviceName}</div><div className="xs muted">{fmtDate(b.startsAt)}</div></div>
+            <span className="tag ok">Confirmed</span>
+          </Link>
+        ))}
 
         <Link className="card" href="/pro/today" style={{ textDecoration: "none" }}>
           <div className="row">

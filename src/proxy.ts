@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 // Pages anyone can open. Everything else needs a signed-in user; role checks
 // happen again in each layout, page and server action (never only here).
-const PUBLIC_EXACT = new Set(["/", "/pro", "/manifest.webmanifest", "/pro/manifest.webmanifest", "/sw.js"]);
+const PUBLIC_EXACT = new Set(["/", "/pro", "/manifest.webmanifest", "/pro/manifest.webmanifest", "/sw.js", "/api/stripe/webhook"]);
 const PUBLIC_PREFIX = ["/sign-in", "/sign-up", "/pro/sign-in", "/pro/sign-up", "/pro/invite/", "/admin/sign-in", "/admin/sign-up"];
 
 function isPublic(path: string) {

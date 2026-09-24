@@ -1,4 +1,6 @@
 import Image from "next/image";
+import Link from "next/link";
+import { getFlag } from "@/lib/settings";
 import { notFound } from "next/navigation";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { db, professionalProfiles, proServices, portfolioItems, proHours, proOpenings, cities } from "@/db";
@@ -31,6 +33,7 @@ export default async function ProProfile({ params }: { params: Promise<{ id: str
     p.cityId ? db.query.cities.findFirst({ where: eq(cities.id, p.cityId) }) : null,
     openModelCalls(null, "all", id),
   ]);
+  const bookingOpen = await getFlag("status.bookings");
   const initials = (p.businessName ?? "N").split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
   const langs = (p.languages ?? []).filter((l) => l !== "ASL");
 
@@ -68,10 +71,10 @@ export default async function ProProfile({ params }: { params: Promise<{ id: str
         <h3 className="eyebrow p">Services</h3>
         <div className="col" style={{ gap: 0 }}>
           {services.map((s) => (
-            <div key={s.id} className="item"><div className="grow"><div className="b">{s.name}</div><div className="small muted">{money(s.priceCents)} • {s.durationMin} min</div></div><button className="btn dis sm" type="button" disabled>Book</button></div>
+            <div key={s.id} className="item"><div className="grow"><div className="b">{s.name}</div><div className="small muted">{money(s.priceCents)} • {s.durationMin} min</div></div>{bookingOpen ? <Link className="btn sm" href={`/book/${s.id}`}>Book</Link> : <button className="btn dis sm" type="button" disabled>Book</button>}</div>
           ))}
         </div>
-        <p className="xs muted p">Booking opens soon.</p>
+        {!bookingOpen && <p className="xs muted p">Booking is paused right now.</p>}
 
         {calls.length > 0 && (
           <>
