@@ -212,3 +212,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .card.pearl .link{color:#0A0A0A}
 .scr:not(.light) .chipradio:has(input:checked){background:#ECE8E1;color:#0A0A0A;border-color:#ECE8E1}
 .lightbox .chipradio:has(input:checked){background:#141414;color:#F4EFE6;border-color:#141414}
+
+/* ---- Powered by Massed (every screen) ---- */
+.powered{background:#000;display:flex;justify-content:center;padding:14px 16px calc(14px + env(safe-area-inset-bottom,0px));border-top:1px solid #141416}
+.powered a{display:inline-flex;align-items:center;gap:6px;color:#8F8A81;font:500 12px var(--font-body),system-ui,sans-serif;text-decoration:none;letter-spacing:.02em}
+.powered a:hover,.powered a:focus-visible{color:#ECE8E1}
+.powered a .b{color:#ECE8E1}
+.powered img{border-radius:4px}

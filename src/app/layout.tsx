@@ -5,6 +5,7 @@ import "@fontsource-variable/manrope";
 import { ClerkProvider } from "@clerk/nextjs";
 import { clerkLightAppearance } from "@/lib/clerk-appearance";
 import { SwRegister } from "@/components/SwRegister";
+import { PoweredBy } from "@/components/PoweredBy";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <html lang="en">
         <body>
           {children}
+          <PoweredBy />
           <SwRegister />
         </body>
       </html>
