@@ -8,12 +8,17 @@ type Profile = typeof professionalProfiles.$inferSelect;
 
 export async function saveSubscription(userId: string, sub: Stripe.Subscription) {
   const end = sub.items.data[0]?.current_period_end;
+  const current = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, userId) });
+  // 12 months of intro pricing, counted from when paid billing starts (after the free month).
+  const billingStart = new Date((sub.trial_end ?? sub.start_date) * 1000);
+  const introEndsAt = current?.introEndsAt ?? new Date(Date.UTC(billingStart.getUTCFullYear() + 1, billingStart.getUTCMonth(), billingStart.getUTCDate()));
   await db.update(professionalProfiles).set({
     subscriptionId: sub.id,
     subscriptionStatus: sub.status,
     stripeCustomerId: typeof sub.customer === "string" ? sub.customer : sub.customer.id,
     trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000) : null,
     currentPeriodEnd: end ? new Date(end * 1000) : null,
+    introEndsAt,
   }).where(eq(professionalProfiles.userId, userId));
 }
 

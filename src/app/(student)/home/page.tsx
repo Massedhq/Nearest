@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { asc, eq } from "drizzle-orm";
-import { db, categories } from "@/db";
+import { db, categories, searchLog } from "@/db";
 import { Icon } from "@/components/Icon";
 import { Tabs } from "@/components/Tabs";
 import { ProResult } from "@/components/ProResult";
@@ -40,6 +40,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
     db.select({ id: categories.id, name: categories.name }).from(categories).where(eq(categories.active, true)).orderBy(asc(categories.sort)),
     searchPros(f, area),
   ]);
+  if (f.q || f.cat || f.today || f.after || f.under || f.asl) {
+    const { q, area: _a, ...rest } = f;
+    void _a;
+    db.insert(searchLog).values({ studentId: user.id, query: q?.slice(0, 80) ?? null, filters: JSON.stringify(rest), cityId: area?.cityId ?? null, results: pros.length }).catch(() => {});
+  }
   const href = (patch: Partial<Filters>) => {
     const p = new URLSearchParams(Object.entries({ ...f, ...patch }).filter(([, v]) => v) as [string, string][]);
     const s = p.toString();

@@ -43,6 +43,7 @@ export async function confirmBooking(bookingId: string, charge?: { chargeId: str
     }
     if (spot.spotsTaken >= spot.spots) await db.update(modelCalls).set({ status: "full" }).where(eq(modelCalls.id, spot.id));
   }
+  try { await (await import("./notify")).notifyBooked(b); } catch (e) { console.error(e); }
   return b;
 }
 
@@ -96,6 +97,7 @@ export async function cancelByStudent(bookingId: string, studentId: string) {
       }
     }
   }
+  try { await (await import("./notify")).notifyCancelled(done, "student"); } catch (e) { console.error(e); }
   return { ok: early ? "Cancelled. The full amount is saved as credit with this professional." : "Cancelled. The deposit was forfeited; the rest is saved as credit with this professional.", credit: proPart + b.creditGeneralCents };
 }
 
@@ -106,6 +108,7 @@ export async function cancelAsProFault(bookingId: string, reason: string, proId?
   if (!b) return { error: "This appointment can't be cancelled." };
   if (total(b) > 0) await db.insert(credits).values({ studentId: b.studentId, proId: null, amountCents: total(b), reason: `${reason} (${bookingCode(b.number)})`, bookingId: b.id });
   if (heldSpot) await freeSpot(b); // a booking that never got a spot must not give one back
+  try { await (await import("./notify")).notifyCancelled(b, "pro"); } catch (e) { console.error(e); }
   return { ok: "Cancelled. The student received the full amount as Nearest credit." };
 }
 

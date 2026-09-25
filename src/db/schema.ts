@@ -167,6 +167,8 @@ export const professionalProfiles = pgTable("professional_profiles", {
   trialEndsAt: ts("trial_ends_at"),
   currentPeriodEnd: ts("current_period_end"),
   identitySessionId: text("identity_session_id"),
+  introEndsAt: ts("intro_ends_at"), // after this, Founding/early pricing steps up to standard
+  priceSteppedAt: ts("price_stepped_at"),
   // Phase 5: enforcement + partner attribution
   suspendedUntil: ts("suspended_until"),
   suspensionReason: text("suspension_reason"),
@@ -350,6 +352,9 @@ export const bookings = pgTable("bookings", {
   photoUrl: text("photo_url"),
   photoForPortfolio: boolean("photo_for_portfolio"),
   noShowAt: ts("no_show_at"),
+  // Phase 6: emails sent
+  remind24At: ts("remind_24_at"),
+  remind2At: ts("remind_2_at"),
   paidAt: ts("paid_at"),
   releasedAt: ts("released_at"),
   cancelledAt: ts("cancelled_at"),
@@ -449,3 +454,14 @@ export const partnerPayouts = pgTable("partner_payouts", {
   paidAt: ts("paid_at"),
   note: text("note"),
 }, (t) => [uniqueIndex("partner_payouts_partner_month").on(t.partnerId, t.month)]);
+
+// What students searched for — powers Marketing's "searched but didn't find".
+export const searchLog = pgTable("search_log", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  studentId: uuid("student_id").references(() => users.id, { onDelete: "set null" }),
+  query: text("query"),
+  filters: text("filters"),
+  cityId: integer("city_id"),
+  results: integer("results").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("search_log_created_idx").on(t.createdAt)]);

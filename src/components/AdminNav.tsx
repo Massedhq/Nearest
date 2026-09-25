@@ -33,6 +33,4 @@ export function AdminNav() {
 }
 
 export const SECTION_TITLES: Record<string, [string, string]> = {
-  coverage: ["DFW Coverage", "Phase 6"],
-  marketing: ["Marketing", "Phase 6"],
 };

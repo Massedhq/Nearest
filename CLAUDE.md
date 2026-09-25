@@ -54,6 +54,7 @@ Every admin write (invite, pause, refund, setting change, status switch) inserts
 - Phase 1 (foundation) is built. See `docs/PHASE-1.md`.
 - Phase 2 (professional side) is built. See `docs/PHASE-2.md`.
 - Phase 3A (student verification, search, model calls) is built. See `docs/PHASE-3A.md`.
+- Phase 6 (emails, reminders, 12-month price step-up, Coverage and Marketing dashboards) is built. See `docs/PHASE-6.md`, and `docs/LAUNCH.md` for go-live steps. All email goes through `src/lib/notify.ts`/`sendEmail()`, and a failed email must never block an action.
 - Phase 5 (enforcement, appeals, partner Sales Track, hourly cron) is built. See `docs/PHASE-5.md`. Never add a UNIQUE constraint to an existing table with rows: drizzle-kit push will prompt to truncate it. Enforce in code instead.
 - Phase 4 (appointment day: address unlock, 100-ft check-in, messaging, finish flow, reviews, no-shows, incidents) is built. See `docs/PHASE-4.md`. Rules live in `src/lib/appointment.ts`.
 - Phase 3B (booking, payments, membership, Stripe Identity, payouts) is built. See `docs/PHASE-3B.md`.

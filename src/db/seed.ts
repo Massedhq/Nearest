@@ -6,6 +6,7 @@ import { drizzle } from "drizzle-orm/neon-http";
 import { sql } from "drizzle-orm";
 import * as schema from "./schema";
 import { SETTINGS } from "../lib/settings-defaults";
+import { DFW_CITIES } from "./dfw-cities";
 
 const db = drizzle({ client: neon(process.env.DATABASE_URL!), schema });
 const { counties, cities, cityCounties, platformSettings, categories, catalogServices, schools } = schema;
@@ -59,10 +60,22 @@ const SCHOOLS: { city: string; type: "high_school" | "college" | "trade"; names:
 async function main() {
   await db.insert(counties).values(COUNTIES.map((name) => ({ name }))).onConflictDoNothing();
   await db.insert(cities).values(CITIES.map((c) => ({ name: c.name, abbreviation: c.abbr }))).onConflictDoNothing();
+  // Full DFW starter list: generate a unique 3-letter code for each new city (used in invite codes).
+  const have = await db.select().from(cities);
+  const usedAbbr = new Set(have.map((c) => c.abbreviation));
+  for (const c of DFW_CITIES) {
+    if (have.some((h) => h.name === c.name)) continue;
+    const letters = c.name.toUpperCase().replace(/[^A-Z]/g, "");
+    let abbr = (letters[0] + (letters.slice(1).replace(/[AEIOU]/g, "") + letters.slice(1)).slice(0, 2)).padEnd(3, "X");
+    for (let i = 0; usedAbbr.has(abbr); i++) abbr = letters.slice(0, 2) + String.fromCharCode(65 + (i % 26));
+    usedAbbr.add(abbr);
+    await db.insert(cities).values({ name: c.name, abbreviation: abbr }).onConflictDoNothing();
+  }
 
   const countyRows = await db.select().from(counties);
   const cityRows = await db.select().from(cities);
-  const links = CITIES.flatMap((c) => {
+  const allCities = [...CITIES, ...DFW_CITIES.map((c) => ({ ...c, abbr: "" }))];
+  const links = allCities.flatMap((c) => {
     const city = cityRows.find((r) => r.name === c.name)!;
     return c.counties.map((n) => ({ cityId: city.id, countyId: countyRows.find((r) => r.name === n)!.id }));
   });
@@ -93,7 +106,7 @@ async function main() {
     .onConflictDoNothing();
 
   const [{ n }] = await db.execute<{ n: number }>(sql`select count(*)::int as n from platform_settings`).then((r) => r.rows as { n: number }[]);
-  console.log(`Seeded ${COUNTIES.length} counties, ${CITIES.length} cities, ${CATEGORIES.length} categories, ${schoolValues.length} schools, ${n} settings.`);
+  console.log(`Seeded ${COUNTIES.length} counties, ${cityRows.length} cities, ${CATEGORIES.length} categories, ${schoolValues.length} schools, ${n} settings.`);
 }
 
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });

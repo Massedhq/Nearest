@@ -1,6 +1,7 @@
 import "server-only";
 import { and, eq, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { db, studentProfiles, professionalProfiles, fines, incidents, bookings } from "@/db";
+import { gt, isNull, lte } from "drizzle-orm";
 import { getSettings } from "./settings";
 import { releasePayment } from "./bookings";
 
@@ -105,4 +106,49 @@ export async function confirmFinePayment(sessionId: string) {
   const fineId = session.metadata?.fineId;
   if (!fineId || session.payment_status !== "paid") return;
   await db.update(fines).set({ status: "paid", paidAt: new Date() }).where(and(eq(fines.id, fineId), eq(fines.status, "outstanding")));
+}
+
+/** Reminder emails: ~24 hours and ~2 hours before (the check runs every 15 minutes). Each is sent once. */
+export async function sendReminders() {
+  const { notifyReminder } = await import("./notify");
+  const now = Date.now();
+  let sent = 0;
+  const due24 = await db.select().from(bookings).where(and(eq(bookings.status, "confirmed"), isNull(bookings.remind24At), gt(bookings.startsAt, new Date(now + 3 * 3600000)), lte(bookings.startsAt, new Date(now + 24 * 3600000))));
+  for (const b of due24) {
+    const [claimed] = await db.update(bookings).set({ remind24At: new Date() }).where(and(eq(bookings.id, b.id), isNull(bookings.remind24At))).returning();
+    if (claimed && b.createdAt.getTime() < now - 3600000) { await notifyReminder(b, 24); sent++; } // skip for bookings made in the last hour
+  }
+  const due2 = await db.select().from(bookings).where(and(eq(bookings.status, "confirmed"), isNull(bookings.remind2At), gt(bookings.startsAt, new Date(now)), lte(bookings.startsAt, new Date(now + 2 * 3600000))));
+  for (const b of due2) {
+    const [claimed] = await db.update(bookings).set({ remind2At: new Date() }).where(and(eq(bookings.id, b.id), isNull(bookings.remind2At))).returning();
+    if (claimed && b.createdAt.getTime() < now - 30 * 60000) { await notifyReminder(b, 2); sent++; }
+  }
+  return sent;
+}
+
+/** After the 12-month intro, Founding ($10) and early ($20) memberships move to the standard price. */
+export async function stepUpPrices() {
+  const { stripe, stripeEnabled, priceFor } = await import("./stripe");
+  if (!stripeEnabled()) return 0;
+  const due = await db.select().from(professionalProfiles).where(and(
+    lte(professionalProfiles.introEndsAt, new Date()), isNull(professionalProfiles.priceSteppedAt), isNotNull(professionalProfiles.subscriptionId),
+    inArray(professionalProfiles.cohort, ["FOUNDING", "SECOND"]),
+  ));
+  let n = 0;
+  for (const p of due) {
+    try {
+      const sub = await stripe().subscriptions.retrieve(p.subscriptionId!);
+      if (!["active", "trialing", "past_due"].includes(sub.status)) continue;
+      const standard = await priceFor("STANDARD");
+      const item = sub.items.data[0];
+      if (item.price.id !== standard) {
+        await stripe().subscriptions.update(sub.id, { items: [{ id: item.id, price: standard }], proration_behavior: "none", metadata: { steppedUp: "1" } });
+      }
+      await db.update(professionalProfiles).set({ priceSteppedAt: new Date() }).where(eq(professionalProfiles.userId, p.userId));
+      n++;
+    } catch (e) {
+      console.error("Price step-up failed", p.userId, e);
+    }
+  }
+  return n;
 }

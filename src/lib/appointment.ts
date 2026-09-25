@@ -51,6 +51,7 @@ export async function startService(b: Booking) {
 export async function finishService(b: Booking) {
   if (b.status !== "confirmed" || b.finishedAt) return;
   await db.update(bookings).set({ finishedAt: new Date(), startedAt: b.startedAt ?? new Date() }).where(eq(bookings.id, b.id));
+  try { await (await import("./notify")).notifyFinished(b); } catch (e) { console.error(e); }
 }
 
 /** Pro marks a no-show after the grace period when the student never checked in: deposit goes to the pro, the rest becomes credit with that pro. */
