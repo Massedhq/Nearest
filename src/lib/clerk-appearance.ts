@@ -25,5 +25,12 @@ export const clerkLightAppearance = {
 // Admin sign-in: same cream box, but no "Sign up" link. Owner logins are created in the Clerk dashboard.
 export const clerkNoSignUpAppearance = {
   ...clerkLightAppearance,
-  elements: { ...clerkLightAppearance.elements, footerAction: { display: "none" } },
+  // Owners sign in with email only — no Apple, Facebook or Google buttons (and the "or" divider under them).
+  elements: {
+    ...clerkLightAppearance.elements,
+    footerAction: { display: "none" },
+    socialButtonsRoot: { display: "none" },
+    socialButtons: { display: "none" },
+    dividerRow: { display: "none" },
+  },
 };
