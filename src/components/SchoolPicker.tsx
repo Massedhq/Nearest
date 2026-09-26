@@ -1,39 +1,60 @@
 "use client";
-import { useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Icon } from "./Icon";
-
-export type SchoolOption = { id: number; name: string; city: string; cityId: number; type: string };
-type Place = { id: number; name: string };
-type County = Place & { state?: string };
 import { US_STATES } from "@/lib/markets";
+
+type Opt = { id: number; name: string };
+type School = { id: number; name: string; type: string };
+export type InitialSchool = { id: number; name: string; type: string; cityId: number; city: string; countyId: number | null; county: string | null; state: string } | null;
+
 const TYPE: Record<string, string> = { high_school: "High school", college: "College", trade: "Trade school" };
 const norm = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
 /** "University of Texas at Arlington" -> "uta", so students can type UTA, UT Arlington or UNT. */
 const initials = (name: string) => norm(name).split(" ").filter((w) => !["of", "at", "the", "and"].includes(w)).map((w) => w[0]).join("");
+const stateName = (st: string) => US_STATES.find(([a]) => a === st)?.[1] ?? st;
 
-/** County → City → type to search the schools in that city. */
-export function SchoolPicker({ schools, counties: allCounties, cities, links, initialId }: {
-  schools: SchoolOption[]; counties: County[]; cities: Place[]; links: { cityId: number; countyId: number }[]; initialId?: number | null;
-}) {
-  const initial = schools.find((s) => s.id === initialId) ?? null;
-  const states = [...new Set(allCounties.map((c) => c.state ?? "TX"))].sort();
-  const initialCounty = initial ? allCounties.find((c) => links.some((l) => l.cityId === initial.cityId && l.countyId === c.id)) : undefined;
-  const [st, setSt] = useState<string>(initialCounty?.state ?? (states.length === 1 ? states[0] : ""));
-  const counties = allCounties.filter((c) => (c.state ?? "TX") === st);
-  const [countyId, setCountyId] = useState<number | "">(() => (initial ? links.find((l) => l.cityId === initial.cityId)?.countyId ?? "" : ""));
+async function get<T>(q: string): Promise<T> {
+  const r = await fetch(`/api/places?${q}`);
+  return r.ok ? r.json() : ([] as unknown as T);
+}
+
+/** State → County → City → type the school. Each list loads from the server only when needed. */
+export function SchoolPicker({ initial }: { initial: InitialSchool }) {
+  const listId = useId();
+  const input = useRef<HTMLInputElement>(null);
+  const [states, setStates] = useState<string[]>([]);
+  const [st, setSt] = useState(initial?.state ?? "");
+  const [counties, setCounties] = useState<Opt[]>([]);
+  const [countyId, setCountyId] = useState<number | "">(initial?.countyId ?? "");
+  const [cities, setCities] = useState<Opt[]>([]);
   const [cityId, setCityId] = useState<number | "">(initial?.cityId ?? "");
-  const [selected, setSelected] = useState<SchoolOption | null>(initial);
+  const [inCity, setInCity] = useState<School[]>([]);
+  const [selected, setSelected] = useState<{ id: number; name: string; type: string } | null>(initial ? { id: initial.id, name: initial.name, type: initial.type } : null);
+  const [loading, setLoading] = useState("");
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
-  const input = useRef<HTMLInputElement>(null);
-  const listId = useId();
 
-  const citiesInCounty = useMemo(
-    () => (countyId === "" ? [] : cities.filter((c) => links.some((l) => l.cityId === c.id && l.countyId === countyId))),
-    [countyId, cities, links],
-  );
-  const inCity = useMemo(() => (cityId === "" ? [] : schools.filter((s) => s.cityId === cityId)), [cityId, schools]);
+  useEffect(() => {
+    get<string[]>("list=states").then((s) => { setStates(s); if (!st && s.length === 1) setSt(s[0]); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (!st) { setCounties([]); return; }
+    setLoading("counties");
+    get<Opt[]>(`list=counties&state=${st}`).then((c) => { setCounties(c); setLoading(""); });
+  }, [st]);
+  useEffect(() => {
+    if (countyId === "") { setCities([]); return; }
+    setLoading("cities");
+    get<Opt[]>(`list=cities&county=${countyId}`).then((c) => { setCities(c); setLoading(""); });
+  }, [countyId]);
+  useEffect(() => {
+    if (cityId === "") { setInCity([]); return; }
+    setLoading("schools");
+    get<School[]>(`list=schools&city=${cityId}`).then((s) => { setInCity(s); setLoading(""); });
+  }, [cityId]);
+
   const matches = useMemo(() => {
     const words = norm(q).split(" ").filter(Boolean);
     return inCity
@@ -42,7 +63,9 @@ export function SchoolPicker({ schools, counties: allCounties, cities, links, in
       .slice(0, 8);
   }, [q, inCity]);
 
-  const choose = (s: SchoolOption) => { setSelected(s); setQ(""); setOpen(false); };
+  const choose = (s: School) => { setSelected(s); setQ(""); setOpen(false); };
+  const countyName = counties.find((c) => c.id === countyId)?.name ?? initial?.county ?? "";
+  const cityName = cities.find((c) => c.id === cityId)?.name ?? initial?.city ?? "";
 
   return (
     <div className="col g16">
@@ -51,7 +74,7 @@ export function SchoolPicker({ schools, counties: allCounties, cities, links, in
           <label htmlFor={`${listId}-state`}>State</label>
           <select id={`${listId}-state`} value={st} required onChange={(e) => { setSt(e.target.value); setCountyId(""); setCityId(""); setSelected(null); setQ(""); }}>
             <option value="" disabled>Choose state</option>
-            {states.map((x) => <option key={x} value={x}>{US_STATES.find(([a]) => a === x)?.[1] ?? x}</option>)}
+            {states.map((x) => <option key={x} value={x}>{stateName(x)}</option>)}
           </select>
         </div>
       )}
@@ -59,15 +82,17 @@ export function SchoolPicker({ schools, counties: allCounties, cities, links, in
         <div className="field">
           <label htmlFor={`${listId}-county`}>County</label>
           <select id={`${listId}-county`} value={countyId} required disabled={!st} onChange={(e) => { setCountyId(e.target.value ? Number(e.target.value) : ""); setCityId(""); setSelected(null); setQ(""); }}>
-            <option value="" disabled>{st ? "Choose county" : "Pick state first"}</option>
+            <option value="" disabled>{!st ? "Pick state first" : loading === "counties" ? "Loading…" : "Choose county"}</option>
             {counties.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {countyId !== "" && !counties.some((c) => c.id === countyId) && initial?.county && <option value={countyId}>{initial.county}</option>}
           </select>
         </div>
         <div className="field">
           <label htmlFor={`${listId}-city`}>City</label>
           <select id={`${listId}-city`} value={cityId} required disabled={countyId === ""} onChange={(e) => { setCityId(e.target.value ? Number(e.target.value) : ""); setSelected(null); setQ(""); setTimeout(() => input.current?.focus(), 0); }}>
-            <option value="" disabled>{countyId === "" ? "Pick county first" : "Choose city"}</option>
-            {citiesInCounty.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            <option value="" disabled>{countyId === "" ? "Pick county first" : loading === "cities" ? "Loading…" : "Choose city"}</option>
+            {cities.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {cityId !== "" && !cities.some((c) => c.id === cityId) && initial?.city && <option value={cityId}>{initial.city}</option>}
           </select>
         </div>
       </div>
@@ -75,10 +100,10 @@ export function SchoolPicker({ schools, counties: allCounties, cities, links, in
       {selected ? (
         <div className="card pearl" style={{ gap: 8 }}>
           <input type="hidden" name="schoolId" value={selected.id} />
-          <div className="row between"><span className="eyebrow">Selected</span><button type="button" className="link small" style={{ color: "#0A0A0A" }} onClick={() => { setSelected(null); setTimeout(() => input.current?.focus(), 0); }}>Change</button></div>
+          <div className="row between"><span className="eyebrow">Selected</span><button type="button" className="link small" onClick={() => { setSelected(null); setTimeout(() => input.current?.focus(), 0); }}>Change</button></div>
           <div className="row between"><span>School</span><span className="b" style={{ textAlign: "right" }}>{selected.name}</span></div>
-          <div className="row between"><span>City</span><span className="b">{selected.city}</span></div>
-          <div className="row between"><span>County</span><span className="b">{counties.find((c) => c.id === countyId)?.name ?? ""}</span></div>
+          <div className="row between"><span>City</span><span className="b">{cityName}</span></div>
+          <div className="row between"><span>County</span><span className="b">{countyName}</span></div>
         </div>
       ) : (
         <div className="field" style={{ position: "relative" }}>
@@ -95,7 +120,7 @@ export function SchoolPicker({ schools, counties: allCounties, cities, links, in
               aria-activedescendant={open && matches[active] ? `${listId}-${matches[active].id}` : undefined}
               autoComplete="off"
               disabled={cityId === ""}
-              placeholder={cityId === "" ? "Pick your county and city first" : "Type your school's name"}
+              placeholder={cityId === "" ? "Pick your county and city first" : loading === "schools" ? "Loading schools…" : "Type your school's name"}
               value={q}
               onChange={(e) => { setQ(e.target.value); setOpen(true); setActive(0); }}
               onFocus={() => setOpen(true)}
@@ -111,22 +136,14 @@ export function SchoolPicker({ schools, counties: allCounties, cities, links, in
           {open && matches.length > 0 && (
             <ul id={listId} role="listbox" className="card" style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 20, margin: "6px 0 0", padding: 6, gap: 0, listStyle: "none", maxHeight: 320, overflowY: "auto" }}>
               {matches.map((s, i) => (
-                <li
-                  key={s.id}
-                  id={`${listId}-${s.id}`}
-                  role="option"
-                  aria-selected={i === active}
-                  onMouseDown={(e) => { e.preventDefault(); choose(s); }}
-                  onMouseEnter={() => setActive(i)}
-                  className={`opt${i === active ? " active" : ""}`}
-                >
+                <li key={s.id} id={`${listId}-${s.id}`} role="option" aria-selected={i === active} onMouseDown={(e) => { e.preventDefault(); choose(s); }} onMouseEnter={() => setActive(i)} className={`opt${i === active ? " active" : ""}`}>
                   <div className="b small">{s.name}</div>
-                  <div className="xs muted">{s.city} • {counties.find((c) => c.id === countyId)?.name} County • {TYPE[s.type]}</div>
+                  <div className="xs muted">{cityName}{countyName ? ` • ${countyName} County` : ""} • {TYPE[s.type]}</div>
                 </li>
               ))}
             </ul>
           )}
-          {cityId !== "" && (inCity.length === 0 || (q.trim().length >= 3 && matches.length === 0)) && (
+          {cityId !== "" && loading !== "schools" && (inCity.length === 0 || (q.trim().length >= 3 && matches.length === 0)) && (
             <p className="xs muted p">{inCity.length === 0 ? "No schools listed in this city yet." : `No school in this city matches “${q.trim()}”.`} Use <span className="b">Can&apos;t find my school?</span> below.</p>
           )}
         </div>

@@ -30,5 +30,7 @@ if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -
 Write-Host ""
 Write-Host "Everything is up to date and builds cleanly." -ForegroundColor Green
 Write-Host ""
+Write-Host "To load every school:  npm run schools:import -- --state TX   (then: npm run schools:import  for all states)" -ForegroundColor Yellow
+Write-Host ""
 $go = Read-Host "Start the app now? (Y/n)"
 if ($go -ne "n" -and $go -ne "N") { npm run dev }

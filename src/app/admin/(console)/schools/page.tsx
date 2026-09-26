@@ -1,4 +1,6 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, sql } from "drizzle-orm";
+import Link from "next/link";
+import { US_STATES } from "@/lib/markets";
 import { db, schools, cities, schoolRequests, users } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
 import { ActionForm } from "@/components/ActionForm";
@@ -24,10 +26,18 @@ function SchoolFields({ name = "", type = "high_school", requestId, city = "" }:
   );
 }
 
-export default async function Schools() {
+export default async function Schools({ searchParams }: { searchParams: Promise<{ q?: string; state?: string; page?: string }> }) {
   await requireAdmin();
-  const [list, requests] = await Promise.all([
-    db.select({ s: schools, city: cities.name, state: cities.state }).from(schools).innerJoin(cities, eq(cities.id, schools.cityId)).orderBy(asc(cities.state), asc(cities.name), asc(schools.name)),
+  const sp = await searchParams;
+  const q = (sp.q ?? "").trim().slice(0, 80);
+  const st = (sp.state ?? "").toUpperCase().slice(0, 2);
+  const page = Math.max(1, Number(sp.page) || 1);
+  const PER = 100;
+  const where = and(st ? eq(cities.state, st) : undefined, q ? sql`(${schools.name} ilike ${`%${q}%`} or ${cities.name} ilike ${`%${q}%`})` : undefined);
+  void ilike;
+  const [[{ total }], list, requests] = await Promise.all([
+    db.select({ total: sql<number>`count(*)::int` }).from(schools).innerJoin(cities, eq(cities.id, schools.cityId)).where(where),
+    db.select({ s: schools, city: cities.name, state: cities.state }).from(schools).innerJoin(cities, eq(cities.id, schools.cityId)).where(where).orderBy(asc(cities.state), asc(cities.name), asc(schools.name)).limit(PER).offset((page - 1) * PER),
     db
       .select({ r: schoolRequests, first: users.firstName, last: users.lastName })
       .from(schoolRequests)
@@ -37,7 +47,7 @@ export default async function Schools() {
   ]);
   return (
     <>
-      <AdminHead eyebrow={`${list.length} schools • ${requests.length} request${requests.length === 1 ? "" : "s"}`} title="Schools" />
+      <AdminHead eyebrow={`${total.toLocaleString()} schools${q || st ? " match" : ""} • ${requests.length} request${requests.length === 1 ? "" : "s"}`} title="Schools" />
       {requests.length > 0 && (
         <div className="card" style={{ gap: 14 }}>
           <span className="eyebrow">Students asked for these schools</span>
@@ -56,7 +66,15 @@ export default async function Schools() {
         </div>
       )}
       <div className="acols">
-        <div className="card" style={{ overflowX: "auto" }}>
+        <div className="card" style={{ overflowX: "auto", gap: 12 }}>
+          <form action="/admin/schools" className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+            <div className="search" style={{ flex: "1 1 240px", height: 44 }}><input name="q" defaultValue={q} placeholder="Search schools or cities" aria-label="Search schools or cities" /></div>
+            <select name="state" defaultValue={st} aria-label="State" style={{ width: 170 }}>
+              <option value="">All states</option>
+              {US_STATES.map(([a, n]) => <option key={a} value={a}>{n}</option>)}
+            </select>
+            <button className="btn ghost sm" type="submit">Search</button>
+          </form>
           <table className="tbl">
             <thead><tr><th>School</th><th>Type</th><th>City</th><th>State</th><th>Active</th></tr></thead>
             <tbody>
@@ -68,6 +86,13 @@ export default async function Schools() {
               ))}
             </tbody>
           </table>
+          <div className="row between small">
+            <span className="muted">Showing {total ? (page - 1) * PER + 1 : 0}–{Math.min(page * PER, total)} of {total.toLocaleString()}</span>
+            <div className="row" style={{ gap: 8 }}>
+              {page > 1 && <Link className="chip" href={`/admin/schools?${new URLSearchParams({ ...(q ? { q } : {}), ...(st ? { state: st } : {}), page: String(page - 1) })}`}>Previous</Link>}
+              {page * PER < total && <Link className="chip" href={`/admin/schools?${new URLSearchParams({ ...(q ? { q } : {}), ...(st ? { state: st } : {}), page: String(page + 1) })}`}>Next</Link>}
+            </div>
+          </div>
         </div>
         <div className="card">
           <span className="eyebrow">+ Add school</span>

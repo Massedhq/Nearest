@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { asc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db, schools, cities, counties, cityCounties } from "@/db";
 import { requireStudent } from "@/lib/student";
 import { TopBar } from "@/components/TopBar";
@@ -15,22 +15,17 @@ export default async function VerifySchool({ searchParams }: { searchParams: Pro
   const { renew } = await searchParams;
   const { profile } = await requireStudent();
   if (profile.verificationStatus === "verified") redirect("/home");
-  const [rows, countyList, cityList, links] = await Promise.all([
-    db
-      .select({ id: schools.id, name: schools.name, type: schools.type, city: cities.name, cityId: schools.cityId })
-      .from(schools)
-      .innerJoin(cities, eq(cities.id, schools.cityId))
-      .where(eq(schools.active, true))
-      .orderBy(asc(schools.name)),
-    db.select({ id: counties.id, name: counties.name, state: counties.state }).from(counties).orderBy(asc(counties.name)),
-    db.select({ id: cities.id, name: cities.name }).from(cities).where(eq(cities.active, true)).orderBy(asc(cities.name)),
-    db.select().from(cityCounties),
-  ]);
-  // Only offer places that actually have schools, so the lists stay short as Nearest grows into new states.
-  const citiesWithSchools = new Set(rows.map((r) => r.cityId));
-  const usedLinks = links.filter((l) => citiesWithSchools.has(l.cityId));
-  const usedCounties = countyList.filter((c) => usedLinks.some((l) => l.countyId === c.id));
-  const usedCities = cityList.filter((c) => citiesWithSchools.has(c.id));
+  // Only the student's current school is loaded here; the picker loads places step by step.
+  const initial = profile.schoolId
+    ? (await db
+        .select({ id: schools.id, name: schools.name, type: schools.type, cityId: cities.id, city: cities.name, state: cities.state, countyId: counties.id, county: counties.name })
+        .from(schools)
+        .innerJoin(cities, eq(cities.id, schools.cityId))
+        .leftJoin(cityCounties, eq(cityCounties.cityId, cities.id))
+        .leftJoin(counties, eq(counties.id, cityCounties.countyId))
+        .where(eq(schools.id, profile.schoolId))
+        .limit(1))[0] ?? null
+    : null;
   return (
     <div className="scr">
       <TopBar />
@@ -40,7 +35,7 @@ export default async function VerifySchool({ searchParams }: { searchParams: Pro
         <h1 className="disp h1">Where do you go to school?</h1>
         <p className="muted small p">Nearest is only for verified students in participating areas.</p>
         <ActionForm action={saveSchool} submitLabel="Continue">
-          <SchoolPicker schools={rows} counties={usedCounties} cities={usedCities} links={usedLinks} initialId={profile.schoolId} />
+          <SchoolPicker initial={initial} />
           <GradYears value={profile.graduationYear} />
         </ActionForm>
         <details className="card">
