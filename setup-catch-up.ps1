@@ -13,7 +13,7 @@ Get-Content .\.env.local | Where-Object { $_ -match "^(OWNER_EMAILS|MAIN_OWNER_E
 Step "1/4  Installing packages"
 npm ci
 Check "Installing packages"
-Step "2/4  Updating Neon (adds favorites, notifications and guardian consent - nothing is removed)"
+Step "2/4  Updating Neon (adds favorites, notifications, guardian consent and partner payout details - nothing is removed)"
 npx drizzle-kit push
 Check "Updating the database"
 Step "3/4  Production build"
@@ -21,7 +21,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Catch-up: Phase 7, Massed footer, birthday field, Terms/Privacy, favorite counts, owner access fix, owner restore, admin tools"
+git commit -q -m "Catch-up: Phase 7, Massed footer, birthday field, Terms/Privacy, favorite counts, owner access fix, owner restore, admin tools, labeled Sign out"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

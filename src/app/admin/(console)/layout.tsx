@@ -19,11 +19,19 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </div>
         <AdminNav />
         <div style={{ flex: 1 }} />
-        {user.accountType === "professional" && <Link className="nav" href="/workspace"><Icon name="switch" />Switch workspace</Link>}
-        <div className="row" style={{ padding: "12px 8px 0", borderTop: "1px solid #1C1C1F", marginTop: 8 }}>
-          <div className="avatar sm">{initials(user) || "N"}</div>
-          <div className="col g4 grow"><span className="small b">{displayName(user) || user.email}</span><span className="xs muted">{role}</span></div>
-          <SignOutButton redirectUrl="/admin/sign-in"><button className="iconbtn" type="button" aria-label="Sign out" style={{ width: 36, height: 36 }}><Icon name="back" size="s" /></button></SignOutButton>
+        <div style={{ position: "sticky", bottom: -22, background: "#050506", paddingBottom: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+          <Link className="nav" href="/workspace"><Icon name="switch" />Switch workspace</Link>
+          <div className="col" style={{ padding: "12px 8px 0", borderTop: "1px solid #1C1C1F", gap: 10 }}>
+            <Link className="row" href="/admin/profile" style={{ textDecoration: "none", color: "inherit" }} aria-label="My profile">
+              <div className="avatar sm">{initials(user) || "N"}</div>
+              <div className="col g4 grow" style={{ minWidth: 0 }}>
+                <span className="small b">{displayName(user) || user.email}</span>
+                <span className="xs muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={user.email ?? ""}>{user.email}</span>
+                <span className="xs muted">{role === "OWNER" ? "Owner" : role} • <span className="link xs">My profile</span></span>
+              </div>
+            </Link>
+            <SignOutButton redirectUrl="/admin/sign-in"><button className="btn ghost sm" type="button" style={{ width: "100%" }}>Sign out</button></SignOutButton>
+          </div>
         </div>
       </aside>
       <main className="main">{children}</main>

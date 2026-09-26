@@ -97,17 +97,44 @@ export async function syncPayments(_: FormState, form: FormData): Promise<FormSt
   }
 }
 
-export async function approvePayout(form: FormData) {
+const toCents = (v: FormDataEntryValue | null) => {
+  const n = Number(String(v ?? "").replace(/[$,\s]/g, ""));
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) : null;
+};
+
+/** Approve a partner's payout for a month. The amount starts at what they earned and can be adjusted (with a reason). */
+export async function approvePayout(_: FormState, form: FormData): Promise<FormState> {
   const { user } = await requireMain();
   const month = String(form.get("month"));
   const partnerId = String(form.get("partnerId"));
-  if (!/^\d{4}-\d{2}$/.test(month)) return;
+  if (!/^\d{4}-\d{2}$/.test(month)) return { error: "Bad month." };
   const e = await earningsFor(month);
   const row = e.perPartner.find((p) => p.userId === partnerId);
-  if (!row || row.totalCents <= 0) return;
-  await db.insert(partnerPayouts).values({ partnerId, month, amountCents: row.totalCents, approvedBy: user.id }).onConflictDoNothing();
-  await logActivity({ actorUserId: user.id, action: "partner.payout_approved", targetType: "partner", targetId: row.name, after: { month, cents: row.totalCents } });
+  if (!row) return { error: "Partner not found." };
+  const cents = toCents(form.get("amount"));
+  if (cents === null) return { error: "Enter a dollar amount." };
+  const reason = String(form.get("reason") ?? "").trim().slice(0, 200);
+  if (cents !== row.totalCents && !reason) return { error: `Earned amount is $${(row.totalCents / 100).toFixed(2)}. Add a reason for the different amount.` };
+  const [p] = await db.insert(partnerPayouts).values({ partnerId, month, amountCents: cents, approvedBy: user.id, note: reason || null }).onConflictDoNothing().returning();
+  if (!p) return { error: "Already approved for this month — use Change amount." };
+  await logActivity({ actorUserId: user.id, action: "partner.payout_approved", targetType: "partner", targetId: row.name, after: { month, cents, earned: row.totalCents, reason: reason || undefined } });
   revalidatePath("/admin/sales");
+  return { ok: `Approved $${(cents / 100).toFixed(2)} for ${row.name}.` };
+}
+
+/** Change the amount of an approved payout that hasn't been sent yet. */
+export async function changePayoutAmount(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireMain();
+  const cents = toCents(form.get("amount"));
+  const reason = String(form.get("reason") ?? "").trim().slice(0, 200);
+  if (cents === null) return { error: "Enter a dollar amount." };
+  if (!reason) return { error: "Add a reason for the change." };
+  const before = await db.query.partnerPayouts.findFirst({ where: and(eq(partnerPayouts.id, String(form.get("id"))), eq(partnerPayouts.status, "approved")) });
+  if (!before) return { error: "Only approved payouts that haven't been sent can be changed." };
+  await db.update(partnerPayouts).set({ amountCents: cents, note: reason }).where(eq(partnerPayouts.id, before.id));
+  await logActivity({ actorUserId: user.id, action: "partner.payout_changed", targetType: "partner", targetId: await nameOf(before.partnerId), before: before.amountCents, after: { cents, reason } });
+  revalidatePath("/admin/sales");
+  return { ok: `Changed to $${(cents / 100).toFixed(2)}.` };
 }
 
 export async function markPayoutPaid(form: FormData) {

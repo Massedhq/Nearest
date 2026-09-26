@@ -279,6 +279,10 @@ export const adminMembers = pgTable("admin_members", {
   userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
   role: adminRole("role").notNull(),
   partnerCode: text("partner_code"), // unique per partner; enforced in src/lib/partner.ts (no DB constraint so upgrades never prompt)
+  // Where this partner wants Sales Track payouts sent (entered by the partner in My profile).
+  payoutMethod: text("payout_method"), // "Zelle" | "Cash App" | "PayPal" | "Venmo" | "Bank transfer" | "Check" | "Other"
+  payoutHandle: text("payout_handle"),
+  payoutNote: text("payout_note"),
   active: boolean("active").notNull().default(true),
   createdAt: ts("created_at").notNull().defaultNow(),
 });

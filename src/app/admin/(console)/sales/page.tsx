@@ -8,7 +8,8 @@ import { requireAdmin } from "@/lib/admin";
 import { getSettings } from "@/lib/settings";
 import { earningsFor, mainOwnerId, partners, payoutsFor } from "@/lib/partner";
 import { chicagoNow, money } from "@/lib/time";
-import { approvePayout, markPayoutPaid, syncPayments } from "@/app/admin/enforce-actions";
+import { approvePayout, changePayoutAmount, markPayoutPaid, syncPayments } from "@/app/admin/enforce-actions";
+import Link from "next/link";
 
 export const metadata = { title: "Sales Track" };
 
@@ -60,20 +61,52 @@ export default async function Sales({ searchParams }: { searchParams: Promise<{ 
       </div>
 
       <div className="card" style={{ gap: 12, overflowX: "auto" }}>
-        <span className="eyebrow">{isMain ? "Partner earnings" : "Your earnings"}</span>
+        <span className="eyebrow">{isMain ? "Partner earnings & payouts" : "Your earnings"}</span>
         <table className="tbl">
-          <thead><tr><th>Partner</th><th>Code</th><th>Pool share</th><th>From your code</th><th>Pros on code</th><th>Total</th><th>Payout</th>{isMain && <th />}</tr></thead>
+          <thead><tr><th>Partner</th><th>Code</th><th>Pool share</th><th>From code</th><th>Earned</th><th>Payout</th>{isMain && <th>Send to</th>}{isMain && <th />}</tr></thead>
           <tbody>
             {rows.map((r) => {
               const p = payouts.find((x) => x.partnerId === r.userId);
+              const partner = list.find((x) => x.userId === r.userId);
               return (
-                <tr key={r.userId}>
-                  <td>{r.name}</td><td className="num">{r.code}</td><td>{money(r.poolShareCents)}</td><td>{money(r.codeCents)}</td><td>{r.codePros}</td><td className="b">{money(r.totalCents)}</td>
-                  <td>{p ? <span className={`tag ${p.status === "paid" ? "ok" : "warn"}`}>{p.status === "paid" ? "Paid" : "Approved"} {money(p.amountCents)}</span> : <span className="tag">Not approved</span>}</td>
+                <tr key={r.userId} style={{ verticalAlign: "top" }}>
+                  <td>{r.name}</td><td className="num">{r.code}</td><td>{money(r.poolShareCents)}</td><td>{money(r.codeCents)} <span className="xs muted">({r.codePros})</span></td><td className="b">{money(r.totalCents)}</td>
+                  <td>
+                    {p ? <span className={`tag ${p.status === "paid" ? "ok" : "warn"}`}>{p.status === "paid" ? "Paid" : "Approved"} {money(p.amountCents)}</span> : <span className="tag">Not approved</span>}
+                    {p?.note && <div className="xs muted" style={{ marginTop: 4 }}>{p.note}</div>}
+                  </td>
                   {isMain && (
-                    <td>
-                      {!p && r.totalCents > 0 && <form action={approvePayout}><input type="hidden" name="month" value={month} /><input type="hidden" name="partnerId" value={r.userId} /><button className="btn sm" type="submit">Approve</button></form>}
-                      {p?.status === "approved" && <form action={markPayoutPaid}><input type="hidden" name="id" value={p.id} /><button className="btn ghost sm" type="submit">Mark paid</button></form>}
+                    <td className="small">
+                      {partner?.payoutMethod ? <><div className="b">{partner.payoutMethod}</div><div>{partner.payoutHandle}</div>{partner.payoutNote && <div className="xs muted">{partner.payoutNote}</div>}</> : <span className="tag warn">Not added yet</span>}
+                    </td>
+                  )}
+                  {isMain && (
+                    <td style={{ minWidth: 220 }}>
+                      {!p && (
+                        <details><summary className="btn sm" style={{ listStyle: "none", display: "inline-flex" }}>Approve</summary>
+                          <div style={{ marginTop: 8 }}>
+                            <ActionForm action={approvePayout} submitLabel="Approve payout" buttonClass="btn sm">
+                              <input type="hidden" name="month" value={month} /><input type="hidden" name="partnerId" value={r.userId} />
+                              <div className="field"><label htmlFor={`a_${r.userId}`}>Amount ($)</label><input id={`a_${r.userId}`} name="amount" inputMode="decimal" defaultValue={(r.totalCents / 100).toFixed(2)} /></div>
+                              <div className="field"><label htmlFor={`r_${r.userId}`}>Reason if different</label><input id={`r_${r.userId}`} name="reason" placeholder="Optional" /></div>
+                            </ActionForm>
+                          </div>
+                        </details>
+                      )}
+                      {p?.status === "approved" && (
+                        <div className="col" style={{ gap: 6 }}>
+                          <form action={markPayoutPaid}><input type="hidden" name="id" value={p.id} /><button className="btn sm" type="submit">Mark paid</button></form>
+                          <details><summary className="link small" style={{ cursor: "pointer" }}>Change amount</summary>
+                            <div style={{ marginTop: 8 }}>
+                              <ActionForm action={changePayoutAmount} submitLabel="Save amount" buttonClass="btn ghost sm">
+                                <input type="hidden" name="id" value={p.id} />
+                                <div className="field"><label htmlFor={`c_${p.id}`}>Amount ($)</label><input id={`c_${p.id}`} name="amount" inputMode="decimal" defaultValue={(p.amountCents / 100).toFixed(2)} /></div>
+                                <div className="field"><label htmlFor={`cr_${p.id}`}>Reason</label><input id={`cr_${p.id}`} name="reason" required /></div>
+                              </ActionForm>
+                            </div>
+                          </details>
+                        </div>
+                      )}
                     </td>
                   )}
                 </tr>
@@ -81,7 +114,9 @@ export default async function Sales({ searchParams }: { searchParams: Promise<{ 
             })}
           </tbody>
         </table>
-        <span className="xs muted">Earnings come from membership payments pros actually made (free-trial months earn nothing). {isMain ? "Only you can approve payouts." : "Avy approves payouts."}</span>
+        <span className="xs muted">Earnings come from membership payments pros actually made (free-trial months earn nothing). {isMain ? "Send each payout using the partner's details, then tap Mark paid. Every approval and change is logged." : "Avy approves and sends payouts. "}
+          {!isMain && <Link className="link xs" href="/admin/profile">{me && list.find((x) => x.userId === me.userId)?.payoutMethod ? "Update where you get paid" : "Add where you want to be paid"}</Link>}
+        </span>
       </div>
 
       {me?.code && (

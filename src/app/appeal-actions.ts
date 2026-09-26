@@ -2,7 +2,7 @@
 import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, appeals, fines } from "@/db";
-import { getViewer } from "@/lib/viewer";
+import { getViewer, proAccess } from "@/lib/viewer";
 import type { FormState } from "@/components/ActionForm";
 
 const KINDS = ["student_suspension", "pro_fine", "pro_suspension"];
@@ -14,7 +14,7 @@ export async function submitAppeal(_: FormState, form: FormData): Promise<FormSt
   const targetId = String(form.get("targetId") ?? "") || null;
   const explanation = String(form.get("explanation") ?? "").trim().slice(0, 2000);
   if (!KINDS.includes(kind)) return { error: "Something went wrong." };
-  if (kind.startsWith("pro_") && viewer.user.accountType !== "professional") return { error: "Not allowed." };
+  if (kind.startsWith("pro_") && !(await proAccess(viewer))) return { error: "Not allowed." };
   if (kind === "student_suspension" && viewer.user.accountType !== "student") return { error: "Not allowed." };
   if (kind === "pro_fine" && targetId) {
     const f = await db.query.fines.findFirst({ where: and(eq(fines.id, targetId), eq(fines.proId, viewer.user.id)) });

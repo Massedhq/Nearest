@@ -1,7 +1,7 @@
 import "server-only";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { eq } from "drizzle-orm";
-import { db, users, adminMembers, type User } from "@/db";
+import { db, users, adminMembers, professionalProfiles, type User } from "@/db";
 
 export type Viewer = {
   clerkUserId: string;
@@ -106,7 +106,7 @@ export async function ensureOwner(viewer: Viewer | null): Promise<Viewer | null>
 export async function destinationFor(viewer: Viewer | null): Promise<string> {
   if (!viewer) return "/";
   const { user, admin } = viewer;
-  if (admin && user?.accountType === "professional") return "/workspace";
+  if (admin && (user?.accountType === "professional" || (await hasProBusiness(user?.id)))) return "/workspace";
   if (admin) return "/admin";
   if (user?.accountType === "professional") return "/pro/home";
   if (user?.accountType === "student") return "/home";
@@ -127,4 +127,17 @@ export function displayName(u: Pick<User, "firstName" | "lastName"> | null | und
 export function initials(u: Pick<User, "firstName" | "lastName"> | null | undefined) {
   if (!u) return "";
   return `${u.firstName?.[0] ?? ""}${u.lastName?.[0] ?? ""}`.toUpperCase();
+}
+
+/** Owners can run their own professional business on their owner login (set up from Switch workspace). */
+export async function hasProBusiness(userId: string | null | undefined) {
+  if (!userId) return false;
+  return Boolean(await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, userId), columns: { userId: true } }));
+}
+
+/** Can this person use the professional side? Regular pros, or an owner who set up their own business. */
+export async function proAccess(viewer: Viewer | null) {
+  if (!viewer?.user) return false;
+  if (viewer.user.accountType === "professional") return true;
+  return Boolean(viewer.admin) && (await hasProBusiness(viewer.user.id));
 }

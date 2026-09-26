@@ -2,16 +2,16 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { and, eq, sql } from "drizzle-orm";
 import { db, professionalProfiles, proServices, proHours, portfolioItems, proCredentials, categories } from "@/db";
-import { getViewer, destinationFor } from "./viewer";
+import { getViewer, destinationFor, proAccess } from "./viewer";
 
 /** Use at the top of every pro page and pro server action. */
 export async function requirePro() {
   const viewer = await getViewer();
   if (!viewer) redirect("/pro/sign-in");
-  if (viewer.user?.accountType !== "professional") redirect(await destinationFor(viewer));
-  const profile = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, viewer.user.id) });
+  if (!viewer.user || !(await proAccess(viewer))) redirect(await destinationFor(viewer));
+  const profile = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, viewer.user!.id) });
   if (!profile) redirect("/pro/onboarding");
-  return { viewer, user: viewer.user, profile };
+  return { viewer, user: viewer.user!, profile };
 }
 
 export type SetupStep = { key: string; label: string; href: string; done: boolean; optional?: boolean };

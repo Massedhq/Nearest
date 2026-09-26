@@ -17,7 +17,10 @@ export const partnerCut = (cents: number) => CUT[cents] ?? Math.round(cents * 0.
 
 export async function partners() {
   const rows = await db
-    .select({ userId: adminMembers.userId, code: adminMembers.partnerCode, first: users.firstName, last: users.lastName, email: users.email, createdAt: adminMembers.createdAt })
+    .select({
+      userId: adminMembers.userId, code: adminMembers.partnerCode, first: users.firstName, last: users.lastName, email: users.email, createdAt: adminMembers.createdAt,
+      payoutMethod: adminMembers.payoutMethod, payoutHandle: adminMembers.payoutHandle, payoutNote: adminMembers.payoutNote,
+    })
     .from(adminMembers).innerJoin(users, eq(users.id, adminMembers.userId))
     .where(and(eq(adminMembers.role, "OWNER"), eq(adminMembers.active, true)))
     .orderBy(asc(adminMembers.createdAt));
