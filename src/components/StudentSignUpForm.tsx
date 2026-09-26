@@ -1,5 +1,7 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { DobInput } from "@/components/DobInput";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ageFrom } from "@/lib/validate";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSignUp } from "@clerk/nextjs";
@@ -17,6 +19,10 @@ export function StudentSignUpForm() {
   const [wait, setWait] = useState(0);
   const boxes = useRef<(HTMLInputElement | null)[]>([]);
   const busy = fetchStatus === "fetching";
+  const [dob, setDob] = useState("");
+  const onDate = useCallback((iso: string) => setDob(iso), []);
+  const age = dob ? ageFrom(dob) : null;
+  const minor = age !== null && age >= 13 && age < 18;
 
   useEffect(() => {
     if (wait <= 0) return;
@@ -41,11 +47,18 @@ export function StudentSignUpForm() {
     const password = String(form.get("password") ?? "");
     if (!firstName || !lastName) return setError("Enter your first and last name.");
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) return setError("Enter your date of birth.");
+    const years = ageFrom(dob);
+    if (years < 13) return setError("You must be at least 13 to use Nearest.");
+    const guardianEmail = String(form.get("guardianEmail") ?? "").trim();
+    if (years < 18) {
+      if (form.get("guardian") !== "on") return setError("A parent or guardian must agree before you can create an account.");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guardianEmail)) return setError("Enter your parent or guardian's email.");
+    }
     if (password.length < 8) return setError("Use at least 8 characters for your password.");
     if (form.get("agree") !== "on") return setError("Please agree to the Terms and Privacy Policy.");
     const { error } = await signUp.password({
       emailAddress, password, firstName, lastName, legalAccepted: true,
-      unsafeMetadata: { door: "student", dob, phone },
+      unsafeMetadata: { door: "student", dob, phone, ...(years < 18 ? { guardianEmail, guardianConsent: true } : {}) },
     });
     if (error) return setError(msg(error));
     setEmail(emailAddress);
@@ -122,11 +135,19 @@ export function StudentSignUpForm() {
         <div className="field"><label htmlFor="firstName">First name</label><input id="firstName" name="firstName" autoComplete="given-name" required /></div>
         <div className="field"><label htmlFor="lastName">Last name</label><input id="lastName" name="lastName" autoComplete="family-name" required /></div>
       </div>
-      <div className="field"><label htmlFor="dob">Date of birth</label><input id="dob" name="dob" type="date" autoComplete="bday" required /></div>
+      <DobInput onDate={onDate} />
+      {age !== null && age < 13 && <p className="err">You must be at least 13 to use Nearest.</p>}
+      {minor && (
+        <div className="card warn" style={{ gap: 10 }}>
+          <span className="b small">You&apos;re under 18 — a parent or guardian needs to agree.</span>
+          <div className="field"><label htmlFor="guardianEmail">Parent or guardian email</label><input id="guardianEmail" name="guardianEmail" type="email" required /></div>
+          <label className="check" style={{ fontSize: 13 }}><input type="checkbox" name="guardian" required /><span>My parent or legal guardian has read and agrees to the Nearest Terms and Privacy Policy and gives permission for me to use Nearest.</span></label>
+        </div>
+      )}
       <div className="field"><label htmlFor="phone">Mobile number (optional)</label><input id="phone" name="phone" type="tel" autoComplete="tel" /></div>
       <div className="field"><label htmlFor="email">Email</label><input id="email" name="email" type="email" autoComplete="email" required /></div>
       <div className="field"><label htmlFor="password">Password</label><input id="password" name="password" type="password" autoComplete="new-password" minLength={8} required /></div>
-      <label className="check" style={{ fontSize: 13 }}><input type="checkbox" name="agree" required />I agree to the Terms and Privacy Policy</label>
+      <label className="check" style={{ fontSize: 13 }}><input type="checkbox" name="agree" required /><span>I agree to the <Link className="link" href="/terms" target="_blank" style={{ fontSize: "inherit", color: "#141414" }}>Terms</Link> and <Link className="link" href="/privacy" target="_blank" style={{ fontSize: "inherit", color: "#141414" }}>Privacy Policy</Link></span></label>
       <p className="xs muted p">We&apos;ll email a code to verify your account. Your date of birth, phone and email are never shown publicly.</p>
       {error && <p className="err" role="alert">{error}</p>}
       <div id="clerk-captcha" />

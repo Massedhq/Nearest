@@ -9,3 +9,11 @@ export function validDob(s: string) {
   const years = (Date.now() - d.getTime()) / (365.25 * 24 * 3600 * 1000);
   return years > 5 && years < 110;
 }
+
+/** Whole years of age from YYYY-MM-DD. */
+export function ageFrom(dob: string, now = new Date()) {
+  const [y, m, d] = dob.split("-").map(Number);
+  let age = now.getUTCFullYear() - y;
+  if (now.getUTCMonth() + 1 < m || (now.getUTCMonth() + 1 === m && now.getUTCDate() < d)) age--;
+  return age;
+}

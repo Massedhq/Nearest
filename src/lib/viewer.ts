@@ -43,6 +43,8 @@ export async function clerkContact() {
     invite: (cu.unsafeMetadata?.invite as string | undefined) ?? null,
     dob: (cu.unsafeMetadata?.dob as string | undefined) ?? null,
     ref: (cu.unsafeMetadata?.ref as string | undefined) ?? null,
+    guardianEmail: (cu.unsafeMetadata?.guardianEmail as string | undefined)?.slice(0, 120) ?? null,
+    guardianConsent: cu.unsafeMetadata?.guardianConsent === true,
     typedPhone: (cu.unsafeMetadata?.phone as string | undefined)?.slice(0, 30) || null,
   };
 }

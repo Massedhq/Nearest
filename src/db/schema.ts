@@ -73,6 +73,8 @@ export const studentProfiles = pgTable("student_profiles", {
   showAccessibility: boolean("show_accessibility").notNull().default(false),
   onboardingCompletedAt: ts("onboarding_completed_at"),
   noShowCount: integer("no_show_count").notNull().default(0),
+  guardianEmail: text("guardian_email"),
+  guardianConsentAt: ts("guardian_consent_at"), // required at sign-up for students 13–17
   bookingSuspendedUntil: ts("booking_suspended_until"),
   suspensionReason: text("suspension_reason"), // "no_shows" | "incomplete_completion" | "admin"
   // Phase 3A: manual verification
@@ -465,3 +467,22 @@ export const searchLog = pgTable("search_log", {
   results: integer("results").notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("search_log_created_idx").on(t.createdAt)]);
+
+export const favorites = pgTable("favorites", {
+  studentId: uuid("student_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  proId: uuid("pro_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.studentId, t.proId] })]);
+
+// In-app notifications inbox (the bell). Emails mirror the important ones.
+export const notifications = pgTable("notifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(),
+  title: text("title").notNull(),
+  body: text("body"),
+  href: text("href"),
+  refId: text("ref_id"),
+  readAt: ts("read_at"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("notifications_user_idx").on(t.userId, t.createdAt)]);
