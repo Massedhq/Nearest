@@ -7,6 +7,7 @@ import { sql } from "drizzle-orm";
 import * as schema from "./schema";
 import { SETTINGS } from "../lib/settings-defaults";
 import { DFW_CITIES } from "./dfw-cities";
+import { TEXAS_COUNTIES } from "./texas-counties";
 
 const db = drizzle({ client: neon(process.env.DATABASE_URL!), schema });
 const { counties, cities, cityCounties, platformSettings, categories, catalogServices, schools } = schema;
@@ -58,11 +59,16 @@ const SCHOOLS: { city: string; type: "high_school" | "college" | "trade"; names:
 ];
 
 async function main() {
-  await db.insert(counties).values(COUNTIES.map((name) => ({ name }))).onConflictDoNothing();
+  // All 254 Texas counties; only missing ones are added, and an existing county's market is never overwritten.
+  const haveCounties = await db.select().from(counties);
+  const missingCounties = TEXAS_COUNTIES.filter((c) => !haveCounties.some((h) => h.state === "TX" && h.name === c.name));
+  if (missingCounties.length) await db.insert(counties).values(missingCounties.map((c) => ({ name: c.name, state: "TX", market: c.market })));
+  void COUNTIES;
   await db.insert(cities).values(CITIES.map((c) => ({ name: c.name, abbreviation: c.abbr }))).onConflictDoNothing();
   // Full DFW starter list: generate a unique 3-letter code for each new city (used in invite codes).
-  const have = await db.select().from(cities);
-  const usedAbbr = new Set(have.map((c) => c.abbreviation));
+  const all = await db.select().from(cities);
+  const have = all.filter((c) => c.state === "TX");
+  const usedAbbr = new Set(all.map((c) => c.abbreviation)); // codes are unique across every state
   for (const c of DFW_CITIES) {
     if (have.some((h) => h.name === c.name)) continue;
     const letters = c.name.toUpperCase().replace(/[^A-Z]/g, "");
@@ -76,8 +82,8 @@ async function main() {
   const cityRows = await db.select().from(cities);
   const allCities = [...CITIES, ...DFW_CITIES.map((c) => ({ ...c, abbr: "" }))];
   const links = allCities.flatMap((c) => {
-    const city = cityRows.find((r) => r.name === c.name)!;
-    return c.counties.map((n) => ({ cityId: city.id, countyId: countyRows.find((r) => r.name === n)!.id }));
+    const city = cityRows.find((r) => r.state === "TX" && r.name === c.name)!;
+    return c.counties.map((n) => ({ cityId: city.id, countyId: countyRows.find((r) => r.state === "TX" && r.name === n)!.id }));
   });
   await db.insert(cityCounties).values(links).onConflictDoNothing();
 
@@ -106,7 +112,7 @@ async function main() {
     .onConflictDoNothing();
 
   const [{ n }] = await db.execute<{ n: number }>(sql`select count(*)::int as n from platform_settings`).then((r) => r.rows as { n: number }[]);
-  console.log(`Seeded ${COUNTIES.length} counties, ${cityRows.length} cities, ${CATEGORIES.length} categories, ${schoolValues.length} schools, ${n} settings.`);
+  console.log(`Seeded ${countyRows.length} counties, ${cityRows.length} cities, ${CATEGORIES.length} categories, ${schoolValues.length} schools, ${n} settings.`);
 }
 
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });

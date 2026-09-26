@@ -1,10 +1,12 @@
 "use client";
 import { useActionState } from "react";
 import { createInvite, type FormState } from "@/app/admin/actions";
+import { CityOptions } from "@/components/CityOptions";
+import type { CityGroup } from "@/lib/city-groups";
 
 const CATEGORIES = ["Hair", "Braids", "Locs", "Barber", "Lashes", "Brows", "Nails", "Makeup", "Photography", "Other"];
 
-export function InviteForm({ cities, disabled }: { cities: { id: number; name: string }[]; disabled: boolean }) {
+export function InviteForm({ groups, disabled }: { groups: CityGroup[]; disabled: boolean }) {
   const [state, action, pending] = useActionState<FormState, FormData>(createInvite, {});
   return (
     <form action={action} className="card" style={{ gap: 12 }}>
@@ -15,7 +17,7 @@ export function InviteForm({ cities, disabled }: { cities: { id: number; name: s
         <div className="field"><label htmlFor="cityId">City</label>
           <select id="cityId" name="cityId" required defaultValue="">
             <option value="" disabled>Choose city</option>
-            {cities.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            <CityOptions groups={groups} />
           </select>
         </div>
         <div className="field"><label htmlFor="category">Category</label>

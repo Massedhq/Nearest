@@ -22,10 +22,15 @@ export default async function VerifySchool({ searchParams }: { searchParams: Pro
       .innerJoin(cities, eq(cities.id, schools.cityId))
       .where(eq(schools.active, true))
       .orderBy(asc(schools.name)),
-    db.select({ id: counties.id, name: counties.name }).from(counties).orderBy(asc(counties.name)),
+    db.select({ id: counties.id, name: counties.name, state: counties.state }).from(counties).orderBy(asc(counties.name)),
     db.select({ id: cities.id, name: cities.name }).from(cities).where(eq(cities.active, true)).orderBy(asc(cities.name)),
     db.select().from(cityCounties),
   ]);
+  // Only offer places that actually have schools, so the lists stay short as Nearest grows into new states.
+  const citiesWithSchools = new Set(rows.map((r) => r.cityId));
+  const usedLinks = links.filter((l) => citiesWithSchools.has(l.cityId));
+  const usedCounties = countyList.filter((c) => usedLinks.some((l) => l.countyId === c.id));
+  const usedCities = cityList.filter((c) => citiesWithSchools.has(c.id));
   return (
     <div className="scr">
       <TopBar />
@@ -35,7 +40,7 @@ export default async function VerifySchool({ searchParams }: { searchParams: Pro
         <h1 className="disp h1">Where do you go to school?</h1>
         <p className="muted small p">Nearest is only for verified students in participating areas.</p>
         <ActionForm action={saveSchool} submitLabel="Continue">
-          <SchoolPicker schools={rows} counties={countyList} cities={cityList} links={links} initialId={profile.schoolId} />
+          <SchoolPicker schools={rows} counties={usedCounties} cities={usedCities} links={usedLinks} initialId={profile.schoolId} />
           <GradYears value={profile.graduationYear} />
         </ActionForm>
         <details className="card">

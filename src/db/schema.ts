@@ -43,15 +43,20 @@ export const users = pgTable("users", {
   updatedAt: ts("updated_at").notNull().defaultNow(),
 });
 
+// County names repeat across states (Washington County…), so uniqueness is state + name — enforced in code
+// (no DB constraint, so upgrades never prompt).
 export const counties = pgTable("counties", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  name: text("name").notNull().unique(),
+  name: text("name").notNull(),
+  state: text("state").notNull().default("TX"),
   market: text("market").notNull().default("DFW"),
 });
 
+// City names repeat across states (Midland, TX / Midland, MI) — unique per state, enforced in code.
 export const cities = pgTable("cities", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  name: text("name").notNull().unique(),
+  name: text("name").notNull(),
+  state: text("state").notNull().default("TX"),
   abbreviation: text("abbreviation").notNull().unique(),
   active: boolean("active").notNull().default(true),
 });

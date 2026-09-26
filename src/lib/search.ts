@@ -4,7 +4,7 @@ import { db, professionalProfiles, proServices, proOpenings, portfolioItems, cit
 import { chicagoNow } from "./time";
 
 export type Filters = { q?: string; cat?: string; today?: string; after?: string; under?: string; asl?: string; area?: string; sort?: string };
-export type Area = { cityId: number; countyId: number | null } | null;
+export type Area = { cityId: number; countyId: number | null; market?: string | null } | null;
 
 /** Only approved, searchable, not-on-vacation pros are ever returned to students. */
 export function liveProWhere(area: Area, areaMode: string | undefined) {
@@ -22,6 +22,8 @@ export function liveProWhere(area: Area, areaMode: string | undefined) {
   ];
   if (area && areaMode === "city") w.push(eq(professionalProfiles.cityId, area.cityId));
   else if (area?.countyId && areaMode !== "all") w.push(eq(professionalProfiles.countyId, area.countyId));
+  // "All" means everywhere in the student's own market (All DFW, All Austin…) — never another metro.
+  else if (area?.market && areaMode === "all") w.push(sql`${professionalProfiles.countyId} in (select id from counties where market = ${area.market})`);
   return w;
 }
 

@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/admin";
 import { logActivity } from "@/lib/log";
 import { nextAug31 } from "@/lib/student";
 import type { FormState } from "@/components/ActionForm";
+import { placeFromForm } from "@/app/admin/place-actions";
 import { inbox } from "@/lib/inbox";
 
 const str = (f: FormData, k: string, max = 300) => String(f.get(k) ?? "").trim().slice(0, max);
@@ -47,10 +48,12 @@ export async function rejectStudent(_: FormState, form: FormData): Promise<FormS
 export async function addSchool(_: FormState, form: FormData): Promise<FormState> {
   const { user } = await requireAdmin();
   const name = str(form, "name", 120);
-  const cityId = Number(form.get("cityId"));
   const type = str(form, "type", 20) as "high_school" | "college" | "trade";
   const requestId = str(form, "requestId", 40);
-  if (!name || !cityId || !["high_school", "college", "trade"].includes(type)) return { error: "Enter the name, city and type." };
+  if (!name || !["high_school", "college", "trade"].includes(type)) return { error: "Enter the school name and type." };
+  const place = await placeFromForm(form);
+  if ("error" in place) return place;
+  const cityId = place.cityId;
   let [school] = await db.insert(schools).values({ name, cityId, type }).onConflictDoNothing().returning();
   school ??= (await db.query.schools.findFirst({ where: and(eq(schools.name, name), eq(schools.cityId, cityId)) }))!;
   await logActivity({ actorUserId: user.id, action: "school.added", targetType: "school", targetId: name });
@@ -59,7 +62,7 @@ export async function addSchool(_: FormState, form: FormData): Promise<FormState
     if (req) await db.update(studentProfiles).set({ schoolId: school.id }).where(and(eq(studentProfiles.userId, req.userId)));
   }
   revalidatePath("/admin", "layout");
-  return { ok: `${name} added.` };
+  return { ok: `${name} added in ${place.label}.` };
 }
 
 export async function toggleSchool(form: FormData) {

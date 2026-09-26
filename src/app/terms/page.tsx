@@ -20,7 +20,7 @@ export default function Terms() {
         {
           h: "1. What Nearest is",
           p: [
-            "Nearest is an online marketplace that connects verified students (\"Students\") with independent beauty and personal-care professionals (\"Professionals\") in participating areas of the Dallas–Fort Worth region. Through Nearest, Students can find Professionals, book and pay for appointments and Model Calls, message about their booking, and leave reviews.",
+            "Nearest is an online marketplace that connects verified students (\"Students\") with independent beauty and personal-care professionals (\"Professionals\") in participating areas of Texas and other states where Nearest operates. Through Nearest, Students can find Professionals, book and pay for appointments and Model Calls, message about their booking, and leave reviews.",
             "Nearest does not provide beauty, hair, lash, nail, barber, makeup, photography or any other personal-care services. Professionals are independent businesses. They are not Nearest's employees, agents or contractors, and Nearest does not control how they perform their services. Any agreement for a service is between the Student and the Professional; Nearest provides the platform, payment processing and the booking rules described in these Terms.",
           ],
         },

@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { Icon } from "./Icon";
 
 const NAV: [string, [string, string, string][]][] = [
-  ["Overview", [["Command Center", "home", "/admin"], ["Founding 750", "sparkle", "/admin/founding"], ["DFW Coverage", "map", "/admin/coverage"]]],
+  ["Overview", [["Command Center", "home", "/admin"], ["Founding 750", "sparkle", "/admin/founding"], ["Coverage", "map", "/admin/coverage"]]],
   ["People", [["Students", "users", "/admin/students"], ["Schools", "school", "/admin/schools"], ["Professionals", "store", "/admin/professionals"], ["Verification Queue", "shield", "/admin/verification"]]],
   ["Operations", [["Bookings", "cal", "/admin/bookings"], ["Incident Review", "flag", "/admin/incidents"], ["Enforcement", "gavel", "/admin/enforcement"], ["Appeals", "file", "/admin/appeals"]]],
   ["Business", [["Money", "wallet", "/admin/money"], ["Sales Track", "chart", "/admin/sales"], ["Marketing", "chart", "/admin/marketing"], ["Marketplace", "grid", "/admin/marketplace"]]],

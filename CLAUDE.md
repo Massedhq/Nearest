@@ -54,6 +54,7 @@ Every admin write (invite, pause, refund, setting change, status switch) inserts
 - Phase 1 (foundation) is built. See `docs/PHASE-1.md`.
 - Phase 2 (professional side) is built. See `docs/PHASE-2.md`.
 - Phase 3A (student verification, search, model calls) is built. See `docs/PHASE-3A.md`.
+- Markets: every county has a `state` and a `market` (DFW, Houston, Austin, San Antonio, Waco, West Texas, El Paso, Other Texas, Other <State>). County and city names are unique per state, enforced in `src/lib/places.ts` (no DB constraint). Add places by State + ZIP (Zippopotam + FCC census area API). Student "All" = their own market. All 254 TX counties are in `src/db/texas-counties.ts`. Times are still America/Chicago everywhere; per-market time zones are needed before launching outside Central time (El Paso is Mountain).
 - Phase 7 (social links, Terms/Privacy, favorites, notifications inbox, Near Me distance, yearly re-verification, `npm run db:cleanup`) is built. See `docs/PHASE-7.md`. In-app notifications go through `inbox()` in `src/lib/inbox.ts`.
 - Phase 6 (emails, reminders, 12-month price step-up, Coverage and Marketing dashboards) is built. See `docs/PHASE-6.md`, and `docs/LAUNCH.md` for go-live steps. All email goes through `src/lib/notify.ts`/`sendEmail()`, and a failed email must never block an action.
 - Phase 5 (enforcement, appeals, partner Sales Track, hourly cron) is built. See `docs/PHASE-5.md`. Never add a UNIQUE constraint to an existing table with rows: drizzle-kit push will prompt to truncate it. Enforce in code instead.

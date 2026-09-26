@@ -10,6 +10,7 @@ import { deleteInvite } from "@/app/admin/people-actions";
 import { CopyButton } from "@/components/CopyButton";
 import { emailEnabled } from "@/lib/email";
 import { InviteForm } from "./InviteForm";
+import { cityGroups } from "@/lib/city-groups";
 import { CopyLink } from "./CopyLink";
 
 export const metadata = { title: "Founding 750" };
@@ -67,7 +68,7 @@ export default async function Founding({ searchParams }: { searchParams: Promise
             <div className="card" style={{ gap: 6 }}><span className="xs muted">Registered</span><span className="stat">{by("registered")}</span></div>
           </div>
         </div>
-        <InviteForm cities={cityList} disabled={!f.open} />
+        <InviteForm groups={await cityGroups()} disabled={!f.open} />
       </div>
       <div className="card" style={{ gap: 12, overflowX: "auto" }}>
         <span className="eyebrow">Invitations</span>

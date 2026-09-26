@@ -1,10 +1,10 @@
-import { asc, eq } from "drizzle-orm";
-import { db, cities } from "@/db";
 import { requirePro, setupSteps } from "@/lib/pro";
 import { SetupShell } from "@/components/SetupShell";
 import { ActionForm } from "@/components/ActionForm";
 import { Icon } from "@/components/Icon";
 import { saveLocation } from "@/app/pro/actions";
+import { cityGroups } from "@/lib/city-groups";
+import { CityOptions } from "@/components/CityOptions";
 
 export const metadata = { title: "Location" };
 
@@ -13,7 +13,7 @@ export default async function LocationStep({ searchParams }: { searchParams: Pro
   const edit = (await searchParams).edit === "1";
   const [steps, cityList] = await Promise.all([
     setupSteps(user.id),
-    db.select({ id: cities.id, name: cities.name }).from(cities).where(eq(cities.active, true)).orderBy(asc(cities.name)),
+    cityGroups(),
   ]);
   const mode = p.serviceMode ?? "both";
   return (
@@ -24,7 +24,7 @@ export default async function LocationStep({ searchParams }: { searchParams: Pro
           <div className="field"><label htmlFor="cityId">City</label>
             <select id="cityId" name="cityId" defaultValue={p.cityId ?? ""} required>
               <option value="" disabled>Choose city</option>
-              {cityList.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              <CityOptions groups={cityList} />
             </select>
           </div>
           <div className="field"><label htmlFor="zip">ZIP</label><input id="zip" name="zip" inputMode="numeric" maxLength={5} defaultValue={p.zip ?? ""} required /></div>

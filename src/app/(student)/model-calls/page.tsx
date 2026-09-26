@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { marketName } from "@/lib/markets";
 import { requireVerifiedStudent } from "@/lib/student";
 import { openModelCalls } from "@/lib/search";
 import { ModelCallCard } from "@/components/ModelCallCard";
@@ -20,7 +21,7 @@ export default async function ModelCallsPage({ searchParams }: { searchParams: P
         <div className="chips">
           <Link className={`chip${!mode ? " on" : ""}`} href="/model-calls">{area?.city ?? "My"} area</Link>
           <Link className={`chip${mode === "city" ? " on" : ""}`} href="/model-calls?area=city">{area?.city ?? "My city"}</Link>
-          <Link className={`chip${mode === "all" ? " on" : ""}`} href="/model-calls?area=all">All DFW</Link>
+          <Link className={`chip${mode === "all" ? " on" : ""}`} href="/model-calls?area=all">All {marketName(area?.market) || "areas"}</Link>
         </div>
         {calls.length === 0 && <p className="small muted p">No open model calls right now. Check back soon.</p>}
         {calls.map((c) => <ModelCallCard key={c.call.id} c={c} />)}

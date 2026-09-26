@@ -16,6 +16,9 @@ Check "Installing packages"
 Step "2/4  Updating Neon (adds favorites, notifications, guardian consent and partner payout details - nothing is removed)"
 npx drizzle-kit push
 Check "Updating the database"
+Step "3/4  Loading all 254 Texas counties (existing counties, cities and markets are left as they are)"
+npm run db:seed
+Check "Loading counties"
 Step "3/4  Production build"
 npm run build
 Check "The build"

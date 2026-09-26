@@ -1,7 +1,7 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
-import { db, studentProfiles, schools, cities, cityCounties, schoolRequests } from "@/db";
+import { db, studentProfiles, schools, cities, cityCounties, schoolRequests, counties } from "@/db";
 import { getViewer, destinationFor } from "./viewer";
 
 export async function requireStudent() {
@@ -37,10 +37,11 @@ export async function requireVerifiedStudent() {
 
 export async function schoolArea(schoolId: number) {
   const row = await db
-    .select({ school: schools.name, cityId: cities.id, city: cities.name, countyId: cityCounties.countyId })
+    .select({ school: schools.name, cityId: cities.id, city: cities.name, countyId: cityCounties.countyId, market: counties.market })
     .from(schools)
     .innerJoin(cities, eq(cities.id, schools.cityId))
     .leftJoin(cityCounties, eq(cityCounties.cityId, cities.id))
+    .leftJoin(counties, eq(counties.id, cityCounties.countyId))
     .where(eq(schools.id, schoolId))
     .limit(1);
   return row[0] ?? null;

@@ -4,16 +4,22 @@ import { Icon } from "./Icon";
 
 export type SchoolOption = { id: number; name: string; city: string; cityId: number; type: string };
 type Place = { id: number; name: string };
+type County = Place & { state?: string };
+import { US_STATES } from "@/lib/markets";
 const TYPE: Record<string, string> = { high_school: "High school", college: "College", trade: "Trade school" };
 const norm = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
 /** "University of Texas at Arlington" -> "uta", so students can type UTA, UT Arlington or UNT. */
 const initials = (name: string) => norm(name).split(" ").filter((w) => !["of", "at", "the", "and"].includes(w)).map((w) => w[0]).join("");
 
 /** County → City → type to search the schools in that city. */
-export function SchoolPicker({ schools, counties, cities, links, initialId }: {
-  schools: SchoolOption[]; counties: Place[]; cities: Place[]; links: { cityId: number; countyId: number }[]; initialId?: number | null;
+export function SchoolPicker({ schools, counties: allCounties, cities, links, initialId }: {
+  schools: SchoolOption[]; counties: County[]; cities: Place[]; links: { cityId: number; countyId: number }[]; initialId?: number | null;
 }) {
   const initial = schools.find((s) => s.id === initialId) ?? null;
+  const states = [...new Set(allCounties.map((c) => c.state ?? "TX"))].sort();
+  const initialCounty = initial ? allCounties.find((c) => links.some((l) => l.cityId === initial.cityId && l.countyId === c.id)) : undefined;
+  const [st, setSt] = useState<string>(initialCounty?.state ?? (states.length === 1 ? states[0] : ""));
+  const counties = allCounties.filter((c) => (c.state ?? "TX") === st);
   const [countyId, setCountyId] = useState<number | "">(() => (initial ? links.find((l) => l.cityId === initial.cityId)?.countyId ?? "" : ""));
   const [cityId, setCityId] = useState<number | "">(initial?.cityId ?? "");
   const [selected, setSelected] = useState<SchoolOption | null>(initial);
@@ -40,11 +46,20 @@ export function SchoolPicker({ schools, counties, cities, links, initialId }: {
 
   return (
     <div className="col g16">
+      {states.length > 1 && (
+        <div className="field">
+          <label htmlFor={`${listId}-state`}>State</label>
+          <select id={`${listId}-state`} value={st} required onChange={(e) => { setSt(e.target.value); setCountyId(""); setCityId(""); setSelected(null); setQ(""); }}>
+            <option value="" disabled>Choose state</option>
+            {states.map((x) => <option key={x} value={x}>{US_STATES.find(([a]) => a === x)?.[1] ?? x}</option>)}
+          </select>
+        </div>
+      )}
       <div className="grid2">
         <div className="field">
           <label htmlFor={`${listId}-county`}>County</label>
-          <select id={`${listId}-county`} value={countyId} required onChange={(e) => { setCountyId(e.target.value ? Number(e.target.value) : ""); setCityId(""); setSelected(null); setQ(""); }}>
-            <option value="" disabled>Choose county</option>
+          <select id={`${listId}-county`} value={countyId} required disabled={!st} onChange={(e) => { setCountyId(e.target.value ? Number(e.target.value) : ""); setCityId(""); setSelected(null); setQ(""); }}>
+            <option value="" disabled>{st ? "Choose county" : "Pick state first"}</option>
             {counties.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>

@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { marketName } from "@/lib/markets";
 import { asc, eq } from "drizzle-orm";
 import { db, categories, searchLog, favorites } from "@/db";
 import { NearMe } from "@/components/NearMe";
@@ -61,7 +62,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
     return s ? `/home?${s}` : "/home";
   };
   const areaMode = f.area ?? "county";
-  const areaLabel = areaMode === "city" ? area?.city : areaMode === "all" ? "All DFW" : `${area?.city ?? "My"} area`;
+  const areaLabel = areaMode === "city" ? area?.city : areaMode === "all" ? `All ${marketName(area?.market) || "areas"}` : `${area?.city ?? "My"} area`;
   const nextArea = areaMode === "county" ? "city" : areaMode === "city" ? "all" : "county";
 
   return (
@@ -96,7 +97,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
           ))}
         </div>
         <div className="row between"><h2 className="disp h2">{pros.length ? "Near you" : "No matches yet"}</h2><span className="xs muted">{pros.length} professional{pros.length === 1 ? "" : "s"}</span></div>
-        {pros.length === 0 && <p className="small muted p">Try removing a filter or choosing All DFW. New professionals join every week.</p>}
+        {pros.length === 0 && <p className="small muted p">Try removing a filter or choosing All {marketName(area?.market) || "areas"}. New professionals join every week.</p>}
         <Link className={`card${f.asl ? " pearl" : ""}`} href={href({ asl: f.asl ? undefined : "1" })} style={{ textDecoration: "none" }} aria-pressed={!!f.asl}><div className="row"><Icon name="hand" /><span className="b grow">Professionals who communicate in ASL</span><Icon name="right" /></div></Link>
         {pros.map((p) => <ProResult key={p.userId} p={p} fav={favSet.has(p.userId)} />)}
       </div>

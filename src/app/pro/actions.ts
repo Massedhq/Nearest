@@ -129,7 +129,7 @@ export async function saveLocation(_: FormState, form: FormData): Promise<FormSt
   const link = await db.query.cityCounties.findFirst({ where: eq(cityCounties.cityId, cityId) });
   const city = await db.query.cities.findFirst({ where: eq(cities.id, cityId) });
   if (!city) return { error: "Choose your city." };
-  const point = addressLine ? await geocode(addressLine, city.name, zip) : null;
+  const point = addressLine ? await geocode(addressLine, city.name, zip, city.state) : null;
   await db
     .update(professionalProfiles)
     .set({ cityId, countyId: link?.countyId ?? null, zip, addressLine: addressLine || null, lat: point?.lat ?? null, lng: point?.lng ?? null, serviceMode: mode, travelRadiusMi: mode === "come_to_me" ? null : radius })

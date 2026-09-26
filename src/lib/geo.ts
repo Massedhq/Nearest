@@ -1,8 +1,8 @@
 import "server-only";
 
 /** Looks up map coordinates for a US street address using the free U.S. Census geocoder (no key needed). */
-export async function geocode(street: string, city: string, zip: string): Promise<{ lat: number; lng: number } | null> {
-  const address = `${street}, ${city}, TX ${zip}`;
+export async function geocode(street: string, city: string, zip: string, state = "TX"): Promise<{ lat: number; lng: number } | null> {
+  const address = `${street}, ${city}, ${state} ${zip}`;
   const url = `https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=${encodeURIComponent(address)}&benchmark=Public_AR_Current&format=json`;
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(8000), cache: "no-store" });
