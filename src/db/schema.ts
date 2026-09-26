@@ -141,6 +141,7 @@ export const professionalProfiles = pgTable("professional_profiles", {
   invitationId: uuid("invitation_id").references(() => invitations.id),
   identityStatus: identityStatus("identity_status").notNull().default("unverified"),
   searchable: boolean("searchable").notNull().default(false),
+  listingPausedAt: ts("listing_paused_at"), // set by Nearest admins (Pause listing); hides the pro from students
   // Phase 2: profile
   bio: text("bio"),
   yearsExperience: integer("years_experience"),

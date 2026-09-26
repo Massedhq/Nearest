@@ -118,3 +118,18 @@ export async function emailInvite(form: FormData) {
   revalidatePath("/admin/founding");
   redirect(`/admin/founding?resent=${hit.i.code}&emailed=${res.sent ? 1 : 0}`);
 }
+
+/** Pause / resume a professional's listing (admin). Hides them from students without touching their own settings. */
+export async function toggleListingPause(form: FormData) {
+  const { user } = await requireAdmin();
+  const id = String(form.get("userId"));
+  const p = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, id) });
+  if (!p) return;
+  const pausing = !p.listingPausedAt;
+  await db.update(professionalProfiles).set({ listingPausedAt: pausing ? new Date() : null }).where(eq(professionalProfiles.userId, id));
+  await inbox(id, pausing
+    ? { kind: "review", title: "Your listing was paused by Nearest", body: "Students can't find you right now. Contact hello@usenearest.com with questions.", href: "/pro/account-status" }
+    : { kind: "approved", title: "Your listing is live again", href: "/pro/home" });
+  await logActivity({ actorUserId: user.id, action: pausing ? "pro.listing_paused" : "pro.listing_resumed", targetType: "professional", targetId: p.businessName ?? id });
+  revalidatePath("/admin/professionals");
+}

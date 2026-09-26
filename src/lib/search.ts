@@ -16,7 +16,8 @@ export function liveProWhere(area: Area, areaMode: string | undefined) {
     inArray(professionalProfiles.subscriptionStatus, ["trialing", "active"]),
     eq(professionalProfiles.identityStatus, "verified"),
     eq(professionalProfiles.payoutsEnabled, true),
-    // Not suspended, and no fine past its due date.
+    // Not paused by Nearest, not suspended, and no fine past its due date.
+    sql`${professionalProfiles.listingPausedAt} is null`,
     sql`(${professionalProfiles.suspendedUntil} is null or ${professionalProfiles.suspendedUntil} < now())`,
     sql`not exists (select 1 from ${fines} f where f.pro_id = ${professionalProfiles.userId} and f.status = 'outstanding' and f.due_at < now())`,
   ];
