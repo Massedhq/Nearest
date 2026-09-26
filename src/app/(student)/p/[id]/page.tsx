@@ -2,8 +2,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { getFlag } from "@/lib/settings";
 import { notFound } from "next/navigation";
-import { and, asc, desc, eq } from "drizzle-orm";
-import { db, professionalProfiles, proServices, portfolioItems, proHours, proOpenings, cities, reviews } from "@/db";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { db, professionalProfiles, proServices, portfolioItems, proHours, proOpenings, cities, reviews, favorites } from "@/db";
+import { FavButton } from "@/components/FavButton";
+import { nearPoint, miles } from "@/lib/near";
 import { requireVerifiedStudent } from "@/lib/student";
 import { openModelCalls } from "@/lib/search";
 import { chicagoNow, label12, money, WEEKDAYS } from "@/lib/time";
@@ -17,7 +19,7 @@ const ASL: Record<string, string> = { basic: "Basic", conversational: "Conversat
 const MODE: Record<string, string> = { come_to_me: "Customers come to me", travel: "Travels to you", both: "Come to me or I travel" };
 
 export default async function ProProfile({ params }: { params: Promise<{ id: string }> }) {
-  await requireVerifiedStudent();
+  const { user } = await requireVerifiedStudent();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const p = await db.query.professionalProfiles.findFirst({
@@ -34,6 +36,15 @@ export default async function ProProfile({ params }: { params: Promise<{ id: str
     openModelCalls(null, "all", id),
   ]);
   const bookingOpen = await getFlag("status.bookings");
+  const isFav = Boolean(await db.query.favorites.findFirst({ where: and(eq(favorites.studentId, user.id), eq(favorites.proId, id)) }));
+  const [{ n: favCount }] = await db.select({ n: sql<number>`count(*)::int` }).from(favorites).where(eq(favorites.proId, id));
+  const here = await nearPoint();
+  const away = here ? miles(here, p) : null;
+  const social = [
+    p.instagram && { icon: "insta", label: "Instagram", href: `https://www.instagram.com/${encodeURIComponent(p.instagram)}/` },
+    p.tiktok && { icon: "tiktok", label: "TikTok", href: `https://www.tiktok.com/@${encodeURIComponent(p.tiktok)}` },
+    p.website && { icon: "globe", label: "Website", href: p.website },
+  ].filter(Boolean) as { icon: string; label: string; href: string }[];
   const revs = await db.select().from(reviews).where(and(eq(reviews.proId, id), eq(reviews.hidden, false))).orderBy(desc(reviews.createdAt)).limit(20);
   const avg = revs.length ? Math.round((revs.reduce((a, r) => a + r.rating, 0) / revs.length) * 10) / 10 : null;
   const initials = (p.businessName ?? "N").split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
@@ -45,11 +56,17 @@ export default async function ProProfile({ params }: { params: Promise<{ id: str
       <div className="body" style={{ paddingTop: 0 }}>
         <div className="row">
           {p.photoUrl ? <Image src={p.photoUrl} alt="" width={84} height={84} style={{ borderRadius: 42, objectFit: "cover" }} /> : <div className="avatar lg">{initials}</div>}
-          <div className="col g4"><h1 className="disp h2">{p.businessName}</h1><span className="badge"><Icon name="shield" size="s" /> Approved by Nearest</span></div>
+          <div className="col g4 grow"><h1 className="disp h2">{p.businessName}</h1><span className="badge"><Icon name="shield" size="s" /> Approved by Nearest</span></div>
+          <FavButton proId={id} on={isFav} size={44} count={favCount} />
         </div>
+        {social.length > 0 && (
+          <div className="row" style={{ gap: 8 }}>
+            {social.map((x) => <a key={x.label} className="iconbtn" href={x.href} target="_blank" rel="noopener noreferrer" aria-label={`${p.businessName} on ${x.label}`}><Icon name={x.icon} /></a>)}
+          </div>
+        )}
         <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
           <span className="tag"><Icon name="star" size="s" /> {avg ? `${avg} • ${revs.length} verified review${revs.length === 1 ? "" : "s"}` : "New Professional"}</span>
-          <span className="tag"><Icon name="pin" size="s" /> {city?.name}</span>
+          <span className="tag"><Icon name="pin" size="s" /> {away != null ? `${away} mi away` : city?.name}</span>
           {p.aslLevel !== "none" && <span className="tag"><Icon name="hand" size="s" /> ASL — {ASL[p.aslLevel]}</span>}
           {p.textCommunication && <span className="tag"><Icon name="msg" size="s" /> Text</span>}
           {langs.map((l) => <span key={l} className="tag">{l}</span>)}

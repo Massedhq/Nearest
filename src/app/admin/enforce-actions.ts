@@ -8,6 +8,7 @@ import { sweep } from "@/lib/enforcement";
 import { getSettings } from "@/lib/settings";
 import { earningsFor, mainOwnerId, syncInvoices } from "@/lib/partner";
 import type { FormState } from "@/components/ActionForm";
+import { inbox } from "@/lib/inbox";
 
 const nameOf = async (id: string) => { const u = await db.query.users.findFirst({ where: eq(users.id, id) }); return u ? `${u.firstName} ${u.lastName}` : id; };
 
@@ -70,6 +71,7 @@ export async function decideAppeal(_: FormState, form: FormData): Promise<FormSt
     if (a.kind === "pro_suspension") await db.update(professionalProfiles).set({ suspendedUntil: null, suspensionReason: null }).where(eq(professionalProfiles.userId, a.userId));
     if (a.kind === "pro_fine" && a.targetId) await db.update(fines).set({ status: "waived" }).where(and(eq(fines.id, a.targetId), eq(fines.status, "outstanding")));
   }
+  await inbox(a.userId, { kind: "appeal", title: decision === "overturned" ? "Your review was approved" : "Your review was decided", body: note, href: a.kind.startsWith("pro_") ? "/pro/account-status" : "/appeal" });
   await logActivity({ actorUserId: user.id, action: `appeal.${decision}`, targetType: a.kind, targetId: await nameOf(a.userId), after: note });
   revalidatePath("/admin", "layout");
   return { ok: decision === "overturned" ? "Overturned — the action was reversed." : "Upheld." };

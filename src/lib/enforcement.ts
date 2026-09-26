@@ -57,6 +57,8 @@ export async function penalizePro(proId: string, bookingId: string, incidentId: 
     proId, bookingId, incidentId, amountCents: Number(s["enforce.fine_cents"]), reason: "Confirmed professional fault",
     dueAt: days(Number(s["enforce.fine_due_days"])),
   });
+  const { inbox } = await import("./inbox");
+  await inbox(proId, { kind: "fine", title: "A fine was issued on your account", body: "Pay within 7 days to stay visible to students.", href: "/pro/account-status" });
   const st = await proStanding(proId);
   if (st.incidents > 0 && st.incidents % st.limit === 0) {
     await db.update(professionalProfiles)

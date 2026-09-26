@@ -6,6 +6,8 @@ import { requireAdmin } from "@/lib/admin";
 import { expireStaleInvites, foundingOpen } from "@/lib/invites";
 import { revokeInvite, closeFounding } from "@/app/admin/actions";
 import { emailInvite } from "@/app/admin/pro-actions";
+import { deleteInvite } from "@/app/admin/people-actions";
+import { CopyButton } from "@/components/CopyButton";
 import { emailEnabled } from "@/lib/email";
 import { InviteForm } from "./InviteForm";
 import { CopyLink } from "./CopyLink";
@@ -15,10 +17,10 @@ export const metadata = { title: "Founding 750" };
 const TAG: Record<string, string> = { invited: "", registered: "ok", expired: "bad", declined: "", revoked: "bad" };
 const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Chicago" });
 
-export default async function Founding({ searchParams }: { searchParams: Promise<{ new?: string; emailed?: string }> }) {
+export default async function Founding({ searchParams }: { searchParams: Promise<{ new?: string; emailed?: string; resent?: string }> }) {
   const { role } = await requireAdmin();
   await expireStaleInvites();
-  const [{ new: newCode, emailed }, f, rows, cityList, stats] = await Promise.all([
+  const [sp, f, rows, cityList, stats] = await Promise.all([
     searchParams,
     foundingOpen(),
     db
@@ -30,6 +32,7 @@ export default async function Founding({ searchParams }: { searchParams: Promise
     db.select({ id: cities.id, name: cities.name }).from(cities).where(eq(cities.active, true)).orderBy(asc(cities.name)),
     db.select({ status: invitations.status, n: sql<number>`count(*)::int` }).from(invitations).groupBy(invitations.status),
   ]);
+  const { new: newCode, emailed } = sp;
   const by = (s: string) => stats.find((x) => x.status === s)?.n ?? 0;
   const sent = stats.reduce((a, x) => a + x.n, 0);
   const h = await headers();
@@ -39,11 +42,16 @@ export default async function Founding({ searchParams }: { searchParams: Promise
   return (
     <>
       <AdminHead eyebrow="Launch cohort" title="Founding 750" />
+      {sp.resent && (
+        <div className={`card ${sp.emailed === "1" ? "ok" : "warn"} small`}>
+          <span className="b">{sp.emailed === "1" ? `Invitation ${sp.resent} was emailed again.` : emailEnabled() ? `The email for ${sp.resent} didn't send. Use Copy link and text or DM it instead.` : "Email isn't set up yet (add your Resend key — docs/LAUNCH.md step 3). Use Copy link and text or DM it instead."}</span>
+        </div>
+      )}
       {newCode && (
         <div className="card ok" style={{ gap: 10 }}>
           <span className="b">
             Invitation {newCode} created.{" "}
-            {emailed === "1" ? "It was emailed to them. You can also share this link:" : emailEnabled() ? "Email didn't send, so share this link with them:" : "Send this link to the professional:"}
+            {emailed === "1" && !sp.resent ? "It was emailed to them. You can also share this link:" : emailEnabled() ? "Email didn't send, so share this link with them:" : "Send this link to the professional:"}
           </span>
           <CopyLink url={`${origin}/pro/invite/${newCode}`} />
         </div>
@@ -73,14 +81,16 @@ export default async function Founding({ searchParams }: { searchParams: Promise
                 <td>{fmt(i.createdAt)}</td>
                 <td><span className={`tag ${TAG[i.status]}`}>{i.status}</span></td>
                 <td>{i.status === "invited" ? fmt(i.expiresAt) : "—"}</td>
-                <td>{i.status === "invited" && (
-                  <div className="row">
-                    {emailEnabled() && i.contact.includes("@") && (
-                      <form action={emailInvite}><input type="hidden" name="id" value={i.id} /><button className="link small" type="submit">Email</button></form>
+                <td>
+                  <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+                    {i.status === "invited" && i.contact.includes("@") && (
+                      <form action={emailInvite}><input type="hidden" name="id" value={i.id} /><button className="link small" type="submit">Resend email</button></form>
                     )}
-                    <form action={revokeInvite}><input type="hidden" name="id" value={i.id} /><button className="link small" type="submit">Revoke</button></form>
+                    {i.status === "invited" && <CopyButton text={`${origin}/pro/invite/${i.code}`} />}
+                    {i.status === "invited" && <form action={revokeInvite}><input type="hidden" name="id" value={i.id} /><button className="link small" type="submit">Revoke</button></form>}
+                    {i.status !== "registered" && <form action={deleteInvite}><input type="hidden" name="id" value={i.id} /><button className="link small" type="submit" style={{ color: "#F2A38F" }}>Delete</button></form>}
                   </div>
-                )}</td>
+                </td>
               </tr>
             ))}
           </tbody>

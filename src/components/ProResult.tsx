@@ -2,29 +2,31 @@ import Image from "next/image";
 import Link from "next/link";
 import { Icon } from "./Icon";
 import { label12, money } from "@/lib/time";
+import { FavButton } from "./FavButton";
 
 const ASL: Record<string, string> = { basic: "Basic", conversational: "Conversational", fluent: "Fluent" };
 
 type P = {
   userId: string; businessName: string | null; photoUrl: string | null; aslLevel: string; city: string | null;
   minPrice: number | null; firstService: string | null; openings: string[] | null; photos: string[]; rating?: number | null; reviewCount?: number;
+  miles?: number | null; serviceMode?: string | null; favCount?: number;
 };
 
-export function ProResult({ p }: { p: P }) {
+export function ProResult({ p, fav = false }: { p: P; fav?: boolean }) {
   const initials = (p.businessName ?? "N").split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
   return (
     <div className="card">
       <div className="row top-a">
         {p.photoUrl ? <Image src={p.photoUrl} alt="" width={52} height={52} style={{ borderRadius: 26, objectFit: "cover" }} /> : <div className="avatar">{initials}</div>}
         <div className="col g4 grow">
-          <span className="h3">{p.businessName}</span>
+          <div className="row between"><span className="h3">{p.businessName}</span><FavButton proId={p.userId} on={fav} count={p.favCount ?? 0} /></div>
           <div className="row" style={{ flexWrap: "wrap", gap: "4px 12px" }}>
             <span className="badge"><Icon name="shield" size="s" /> Approved by Nearest</span>
             {p.aslLevel !== "none" && <span className="badge pearl"><Icon name="hand" size="s" /> ASL — {ASL[p.aslLevel]}</span>}
           </div>
           <div className="row small" style={{ gap: 12 }}>
             <span className="badge gold"><Icon name="star" size="s" /> {p.reviewCount ? `${p.rating} (${p.reviewCount})` : "New Professional"}</span>
-            <span className="muted row" style={{ gap: 4 }}><Icon name="pin" size="s" /> {p.city}</span>
+            <span className="muted row" style={{ gap: 4 }}><Icon name="pin" size="s" /> {p.miles != null ? `${p.miles} mi away` : p.serviceMode === "travel" ? `Travels to you • ${p.city}` : p.city}</span>
           </div>
         </div>
       </div>

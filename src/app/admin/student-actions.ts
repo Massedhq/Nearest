@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/admin";
 import { logActivity } from "@/lib/log";
 import { nextAug31 } from "@/lib/student";
 import type { FormState } from "@/components/ActionForm";
+import { inbox } from "@/lib/inbox";
 
 const str = (f: FormData, k: string, max = 300) => String(f.get(k) ?? "").trim().slice(0, max);
 
@@ -25,6 +26,7 @@ export async function approveStudent(form: FormData) {
     .set({ verificationStatus: "verified", verifiedAt: new Date(), reverifyBy: nextAug31(), reviewNote: null })
     .where(eq(studentProfiles.userId, id));
   await db.delete(studentIdDocs).where(eq(studentIdDocs.userId, id));
+  await inbox(id, { kind: "verified", title: "You're a Verified Student", body: "Find who's available near you.", href: "/home" });
   await logActivity({ actorUserId: user.id, action: "student.verified", targetType: "student", targetId: await studentName(id), before: "pending", after: "verified" });
   revalidatePath("/admin", "layout");
 }
@@ -36,6 +38,7 @@ export async function rejectStudent(_: FormState, form: FormData): Promise<FormS
   if (!note) return { error: "Tell the student what to fix." };
   await db.update(studentProfiles).set({ verificationStatus: "rejected", reviewNote: note }).where(and(eq(studentProfiles.userId, id), eq(studentProfiles.verificationStatus, "pending")));
   await db.delete(studentIdDocs).where(eq(studentIdDocs.userId, id));
+  await inbox(id, { kind: "verification", title: "We couldn't verify you yet", body: note, href: "/verify/status" });
   await logActivity({ actorUserId: user.id, action: "student.rejected", targetType: "student", targetId: await studentName(id), before: "pending", after: note });
   revalidatePath("/admin", "layout");
   return { ok: "Sent back. Their photos were deleted." };

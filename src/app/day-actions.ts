@@ -10,6 +10,7 @@ import {
   checkIn, startService, finishService, markNoShow, confirmService, savePhoto, saveReview, finishAndRelease, reportProblem, finishOpen,
 } from "@/lib/appointment";
 import type { FormState } from "@/components/ActionForm";
+import { inboxOnce } from "@/lib/inbox";
 
 type Pos = { lat: number; lng: number; accuracyM: number } | null;
 const pos = (f: FormData): Pos => {
@@ -108,6 +109,11 @@ export async function sendMessage(_: FormState, form: FormData): Promise<FormSta
   const closes = new Date(b.endsAt.getTime() + Number(s["appt.messaging_days"]) * 86400000);
   if (!["confirmed", "completed", "no_show"].includes(b.status) || Date.now() > closes.getTime()) return { error: "This conversation is closed." };
   await db.insert(messages).values({ bookingId: b.id, senderId: user.id, body });
+  const toStudent = as === "pro";
+  await inboxOnce(toStudent ? b.studentId : b.proId, b.id, {
+    kind: "message", title: toStudent ? "New message from your professional" : `New message from ${user.firstName ?? "your client"}`,
+    body: body.slice(0, 120), href: toStudent ? `/bookings/${b.id}/messages` : `/pro/appointments/${b.id}/messages`,
+  });
   return { ok: "sent" };
 }
 

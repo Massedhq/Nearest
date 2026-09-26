@@ -20,7 +20,7 @@ export default async function PortfolioStep({ searchParams }: { searchParams: Pr
   return (
     <SetupShell steps={steps} current="portfolio" title="Show people what you do" edit={edit}>
       <Uploader userId={user.id} folder="portfolio" save={addPortfolio} label="Upload photos of your work" />
-      <p className="xs muted p">Star up to 3 favorites to feature first. Instagram and TikTok import is coming later.</p>
+      <p className="xs muted p">Star up to 3 favorites to feature first.</p>
       <PortfolioGrid items={items} />
       {!edit && (
         <ActionForm action={finishPortfolio} submitLabel={items.length ? "Continue" : "Skip for now"}>

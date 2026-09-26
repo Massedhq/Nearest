@@ -1,4 +1,5 @@
 "use server";
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { headers } from "next/headers";
@@ -7,6 +8,7 @@ import { requireAdmin } from "@/lib/admin";
 import { logActivity } from "@/lib/log";
 import { sendInviteEmail, emailEnabled } from "@/lib/email";
 import type { FormState } from "@/components/ActionForm";
+import { inbox } from "@/lib/inbox";
 
 const str = (f: FormData, k: string, max = 500) => String(f.get(k) ?? "").trim().slice(0, max);
 
@@ -19,6 +21,7 @@ export async function approvePro(form: FormData) {
     .set({ reviewStatus: "approved", approvedAt: new Date(), reviewNote: null, searchable: true })
     .where(and(eq(professionalProfiles.userId, id), eq(professionalProfiles.reviewStatus, "submitted")))
     .returning();
+  if (row) await inbox(id, { kind: "approved", title: "You're approved on Nearest", body: "Finish membership, ID and payouts so students can book you.", href: "/pro/payments" });
   if (row) await logActivity({ actorUserId: user.id, action: "pro.approved", targetType: "professional", targetId: row.businessName ?? id, before: "submitted", after: "approved" });
   revalidatePath("/admin", "layout");
 }
@@ -33,6 +36,7 @@ export async function rejectPro(_: FormState, form: FormData): Promise<FormState
     .set({ reviewStatus: "rejected", reviewNote: note, searchable: false })
     .where(and(eq(professionalProfiles.userId, id), eq(professionalProfiles.reviewStatus, "submitted")))
     .returning();
+  if (row) await inbox(id, { kind: "review", title: "Changes needed on your profile", body: note, href: "/pro/setup/review" });
   if (row) await logActivity({ actorUserId: user.id, action: "pro.changes_requested", targetType: "professional", targetId: row.businessName ?? id, before: "submitted", after: note });
   revalidatePath("/admin", "layout");
   return { ok: "Sent back with your note." };
@@ -98,7 +102,8 @@ export async function emailInvite(form: FormData) {
     .where(and(eq(invitations.id, id), eq(invitations.status, "invited")))
     .limit(1);
   const hit = inv[0];
-  if (!hit || !hit.i.contact.includes("@") || !emailEnabled()) return;
+  if (!hit || !hit.i.contact.includes("@")) return;
+  if (!emailEnabled()) redirect(`/admin/founding?resent=${hit.i.code}&emailed=0`);
   const h = await headers();
   const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
   const res = await sendInviteEmail({
@@ -111,4 +116,5 @@ export async function emailInvite(form: FormData) {
   });
   await logActivity({ actorUserId: user.id, action: res.sent ? "invite.emailed" : "invite.email_failed", targetType: "invitation", targetId: hit.i.code, after: res.sent ? hit.i.contact : res.reason });
   revalidatePath("/admin/founding");
+  redirect(`/admin/founding?resent=${hit.i.code}&emailed=${res.sent ? 1 : 0}`);
 }

@@ -36,6 +36,7 @@ const PATHS: Record<string, string> = {
   "card": "<rect x=\"3\" y=\"5.5\" width=\"18\" height=\"13\" rx=\"2.5\"/><path d=\"M3 10h18M7 15h3\"/>",
   "file": "<path d=\"M6 3h8l4 4v14H6z\"/><path d=\"M14 3v4h4M9 12h6M9 16h6\"/>",
   "insta": "<rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"4.5\"/><circle cx=\"12\" cy=\"12\" r=\"3.6\"/><path d=\"M16.8 7.2v.01\"/>",
+  "tiktok": "<path d=\"M14 3v11.5a3.5 3.5 0 1 1-3.5-3.5\"/><path d=\"M14 3c.4 2.6 2.1 4.3 5 4.6\"/>",
   "video": "<rect x=\"3\" y=\"6\" width=\"13\" height=\"12\" rx=\"2\"/><path d=\"m16 10.5 5-3v9l-5-3z\"/>",
   "link": "<path d=\"M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1\"/><path d=\"M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1\"/>",
   "home": "<path d=\"M4 10.5 12 4l8 6.5V20h-5.5v-5.5h-5V20H4z\"/>",

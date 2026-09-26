@@ -13,6 +13,10 @@ export type FormState = { error?: string };
 
 export async function completePro(_: FormState, form: FormData): Promise<FormState> {
   const viewer = await getViewer();
+  if (viewer?.admin) return { error: "You're signed in as a Nearest owner. Sign out, then open the invitation link again so the professional gets their own account." };
+  const who = await clerkContact();
+  const owners = (process.env.OWNER_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+  if (who?.email && owners.includes(who.email)) return { error: "This email belongs to a Nearest owner. Professionals need their own email address." };
   if (!viewer) redirect("/pro/sign-in");
   if (viewer.user && viewer.user.accountType !== "staff") redirect("/go");
 

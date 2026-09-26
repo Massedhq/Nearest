@@ -11,7 +11,8 @@ import { saveSchool, requestSchool } from "@/app/verify-actions";
 
 export const metadata = { title: "Your school" };
 
-export default async function VerifySchool() {
+export default async function VerifySchool({ searchParams }: { searchParams: Promise<{ renew?: string }> }) {
+  const { renew } = await searchParams;
   const { profile } = await requireStudent();
   if (profile.verificationStatus === "verified") redirect("/home");
   const [rows, countyList, cityList, links] = await Promise.all([
@@ -30,6 +31,7 @@ export default async function VerifySchool() {
       <TopBar />
       <div className="body">
         <Steps at={2} />
+        {renew && <div className="card warn small"><span className="b">New school year — time to re-verify.</span><span className="muted">Confirm your school and take a new photo of your current school ID.</span></div>}
         <h1 className="disp h1">Where do you go to school?</h1>
         <p className="muted small p">Nearest is only for verified students in participating areas.</p>
         <ActionForm action={saveSchool} submitLabel="Continue">

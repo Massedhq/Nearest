@@ -1,7 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { asc, eq } from "drizzle-orm";
-import { db, categories, searchLog } from "@/db";
+import { db, categories, searchLog, favorites } from "@/db";
+import { NearMe } from "@/components/NearMe";
+import { Bell } from "@/components/Inbox";
+import { nearPoint, miles } from "@/lib/near";
+import { unreadCount } from "@/lib/inbox";
 import { Icon } from "@/components/Icon";
 import { Tabs } from "@/components/Tabs";
 import { ProResult } from "@/components/ProResult";
@@ -12,7 +16,7 @@ import { fmtDate } from "@/lib/time";
 
 export const metadata = { title: "Explore" };
 
-const QUICK: [keyof Filters, string, string][] = [["today", "bolt", "Available Today"], ["after", "school", "After School"], ["under", "dollar", "Under $25"], ["asl", "hand", "ASL"]];
+const QUICK: [keyof Filters, string, string][] = [["today", "bolt", "Available Today"], ["after", "school", "After School"], ["under", "dollar", "Under $25"]];
 
 export default async function Home({ searchParams }: { searchParams: Promise<Filters> }) {
   const { user, area, profile } = await requireVerifiedStudent();
@@ -36,10 +40,16 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
     );
   }
   const f = await searchParams;
-  const [cats, pros] = await Promise.all([
+  const [cats, found, favRows, unread, here] = await Promise.all([
     db.select({ id: categories.id, name: categories.name }).from(categories).where(eq(categories.active, true)).orderBy(asc(categories.sort)),
     searchPros(f, area),
+    db.select({ proId: favorites.proId }).from(favorites).where(eq(favorites.studentId, user.id)),
+    unreadCount(user.id),
+    nearPoint(),
   ]);
+  const favSet = new Set(favRows.map((r) => r.proId));
+  const pros = found.map((p) => ({ ...p, miles: here ? miles(here, p) : null }));
+  if (f.sort === "near" && here) pros.sort((a, b) => (a.miles ?? 9999) - (b.miles ?? 9999));
   if (f.q || f.cat || f.today || f.after || f.under || f.asl) {
     const { q, area: _a, ...rest } = f;
     void _a;
@@ -59,7 +69,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
       <div className="top" style={{ justifyContent: "space-between" }}>
         <Image src="/brand/nearest-monogram.png" alt="Nearest" width={48} height={48} />
         <Link className="chip" href={href({ area: nextArea === "county" ? undefined : nextArea })} aria-label="Change area"><Icon name="pin" size="s" /> {areaLabel} <Icon name="down" size="s" /></Link>
-        <span className="iconbtn" aria-label="Notifications"><Icon name="bell" /></span>
+        <Bell href="/notifications" unread={unread} />
       </div>
       <div className="body">
         <p className="eyebrow p">Hi, {user.firstName}</p>
@@ -78,6 +88,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
           {cats.map((c) => <Link key={c.id} className={`chip${f.cat === String(c.id) ? " on" : ""}`} href={href({ cat: f.cat === String(c.id) ? undefined : String(c.id) })}>{c.name}</Link>)}
         </div>
         <div className="grid2">
+          <NearMe active={f.sort === "near" && !!here} href={href({})} />
           {QUICK.map(([key, icon, label]) => (
             <Link key={key} className={`card${f[key] ? " pearl" : ""}`} href={href({ [key]: f[key] ? undefined : "1" })} style={{ textDecoration: "none", gap: 6 }} aria-pressed={!!f[key]}>
               <Icon name={icon} /><span className="b">{label}</span>
@@ -86,7 +97,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
         </div>
         <div className="row between"><h2 className="disp h2">{pros.length ? "Near you" : "No matches yet"}</h2><span className="xs muted">{pros.length} professional{pros.length === 1 ? "" : "s"}</span></div>
         {pros.length === 0 && <p className="small muted p">Try removing a filter or choosing All DFW. New professionals join every week.</p>}
-        {pros.map((p) => <ProResult key={p.userId} p={p} />)}
+        <Link className={`card${f.asl ? " pearl" : ""}`} href={href({ asl: f.asl ? undefined : "1" })} style={{ textDecoration: "none" }} aria-pressed={!!f.asl}><div className="row"><Icon name="hand" /><span className="b grow">Professionals who communicate in ASL</span><Icon name="right" /></div></Link>
+        {pros.map((p) => <ProResult key={p.userId} p={p} fav={favSet.has(p.userId)} />)}
       </div>
       <Tabs kind="student" active="Explore" />
     </div>

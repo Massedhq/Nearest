@@ -16,7 +16,24 @@ export async function getViewer(): Promise<Viewer | null> {
   const admin = user
     ? (await db.query.adminMembers.findFirst({ where: eq(adminMembers.userId, user.id) })) ?? null
     : null;
-  return { clerkUserId: userId, user, admin: admin && admin.active ? { role: admin.role, active: admin.active } : null };
+  return { clerkUserId: userId, user, admin: admin && admin.active && ownerAllowed(user, admin.role) ? { role: admin.role, active: admin.active } : null };
+}
+
+const mainOwnerEmail = () => (process.env.MAIN_OWNER_EMAIL ?? "").trim().toLowerCase();
+
+/**
+ * Owner access is checked on every request, not just remembered:
+ * - the account's email must be in OWNER_EMAILS, and
+ * - the account must be an owner account, not a professional or student account.
+ * The main owner (MAIN_OWNER_EMAIL) can never be locked out by the second rule.
+ * Nothing is deleted — fixing OWNER_EMAILS restores access immediately.
+ */
+export function ownerAllowed(user: User | null, role: string) {
+  if (role !== "OWNER") return true;
+  const email = user?.email?.toLowerCase() ?? "";
+  if (!email || !ownerEmails().includes(email)) return false;
+  if (email === mainOwnerEmail()) return true;
+  return user?.accountType === "staff";
 }
 
 function ownerEmails(): string[] {
@@ -59,6 +76,9 @@ export async function ensureOwner(viewer: Viewer | null): Promise<Viewer | null>
   if (!list.length) return viewer;
   const c = await clerkContact();
   if (!c?.email || !list.includes(c.email) || !c.emailVerifiedAt) return viewer;
+  // Never turn a professional or student account into an owner — not even if its email is on the owner list.
+  const isMain = c.email === mainOwnerEmail();
+  if (!isMain && (c.door === "pro" || (viewer.user && viewer.user.accountType !== "staff"))) return viewer;
 
   let user = viewer.user;
   if (!user) {

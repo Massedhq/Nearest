@@ -33,7 +33,7 @@ export default async function ProfileStep({ searchParams }: { searchParams: Prom
           <div className="field"><label htmlFor="tiktok">TikTok</label><input id="tiktok" name="tiktok" placeholder="@handle" defaultValue={p.tiktok ? `@${p.tiktok}` : ""} /></div>
           <div className="field"><label htmlFor="website">Website</label><input id="website" name="website" placeholder="https://" defaultValue={p.website ?? ""} /></div>
         </div>
-        <label className="check"><input type="checkbox" name="showInstagram" defaultChecked={p.showInstagram} />Show my Instagram link on my profile</label>
+        <p className="xs muted p">Students can tap these icons on your profile to open your pages.</p>
       </ActionForm>
     </SetupShell>
   );

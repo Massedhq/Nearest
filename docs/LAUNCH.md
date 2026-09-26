@@ -60,7 +60,8 @@ Redeploy after changing any of them.
 - TDLR license rules per category (Admin → Marketplace).
 
 ## 8. Clean start
-- Remove test accounts and test bookings from the database before launch. Ask Claude for a one-time cleanup script, or create a fresh Neon branch for production.
+- In the terminal: `npm run db:cleanup`, then type `DELETE TEST DATA` when asked. It removes test accounts, bookings and activity and keeps owner logins, settings, cities, schools and categories.
+- Then have your lawyer finish the DRAFT sections at `/terms` and `/privacy` (edit `src/app/terms/page.tsx` and `src/app/privacy/page.tsx`).
 
 ## 9. Open the doors (Admin → Command Center → Marketplace status)
 - Professional Registration, Founding Invitations and Student Registration: **Open**.

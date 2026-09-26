@@ -7,6 +7,8 @@ import { Tabs } from "@/components/Tabs";
 import { requirePro, setupSteps, setupComplete } from "@/lib/pro";
 import { chicagoNow, fmtDate, fmtTime, label12, money } from "@/lib/time";
 import { proStanding } from "@/lib/enforcement";
+import { Bell } from "@/components/Inbox";
+import { unreadCount } from "@/lib/inbox";
 
 export const metadata = { title: "Today" };
 
@@ -26,6 +28,7 @@ export default async function ProHome() {
   const payReady = ["trialing", "active"].includes(profile.subscriptionStatus ?? "") && profile.identityStatus === "verified" && profile.payoutsEnabled;
   const approved = profile.reviewStatus === "approved";
   const standing = await proStanding(user.id);
+  const unread = await unreadCount(user.id);
   const left = steps.filter((s) => !s.done && !s.optional);
   const next = left[0];
 
@@ -34,7 +37,7 @@ export default async function ProHome() {
       <div className="top" style={{ justifyContent: "space-between" }}>
         <Image src="/brand/nearest-monogram.png" alt="Nearest" width={48} height={48} />
         {viewer.admin ? <Link className="chip" href="/workspace"><Icon name="switch" size="s" /> Switch workspace</Link> : <span />}
-        <span className="iconbtn" aria-label="Notifications"><Icon name="bell" /></span>
+        <Bell href="/pro/notifications" unread={unread} />
       </div>
       <div className="body">
         <div><p className="eyebrow p">{fmtDate(new Date(), { weekday: "long", month: "short", day: "numeric" })}</p><h1 className="disp h1">{greeting(now.minutes)}, {user.firstName}</h1></div>

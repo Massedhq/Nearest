@@ -25,6 +25,10 @@ export async function verifyStep(userId: string, profile: typeof studentProfiles
 /** Browsing is only for verified students. Everyone else is sent to their next verification step. */
 export async function requireVerifiedStudent() {
   const s = await requireStudent();
+  if (s.profile.verificationStatus === "verified" && s.profile.reverifyBy && s.profile.reverifyBy < new Date().toISOString().slice(0, 10)) {
+    await db.update(studentProfiles).set({ verificationStatus: "unverified", schoolId: null, verifiedAt: null, reviewNote: "Time to re-verify for the new school year." }).where(eq(studentProfiles.userId, s.user.id));
+    redirect("/verify?renew=1");
+  }
   const step = await verifyStep(s.user.id, s.profile);
   if (step) redirect(step);
   const area = s.profile.schoolId ? await schoolArea(s.profile.schoolId) : null;
