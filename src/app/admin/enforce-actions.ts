@@ -7,6 +7,8 @@ import { logActivity } from "@/lib/log";
 import { sweep } from "@/lib/enforcement";
 import { getSettings } from "@/lib/settings";
 import { earningsFor, mainOwnerId, syncInvoices } from "@/lib/partner";
+import { stripe } from "@/lib/stripe";
+import { adminMembers } from "@/db";
 import type { FormState } from "@/components/ActionForm";
 import { inbox } from "@/lib/inbox";
 
@@ -143,4 +145,28 @@ export async function markPayoutPaid(form: FormData) {
     .where(and(eq(partnerPayouts.id, String(form.get("id"))), eq(partnerPayouts.status, "approved"))).returning();
   if (p) await logActivity({ actorUserId: user.id, action: "partner.payout_paid", targetType: "partner", targetId: await nameOf(p.partnerId), after: { month: p.month, cents: p.amountCents } });
   revalidatePath("/admin/sales");
+}
+
+/** Sends an approved payout to the partner's connected bank account or debit card through Stripe, then marks it paid. */
+export async function sendPayoutStripe(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireMain();
+  const p = await db.query.partnerPayouts.findFirst({ where: and(eq(partnerPayouts.id, String(form.get("id"))), eq(partnerPayouts.status, "approved")) });
+  if (!p) return { error: "This payout isn't waiting to be sent." };
+  if (p.amountCents <= 0) return { error: "The amount is $0." };
+  const m = await db.query.adminMembers.findFirst({ where: eq(adminMembers.userId, p.partnerId) });
+  if (!m?.stripeAccountId || !m.stripePayoutsEnabled) return { error: "This partner hasn't finished connecting a bank account or debit card yet." };
+  try {
+    const t = await stripe().transfers.create(
+      { amount: p.amountCents, currency: "usd", destination: m.stripeAccountId, metadata: { kind: "partner_payout", payoutId: p.id, month: p.month } },
+      { idempotencyKey: `partner-payout-${p.id}` },
+    );
+    await db.update(partnerPayouts).set({ status: "paid", paidAt: new Date(), transferId: t.id }).where(eq(partnerPayouts.id, p.id));
+    await logActivity({ actorUserId: user.id, action: "partner.payout_sent", targetType: "partner", targetId: await nameOf(p.partnerId), after: { month: p.month, cents: p.amountCents, transfer: t.id, to: m.payoutDestination } });
+    revalidatePath("/admin/sales");
+    return { ok: `Sent $${(p.amountCents / 100).toFixed(2)} to ${m.payoutDestination ?? "their payout account"}. Stripe deposits it on their payout schedule.` };
+  } catch (e) {
+    const msg = (e as { code?: string; message?: string });
+    if (msg.code === "balance_insufficient") return { error: "Nearest's Stripe balance doesn't have enough available yet. Membership payments become available after Stripe's standard holding period — try again then." };
+    return { error: `Stripe couldn't send it: ${msg.message ?? "unknown error"}` };
+  }
 }

@@ -283,6 +283,10 @@ export const adminMembers = pgTable("admin_members", {
   payoutMethod: text("payout_method"), // "Zelle" | "Cash App" | "PayPal" | "Venmo" | "Bank transfer" | "Check" | "Other"
   payoutHandle: text("payout_handle"),
   payoutNote: text("payout_note"),
+  // Stripe Connect payout account (bank account or debit card, entered in Stripe's secure form — never stored here)
+  stripeAccountId: text("stripe_account_id"),
+  stripePayoutsEnabled: boolean("stripe_payouts_enabled").notNull().default(false),
+  payoutDestination: text("payout_destination"), // display only, e.g. "Chase ••••4417" or "Visa debit ••••1234"
   active: boolean("active").notNull().default(true),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
@@ -459,6 +463,7 @@ export const partnerPayouts = pgTable("partner_payouts", {
   approvedAt: ts("approved_at").notNull().defaultNow(),
   paidAt: ts("paid_at"),
   note: text("note"),
+  transferId: text("transfer_id"),
 }, (t) => [uniqueIndex("partner_payouts_partner_month").on(t.partnerId, t.month)]);
 
 // What students searched for — powers Marketing's "searched but didn't find".

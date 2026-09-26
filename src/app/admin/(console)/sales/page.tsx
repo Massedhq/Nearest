@@ -8,7 +8,7 @@ import { requireAdmin } from "@/lib/admin";
 import { getSettings } from "@/lib/settings";
 import { earningsFor, mainOwnerId, partners, payoutsFor } from "@/lib/partner";
 import { chicagoNow, money } from "@/lib/time";
-import { approvePayout, changePayoutAmount, markPayoutPaid, syncPayments } from "@/app/admin/enforce-actions";
+import { approvePayout, changePayoutAmount, markPayoutPaid, syncPayments, sendPayoutStripe } from "@/app/admin/enforce-actions";
 import Link from "next/link";
 
 export const metadata = { title: "Sales Track" };
@@ -72,12 +72,16 @@ export default async function Sales({ searchParams }: { searchParams: Promise<{ 
                 <tr key={r.userId} style={{ verticalAlign: "top" }}>
                   <td>{r.name}</td><td className="num">{r.code}</td><td>{money(r.poolShareCents)}</td><td>{money(r.codeCents)} <span className="xs muted">({r.codePros})</span></td><td className="b">{money(r.totalCents)}</td>
                   <td>
-                    {p ? <span className={`tag ${p.status === "paid" ? "ok" : "warn"}`}>{p.status === "paid" ? "Paid" : "Approved"} {money(p.amountCents)}</span> : <span className="tag">Not approved</span>}
+                    {p ? <span className={`tag ${p.status === "paid" ? "ok" : "warn"}`}>{p.status === "paid" ? (p.transferId ? "Sent via Stripe" : "Paid") : "Approved"} {money(p.amountCents)}</span> : <span className="tag">Not approved</span>}
                     {p?.note && <div className="xs muted" style={{ marginTop: 4 }}>{p.note}</div>}
                   </td>
                   {isMain && (
                     <td className="small">
-                      {partner?.payoutMethod ? <><div className="b">{partner.payoutMethod}</div><div>{partner.payoutHandle}</div>{partner.payoutNote && <div className="xs muted">{partner.payoutNote}</div>}</> : <span className="tag warn">Not added yet</span>}
+                      {partner?.stripeReady ? (
+                        <><div className="b">Stripe</div><div>{partner.payoutDestination ?? "Bank or debit card"}</div></>
+                      ) : partner?.payoutMethod ? (
+                        <><div className="b">{partner.payoutMethod}</div><div>{partner.payoutHandle}</div>{partner.payoutNote && <div className="xs muted">{partner.payoutNote}</div>}</>
+                      ) : <span className="tag warn">Not added yet</span>}
                     </td>
                   )}
                   {isMain && (
@@ -95,7 +99,10 @@ export default async function Sales({ searchParams }: { searchParams: Promise<{ 
                       )}
                       {p?.status === "approved" && (
                         <div className="col" style={{ gap: 6 }}>
-                          <form action={markPayoutPaid}><input type="hidden" name="id" value={p.id} /><button className="btn sm" type="submit">Mark paid</button></form>
+                          {partner?.stripeReady ? (
+                            <ActionForm action={sendPayoutStripe} submitLabel={`Send ${money(p.amountCents)} via Stripe`} buttonClass="btn sm"><input type="hidden" name="id" value={p.id} /></ActionForm>
+                          ) : null}
+                          <form action={markPayoutPaid}><input type="hidden" name="id" value={p.id} /><button className={partner?.stripeReady ? "link small" : "btn sm"} type="submit">{partner?.stripeReady ? "Paid another way — mark paid" : "Mark paid"}</button></form>
                           <details><summary className="link small" style={{ cursor: "pointer" }}>Change amount</summary>
                             <div style={{ marginTop: 8 }}>
                               <ActionForm action={changePayoutAmount} submitLabel="Save amount" buttonClass="btn ghost sm">
@@ -114,7 +121,7 @@ export default async function Sales({ searchParams }: { searchParams: Promise<{ 
             })}
           </tbody>
         </table>
-        <span className="xs muted">Earnings come from membership payments pros actually made (free-trial months earn nothing). {isMain ? "Send each payout using the partner's details, then tap Mark paid. Every approval and change is logged." : "Avy approves and sends payouts. "}
+        <span className="xs muted">Earnings come from membership payments pros actually made (free-trial months earn nothing). {isMain ? "Partners with a connected bank account or debit card are paid with Send via Stripe; others, send it yourself and tap Mark paid. Every approval, change and payment is logged." : "Avy approves and sends payouts. "}
           {!isMain && <Link className="link xs" href="/admin/profile">{me && list.find((x) => x.userId === me.userId)?.payoutMethod ? "Update where you get paid" : "Add where you want to be paid"}</Link>}
         </span>
       </div>

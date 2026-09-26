@@ -20,6 +20,7 @@ export async function partners() {
     .select({
       userId: adminMembers.userId, code: adminMembers.partnerCode, first: users.firstName, last: users.lastName, email: users.email, createdAt: adminMembers.createdAt,
       payoutMethod: adminMembers.payoutMethod, payoutHandle: adminMembers.payoutHandle, payoutNote: adminMembers.payoutNote,
+      stripeReady: adminMembers.stripePayoutsEnabled, payoutDestination: adminMembers.payoutDestination,
     })
     .from(adminMembers).innerJoin(users, eq(users.id, adminMembers.userId))
     .where(and(eq(adminMembers.role, "OWNER"), eq(adminMembers.active, true)))

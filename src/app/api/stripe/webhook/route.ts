@@ -6,6 +6,7 @@ import { confirmFromCheckout } from "@/lib/bookings";
 import { saveSubscription } from "@/lib/pro-stripe";
 import { confirmFinePayment } from "@/lib/enforcement";
 import { recordInvoice } from "@/lib/partner";
+import { savePartnerAccount } from "@/lib/partner-stripe";
 
 // Stripe calls this in the background so payments, memberships, ID checks and payouts stay current
 // even if someone closes the browser before returning to Nearest.
@@ -52,6 +53,7 @@ export async function POST(req: Request) {
       case "account.updated": {
         const a = event.data.object;
         await db.update(professionalProfiles).set({ payoutsEnabled: Boolean(a.payouts_enabled) }).where(eq(professionalProfiles.stripeAccountId, a.id));
+        await savePartnerAccount(a); // partner payout accounts (bank or debit card)
         break;
       }
     }
