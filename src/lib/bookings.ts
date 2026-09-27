@@ -116,7 +116,8 @@ export async function cancelAsProFault(bookingId: string, reason: string, proId?
 export async function releasePayment(bookingId: string, studentId: string) {
   const b = await db.query.bookings.findFirst({ where: and(eq(bookings.id, bookingId), eq(bookings.studentId, studentId)) });
   if (!b || b.status !== "confirmed") return { error: "This payment can't be released." };
-  if (b.startsAt.getTime() > Date.now()) return { error: "You can release payment once your appointment has started." };
+  // Release once the pro has finished (even if they started early) or the start time has passed.
+  if (!b.finishedAt && b.startsAt.getTime() > Date.now()) return { error: "You can release payment once your appointment has started." };
   const pro = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, b.proId) });
   const amount = Math.max(0, total(b) - (b.stripeFeeCents ?? 0));
   let transferId: string | null = null;
