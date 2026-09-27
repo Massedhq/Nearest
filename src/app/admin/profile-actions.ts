@@ -10,6 +10,7 @@ import type { FormState } from "@/components/ActionForm";
 import { PAYOUT_METHODS } from "@/lib/payout-methods";
 import { redirect } from "next/navigation";
 import { stripe, origin, stripeEnabled } from "@/lib/stripe";
+import { createPayoutAccount } from "@/lib/stripe-connect";
 
 
 /** Your own name — saved in Nearest and on your sign-in (Clerk) so they always match. */
@@ -50,18 +51,15 @@ export async function saveMyPayout(_: FormState, form: FormData): Promise<FormSt
  * Bank account or debit card payouts through Stripe. The partner enters routing/account numbers or a debit card
  * in Stripe's secure form (Stripe checks the name matches). Nearest never sees or stores the numbers.
  */
-/** Turns Stripe's error into plain steps. */
+/** Stripe's exact words, plus a plain next step when the cause is certain. */
 function explainStripe(e: unknown) {
   const m = (e as { message?: string })?.message ?? String(e);
-  if (/signed up for Connect|Connect.*not.*enabled|connect/i.test(m) && /sign(ed)? up|enable|activate/i.test(m)) {
-    return "Stripe Connect isn't turned on yet. In Stripe: Connect → Get started, choose Marketplace, then finish the platform profile. Then try again.";
-  }
-  if (/platform profile|responsibilit|review.*requirements|loss liabilit/i.test(m)) {
-    return "Stripe needs your Connect platform profile finished. In Stripe: Settings → Connect → Platform profile — answer the questions (Marketplace, Express accounts). Then try again.";
-  }
-  if (/No such account/i.test(m)) return "The saved Stripe account no longer exists (often from switching between test and live keys). Tap Connect payout account again to start fresh.";
-  if (/api key|Invalid API Key|authentication/i.test(m)) return "Stripe rejected the key. Check STRIPE_SECRET_KEY in Vercel (and redeploy).";
-  return `Stripe said: ${m}`;
+  let tip = "";
+  if (/signed up for Connect/i.test(m)) tip = "Turn on Connect in Stripe: Connect → Get started. ";
+  else if (/platform-profile|platform profile|responsibilities of managing losses/i.test(m)) tip = "Finish Stripe's platform profile: Settings → Connect → Platform profile. ";
+  else if (/No such account/i.test(m)) tip = "The saved Stripe account is from different keys — tap the button again to start fresh. ";
+  else if (/Invalid API Key|looks like the ID of an API key/i.test(m)) tip = "Check STRIPE_SECRET_KEY in Vercel and redeploy. ";
+  return `${tip}Stripe said: ${m}`;
 }
 
 export async function connectPartnerPayout(_: FormState, form: FormData): Promise<FormState> {
@@ -83,10 +81,7 @@ export async function connectPartnerPayout(_: FormState, form: FormData): Promis
       }
     }
     if (!acct) {
-      const a = await stripe().accounts.create({
-        type: "express", country: "US", email: user.email ?? undefined, business_type: "individual",
-        capabilities: { transfers: { requested: true } }, metadata: { partnerUserId: user.id, kind: "nearest_partner" },
-      });
+      const a = await createPayoutAccount({ email: user.email, metadata: { partnerUserId: user.id, kind: "nearest_partner" } });
       acct = a.id;
       await db.update(adminMembers).set({ stripeAccountId: acct }).where(eq(adminMembers.userId, user.id));
       await logActivity({ actorUserId: user.id, action: "profile.payout_stripe_started", targetType: "owner", targetId: user.email ?? user.id });

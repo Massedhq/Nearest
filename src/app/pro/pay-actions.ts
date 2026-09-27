@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import type Stripe from "stripe";
 import { db, professionalProfiles } from "@/db";
 import { requirePro } from "@/lib/pro";
+import { createPayoutAccount } from "@/lib/stripe-connect";
 import { stripe, origin, priceFor } from "@/lib/stripe";
 import { saveSubscription } from "@/lib/pro-stripe";
 import { cancelAsProFault } from "@/lib/bookings";
@@ -57,10 +58,7 @@ export async function startPayouts() {
   const base = await origin();
   let acct = profile.stripeAccountId;
   if (!acct) {
-    const a = await stripe().accounts.create({
-      type: "express", country: "US", email: user.email ?? undefined, business_type: "individual",
-      capabilities: { transfers: { requested: true } }, metadata: { userId: user.id },
-    });
+    const a = await createPayoutAccount({ email: user.email, metadata: { userId: user.id } });
     acct = a.id;
     await db.update(professionalProfiles).set({ stripeAccountId: acct }).where(eq(professionalProfiles.userId, user.id));
   }
