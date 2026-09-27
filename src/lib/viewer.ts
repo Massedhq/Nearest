@@ -1,6 +1,6 @@
 import "server-only";
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db, users, adminMembers, professionalProfiles, type User } from "@/db";
 
 export type Viewer = {
@@ -12,11 +12,30 @@ export type Viewer = {
 export async function getViewer(): Promise<Viewer | null> {
   const { userId } = await auth();
   if (!userId) return null;
-  const user = (await db.query.users.findFirst({ where: eq(users.clerkUserId, userId) })) ?? null;
+  const user = (await db.query.users.findFirst({ where: eq(users.clerkUserId, userId) })) ?? (await relinkByEmail(userId));
   const admin = user
     ? (await db.query.adminMembers.findFirst({ where: eq(adminMembers.userId, user.id) })) ?? null
     : null;
   return { clerkUserId: userId, user, admin: admin && admin.active && ownerAllowed(user, admin.role) ? { role: admin.role, active: admin.active } : null };
+}
+
+/**
+ * A sign-in we haven't seen before (for example after switching Clerk from test to live keys, which issues new
+ * sign-in IDs) is linked to the existing Nearest account with the same VERIFIED email — so owners, pros and
+ * students keep their history instead of getting a second, empty account.
+ */
+async function relinkByEmail(clerkUserId: string) {
+  const cu = await currentUser();
+  const primary = cu?.emailAddresses.find((e) => e.id === cu.primaryEmailAddressId);
+  if (!primary || primary.verification?.status !== "verified") return null;
+  const email = primary.emailAddress.toLowerCase();
+  const rows = await db.select().from(users).where(sql`lower(${users.email}) = ${email}`);
+  if (!rows.length) return null;
+  // Prefer an owner account, then the oldest.
+  const admins = new Set((await db.select({ id: adminMembers.userId }).from(adminMembers)).map((a) => a.id));
+  const pick = [...rows].sort((a, b) => Number(admins.has(b.id)) - Number(admins.has(a.id)) || a.createdAt.getTime() - b.createdAt.getTime())[0];
+  const [linked] = await db.update(users).set({ clerkUserId, updatedAt: new Date() }).where(eq(users.id, pick.id)).returning();
+  return linked ?? null;
 }
 
 const mainOwnerEmail = () => (process.env.MAIN_OWNER_EMAIL ?? "").trim().toLowerCase();
