@@ -14,6 +14,7 @@ import { drizzle } from "drizzle-orm/neon-http";
 import * as schema from "../src/db/schema";
 import { TEXAS_COUNTIES } from "../src/db/texas-counties";
 import { US_STATES } from "../src/lib/markets";
+import US_COUNTIES from "../src/db/us-counties.json";
 
 const db = drizzle({ client: neon(process.env.DATABASE_URL!), schema });
 const { counties, cities, cityCounties, schools } = schema;
@@ -47,19 +48,27 @@ function nice(s: string) {
     if (/^mc[a-z]/.test(w)) return "Mc" + w[2].toUpperCase() + w.slice(3);
     if (/^o'[a-z]/.test(w)) return "O'" + w[2].toUpperCase() + w.slice(3);
     return w.charAt(0).toUpperCase() + w.slice(1);
-  }).join("");
+  }).join("")
+    .replace(/&([a-z])/g, (_, c: string) => "&" + c.toUpperCase()) // A&M, not A&m
+    .replace(/\bH\.? ?S\.?$/, "High School") // "Crockett Early College H S"
+    .replace(/\bJr\.? H\.? ?S\.?$/i, "Junior High School")
+    .replace(/\b(Kipp|Idea|Yes Prep|Stem|Aisd|Isd)\b/g, (w) => w.toUpperCase());
 }
 
 async function getJson(url: string, tries = 4): Promise<any> {
+  let last = "";
   for (let i = 0; i < tries; i++) {
     try {
-      const r = await fetch(url, { signal: AbortSignal.timeout(60000) });
-      if (r.ok) return r.json();
+      const r = await fetch(url, { signal: AbortSignal.timeout(90000), headers: { Accept: "application/json", "User-Agent": "Nearest school import (usenearest.com)" } });
       if (r.status === 404) return null;
-    } catch { /* retry */ }
-    await new Promise((res) => setTimeout(res, 1500 * (i + 1)));
+      const text = await r.text();
+      if (r.ok) {
+        try { return JSON.parse(text); } catch { last = `got a web page instead of data (status ${r.status}): ${text.replace(/\s+/g, " ").slice(0, 160)}`; }
+      } else last = `status ${r.status}: ${text.replace(/\s+/g, " ").slice(0, 160)}`;
+    } catch (e) { last = (e as Error).message; }
+    await new Promise((res) => setTimeout(res, 2000 * (i + 1)));
   }
-  throw new Error(`Couldn't download ${url}`);
+  throw new Error(`Couldn't download ${url}\n  ${last}`);
 }
 
 /** Follows the API's "next" links until every page is read. */
@@ -91,14 +100,12 @@ type School = { name: string; type: "high_school" | "college" | "trade"; city: s
 
 async function main() {
   const states = ONLY ? [ONLY] : Object.values(FIPS);
-  if (ONLY && !ABBR_TO_FIPS[ONLY]) { console.log(`Unknown state "${ONLY}". Use a 2-letter code like TX.`); process.exit(1); }
+  if (ONLY && !ABBR_TO_FIPS[ONLY]) { console.log(`Unknown state "${ONLY}". Use a 2-letter code like TX.`); process.exitCode = 1; return; }
   console.log(`\nNearest school import — ${ONLY ? stateName(ONLY) : "all states"}${DRY ? " (preview only)" : ""}\n`);
 
-  // County names by 5-digit FIPS, from the Census
-  const censusRows: string[][] = (await getJson("https://api.census.gov/data/2020/dec/pl?get=NAME&for=county:*")) ?? [];
-  const countyByFips = new Map<string, string>();
-  for (const [name, st, co] of censusRows.slice(1)) countyByFips.set(`${st}${co}`, name.split(",")[0].replace(/\s+(County|Parish|Borough|Census Area|Municipality|City and Borough)$/i, ""));
-  console.log(`  County names: ${countyByFips.size.toLocaleString()}`);
+  // County names by 5-digit FIPS (built into Nearest — no download needed)
+  const countyByFips = new Map<string, string>(Object.entries(US_COUNTIES as unknown as Record<string, [string, string]>).map(([f, [n]]) => [f, n]));
+  console.log(`  County names: ${countyByFips.size.toLocaleString()} (built in)`);
 
   const found: School[] = [];
 
@@ -106,6 +113,7 @@ async function main() {
   for (const st of states) {
     const fips = Number(ABBR_TO_FIPS[st]);
     const { rows } = await latest((y) => `https://educationdata.urban.org/api/v1/college-university/ipeds/directory/${y}/?fips=${fips}`, `${st} colleges`);
+    const before = found.length;
     for (const r of rows) {
       const name = str(pick(r, "inst_name", "institution_name"));
       const city = str(pick(r, "city"));
@@ -115,16 +123,19 @@ async function main() {
       const closed = /^[CDM]/i.test(str(pick(r, "inst_status"))) || (active !== null && Number(active) === 0); // only when the field is present
       if (!name || !city || sector === 0 || closed) continue; // sector 0 = administrative offices
       const tradeWords = /(beauty|cosmetolog|barber|esthetic|nail|technical|trade|career|vocational|welding|truck|culinary|massage|makeup|hair|paul mitchell|aveda|empire|the school|school of (hair|beauty|cosmetology|massage|esthetics)|lash|brow|salon|spa\b)/i;
-      const type = level === 3 || (level === 2 && tradeWords.test(name)) ? "trade" : "college";
+      // Trade/beauty schools by name at any length (the directory's length codes vary), or any under-2-year school.
+      const type = level === 3 || (tradeWords.test(name) && !/\buniversity\b/i.test(name)) ? "trade" : "college";
       const county = str(pick(r, "county_fips", "county_code"));
       found.push({ name: nice(name), type, city: nice(city), state: st, countyFips: county ? county.padStart(5, "0") : null });
     }
+    if (rows.length && found.length === before) console.log(`  ⚠ ${rows.length} college records but none matched. Fields received: ${Object.keys(rows[0]).join(", ")}`);
   }
 
   // Public high schools, including combined schools that go through 12th grade (NCES Common Core of Data)
   for (const st of states) {
     const fips = Number(ABBR_TO_FIPS[st]);
     const { rows } = await latest((y) => `https://educationdata.urban.org/api/v1/schools/ccd/directory/${y}/?fips=${fips}`, `${st} public schools`);
+    const before = found.length;
     for (const r of rows) {
       const name = str(pick(r, "school_name"));
       const city = str(pick(r, "city_location", "city_mailing"));
@@ -134,9 +145,15 @@ async function main() {
       if (!name || !city) continue;
       if ([2, 6, 7].includes(status)) continue; // closed / inactive / future
       if (!(level === 3 || high === 12)) continue; // high schools, plus any school that offers 12th grade
+      // Leave out placements students don't "attend" as their school: special-ed and alternative/disciplinary
+      // programs (school_type 2 and 4), and anything named like a DAEP, JJAEP, detention or juvenile center.
+      const schoolType = Number(pick(r, "school_type"));
+      if (schoolType === 2 || schoolType === 4) continue;
+      if (/\b(daep|jjaep|detention|juvenile|disciplinary|restorative|transition center|residential treatment|correctional|hospital|homebound)\b/i.test(name)) continue;
       const county = str(pick(r, "county_code"));
       found.push({ name: nice(name), type: "high_school", city: nice(city), state: st, countyFips: county ? county.padStart(5, "0") : null });
     }
+    if (rows.length && found.length === before) console.log(`  ⚠ ${rows.length} school records but no high schools matched. Fields received: ${Object.keys(rows[0]).join(", ")}`);
   }
 
   const byType = (t: string) => found.filter((s) => s.type === t).length;
@@ -145,7 +162,7 @@ async function main() {
   for (const s of found.filter((_, i) => i % Math.max(1, Math.floor(found.length / 6)) === 0).slice(0, 6)) {
     console.log(`    ${s.name} — ${s.city}, ${s.state}${s.countyFips && countyByFips.get(s.countyFips) ? ` (${countyByFips.get(s.countyFips)} County)` : ""}`);
   }
-  if (DRY) { console.log("\nPreview only — nothing saved. Run again without --dry-run to save."); process.exit(0); }
+  if (DRY) { console.log("\nPreview only — nothing saved. Run again without --dry-run to save."); return; }
 
   // ---------- Save ----------
   const countyRows = await db.select().from(counties);
@@ -218,6 +235,5 @@ async function main() {
   }
   process.stdout.write("\n");
   console.log(`\nDone. ${saved.toLocaleString()} new schools added; ${(toSave.length - saved).toLocaleString()} were already in Nearest.`);
-  process.exit(0);
 }
-main().catch((e) => { console.error("\nImport stopped:", e.message ?? e); process.exit(1); });
+main().catch((e) => { console.error("\nImport stopped:", e.message ?? e); process.exitCode = 1; });

@@ -50,25 +50,56 @@ export async function saveMyPayout(_: FormState, form: FormData): Promise<FormSt
  * Bank account or debit card payouts through Stripe. The partner enters routing/account numbers or a debit card
  * in Stripe's secure form (Stripe checks the name matches). Nearest never sees or stores the numbers.
  */
-export async function connectPartnerPayout() {
+/** Turns Stripe's error into plain steps. */
+function explainStripe(e: unknown) {
+  const m = (e as { message?: string })?.message ?? String(e);
+  if (/signed up for Connect|Connect.*not.*enabled|connect/i.test(m) && /sign(ed)? up|enable|activate/i.test(m)) {
+    return "Stripe Connect isn't turned on yet. In Stripe: Connect → Get started, choose Marketplace, then finish the platform profile. Then try again.";
+  }
+  if (/platform profile|responsibilit|review.*requirements|loss liabilit/i.test(m)) {
+    return "Stripe needs your Connect platform profile finished. In Stripe: Settings → Connect → Platform profile — answer the questions (Marketplace, Express accounts). Then try again.";
+  }
+  if (/No such account/i.test(m)) return "The saved Stripe account no longer exists (often from switching between test and live keys). Tap Connect payout account again to start fresh.";
+  if (/api key|Invalid API Key|authentication/i.test(m)) return "Stripe rejected the key. Check STRIPE_SECRET_KEY in Vercel (and redeploy).";
+  return `Stripe said: ${m}`;
+}
+
+export async function connectPartnerPayout(_: FormState, form: FormData): Promise<FormState> {
+  void form;
   const { user } = await requireAdmin();
-  if (!stripeEnabled()) redirect("/admin/profile?stripe=off");
-  const base = await origin();
-  const me = await db.query.adminMembers.findFirst({ where: eq(adminMembers.userId, user.id) });
-  let acct = me?.stripeAccountId ?? null;
-  if (!acct) {
-    const a = await stripe().accounts.create({
-      type: "express", country: "US", email: user.email ?? undefined, business_type: "individual",
-      capabilities: { transfers: { requested: true } }, metadata: { partnerUserId: user.id, kind: "nearest_partner" },
-    });
-    acct = a.id;
-    await db.update(adminMembers).set({ stripeAccountId: acct }).where(eq(adminMembers.userId, user.id));
-    await logActivity({ actorUserId: user.id, action: "profile.payout_stripe_started", targetType: "owner", targetId: user.email ?? user.id });
+  if (!stripeEnabled()) return { error: "Stripe isn't set up yet (STRIPE_SECRET_KEY is missing)." };
+  let url: string;
+  try {
+    const base = await origin();
+    const me = await db.query.adminMembers.findFirst({ where: eq(adminMembers.userId, user.id) });
+    let acct = me?.stripeAccountId ?? null;
+    // An account saved under test keys doesn't exist under live keys (and vice versa) — start over if so.
+    if (acct) {
+      try { await stripe().accounts.retrieve(acct); } catch (e) {
+        if (/No such account/i.test((e as Error).message)) {
+          acct = null;
+          await db.update(adminMembers).set({ stripeAccountId: null, stripePayoutsEnabled: false, payoutDestination: null }).where(eq(adminMembers.userId, user.id));
+        } else throw e;
+      }
+    }
+    if (!acct) {
+      const a = await stripe().accounts.create({
+        type: "express", country: "US", email: user.email ?? undefined, business_type: "individual",
+        capabilities: { transfers: { requested: true } }, metadata: { partnerUserId: user.id, kind: "nearest_partner" },
+      });
+      acct = a.id;
+      await db.update(adminMembers).set({ stripeAccountId: acct }).where(eq(adminMembers.userId, user.id));
+      await logActivity({ actorUserId: user.id, action: "profile.payout_stripe_started", targetType: "owner", targetId: user.email ?? user.id });
+    }
+    if (me?.stripePayoutsEnabled && me.stripeAccountId === acct) {
+      url = (await stripe().accounts.createLoginLink(acct)).url; // manage bank account or debit card on Stripe
+    } else {
+      url = (await stripe().accountLinks.create({ account: acct, refresh_url: `${base}/admin/profile`, return_url: `${base}/admin/profile?stripe=return`, type: "account_onboarding" })).url;
+    }
+  } catch (e) {
+    console.error("Partner Stripe connect failed", e);
+    await logActivity({ actorUserId: user.id, action: "profile.payout_stripe_failed", targetType: "owner", targetId: user.email ?? user.id, after: (e as Error).message });
+    return { error: explainStripe(e) };
   }
-  if (me?.stripePayoutsEnabled) {
-    const link = await stripe().accounts.createLoginLink(acct); // manage bank account or debit card on Stripe
-    redirect(link.url);
-  }
-  const link = await stripe().accountLinks.create({ account: acct, refresh_url: `${base}/admin/profile`, return_url: `${base}/admin/profile?stripe=return`, type: "account_onboarding" });
-  redirect(link.url);
+  redirect(url); // outside try so Next.js can perform the redirect
 }

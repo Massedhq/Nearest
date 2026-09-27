@@ -11,7 +11,8 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:studio": "drizzle-kit studio",
     "db:cleanup": "tsx scripts/cleanup-test-data.ts",
-    "schools:import": "tsx scripts/import-schools.ts"
+    "schools:import": "tsx scripts/import-schools.ts",
+    "schools:check": "tsx scripts/check-schools.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.5",

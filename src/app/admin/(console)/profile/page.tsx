@@ -44,7 +44,7 @@ export default async function MyProfile({ searchParams }: { searchParams: Promis
               <span className="small">Started — finish the Stripe steps to turn on payouts.</span>
             ) : null}
             {stripeEnabled() ? (
-              <form action={connectPartnerPayout}><button className="btn sm" type="submit">{me?.stripePayoutsEnabled ? "Change bank account or debit card" : me?.stripeAccountId ? "Finish connecting" : "Connect payout account"}</button></form>
+              <ActionForm action={connectPartnerPayout} submitLabel={me?.stripePayoutsEnabled ? "Change bank account or debit card" : me?.stripeAccountId ? "Finish connecting" : "Connect payout account"} buttonClass="btn sm"><span /></ActionForm>
             ) : (
               <span className="xs muted">Stripe isn&apos;t set up on this copy of Nearest yet.</span>
             )}
