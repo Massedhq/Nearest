@@ -1,6 +1,5 @@
 import Image from "next/image";
-import { SignIn } from "@clerk/nextjs";
-import { clerkNoSignUpAppearance } from "@/lib/clerk-appearance";
+import { NearestSignIn } from "@/components/NearestSignIn";
 
 export const metadata = { title: "Admin sign in" };
 
@@ -11,9 +10,7 @@ export default function AdminSignIn() {
       <div className="body" style={{ flex: "none", alignItems: "center" }}>
         <Image src="/brand/nearest-monogram.png" alt="" width={84} height={84} />
         <h1 className="disp h2">Nearest Administration</h1>
-        <div className="clerk-wrap">
-          <SignIn routing="path" path="/admin/sign-in" forceRedirectUrl="/go" withSignUp={false} appearance={clerkNoSignUpAppearance} />
-        </div>
+        <div className="lightbox" style={{ width: "100%", maxWidth: 420 }}><NearestSignIn /></div>
       </div>
     </div>
   );

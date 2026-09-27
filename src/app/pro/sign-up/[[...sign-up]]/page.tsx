@@ -1,4 +1,4 @@
-import { SignUp } from "@clerk/nextjs";
+import { ProSignUpForm } from "@/components/ProSignUpForm";
 import { TopBar } from "@/components/TopBar";
 import { Icon } from "@/components/Icon";
 import { checkInvite, INVITE_MESSAGES } from "@/lib/invites";
@@ -25,9 +25,8 @@ export default async function ProSignUp({ searchParams }: { searchParams: Promis
         {check && !check.ok && <div className="card bad small"><span>{INVITE_MESSAGES[check.reason]}</span></div>}
         {canSignUp ? (
           <>
-            <p className="muted small p">We&apos;ll email you a 6-digit code to verify your account. Your email is never shown to customers.</p>
-            <div className="clerk-wrap">
-              <SignUp routing="path" path="/pro/sign-up" signInUrl="/pro/sign-in" forceRedirectUrl={redirectTo} unsafeMetadata={{ door: "pro", invite: code ?? undefined, ref: ref?.slice(0, 20) || undefined }} />
+            <div className="lightbox">
+              <ProSignUpForm invite={code} refCode={ref?.slice(0, 20) || null} redirectTo={redirectTo} />
             </div>
           </>
         ) : (

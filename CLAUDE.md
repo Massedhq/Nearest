@@ -54,6 +54,7 @@ Every admin write (invite, pause, refund, setting change, status switch) inserts
 - Phase 1 (foundation) is built. See `docs/PHASE-1.md`.
 - Phase 2 (professional side) is built. See `docs/PHASE-2.md`.
 - Phase 3A (student verification, search, model calls) is built. See `docs/PHASE-3A.md`.
+- No Clerk UI components (no "Secured by Clerk"): sign-in is `src/components/NearestSignIn.tsx` (password, email code, new-device code, forgot password) and sign-up is `StudentSignUpForm` / `ProSignUpForm`, all on Clerk's hooks. Keep it that way.
 - Sign-in IDs: a Clerk user we haven't seen is linked to the existing Nearest account with the same VERIFIED email (`relinkByEmail` in `src/lib/viewer.ts`) — needed when switching Clerk test → live keys.
 - Student price cap: no service or Model Call over $150 (`src/lib/pricing.ts`). Enforced when saving, at booking (on the total), and hidden from student search/profiles. Any future add-ons must count toward the same $150 total.
 - Professional entry: pay at registration, no trial. FIRST_IN $10 (hard cap 750 via `entry_counters`), then admin-controlled NEXT_ENTRY_OPEN with PRO_STUDENT $15 (+ one registered student) or GENERAL $20. Rate locked on the account (`entry_type`, `monthly_rate_cents`). See `docs/ENTRY.md` and `src/lib/entry.ts`. Never use "Founding" or "30 days free" in anything people see.
