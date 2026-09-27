@@ -13,6 +13,7 @@ import Link from "next/link";
 import { addressUnlocked, checkinOpen, finishOpen } from "@/lib/appointment";
 import { studentCheckIn } from "@/app/day-actions";
 import { LocateForm } from "@/components/LocateButton";
+import { RequiredPhoto } from "@/components/RequiredPhoto";
 
 export const metadata = { title: "Appointment" };
 
@@ -79,8 +80,11 @@ export default async function Booking({ params, searchParams }: { params: Promis
         {b.status === "confirmed" && checkinOpen(b) && !b.checkedInAt && b.locationType === "pro" && (
           <div className="card" style={{ alignItems: "center", textAlign: "center", padding: 22 }}>
             <span className="disp h2">You&apos;re here?</span>
-            <span className="small muted">We&apos;ll confirm you&apos;re at the appointment location.</span>
-            <LocateForm action={studentCheckIn} label="CHECK IN" big><input type="hidden" name="id" value={b.id} /></LocateForm>
+            <span className="small muted">Take your check-in photo, then check in. We&apos;ll confirm you&apos;re at the appointment location.</span>
+            <LocateForm action={studentCheckIn} label="CHECK IN" big>
+              <input type="hidden" name="id" value={b.id} />
+              <RequiredPhoto userId={user.id} folder="checkin" name="checkinPhoto" label="Check-in photo" hint="A photo before your service starts. It protects you and your professional." />
+            </LocateForm>
           </div>
         )}
         {b.checkedInAt && b.status === "confirmed" && !finishOpen(b) && (

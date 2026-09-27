@@ -47,6 +47,12 @@ export default async function Incidents() {
               <tr><td>Pro started service</td><td>{b.startedAt ? fmtTime(b.startedAt) : "No"}</td><td /><td /></tr>
             </tbody>
           </table>
+          {(b.checkinPhotoUrl || b.photoUrl) && (
+            <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+              {b.checkinPhotoUrl && <a href={b.checkinPhotoUrl} target="_blank" rel="noreferrer" className="col g4 small" style={{ color: "inherit" }}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={b.checkinPhotoUrl} alt="Check-in photo" style={{ width: 140, height: 140, objectFit: "cover", borderRadius: 10 }} /><span className="xs muted">Check-in photo</span></a>}
+              {b.photoUrl && <a href={b.photoUrl} target="_blank" rel="noreferrer" className="col g4 small" style={{ color: "inherit" }}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={b.photoUrl} alt="Result photo" style={{ width: 140, height: 140, objectFit: "cover", borderRadius: 10 }} /><span className="xs muted">Result photo</span></a>}
+            </div>
+          )}
           <span className="xs muted">{msgs} message{msgs === 1 ? "" : "s"} in this booking&apos;s thread. GPS records and times can&apos;t be edited.</span>
           {i.status === "open" ? (
             <ActionForm action={decideIncident} submitLabel="Save decision" buttonClass="btn sm">

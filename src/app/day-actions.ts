@@ -32,11 +32,19 @@ async function proBooking(id: string) {
 }
 
 // ---------- Student ----------
+/** Only photos this student uploaded to Nearest's storage are accepted. */
+const ownPhoto = (url: unknown, userId: string, folder: string) => {
+  const u = String(url ?? "");
+  return new RegExp(`^https://[^/]+\\.public\\.blob\\.vercel-storage\\.com/students/${userId}/${folder}/`).test(u) ? u : null;
+};
+
 export async function studentCheckIn(_: FormState, form: FormData): Promise<FormState> {
-  const { b } = await studentBooking(String(form.get("id")));
+  const { user, b } = await studentBooking(String(form.get("id")));
+  const photo = ownPhoto(form.get("checkinPhoto"), user.id, "checkin");
+  if (!photo) return { error: "Take your check-in photo first — it's required." };
   const p = pos(form);
   if (!p) return { error: "Turn on Location Services for this site, then try again." };
-  const res = await checkIn(b, p);
+  const res = await checkIn(b, p, photo);
   revalidatePath(`/bookings/${b.id}`);
   return res;
 }
@@ -56,8 +64,8 @@ export async function finishStep(_: FormState, form: FormData): Promise<FormStat
     redirect(`/bookings/${b.id}/finish?step=2`);
   }
   if (step === "2") {
-    const url = String(form.get("photoUrl") ?? "");
-    const okUrl = url && /^https:\/\/[^/]+\.public\.blob\.vercel-storage\.com\/students\//.test(url) ? url : null;
+    const okUrl = ownPhoto(form.get("photoUrl"), b.studentId, "results");
+    if (!okUrl) return { error: "Take your result photo first — it's required to finish." };
     await savePhoto(b, okUrl, form.get("allow") === "yes");
     redirect(`/bookings/${b.id}/finish?step=3`);
   }

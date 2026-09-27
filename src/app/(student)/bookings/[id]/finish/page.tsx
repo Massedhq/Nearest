@@ -7,7 +7,7 @@ import { finishOpen } from "@/lib/appointment";
 import { money } from "@/lib/time";
 import { Steps } from "@/components/Steps";
 import { ActionForm } from "@/components/ActionForm";
-import { ResultPhoto } from "@/components/ResultPhoto";
+import { RequiredPhoto } from "@/components/RequiredPhoto";
 import { Icon } from "@/components/Icon";
 import { finishStep } from "@/app/day-actions";
 
@@ -61,10 +61,10 @@ export default async function Finish({ params, searchParams }: { params: Promise
         {n === 2 && (
           <>
             <h1 className="disp h1">Show us the results</h1>
-            <p className="muted small p">Optional. A photo documents your appointment.</p>
+            <p className="muted small p">Required. A photo of your finished service protects you and your professional.</p>
             <ActionForm action={finishStep} submitLabel="Continue">
               <input type="hidden" name="id" value={b.id} /><input type="hidden" name="step" value="2" />
-              <ResultPhoto userId={user.id} />
+              <RequiredPhoto userId={user.id} folder="results" name="photoUrl" label="Result photo" hint="Your finished service, in good light." />
               <div className="card">
                 <span className="b">Allow {pro} to show this photo on their Nearest portfolio?</span>
                 <span className="small muted">Sharing publicly is a separate choice from taking the photo.</span>
@@ -102,7 +102,7 @@ export default async function Finish({ params, searchParams }: { params: Promise
               <div className="row between"><span>{b.serviceName}</span><span className="num">{money(total)}</span></div>
               <hr className="hr" />
               <div className="row small"><Icon name="check" size="s" /> Service confirmed</div>
-              <div className="row small"><Icon name="check" size="s" /> Photo step — portfolio sharing: {b.photoForPortfolio ? "Yes" : "No"}</div>
+              <div className="row small"><Icon name="check" size="s" /> Result photo saved — portfolio sharing: {b.photoForPortfolio ? "Yes" : "No"}</div>
               <div className="row small"><Icon name="check" size="s" /> Review submitted</div>
             </div>
             <p className="muted small p">Releasing confirms your appointment is complete. Your professional&apos;s funds become available right away.</p>

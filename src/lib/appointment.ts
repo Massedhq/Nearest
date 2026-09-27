@@ -26,7 +26,7 @@ export async function noShowAllowedAt(b: Booking) {
   return new Date(b.startsAt.getTime() + Number(s["appt.grace_minutes"]) * 60000);
 }
 
-export async function checkIn(b: Booking, pos: { lat: number; lng: number; accuracyM: number }) {
+export async function checkIn(b: Booking, pos: { lat: number; lng: number; accuracyM: number }, photoUrl?: string | null) {
   if (!checkinOpen(b)) return { error: "Check-in opens 60 minutes before your appointment." };
   if (b.checkedInAt) return { ok: "You're already checked in." };
   const s = await getSettings();
@@ -39,7 +39,7 @@ export async function checkIn(b: Booking, pos: { lat: number; lng: number; accur
       return { error: `You look about ${dist.toLocaleString()} ft away. Check in when you're at the appointment location (within ${radius} ft).` };
     }
   }
-  await db.update(bookings).set({ checkedInAt: new Date(), checkinDistanceFt: dist, checkinAccuracyFt: acc }).where(eq(bookings.id, b.id));
+  await db.update(bookings).set({ checkedInAt: new Date(), checkinDistanceFt: dist, checkinAccuracyFt: acc, checkinPhotoUrl: photoUrl ?? null }).where(eq(bookings.id, b.id));
   return { ok: dist == null ? "Checked in. (We couldn't map this address, so location wasn't compared.)" : "Checked in — location confirmed." };
 }
 

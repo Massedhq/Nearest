@@ -368,6 +368,7 @@ export const bookings = pgTable("bookings", {
   checkedInAt: ts("checked_in_at"),
   checkinDistanceFt: integer("checkin_distance_ft"),
   checkinAccuracyFt: integer("checkin_accuracy_ft"),
+  checkinPhotoUrl: text("checkin_photo_url"), // required photo at check-in (before the service)
   startedAt: ts("started_at"),
   finishedAt: ts("finished_at"),
   serviceConfirmedAt: ts("service_confirmed_at"),

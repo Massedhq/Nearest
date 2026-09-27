@@ -16,7 +16,8 @@ async function shrink(file: Blob): Promise<string> {
 }
 
 /** Live camera inside the page: preview → Capture → Use photo / Retake. */
-function Camera({ facing, label, onDone, onCancel }: { facing: "user" | "environment"; label: string; onDone: (v: string) => void; onCancel: () => void }) {
+export function Camera({ facing: initialFacing, label, onDone, onCancel, allowFlip = false }: { facing: "user" | "environment"; label: string; onDone: (v: string) => void; onCancel: () => void; allowFlip?: boolean }) {
+  const [facing, setFacing] = useState(initialFacing);
   const video = useRef<HTMLVideoElement>(null);
   const stream = useRef<MediaStream | null>(null);
   const [shot, setShot] = useState("");
@@ -56,7 +57,11 @@ function Camera({ facing, label, onDone, onCancel }: { facing: "user" | "environ
 
   return (
     <div role="dialog" aria-modal="true" aria-label={`Take ${label.toLowerCase()}`} style={{ position: "fixed", inset: 0, zIndex: 60, background: "#000", display: "flex", flexDirection: "column", padding: "calc(16px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px))", gap: 14 }}>
-      <div className="row between"><span className="b">{label}</span><button type="button" className="link small" onClick={onCancel}>Cancel</button></div>
+      <div className="row between"><span className="b">{label}</span>
+        <div className="row" style={{ gap: 14 }}>
+          {allowFlip && !shot && <button type="button" className="link small" onClick={() => { setReady(false); setFacing((f) => (f === "user" ? "environment" : "user")); }}>Flip camera</button>}
+          <button type="button" className="link small" onClick={onCancel}>Cancel</button>
+        </div></div>
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 18, overflow: "hidden", background: "#0A0A0B", position: "relative" }}>
         {err ? (
           <p className="small p" style={{ textAlign: "center", maxWidth: 360 }}>{err}</p>
@@ -66,13 +71,13 @@ function Camera({ facing, label, onDone, onCancel }: { facing: "user" | "environ
         ) : (
           <>
             <video ref={video} playsInline muted autoPlay style={{ width: "100%", height: "100%", objectFit: "cover", transform: facing === "user" ? "scaleX(-1)" : undefined }} />
-            {facing === "user" && ready && <div aria-hidden="true" style={{ position: "absolute", width: "58%", aspectRatio: "3 / 4", border: "2px solid rgba(236,232,225,.7)", borderRadius: "50%" }} />}
-            {facing === "environment" && ready && <div aria-hidden="true" style={{ position: "absolute", width: "80%", aspectRatio: "1.6 / 1", border: "2px solid rgba(236,232,225,.7)", borderRadius: 14 }} />}
+            {!allowFlip && facing === "user" && ready && <div aria-hidden="true" style={{ position: "absolute", width: "58%", aspectRatio: "3 / 4", border: "2px solid rgba(236,232,225,.7)", borderRadius: "50%" }} />}
+            {!allowFlip && facing === "environment" && ready && <div aria-hidden="true" style={{ position: "absolute", width: "80%", aspectRatio: "1.6 / 1", border: "2px solid rgba(236,232,225,.7)", borderRadius: 14 }} />}
             {!ready && <span className="small muted" style={{ position: "absolute" }}>Starting camera…</span>}
           </>
         )}
       </div>
-      <span className="xs muted" style={{ textAlign: "center" }}>{facing === "user" ? "Center your face in the oval, in good light." : "Fit your school ID in the frame so your name, school and photo are clear."}</span>
+      <span className="xs muted" style={{ textAlign: "center" }}>{allowFlip ? "Show the service area clearly, in good light." : facing === "user" ? "Center your face in the oval, in good light." : "Fit your school ID in the frame so your name, school and photo are clear."}</span>
       {err ? (
         <button type="button" className="btn ghost" onClick={onCancel}>Back</button>
       ) : shot ? (

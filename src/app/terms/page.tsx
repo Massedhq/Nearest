@@ -69,7 +69,7 @@ export default function Terms() {
             "Payments are processed by Stripe. By paying through Nearest you also agree to Stripe's terms. Nearest does not store full card numbers.",
             [
               "Bookings are paid in full at checkout. Each booking includes a protected deposit (currently $5, or the full price if the service costs less).",
-              "Your payment is held by Nearest's payment processor and is released to the Professional when you complete the appointment finish steps (confirm the service, optional photo, review, release payment).",
+              "Your payment is held by Nearest's payment processor and is released to the Professional when you complete the appointment finish steps (confirm the service, result photo, review, release payment).",
               "If a Professional has finished the service and you don't complete the finish steps within 24 hours after the scheduled end time, the payment is released to the Professional automatically, unless you have reported a problem that is still under review.",
               "Available credits are applied automatically at checkout before any card charge.",
               "Prices are set by Professionals and include everything shown at checkout. You're responsible for any taxes that apply to your purchase if not included.",
@@ -97,7 +97,7 @@ export default function Terms() {
             [
               "Check in through the app when you arrive. Check-in uses your device's location and requires you to be at the appointment location (currently within 100 feet).",
               "If something goes wrong at the appointment — the Professional isn't there, refuses the booked service, or there's an access problem — report it from the appointment location using Report a problem. Reports are reviewed by Nearest; a report doesn't automatically mean anyone is at fault.",
-              "Before you leave, complete the finish steps. Photos are optional; a photo is shown on a Professional's portfolio only if you choose Yes.",
+              "Photos are required at both ends of every appointment: a check-in photo when you arrive and a result photo when you finish. They're stored with the booking to protect both you and the Professional and are used to review disputes. A result photo appears on a Professional's portfolio only if you choose Yes.",
               "Be respectful and safe. Either party may end or decline an appointment if they feel unsafe or are treated inappropriately; report it to us.",
               "Tell your Professional about allergies, sensitivities, medical conditions or medications that could affect the service (for example adhesive or product allergies). Ask for a patch test if you are unsure. Services involving the body carry inherent risks, including allergic reactions and irritation.",
             ],
@@ -134,7 +134,7 @@ export default function Terms() {
           p: [
             "Content includes profiles, photos, service descriptions, messages, reviews and anything else you submit. You keep ownership of your content. You give Nearest a worldwide, non-exclusive, royalty-free license to host, store, display, reproduce, adapt (for formatting) and distribute your content to operate, improve and promote the Service. This license ends when you delete the content or your account, except for copies already shared with others, backups kept for a limited time, and content we must keep for legal reasons.",
             "Reviews can be left only for completed bookings and must reflect your honest experience. Professionals may not offer anything in exchange for reviews or ask for reviews to be changed or removed.",
-            "Photos taken during the finish steps are shared to a Professional's portfolio only when the Student chooses Yes. If you're in a photo you want removed, contact us.",
+            "Check-in and result photos are required for every appointment. A result photo is shared to a Professional's portfolio only when the Student chooses Yes. If you're in a photo you want removed, contact us.",
             "You may not post content that is illegal, false, misleading, defamatory, harassing, hateful, sexually explicit, or that infringes someone else's rights, or that includes another person's personal information without permission. We may remove content and take action on accounts at our discretion.",
           ],
         },
