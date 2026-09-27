@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { MAX_PRICE_DOLLARS } from "@/lib/pricing";
+import { cleanPrice, underCap } from "./PriceInput";
 
 export type Cat = { id: number; name: string; licenseRequired: boolean; suggestions: string[] };
 export type Row = { categoryId: number; name: string; price: string; duration: string };
@@ -9,6 +10,7 @@ export type Row = { categoryId: number; name: string; price: string; duration: s
 export function ServicesEditor({ categories, initial }: { categories: Cat[]; initial: Row[] }) {
   const [rows, setRows] = useState<Row[]>(initial);
   const [cats, setCats] = useState<number[]>(() => [...new Set(initial.map((r) => r.categoryId))]);
+  const [capWarn, setCapWarn] = useState(false);
 
   const toggleCat = (id: number) => setCats((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
   const update = (i: number, patch: Partial<Row>) => setRows((r) => r.map((row, j) => (j === i ? { ...row, ...patch } : row)));
@@ -34,7 +36,8 @@ export function ServicesEditor({ categories, initial }: { categories: Cat[]; ini
             {mine.map(({ r, i }) => (
               <div key={i} className="row">
                 <input className="ainput grow" aria-label="Service name" placeholder="Service name" value={r.name} onChange={(e) => update(i, { name: e.target.value })} />
-                <input className="ainput" style={{ width: 70, ...(Number(r.price) > MAX_PRICE_DOLLARS ? { borderColor: "#F2A38F" } : {}) }} aria-label={`${r.name || "Service"} price in dollars, up to $${MAX_PRICE_DOLLARS}`} aria-invalid={Number(r.price) > MAX_PRICE_DOLLARS || undefined} placeholder="$" inputMode="decimal" value={r.price} onChange={(e) => update(i, { price: e.target.value })} />
+                <input className="ainput" style={{ width: 70, ...(Number(r.price) > MAX_PRICE_DOLLARS ? { borderColor: "#F2A38F" } : {}) }} aria-label={`${r.name || "Service"} price in dollars, up to $${MAX_PRICE_DOLLARS}`} aria-invalid={Number(r.price) > MAX_PRICE_DOLLARS || undefined} placeholder="$" inputMode="decimal" value={r.price}
+                  onChange={(e) => { const next = cleanPrice(e.target.value); if (!underCap(next)) { setCapWarn(true); return; } setCapWarn(false); update(i, { price: next }); }} />
                 <input className="ainput" style={{ width: 62 }} aria-label={`${r.name || "Service"} length in minutes`} inputMode="numeric" value={r.duration} onChange={(e) => update(i, { duration: e.target.value })} />
                 <button type="button" className="iconbtn" style={{ width: 36, height: 36 }} aria-label={`Remove ${r.name || "service"}`} onClick={() => remove(i)}>×</button>
               </div>
@@ -47,7 +50,7 @@ export function ServicesEditor({ categories, initial }: { categories: Cat[]; ini
         );
       })}
       {cats.length === 0 && <p className="small muted p">Pick at least one category above.</p>}
-      {rows.some((r) => Number(String(r.price).replace(/[$,\s]/g, "")) > MAX_PRICE_DOLLARS) && <p className="err small">Student prices can&apos;t be more than ${MAX_PRICE_DOLLARS} per service.</p>}
+      {(capWarn || rows.some((r) => Number(String(r.price).replace(/[$,\s]/g, "")) > MAX_PRICE_DOLLARS)) && <p className="err small" role="alert">Student prices can&apos;t be more than ${MAX_PRICE_DOLLARS} per service.{rows.some((r) => Number(String(r.price).replace(/[$,\s]/g, "")) > MAX_PRICE_DOLLARS) ? " Lower the price outlined in red to save." : ""}</p>}
       <p className="xs muted p">Nearest is a student marketplace — every service is ${MAX_PRICE_DOLLARS} or less.</p>
     </div>
   );

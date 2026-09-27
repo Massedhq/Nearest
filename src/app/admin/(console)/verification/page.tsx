@@ -7,6 +7,7 @@ import { approveStudent } from "@/app/admin/student-actions";
 import { AdminHead } from "@/components/AdminHead";
 import { RejectForm } from "@/components/RejectForm";
 import { requireAdmin } from "@/lib/admin";
+import { MAX_PRICE_CENTS } from "@/lib/pricing";
 import { approvePro, setCredential } from "@/app/admin/pro-actions";
 import { money } from "@/lib/time";
 
@@ -119,7 +120,7 @@ export default async function Verification() {
             <div className="col" style={{ gap: 6 }}>
               <span className="lbl">About</span><p className="small p">{p.bio}</p>
               <span className="lbl">Services</span>
-              {details[i].services.map((s) => <div key={s.id} className="row between small"><span>{s.name}</span><span>{money(s.priceCents)} • {s.durationMin} min</span></div>)}
+              {details[i].services.map((s) => <div key={s.id} className="row between small"><span>{s.name}</span><span>{s.priceCents > MAX_PRICE_CENTS && <span className="tag bad" style={{ marginRight: 6 }}>Over $150</span>}{money(s.priceCents)} • {s.durationMin} min</span></div>)}
               <span className="lbl">Links</span>
               <span className="small">{[p.instagram && `IG @${p.instagram}`, p.tiktok && `TikTok @${p.tiktok}`, p.website].filter(Boolean).join(" • ") || "—"}</span>
             </div>
