@@ -71,8 +71,19 @@ export function StudentSignUpForm() {
     if (code.length !== 6) return setError("Enter all 6 digits.");
     const { error } = await signUp.verifications.verifyEmailCode({ code });
     if (error) return setError(msg(error));
+    // If Clerk's settings require a username, create one quietly from the email (students never see it).
+    if (signUp.status !== "complete" && signUp.missingFields.includes("username")) {
+      const local = email.split("@")[0].toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 20) || "student";
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const username = `${local.padEnd(4, "0")}_${Math.random().toString(36).slice(2, 7)}`;
+        const { error } = await signUp.update({ username });
+        if (!error) break;
+        if (attempt === 3) return setError(msg(error));
+      }
+    }
     if (signUp.status !== "complete") {
-      return setError(`Sign-up needs more info (${signUp.requiredFields.join(", ") || "unknown"}). In Clerk, make sure Username and Phone number are turned off.`);
+      const missing = signUp.missingFields.join(", ") || "unknown";
+      return setError(`Sign-up still needs: ${missing}. In the Clerk dashboard (User & authentication), turn off anything students don't fill in here, such as Username or Phone number.`);
     }
     const res = await signUp.finalize({
       navigate: ({ decorateUrl }) => {
