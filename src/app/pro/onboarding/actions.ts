@@ -78,5 +78,5 @@ export async function completePro(_: FormState, form: FormData): Promise<FormSta
   }
   referredBy ??= await partnerByCode(c.ref);
   await db.insert(professionalProfiles).values({ userId: user.id, cohort, invitationId, referredBy }).onConflictDoNothing();
-  redirect("/go");
+  redirect("/pro/join"); // pay the entry rate, then straight into onboarding
 }

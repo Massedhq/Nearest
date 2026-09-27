@@ -121,7 +121,7 @@ export default async function Sales({ searchParams }: { searchParams: Promise<{ 
             })}
           </tbody>
         </table>
-        <span className="xs muted">Earnings come from membership payments pros actually made (free-trial months earn nothing). {isMain ? "Partners with a connected bank account or debit card are paid with Send via Stripe; others, send it yourself and tap Mark paid. Every approval, change and payment is logged." : "Avy approves and sends payouts. "}
+        <span className="xs muted">Earnings come from membership payments professionals actually made. {isMain ? "Partners with a connected bank account or debit card are paid with Send via Stripe; others, send it yourself and tap Mark paid. Every approval, change and payment is logged." : "Avy approves and sends payouts. "}
           {!isMain && <Link className="link xs" href="/admin/profile">{me && list.find((x) => x.userId === me.userId)?.payoutMethod ? "Update where you get paid" : "Add where you want to be paid"}</Link>}
         </span>
       </div>

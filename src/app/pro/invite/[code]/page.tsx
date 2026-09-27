@@ -4,7 +4,7 @@ import { Icon } from "@/components/Icon";
 import { checkInvite, INVITE_MESSAGES } from "@/lib/invites";
 import { getFlag } from "@/lib/settings";
 
-export const metadata = { title: "Founding invitation" };
+export const metadata = { title: "First In invitation" };
 
 const fmt = (d: Date) =>
   d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Chicago" });
@@ -37,17 +37,17 @@ export default async function InvitePage({ params }: { params: Promise<{ code: s
       <div className="top"><span className="sp" /><div className="t xs muted">nearest.com/pro • invitation link</div><span className="sp" /></div>
       <div className="body">
         <Image src="/brand/nearest-monogram.png" alt="" width={96} height={96} />
-        <span className="tag warn" style={{ alignSelf: "flex-start" }}><Icon name="sparkle" size="s" /> Founding Professional Invitation</span>
-        <h1 className="disp h1">You&apos;re invited to join Nearest&apos;s founding 750.</h1>
+        <span className="tag warn" style={{ alignSelf: "flex-start" }}><Icon name="sparkle" size="s" /> First In Invitation</span>
+        <h1 className="disp h1">You&apos;re invited to join Nearest First In.</h1>
         <div className="card">
           <div className="row between small"><span className="muted">Invitation code</span><span className="b num">{invite.code}</span></div>
           <div className="row between small"><span className="muted">City</span><span className="b">{city}</span></div>
           <div className="row between small"><span className="muted">Expires</span><span className="b">{fmt(invite.expiresAt)} — {days} {days === 1 ? "day" : "days"}</span></div>
         </div>
         <div className="card pearl">
-          <span className="disp h2">30 days free</span>
-          <span className="small">Then $10/month for your first 12 months.</span>
-          <span className="xs muted">Your founding rate is locked to your account.</span>
+          <span className="disp h2">$10/month</span>
+          <span className="small">For your first 12 months.</span>
+          <span className="xs muted">Your First In rate is locked to your account.</span>
         </div>
         <div style={{ flex: 1 }} />
         <Link className="btn" href={accept}>Accept invitation</Link>

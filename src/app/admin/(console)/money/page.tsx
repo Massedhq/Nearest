@@ -11,7 +11,8 @@ export default async function Money() {
   const since = new Date(Date.now() - 30 * 86400000);
   const n = sql<number>`count(*)::int`;
   const [subs, volume, held, released, fees, creditOut, generalOut, collected] = await Promise.all([
-    db.select({ cohort: professionalProfiles.cohort, status: professionalProfiles.subscriptionStatus, n }).from(professionalProfiles).groupBy(professionalProfiles.cohort, professionalProfiles.subscriptionStatus),
+    db.select({ entry: sql<string>`coalesce(${professionalProfiles.entryType}, 'STANDARD')`, rate: sql<number>`coalesce(${professionalProfiles.monthlyRateCents}, 3000)::int`, status: professionalProfiles.subscriptionStatus, n })
+      .from(professionalProfiles).groupBy(sql`coalesce(${professionalProfiles.entryType}, 'STANDARD')`, sql`coalesce(${professionalProfiles.monthlyRateCents}, 3000)`, professionalProfiles.subscriptionStatus),
     db.select({ v: sql<number>`coalesce(sum(${bookings.chargedCents}),0)::int`, n }).from(bookings).where(and(inArray(bookings.status, ["confirmed", "completed", "cancelled_student", "cancelled_pro"]), gte(bookings.paidAt, since))),
     db.select({ v: sql<number>`coalesce(sum(${bookings.priceCents}),0)::int`, n }).from(bookings).where(eq(bookings.status, "confirmed")),
     db.select({ v: sql<number>`coalesce(sum(${bookings.priceCents} - coalesce(${bookings.stripeFeeCents},0)),0)::int`, n }).from(bookings).where(and(eq(bookings.status, "completed"), gte(bookings.releasedAt, since))),
@@ -20,10 +21,9 @@ export default async function Money() {
     db.select({ v: sql<number>`coalesce(sum(${credits.amountCents}),0)::int` }).from(credits).where(isNull(credits.proId)),
     db.select({ v: sql<number>`coalesce(sum(${membershipPayments.amountCents}),0)::int` }).from(membershipPayments).where(gte(membershipPayments.paidAt, since)),
   ]);
-  const rate: Record<string, number> = { FOUNDING: 1000, SECOND: 2000, STANDARD: 3000 };
-  const paying = subs.filter((s) => s.status === "active");
-  const trial = subs.filter((s) => s.status === "trialing").reduce((a, s) => a + s.n, 0);
-  const mrr = paying.reduce((a, s) => a + s.n * rate[s.cohort], 0);
+  const ENTRIES = [["FIRST_IN", "First In", 1000], ["PRO_STUDENT", "Professional + Student", 1500], ["GENERAL", "General Entry", 2000], ["STANDARD", "Standard", 3000]] as const;
+  const paying = subs.filter((s) => s.status === "active" || s.status === "trialing");
+  const mrr = paying.reduce((a, s) => a + s.n * s.rate, 0);
   const pastDue = subs.filter((s) => s.status === "past_due" || s.status === "unpaid").reduce((a, s) => a + s.n, 0);
   return (
     <>
@@ -34,11 +34,13 @@ export default async function Money() {
           <div className="kpis k3">
             <div className="card" style={{ gap: 6 }}><span className="xs muted">MRR</span><span className="stat">{money(mrr)}</span></div>
             <div className="card" style={{ gap: 6 }}><span className="xs muted">Paying</span><span className="stat">{paying.reduce((a, s) => a + s.n, 0)}</span></div>
-            <div className="card" style={{ gap: 6 }}><span className="xs muted">In free trial</span><span className="stat">{trial}</span></div>
+            <div className="card" style={{ gap: 6 }}><span className="xs muted">Past due</span><span className="stat">{pastDue}</span></div>
           </div>
-          <table className="tbl"><thead><tr><th>Cohort</th><th>Price</th><th>Active</th><th>Trial</th></tr></thead><tbody>
-            {(["FOUNDING", "SECOND", "STANDARD"] as const).map((c) => (
-              <tr key={c}><td>{c}</td><td>{money(rate[c])}/mo</td><td>{subs.find((s) => s.cohort === c && s.status === "active")?.n ?? 0}</td><td>{subs.find((s) => s.cohort === c && s.status === "trialing")?.n ?? 0}</td></tr>
+          <table className="tbl"><thead><tr><th>Entry</th><th>Price</th><th>Paying</th><th>Past due</th></tr></thead><tbody>
+            {ENTRIES.map(([k, label, cents]) => (
+              <tr key={k}><td>{label}</td><td>{money(cents)}/mo</td>
+                <td>{subs.filter((s) => s.entry === k && (s.status === "active" || s.status === "trialing")).reduce((a, s) => a + s.n, 0)}</td>
+                <td>{subs.filter((s) => s.entry === k && (s.status === "past_due" || s.status === "unpaid")).reduce((a, s) => a + s.n, 0)}</td></tr>
             ))}
           </tbody></table>
           <div className="row between small"><span className="muted">Membership payments collected (30d)</span><span>{money(collected[0].v)}</span></div>

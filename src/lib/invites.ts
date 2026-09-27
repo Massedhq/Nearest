@@ -1,6 +1,6 @@
 import "server-only";
-import { and, eq, lt, sql } from "drizzle-orm";
-import { db, invitations, cities, professionalProfiles } from "@/db";
+import { and, eq, lt } from "drizzle-orm";
+import { db, invitations, cities } from "@/db";
 import { getSettings } from "./settings";
 
 export async function expireStaleInvites() {
@@ -10,20 +10,18 @@ export async function expireStaleInvites() {
     .where(and(eq(invitations.status, "invited"), lt(invitations.expiresAt, new Date())));
 }
 
+/** Paid First In professionals (only successful payments count toward the 750). */
 export async function foundingCount(): Promise<number> {
-  const [row] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(professionalProfiles)
-    .where(eq(professionalProfiles.cohort, "FOUNDING"));
-  return row?.n ?? 0;
+  const { firstInStats } = await import("./entry");
+  return (await firstInStats()).registered;
 }
 
-/** Founding is open only while the switch is on and capacity isn't reached. */
+/** First In invitations work only while First In is open, the invitation switch is on, and seats remain. */
 export async function foundingOpen() {
   const s = await getSettings();
-  const used = await foundingCount();
-  const capacity = Number(s["growth.founding_capacity"]);
-  return { open: s["status.founding_invitations"] === true && used < capacity, used, capacity };
+  const { firstInStats } = await import("./entry");
+  const st = await firstInStats();
+  return { open: s["status.founding_invitations"] === true && st.open, used: st.registered, capacity: st.capacity };
 }
 
 export type InviteCheck =
@@ -55,5 +53,5 @@ export const INVITE_MESSAGES: Record<string, string> = {
   expired: "This invitation has expired. Ask your Nearest rep for a new one.",
   used: "This invitation has already been used.",
   revoked: "This invitation is no longer active.",
-  closed: "Founding registration is closed.",
+  closed: "First In is closed.",
 };

@@ -1,3 +1,4 @@
+import { ENTRY, type EntryType } from "@/lib/entry";
 import { requirePro } from "@/lib/pro";
 import { syncPro } from "@/lib/pro-stripe";
 import { stripeEnabled, planCents } from "@/lib/stripe";
@@ -9,7 +10,7 @@ import { startMembership, startIdentity, startPayouts, finishMembership } from "
 export const metadata = { title: "Membership & payments" };
 
 const SUB: Record<string, [string, string]> = {
-  trialing: ["Free trial", "ok"], active: ["Active", "ok"], past_due: ["Past due", "bad"], unpaid: ["Unpaid", "bad"],
+  trialing: ["Active", "ok"], active: ["Active", "ok"], past_due: ["Past due", "bad"], unpaid: ["Unpaid", "bad"],
   canceled: ["Cancelled", "bad"], incomplete: ["Incomplete", "warn"], incomplete_expired: ["Expired", "bad"], paused: ["Paused", "warn"],
 };
 
@@ -32,12 +33,12 @@ export default async function Payments({ searchParams }: { searchParams: Promise
 
         <div className="card">
           <div className="row between"><span className="eyebrow">Membership</span><span className={`tag ${subState[1]}`}>{subState[0]}</span></div>
-          <span className="disp h2">{p.cohort === "FOUNDING" ? "Founding Professional" : p.cohort === "SECOND" ? "Early Professional" : "Standard"}</span>
-          <span className="small">{p.subscriptionId ? `${rate}/month` : `30 days free, then ${rate}/month${p.cohort === "STANDARD" ? "" : " for your first 12 months"}.`}</span>
-          {p.trialEndsAt && p.subscriptionStatus === "trialing" && <span className="xs muted">Trial ends {fmtDate(p.trialEndsAt, { month: "short", day: "numeric", year: "numeric" })}</span>}
+          <span className="disp h2">{p.entryType && p.entryType in ENTRY ? ENTRY[p.entryType as EntryType].label : "Standard"}</span>
+          <span className="small">{money(p.monthlyRateCents ?? planCents(p.cohort))}/month{p.entryType ? " for your first 12 months — locked to your account" : ""}.</span>
+          {p.entryPaidAt && <span className="xs muted">Joined {fmtDate(p.entryPaidAt, { month: "short", day: "numeric", year: "numeric" })}</span>}
           {p.currentPeriodEnd && p.subscriptionStatus === "active" && <span className="xs muted">Renews {fmtDate(p.currentPeriodEnd, { month: "short", day: "numeric", year: "numeric" })}</span>}
           <span className="xs muted">No commission on bookings. Card-processing fees come out of each payment.</span>
-          <form action={startMembership}><button className="btn sm" type="submit" style={{ width: "100%" }}>{p.subscriptionId && p.subscriptionStatus !== "canceled" ? "Manage billing" : "Start my free 30 days"}</button></form>
+          <form action={startMembership}><button className="btn sm" type="submit" style={{ width: "100%" }}>{p.subscriptionId && p.subscriptionStatus !== "canceled" ? "Manage billing" : "Restart membership"}</button></form>
         </div>
 
         <div className="card">

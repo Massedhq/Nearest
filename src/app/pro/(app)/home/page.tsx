@@ -67,8 +67,8 @@ export default async function ProHome() {
           </div>
         )}
 
-        {profile.cohort === "FOUNDING" && (
-          <div className="card pearl"><span className="tag solid" style={{ background: "#0A0A0A", color: "#ECE8E1", alignSelf: "flex-start" }}>Founding Professional</span><span className="small">Your founding rate is locked to your account.</span></div>
+        {profile.entryType === "FIRST_IN" && (
+          <div className="card pearl"><span className="tag solid" style={{ background: "#0A0A0A", color: "#ECE8E1", alignSelf: "flex-start" }}>First In</span><span className="small">Your First In rate is locked to your account.</span></div>
         )}
 
         {approved && !payReady && (

@@ -34,6 +34,7 @@ Do these in order. Everything before step 8 can be done while you're still testi
 - Finish **Activate account** (business details, bank account for Nearest's membership revenue).
 - **Connect:** complete the live platform profile (Marketplace, Express), plus branding.
 - **Identity:** make sure it's enabled in live mode.
+- **Accounts v1 support:** Settings → Developers → API policies → turn on **Accounts v1 support** (live mode has its own setting). Nearest's pro and partner payouts use Accounts v1; without this, "Connect payout account" and pro payout setup are refused.
 - **Settings → Billing → Customer portal → Save** (live mode has its own settings).
 - **Developers → Webhooks → Add endpoint** → `https://usenearest.com/api/stripe/webhook`.
   - **Events:** `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `identity.verification_session.verified`, `identity.verification_session.requires_input`, `account.updated`.

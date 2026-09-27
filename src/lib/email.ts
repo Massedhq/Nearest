@@ -36,9 +36,9 @@ export async function sendEmail(opts: { to: string | null | undefined; subject: 
 export async function sendInviteEmail(opts: { to: string; name: string; city: string; code: string; link: string; expires: string }) {
   if (!emailEnabled()) return { sent: false as const, reason: "Email isn't set up yet (no RESEND_API_KEY)." };
   const r = await sendEmail({
-    to: opts.to, subject: "You're invited to Nearest's founding 750", eyebrow: "Founding Professional Invitation",
-    heading: `${opts.name}, you're invited to join Nearest's founding 750.`,
-    lines: [`Invitation code: ${opts.code}`, `City: ${opts.city}`, `Expires: ${opts.expires}`, "30 days free, then $10/month for your first 12 months. Your founding rate is locked to your account."],
+    to: opts.to, subject: "You're invited to join Nearest First In", eyebrow: "First In Invitation",
+    heading: `${opts.name}, you're invited to join Nearest First In.`,
+    lines: [`Invitation code: ${opts.code}`, `City: ${opts.city}`, `Expires: ${opts.expires}`, "$10/month for your first 12 months. Your First In rate is locked to your account."],
     button: { label: "Accept invitation", url: opts.link },
   });
   return r.sent ? { sent: true as const } : { sent: false as const, reason: "reason" in r ? r.reason ?? "Email failed" : "Email failed" };

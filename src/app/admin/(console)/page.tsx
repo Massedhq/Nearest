@@ -40,7 +40,7 @@ export default async function CommandCenter() {
     <>
       <AdminHead eyebrow={`Command center • ${today}`} title={`${hello}, ${user.firstName ?? "there"}`} />
       <div className="kpis">
-        <div className="card" style={{ gap: 6 }}><span className="xs muted">Founding Professionals</span><span className="stat">{founding} / {capacity}</span><span className="bar" style={{ display: "block", marginTop: 6 }}><i style={{ width: `${pct}%` }} /></span></div>
+        <div className="card" style={{ gap: 6 }}><span className="xs muted">First In</span><span className="stat">{founding} / {capacity}</span><span className="bar" style={{ display: "block", marginTop: 6 }}><i style={{ width: `${pct}%` }} /></span></div>
         <div className="card" style={{ gap: 6 }}><span className="xs muted">Professionals</span><span className="stat">{pros}</span></div>
         <div className="card" style={{ gap: 6 }}><span className="xs muted">Students</span><span className="stat">{students}</span></div>
         <div className="card" style={{ gap: 6 }}><span className="xs muted">Bookings Today</span><span className="stat">—</span><span className="xs muted">Phase 3</span></div>
@@ -53,7 +53,7 @@ export default async function CommandCenter() {
             <div className="grid3">
               <Link className="card" href="/admin/founding" style={{ textDecoration: "none", background: "#0A0A0B", gap: 8 }}><span className="stat">{pending}</span><span className="xs muted">Invitations waiting</span></Link>
               <Link className="card" href="/admin/verification" style={{ textDecoration: "none", background: "#0A0A0B", gap: 8 }}><span className="stat">{toReview + licenses + studentsToVerify}</span><span className="xs muted">Students, pros &amp; licenses to verify</span></Link>
-              <div className="card" style={{ background: "#0A0A0B", gap: 8 }}><span className="stat">{activeCities}</span><span className="xs muted">Cities with a founding pro</span></div>
+              <div className="card" style={{ background: "#0A0A0B", gap: 8 }}><span className="stat">{activeCities}</span><span className="xs muted">Cities with a First In pro</span></div>
             </div>
           </div>
           <div className="card" style={{ gap: 10 }}>

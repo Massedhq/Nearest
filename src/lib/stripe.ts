@@ -18,13 +18,18 @@ export async function origin() {
 }
 
 const PLANS = {
-  FOUNDING: { key: "nearest_pro_founding_10", cents: 1000, name: "Nearest Pro — Founding ($10/mo first 12 months)" },
+  FIRST_IN: { key: "nearest_pro_first_in_10", cents: 1000, name: "Nearest Pro — First In ($10/mo first 12 months)" },
+  PRO_STUDENT: { key: "nearest_pro_student_15", cents: 1500, name: "Nearest Pro — Professional + Student ($15/mo first 12 months)" },
+  GENERAL: { key: "nearest_pro_general_20", cents: 2000, name: "Nearest Pro — General Entry ($20/mo first 12 months)" },
+  // Earlier plans, kept so existing subscriptions keep working
+  FOUNDING: { key: "nearest_pro_founding_10", cents: 1000, name: "Nearest Pro — First In ($10/mo first 12 months)" },
   SECOND: { key: "nearest_pro_second_20", cents: 2000, name: "Nearest Pro — Early ($20/mo first 12 months)" },
   STANDARD: { key: "nearest_pro_standard_30", cents: 3000, name: "Nearest Pro — Standard" },
 } as const;
 
-/** Finds (or creates once) the monthly price for a cohort, using a fixed lookup key. */
-export async function priceFor(cohort: keyof typeof PLANS) {
+/** Finds (or creates once) the monthly price for a plan, using a fixed lookup key. */
+export type PlanKey = keyof typeof PLANS;
+export async function priceFor(cohort: PlanKey) {
   const plan = PLANS[cohort];
   const s = stripe();
   const found = await s.prices.list({ lookup_keys: [plan.key], active: true, limit: 1 });

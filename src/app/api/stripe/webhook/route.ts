@@ -7,6 +7,7 @@ import { saveSubscription } from "@/lib/pro-stripe";
 import { confirmFinePayment } from "@/lib/enforcement";
 import { recordInvoice } from "@/lib/partner";
 import { savePartnerAccount } from "@/lib/partner-stripe";
+import { finalizeEntry } from "@/lib/entry";
 
 // Stripe calls this in the background so payments, memberships, ID checks and payouts stay current
 // even if someone closes the browser before returning to Nearest.
@@ -25,7 +26,8 @@ export async function POST(req: Request) {
         const s = event.data.object;
         if (s.mode === "payment" && s.metadata?.fineId) await confirmFinePayment(s.id);
         else if (s.mode === "payment") await confirmFromCheckout(s.id);
-        if (s.mode === "subscription" && s.client_reference_id && s.subscription) {
+        if (s.mode === "subscription" && s.metadata?.kind === "entry") await finalizeEntry(s.id); // registration payment
+        else if (s.mode === "subscription" && s.client_reference_id && s.subscription) {
           const sub = await stripe().subscriptions.retrieve(typeof s.subscription === "string" ? s.subscription : s.subscription.id);
           await saveSubscription(s.client_reference_id, sub);
         }

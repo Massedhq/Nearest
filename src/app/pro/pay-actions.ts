@@ -18,14 +18,14 @@ export async function startMembership() {
     const portal = await stripe().billingPortal.sessions.create({ customer: profile.stripeCustomerId, return_url: `${base}/pro/payments` });
     redirect(portal.url);
   }
-  const price = await priceFor(profile.cohort);
-  const firstTime = !profile.subscriptionId; // the free month is only for a pro's first membership
+  if (!profile.entryType) redirect("/pro/join"); // new professionals choose and pay their entry there
+  const price = await priceFor(profile.entryType as "FIRST_IN" | "PRO_STUDENT" | "GENERAL");
   const session = await stripe().checkout.sessions.create({
     mode: "subscription",
     line_items: [{ price, quantity: 1 }],
     ...(profile.stripeCustomerId ? { customer: profile.stripeCustomerId } : { customer_email: user.email ?? undefined }),
     client_reference_id: user.id,
-    subscription_data: { ...(firstTime ? { trial_period_days: 30 } : {}), metadata: { userId: user.id, cohort: profile.cohort } },
+    subscription_data: { metadata: { userId: user.id, entryType: profile.entryType } }, // no free trial
     metadata: { userId: user.id, kind: "membership" },
     success_url: `${base}/pro/payments?sub={CHECKOUT_SESSION_ID}`,
     cancel_url: `${base}/pro/payments`,

@@ -128,7 +128,7 @@ export async function sendReminders() {
   return sent;
 }
 
-/** After the 12-month intro, Founding ($10) and early ($20) memberships move to the standard price. */
+/** After the first 12 months, First In ($10), Professional + Student ($15) and General ($20) move to the standard price. */
 export async function stepUpPrices() {
   const { stripe, stripeEnabled, priceFor } = await import("./stripe");
   if (!stripeEnabled()) return 0;

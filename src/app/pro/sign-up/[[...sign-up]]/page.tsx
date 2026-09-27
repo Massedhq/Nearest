@@ -20,7 +20,7 @@ export default async function ProSignUp({ searchParams }: { searchParams: Promis
       <div className="body">
         <div className="steps" aria-label="Step 1 of 2"><span className="on" /><span /></div>
         {code && (
-          <div className="card ok small"><div className="row"><Icon name="check" /><span className="b grow">Founding Professional Invitation</span><span className="xs muted">Pricing applied</span></div></div>
+          <div className="card ok small"><div className="row"><Icon name="check" /><span className="b grow">First In Invitation</span><span className="xs muted">Pricing applied</span></div></div>
         )}
         {check && !check.ok && <div className="card bad small"><span>{INVITE_MESSAGES[check.reason]}</span></div>}
         {canSignUp ? (

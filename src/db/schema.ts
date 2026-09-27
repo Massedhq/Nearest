@@ -142,6 +142,12 @@ export const professionalProfiles = pgTable("professional_profiles", {
   identityStatus: identityStatus("identity_status").notNull().default("unverified"),
   searchable: boolean("searchable").notNull().default(false),
   listingPausedAt: ts("listing_paused_at"), // set by Nearest admins (Pause listing); hides the pro from students
+  // Entry (what they paid to join). Locked to the account — changing Nearest's enrollment phase never changes it.
+  entryType: text("entry_type"), // "FIRST_IN" | "PRO_STUDENT" | "GENERAL"
+  monthlyRateCents: integer("monthly_rate_cents"), // 1000 | 1500 | 2000 for the first 12 months
+  entryPaidAt: ts("entry_paid_at"), // registration payment succeeded — counts toward First In's 750
+  entryHoldUntil: ts("entry_hold_until"), // a First In spot held while they pay
+  entryCheckoutId: text("entry_checkout_id"),
   // Phase 2: profile
   bio: text("bio"),
   yearsExperience: integer("years_experience"),
@@ -501,3 +507,22 @@ export const notifications = pgTable("notifications", {
   readAt: ts("read_at"),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("notifications_user_idx").on(t.userId, t.createdAt)]);
+
+// Atomic counters (First In seats held + paid). One row per counter.
+export const entryCounters = pgTable("entry_counters", {
+  key: text("key").primaryKey(),
+  taken: integer("taken").notNull().default(0),
+});
+
+// $15 Professional + Student entry: the student the professional registered with their entry.
+export const proStudentLinks = pgTable("pro_student_links", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  proId: uuid("pro_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email").notNull(),
+  school: text("school"),
+  status: text("status").notNull().default("pending"), // pending (not paid) | invited (paid, student emailed) | joined
+  studentUserId: uuid("student_user_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("pro_student_links_pro_idx").on(t.proId), index("pro_student_links_email_idx").on(t.email)]);

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { desc, eq, sql } from "drizzle-orm";
-import { db, users, professionalProfiles, proServices, categories, cities, adminMembers, bookings, reviews, fines, incidents } from "@/db";
+import { db, users, professionalProfiles, proServices, categories, cities, adminMembers, bookings, reviews, fines, incidents, proStudentLinks } from "@/db";
+import { ENTRY, type EntryType } from "@/lib/entry";
 import { AdminHead } from "@/components/AdminHead";
 import { DeleteAccount } from "@/components/DeleteAccount";
 import { Icon } from "@/components/Icon";
@@ -12,7 +13,7 @@ import { toggleListingPause } from "@/app/admin/pro-actions";
 export const metadata = { title: "Professionals" };
 export const dynamic = "force-dynamic";
 
-const FILTERS = ["All", "Active", "Trial", "Inactive", "Suspended"] as const;
+const FILTERS = ["All", "Active", "Unpaid", "Inactive", "Suspended"] as const;
 type Filter = (typeof FILTERS)[number];
 
 export default async function Professionals({ searchParams }: { searchParams: Promise<{ q?: string; f?: string; sel?: string; view?: string }> }) {
@@ -36,6 +37,7 @@ export default async function Professionals({ searchParams }: { searchParams: Pr
       fineCents: sql<number>`(select coalesce(sum(f.amount_cents),0)::int from ${fines} f where f.pro_id = ${professionalProfiles.userId} and f.status = 'outstanding')`,
       fineDue: sql<Date | null>`(select min(f.due_at) from ${fines} f where f.pro_id = ${professionalProfiles.userId} and f.status = 'outstanding')`,
       incidents: sql<number>`(select count(*)::int from ${incidents} i join ${bookings} b on b.id = i.booking_id where b.pro_id = ${professionalProfiles.userId} and i.status = 'pro_fault')`,
+      student: sql<string | null>`(select l.first_name || ' ' || l.last_name || ' <' || l.email || '> — ' || l.status from ${proStudentLinks} l where l.pro_id = ${professionalProfiles.userId} and l.status <> 'pending' order by l.created_at desc limit 1)`,
     })
     .from(professionalProfiles)
     .innerJoin(users, eq(users.id, professionalProfiles.userId))
@@ -47,8 +49,8 @@ export default async function Professionals({ searchParams }: { searchParams: Pr
   const suspended = (r: (typeof rows)[number]) => Boolean(r.p.suspendedUntil && r.p.suspendedUntil.getTime() > now);
   const statusOf = (r: (typeof rows)[number]): Filter => {
     if (suspended(r)) return "Suspended";
-    if (r.p.subscriptionStatus === "trialing") return "Trial";
-    if (r.p.reviewStatus === "approved" && r.p.subscriptionStatus === "active" && !r.p.listingPausedAt) return "Active";
+    if (!r.p.entryPaidAt && !["active", "trialing", "past_due"].includes(r.p.subscriptionStatus ?? "")) return "Unpaid";
+    if (r.p.reviewStatus === "approved" && ["active", "trialing"].includes(r.p.subscriptionStatus ?? "") && !r.p.listingPausedAt) return "Active";
     return "Inactive";
   };
   const matches = (r: (typeof rows)[number]) =>
@@ -76,12 +78,12 @@ export default async function Professionals({ searchParams }: { searchParams: Pr
         <td><span className={`tag ${identity === "verified" ? "ok" : identity === "rejected" ? "bad" : "warn"}`}>{identity === "unverified" ? "Not started" : identity}</span></td>
         <td>{complete ? "Complete" : "Incomplete"}</td>
         <td className="small">{r.services ?? "—"}</td>
-        <td>{r.p.cohort}</td>
-        <td>{sub === "trialing" && r.p.trialEndsAt ? fmtDate(r.p.trialEndsAt, { month: "short", day: "numeric" }) : "—"}</td>
+        <td className="small">{r.p.entryType && r.p.entryType in ENTRY ? `${ENTRY[r.p.entryType as EntryType].short} · ${money(r.p.monthlyRateCents ?? ENTRY[r.p.entryType as EntryType].cents)}` : "—"}</td>
+        <td>{r.p.entryPaidAt ? fmtDate(r.p.entryPaidAt, { month: "short", day: "numeric", year: "numeric" }) : "—"}</td>
         <td>
           {r.fineCents > 0 && r.fineDue && r.fineDue.getTime() < now ? <span className="tag bad">Past due {money(r.fineCents)}</span>
             : sub === "past_due" ? <span className="tag bad">Past due</span>
-            : sub === "trialing" ? "Trial" : sub === "active" ? "Paid" : sub === "canceled" ? "Canceled" : "—"}
+            : sub === "active" || sub === "trialing" ? "Paid" : sub === "canceled" ? "Canceled" : r.p.entryPaidAt ? "Paid" : "Not paid"}
         </td>
         <td>{r.bookings}</td>
         <td>{r.rating ?? "—"}</td>
@@ -104,7 +106,7 @@ export default async function Professionals({ searchParams }: { searchParams: Pr
 
       <div className="card" style={{ overflowX: "auto" }}>
         <table className="tbl">
-          <thead><tr><th>Professional</th><th>City</th><th>Identity</th><th>Profile</th><th>Services</th><th>Tier</th><th>Trial ends</th><th>Payment</th><th>Bookings</th><th>Rating</th><th>Pro cancel rate</th></tr></thead>
+          <thead><tr><th>Professional</th><th>City</th><th>Identity</th><th>Profile</th><th>Services</th><th>Entry</th><th>Registered</th><th>Payment</th><th>Bookings</th><th>Rating</th><th>Pro cancel rate</th></tr></thead>
           <tbody>
             {owners.length > 0 && <tr><td colSpan={11} className="eyebrow" style={{ paddingTop: 10 }}>Owner business{owners.length === 1 ? "" : "es"}</td></tr>}
             {owners.map((r) => <Row key={r.p.userId} r={r} />)}
@@ -149,7 +151,10 @@ export default async function Professionals({ searchParams }: { searchParams: Pr
                 <span><span className="muted">Review:</span> {selected.p.reviewStatus}</span>
                 <span><span className="muted">Identity:</span> {selected.p.identityStatus}</span>
                 <span><span className="muted">Payouts:</span> {selected.p.payoutsEnabled ? "Set up" : "Not set up"}</span>
+                <span><span className="muted">Entry:</span> {selected.p.entryType && selected.p.entryType in ENTRY ? `${ENTRY[selected.p.entryType as EntryType].label} — ${money(selected.p.monthlyRateCents ?? 0)}/month for the first 12 months` : "Not paid yet"}</span>
+                <span><span className="muted">Registered:</span> {selected.p.entryPaidAt ? fmtDate(selected.p.entryPaidAt) : "—"}</span>
                 <span><span className="muted">Membership:</span> {selected.p.subscriptionStatus ?? "Not started"}</span>
+                {selected.student && <span><span className="muted">Registered student:</span> {selected.student}</span>}
                 <span><span className="muted">Listing:</span> {selected.p.listingPausedAt ? `Paused ${fmtDate(selected.p.listingPausedAt)}` : "Not paused"}</span>
                 <div style={{ marginTop: 8 }}>
                   <DeleteAccount userId={selected.u.id} name={selected.p.businessName ?? `${selected.u.firstName ?? ""} ${selected.u.lastName ?? ""}`.trim()} ownerPro={selected.isOwner} />

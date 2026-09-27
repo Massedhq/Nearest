@@ -27,7 +27,7 @@ export const SETTINGS: Record<string, SettingDef> = {
   "enforce.pro_incident_limit": { label: "Incident threshold", group: "Professional enforcement", type: "number", value: 3 },
   "enforce.pro_suspension_days": { label: "Pro suspension", group: "Professional enforcement", type: "number", unit: "days", value: 30 },
   "enforce.unpaid_fine_termination_days": { label: "Unpaid fine termination", group: "Professional enforcement", type: "number", unit: "days", value: 30 },
-  "growth.founding_capacity": { label: "Founding capacity", group: "Growth", type: "number", value: 750 },
+  "growth.founding_capacity": { label: "First In capacity (paid professionals)", group: "Growth", type: "number", value: 750 },
   "growth.second_cohort_end": { label: "$20 pricing through pro #", group: "Growth", type: "number", value: 3500 },
   "partner.pool_size": { label: "Partner pool size (pros)", group: "Growth", type: "number", value: 3500 },
   "partner.nearest_block": { label: "Pool pros whose payments go to Nearest", group: "Growth", type: "number", value: 500 },
@@ -35,7 +35,7 @@ export const SETTINGS: Record<string, SettingDef> = {
   "growth.invite_expiry_days": { label: "Invitation expiry", group: "Growth", type: "number", unit: "days", value: 7 },
   "sub.termination_days": { label: "Subscription termination", group: "Growth", type: "number", unit: "days", value: 90 },
   "status.pro_registration": { label: "Professional Registration", group: "Status", type: "bool", value: true },
-  "status.founding_invitations": { label: "Founding Invitations", group: "Status", type: "bool", value: true },
+  "status.founding_invitations": { label: "Invitations", group: "Status", type: "bool", value: true },
   "status.student_registration": { label: "Student Registration", group: "Status", type: "bool", value: true },
   "status.bookings": { label: "Bookings", group: "Status", type: "bool", value: false },
 };

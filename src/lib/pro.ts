@@ -3,14 +3,17 @@ import { redirect } from "next/navigation";
 import { and, eq, sql } from "drizzle-orm";
 import { db, professionalProfiles, proServices, proHours, portfolioItems, proCredentials, categories } from "@/db";
 import { getViewer, destinationFor, proAccess } from "./viewer";
+import { hasPaidEntry } from "./entry";
 
 /** Use at the top of every pro page and pro server action. */
-export async function requirePro() {
+/** Professionals pay their entry at registration; anyone who hasn't is sent to /pro/join first. */
+export async function requirePro(opts: { allowUnpaid?: boolean } = {}) {
   const viewer = await getViewer();
   if (!viewer) redirect("/pro/sign-in");
   if (!viewer.user || !(await proAccess(viewer))) redirect(await destinationFor(viewer));
   const profile = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, viewer.user!.id) });
   if (!profile) redirect("/pro/onboarding");
+  if (!opts.allowUnpaid && !hasPaidEntry(profile)) redirect("/pro/join");
   return { viewer, user: viewer.user!, profile };
 }
 

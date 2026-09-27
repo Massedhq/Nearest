@@ -63,5 +63,6 @@ export async function createStudentFromSignUp(): Promise<boolean> {
     .onConflictDoNothing()
     .returning();
   if (user) await db.insert(studentProfiles).values({ userId: user.id, ...(years < 18 ? { guardianEmail: c.guardianEmail, guardianConsentAt: new Date() } : {}) }).onConflictDoNothing();
+  if (user) await (await import("@/lib/entry")).linkRegisteredStudent(user.id, c.email);
   return true;
 }

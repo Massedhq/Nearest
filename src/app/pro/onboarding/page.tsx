@@ -41,7 +41,7 @@ export default async function ProOnboarding({ searchParams }: { searchParams: Pr
       <div className="body">
         <div className="steps" aria-label="Step 2 of 2"><span className="on" /><span className="on" /></div>
         {check?.ok && (
-          <div className="card ok small"><div className="row"><Icon name="check" /><span className="b grow">Founding Professional Invitation</span><span className="xs muted">{check.invite.code}</span></div></div>
+          <div className="card ok small"><div className="row"><Icon name="check" /><span className="b grow">First In Invitation</span><span className="xs muted">{check.invite.code}</span></div></div>
         )}
         {check && !check.ok && <div className="card bad small"><span>{INVITE_MESSAGES[check.reason]}</span></div>}
         <div className="row small" style={{ gap: 8 }}>

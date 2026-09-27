@@ -69,7 +69,7 @@ export async function createInvite(_: FormState, form: FormData): Promise<FormSt
   if (!name || !contact || !cityId || !category) return { error: "Fill in name, contact, city and category." };
 
   const f = await foundingOpen();
-  if (!f.open) return { error: "Founding registration is closed." };
+  if (!f.open) return { error: "First In is closed, so First In invitations can't be sent." };
 
   const city = await db.query.cities.findFirst({ where: eq(cities.id, cityId) });
   if (!city) return { error: "Pick a city." };
@@ -78,7 +78,7 @@ export async function createInvite(_: FormState, form: FormData): Promise<FormSt
 
   for (let attempt = 0; attempt < 5; attempt++) {
     const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(invitations);
-    const code = `FND-${city.abbreviation}-${String(n + 1 + attempt).padStart(4, "0")}`;
+    const code = `FI-${city.abbreviation}-${String(n + 1 + attempt).padStart(4, "0")}`; // older FND- codes keep working
     const [row] = await db
       .insert(invitations)
       .values({ code, name, contact, cityId, category, cohort: "FOUNDING", expiresAt, createdBy: user.id })
@@ -122,5 +122,15 @@ export async function closeFounding() {
   const { user } = await requireAdmin({ owner: true });
   const s = await getSettings();
   if (s["status.founding_invitations"] === true) await writeSetting("status.founding_invitations", false, user.id, true);
+  revalidatePath("/admin", "layout");
+}
+
+/** Switch the professional enrollment phase (First In open / closed / next entry open). Owners only; logged. */
+export async function changeEntryState(form: FormData) {
+  const { user } = await requireAdmin({ owner: true });
+  const { setEntryState, ENTRY_STATES } = await import("@/lib/entry");
+  const next = String(form.get("state"));
+  if (!(ENTRY_STATES as readonly string[]).includes(next)) return;
+  await setEntryState(next as (typeof ENTRY_STATES)[number], user.id);
   revalidatePath("/admin", "layout");
 }

@@ -35,7 +35,7 @@ export default async function ReviewStep() {
             </Link>
           ))}
           <div className="row small"><Icon name="shield" size="s" /><span className="grow">Identity verification</span><span className="tag">Phase 3</span></div>
-          <div className="row small"><Icon name="card" size="s" /><span className="grow">Membership (30 days free)</span><span className="tag">Phase 3</span></div>
+          <div className="row small"><Icon name="card" size="s" /><span className="grow">Membership</span><span className="tag">Phase 3</span></div>
         </div>
         {p.reviewStatus === "submitted" && <div className="card ok small"><span className="b">Submitted — Nearest is reviewing your profile.</span><span className="muted">We&apos;ll let you know when you&apos;re approved.</span></div>}
         {p.reviewStatus === "approved" && <div className="card ok small"><span className="b">You&apos;re approved.</span></div>}
