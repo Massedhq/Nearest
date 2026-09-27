@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq, gt, inArray, ne, or, lt } from "drizzle-orm";
 import { db, bookings, proServices, modelCalls, professionalProfiles, cities } from "@/db";
 import { geocode } from "@/lib/geo";
+import { MAX_PRICE_CENTS } from "@/lib/pricing";
 import { studentSuspendedUntil } from "@/lib/enforcement";
 import { requireVerifiedStudent } from "@/lib/student";
 import { liveProWhere } from "@/lib/search";
@@ -66,6 +67,7 @@ async function createAndPay(opts: {
   studentId: string; email: string | null; proId: string; proName: string; serviceId?: string; modelCallId?: string;
   serviceName: string; startsAt: Date; durationMin: number; priceCents: number; where: Where;
 }): Promise<FormState> {
+  if (opts.priceCents > MAX_PRICE_CENTS) return { error: `This is priced above Nearest's $${MAX_PRICE_CENTS / 100} student limit, so it can't be booked.` };
   const s = await getSettings();
   if (s["status.bookings"] !== true) return { error: "Booking is paused right now. Please try again soon." };
   const deposit = Math.min(Number(s["appt.deposit_cents"]), opts.priceCents);

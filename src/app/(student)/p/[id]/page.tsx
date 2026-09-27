@@ -2,7 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { getFlag } from "@/lib/settings";
 import { notFound } from "next/navigation";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, lte, sql } from "drizzle-orm";
+import { MAX_PRICE_CENTS } from "@/lib/pricing";
 import { db, professionalProfiles, proServices, portfolioItems, proHours, proOpenings, cities, reviews, favorites } from "@/db";
 import { FavButton } from "@/components/FavButton";
 import { nearPoint, miles } from "@/lib/near";
@@ -28,7 +29,7 @@ export default async function ProProfile({ params }: { params: Promise<{ id: str
   if (!p) notFound();
   const today = chicagoNow().date;
   const [services, photos, hours, openings, city, calls] = await Promise.all([
-    db.select().from(proServices).where(and(eq(proServices.userId, id), eq(proServices.active, true))).orderBy(asc(proServices.sort)),
+    db.select().from(proServices).where(and(eq(proServices.userId, id), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS))).orderBy(asc(proServices.sort)),
     db.select().from(portfolioItems).where(eq(portfolioItems.userId, id)).orderBy(desc(portfolioItems.featured), asc(portfolioItems.sort)).limit(24),
     db.select().from(proHours).where(eq(proHours.userId, id)),
     p.vacationMode ? [] : db.select().from(proOpenings).where(and(eq(proOpenings.userId, id), eq(proOpenings.day, today))).orderBy(asc(proOpenings.startTime)),

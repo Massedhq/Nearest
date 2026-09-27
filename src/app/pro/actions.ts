@@ -9,6 +9,7 @@ import { requirePro, setupSteps, nextStep, setupComplete } from "@/lib/pro";
 import { getSettings } from "@/lib/settings";
 import { chicagoNow, chicagoToUtc, toMinutes } from "@/lib/time";
 import { geocode } from "@/lib/geo";
+import { MAX_PRICE_DOLLARS } from "@/lib/pricing";
 import type { FormState } from "@/components/ActionForm";
 
 const str = (f: FormData, k: string, max = 500) => String(f.get(k) ?? "").trim().slice(0, max);
@@ -80,7 +81,8 @@ export async function saveServices(_: FormState, form: FormData): Promise<FormSt
     const duration = Number(r.duration);
     if (!name) return { error: "Every service needs a name." };
     if (!validCats.has(Number(r.categoryId))) return { error: "Pick a category for every service." };
-    if (!Number.isFinite(price) || price <= 0 || price > 2000) return { error: `Enter a price for ${name}.` };
+    if (!Number.isFinite(price) || price <= 0) return { error: `Enter a price for ${name}.` };
+    if (price > MAX_PRICE_DOLLARS) return { error: `Student prices can't be more than $${MAX_PRICE_DOLLARS} — ${name} is set to $${price}.` };
     if (!Number.isInteger(duration) || duration < 10 || duration > 600) return { error: `Enter ${name}'s length in minutes (10–600).` };
     values.push({ userId: user.id, categoryId: Number(r.categoryId), name, priceCents: Math.round(price * 100), durationMin: duration, sort: i });
   }
@@ -258,7 +260,8 @@ export async function createModelCall(_: FormState, form: FormData): Promise<For
   const startsAt = chicagoToUtc(day, time);
   if (startsAt.getTime() < Date.now() + 60 * 60 * 1000) return { error: "Pick a time at least an hour from now." };
   const price = Number(str(form, "price", 10).replace(/[$,\s]/g, ""));
-  if (!Number.isFinite(price) || price < 0 || price > 1000) return { error: "Enter the model price (0 for free)." };
+  if (!Number.isFinite(price) || price < 0) return { error: "Enter the model price (0 for free)." };
+  if (price > MAX_PRICE_DOLLARS) return { error: `Student prices can't be more than $${MAX_PRICE_DOLLARS}.` };
   const spots = Number(str(form, "spots", 3));
   if (!Number.isInteger(spots) || spots < 1 || spots > 20) return { error: "Spots should be between 1 and 20." };
   const duration = Number(str(form, "duration", 4)) || service.durationMin;

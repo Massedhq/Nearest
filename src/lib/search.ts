@@ -34,12 +34,12 @@ export async function searchPros(f: Filters, area: Area) {
   const q = f.q?.trim().slice(0, 60);
   if (q) {
     const like = `%${q.replace(/[%_]/g, "")}%`;
-    where.push(sql`(${professionalProfiles.businessName} ilike ${like} or exists (select 1 from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.name ilike ${like}))`);
+    where.push(sql`(${professionalProfiles.businessName} ilike ${like} or exists (select 1 from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.price_cents <= 15000 and s.name ilike ${like}))`);
   }
-  if (f.cat && /^\d+$/.test(f.cat)) where.push(sql`exists (select 1 from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.category_id = ${Number(f.cat)})`);
+  if (f.cat && /^\d+$/.test(f.cat)) where.push(sql`exists (select 1 from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.price_cents <= 15000 and s.category_id = ${Number(f.cat)})`);
   if (f.today) where.push(sql`exists (select 1 from ${proOpenings} o where o.user_id = ${professionalProfiles.userId} and o.day = ${today})`);
   if (f.after) where.push(eq(professionalProfiles.acceptsAfterSchool, true));
-  if (f.under) where.push(sql`exists (select 1 from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.price_cents <= 2500)`);
+  if (f.under) where.push(sql`exists (select 1 from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.price_cents <= 15000 and s.price_cents <= 2500)`);
   if (f.asl) where.push(sql`${professionalProfiles.aslLevel} <> 'none'`);
 
   const rows = await db
@@ -52,8 +52,8 @@ export async function searchPros(f: Filters, area: Area) {
       lat: professionalProfiles.lat,
       lng: professionalProfiles.lng,
       city: cities.name,
-      minPrice: sql<number | null>`(select min(price_cents) from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active)`,
-      firstService: sql<string | null>`(select name from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active order by s.sort limit 1)`,
+      minPrice: sql<number | null>`(select min(price_cents) from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.price_cents <= 15000)`,
+      firstService: sql<string | null>`(select name from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.price_cents <= 15000 order by s.sort limit 1)`,
       favCount: sql<number>`(select count(*)::int from ${favorites} fv where fv.pro_id = ${professionalProfiles.userId})`,
       rating: sql<number | null>`(select round(avg(r.rating)::numeric, 1)::float from ${reviews} r where r.pro_id = ${professionalProfiles.userId} and not r.hidden)`,
       reviewCount: sql<number>`(select count(*)::int from ${reviews} r where r.pro_id = ${professionalProfiles.userId} and not r.hidden)`,
@@ -76,7 +76,7 @@ export async function searchPros(f: Filters, area: Area) {
 }
 
 export async function openModelCalls(area: Area, areaMode: string | undefined, userId?: string) {
-  const where = [...liveProWhere(area, areaMode), inArray(modelCalls.status, ["open"]), gt(modelCalls.startsAt, new Date()), sql`${modelCalls.spotsTaken} < ${modelCalls.spots}`];
+  const where = [...liveProWhere(area, areaMode), sql`${modelCalls.priceCents} <= 15000`, inArray(modelCalls.status, ["open"]), gt(modelCalls.startsAt, new Date()), sql`${modelCalls.spotsTaken} < ${modelCalls.spots}`];
   if (userId) where.push(eq(modelCalls.userId, userId));
   return db
     .select({ call: modelCalls, businessName: professionalProfiles.businessName, photoUrl: professionalProfiles.photoUrl, city: cities.name })

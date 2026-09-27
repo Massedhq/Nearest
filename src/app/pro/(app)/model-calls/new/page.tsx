@@ -43,7 +43,7 @@ export default async function NewModelCall() {
             <div className="field"><label htmlFor="time">Time</label><input id="time" name="time" type="time" required /></div>
           </div>
           <div className="grid2">
-            <div className="field"><label htmlFor="price">Model price ($)</label><input id="price" name="price" inputMode="decimal" placeholder="15" required /></div>
+            <div className="field"><label htmlFor="price">Model price ($, up to $150)</label><input id="price" name="price" inputMode="decimal" placeholder="15" max={150} required /></div>
             <div className="field"><label htmlFor="spots">Spots</label><input id="spots" name="spots" inputMode="numeric" defaultValue="1" required /></div>
           </div>
           <div className="field"><label htmlFor="duration">Approx. length (minutes, optional)</label><input id="duration" name="duration" inputMode="numeric" placeholder="Uses the service length if blank" /></div>
