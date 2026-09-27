@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { asc, desc, eq, sql } from "drizzle-orm";
-import { db, invitations, cities } from "@/db";
+import { db, invitations, cities, users } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
 import { requireAdmin } from "@/lib/admin";
 import { expireStaleInvites, foundingOpen } from "@/lib/invites";
@@ -26,9 +26,10 @@ export default async function Founding({ searchParams }: { searchParams: Promise
     searchParams,
     foundingOpen(),
     db
-      .select({ i: invitations, city: cities.name })
+      .select({ i: invitations, city: cities.name, byFirst: users.firstName, byLast: users.lastName, byEmail: users.email })
       .from(invitations)
       .innerJoin(cities, eq(cities.id, invitations.cityId))
+      .leftJoin(users, eq(users.id, invitations.createdBy))
       .orderBy(desc(invitations.createdAt))
       .limit(200),
     db.select({ id: cities.id, name: cities.name }).from(cities).where(eq(cities.active, true)).orderBy(asc(cities.name)),
@@ -76,12 +77,13 @@ export default async function Founding({ searchParams }: { searchParams: Promise
       <div className="card" style={{ gap: 12, overflowX: "auto" }}>
         <span className="eyebrow">Invitations</span>
         <table className="tbl">
-          <thead><tr><th>Name</th><th>Contact</th><th>City</th><th>Category</th><th>Code</th><th>Created</th><th>Status</th><th>Expires</th><th /></tr></thead>
+          <thead><tr><th>Name</th><th>Contact</th><th>City</th><th>Category</th><th>Code</th><th>Sent by</th><th>Created</th><th>Status</th><th>Expires</th><th /></tr></thead>
           <tbody>
-            {rows.length === 0 && <tr><td className="empty" colSpan={9}>No invitations yet. Generate the first one above.</td></tr>}
-            {rows.map(({ i, city }) => (
+            {rows.length === 0 && <tr><td className="empty" colSpan={10}>No invitations yet. Generate the first one above.</td></tr>}
+            {rows.map(({ i, city, byFirst, byLast, byEmail }) => (
               <tr key={i.id}>
                 <td>{i.name}</td><td>{i.contact}</td><td>{city}</td><td>{i.category}</td><td className="num">{i.code}</td>
+                <td>{[byFirst, byLast].filter(Boolean).join(" ") || byEmail || "—"}</td>
                 <td>{fmt(i.createdAt)}</td>
                 <td><span className={`tag ${TAG[i.status]}`}>{i.status}</span></td>
                 <td>{i.status === "invited" ? fmt(i.expiresAt) : "—"}</td>

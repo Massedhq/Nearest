@@ -6,7 +6,7 @@ import { ActionForm } from "@/components/ActionForm";
 import { CopyLink } from "../founding/CopyLink";
 import { requireAdmin } from "@/lib/admin";
 import { getSettings } from "@/lib/settings";
-import { earningsFor, mainOwnerId, partners, payoutsFor } from "@/lib/partner";
+import { earningsFor, mainOwnerId, partners, payoutsFor, partnerPerformance } from "@/lib/partner";
 import { chicagoNow, money } from "@/lib/time";
 import { approvePayout, changePayoutAmount, markPayoutPaid, syncPayments, sendPayoutStripe } from "@/app/admin/enforce-actions";
 import Link from "next/link";
@@ -27,6 +27,7 @@ export default async function Sales({ searchParams }: { searchParams: Promise<{ 
   const months = lastMonths(12);
   const q = (await searchParams).month;
   const month = q && months.includes(q) ? q : months[0];
+  const perf = await partnerPerformance();
   const [main, list, e, payouts, s, [count]] = await Promise.all([
     mainOwnerId(), partners(), earningsFor(month), payoutsFor(month), getSettings(),
     db.select({ n: sql<number>`count(*)::int` }).from(professionalProfiles),
@@ -124,6 +125,25 @@ export default async function Sales({ searchParams }: { searchParams: Promise<{ 
         <span className="xs muted">Earnings come from membership payments professionals actually made. {isMain ? "Partners with a connected bank account or debit card are paid with Send via Stripe; others, send it yourself and tap Mark paid. Every approval, change and payment is logged." : "Avy approves and sends payouts. "}
           {!isMain && <Link className="link xs" href="/admin/profile">{me && list.find((x) => x.userId === me.userId)?.payoutMethod ? "Update where you get paid" : "Add where you want to be paid"}</Link>}
         </span>
+      </div>
+
+      <div className="card" style={{ gap: 12, overflowX: "auto" }}>
+        <span className="eyebrow">{isMain ? "Partner performance" : "Your performance"}</span>
+        <table className="tbl">
+          <thead><tr><th>Partner</th><th>Invitations sent</th><th>Accepted</th><th>Pros signed up</th><th>Paid entry</th><th>Live</th><th>This month</th></tr></thead>
+          <tbody>
+            {(isMain ? perf : perf.filter((p) => p.userId === user.id)).map((p) => (
+              <tr key={p.userId}>
+                <td className="b">{p.name}</td>
+                <td>{p.sent}</td>
+                <td>{p.accepted}{p.sent ? <span className="xs muted"> ({Math.round((p.accepted / p.sent) * 100)}%)</span> : null}</td>
+                <td>{p.signedUp}</td><td>{p.paid}</td><td>{p.live}</td>
+                <td className="small">{p.sentMonth} sent • {p.signedUpMonth} signed up • {p.paidMonth} paid</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <span className="xs muted">Counts professionals who came in through each partner&apos;s invitations or partner link. &ldquo;Live&rdquo; means approved, paid, ID-verified and payouts set up. {isMain ? "Kisses and Kee each see only their own row." : ""}</span>
       </div>
 
       {me?.code && (

@@ -67,10 +67,14 @@ export function StudentSignUpForm() {
 
   async function onCode() {
     setError("");
-    const code = digits.join("");
-    if (code.length !== 6) return setError("Enter all 6 digits.");
-    const { error } = await signUp.verifications.verifyEmailCode({ code });
-    if (error) return setError(msg(error));
+    // Only verify the email if it isn't verified yet — pressing Verify again after a hiccup must not get stuck.
+    const emailPending = signUp.unverifiedFields.includes("email_address");
+    if (emailPending) {
+      const code = digits.join("");
+      if (code.length !== 6) return setError("Enter all 6 digits.");
+      const { error } = await signUp.verifications.verifyEmailCode({ code });
+      if (error && !/already been verified/i.test(msg(error))) return setError(msg(error));
+    }
     // If Clerk's settings require a username, create one quietly from the email (students never see it).
     if (signUp.status !== "complete" && signUp.missingFields.includes("username")) {
       const local = email.split("@")[0].toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 20) || "student";
@@ -129,7 +133,7 @@ export function StudentSignUpForm() {
           ))}
         </div>
         {error && <p className="err" role="alert">{error}</p>}
-        <button className="btn" type="button" disabled={busy} onClick={onCode}>{busy ? "Checking…" : "Verify"}</button>
+        <button className="btn" type="button" disabled={busy} onClick={onCode}>{busy ? "Checking…" : signUp.unverifiedFields.includes("email_address") ? "Verify" : "Finish creating my account"}</button>
         <div className="row between small">
           <span className="muted">Didn&apos;t get it? Check spam.</span>
           <button className="link small" type="button" disabled={wait > 0 || busy} onClick={() => sendCode()}>{wait > 0 ? `Resend code (0:${String(wait).padStart(2, "0")})` : "Resend code"}</button>

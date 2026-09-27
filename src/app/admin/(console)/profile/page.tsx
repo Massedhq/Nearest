@@ -4,7 +4,7 @@ import { AdminHead } from "@/components/AdminHead";
 import { ActionForm } from "@/components/ActionForm";
 import { requireAdmin } from "@/lib/admin";
 import { mainOwnerId } from "@/lib/partner";
-import { saveMyName, saveMyPayout, connectPartnerPayout } from "@/app/admin/profile-actions";
+import { saveMyName, saveMyPayout, connectPartnerPayout, saveMyPartnerCode } from "@/app/admin/profile-actions";
 import { syncPartnerStripe } from "@/lib/partner-stripe";
 import { stripeEnabled } from "@/lib/stripe";
 import { Icon } from "@/components/Icon";
@@ -31,6 +31,11 @@ export default async function MyProfile({ searchParams }: { searchParams: Promis
             </div>
           </ActionForm>
           <span className="xs muted">Saved in Nearest and on your sign-in. Your email is changed from your sign-in account.</span>
+          <span className="eyebrow" style={{ marginTop: 10 }}>Your partner link code</span>
+          <ActionForm action={saveMyPartnerCode} submitLabel="Save code" buttonClass="btn ghost sm">
+            <div className="field"><label htmlFor="pcode">Code</label><input id="pcode" name="code" defaultValue={me?.partnerCode ?? ""} maxLength={12} placeholder="AVY" style={{ textTransform: "uppercase" }} /></div>
+          </ActionForm>
+          <span className="xs muted">Your link: usenearest.com/pro/sign-up?ref={me?.partnerCode ?? "YOURCODE"}. Professionals who join through it are credited to you. Changing the code doesn&apos;t affect anyone already credited.</span>
         </div>
         <div className="card" style={{ gap: 14 }}>
           <span className="eyebrow">Where to send your partner payouts</span>

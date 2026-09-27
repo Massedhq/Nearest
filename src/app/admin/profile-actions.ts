@@ -98,3 +98,17 @@ export async function connectPartnerPayout(_: FormState, form: FormData): Promis
   }
   redirect(url); // outside try so Next.js can perform the redirect
 }
+
+/** Your partner link code (usenearest.com/pro/sign-up?ref=CODE). Letters and numbers, 3–12, unique. */
+export async function saveMyPartnerCode(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireAdmin();
+  const code = String(form.get("code") ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (code.length < 3 || code.length > 12) return { error: "Use 3–12 letters or numbers, for example AVY." };
+  const taken = await db.query.adminMembers.findFirst({ where: eq(adminMembers.partnerCode, code) });
+  if (taken && taken.userId !== user.id) return { error: `${code} is already another partner's code.` };
+  const me = await db.query.adminMembers.findFirst({ where: eq(adminMembers.userId, user.id) });
+  await db.update(adminMembers).set({ partnerCode: code }).where(eq(adminMembers.userId, user.id));
+  await logActivity({ actorUserId: user.id, action: "profile.partner_code", targetType: "owner", targetId: user.email ?? user.id, before: me?.partnerCode, after: code });
+  revalidatePath("/admin", "layout");
+  return { ok: `Saved. Your link is now usenearest.com/pro/sign-up?ref=${code}` };
+}

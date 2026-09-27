@@ -129,3 +129,41 @@ export async function earningsFor(month: string): Promise<MonthEarnings> {
 export async function payoutsFor(month: string) {
   return db.select().from(partnerPayouts).where(eq(partnerPayouts.month, month));
 }
+
+/**
+ * Who's performing: per partner — invitations sent/accepted, professionals signed up through them
+ * (their invitations or their partner link), paid entries and live pros. All time and this month.
+ */
+export async function partnerPerformance() {
+  const { invitations } = await import("@/db");
+  const { liveProWhere } = await import("./search");
+  const monthStart = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1, 6));
+  const list = await partners();
+  const pp = professionalProfiles;
+  const livePart = sql.join(liveProWhere(null, "all"), sql` and `);
+  const [inv, pros] = await Promise.all([
+    db.select({
+      by: invitations.createdBy,
+      sent: sql<number>`count(*)::int`,
+      accepted: sql<number>`count(*) filter (where ${invitations.status} = 'registered')::int`,
+      sentMonth: sql<number>`count(*) filter (where ${invitations.createdAt} >= ${monthStart})::int`,
+    }).from(invitations).groupBy(invitations.createdBy),
+    db.select({
+      by: pp.referredBy,
+      signedUp: sql<number>`count(*)::int`,
+      paid: sql<number>`count(*) filter (where ${pp.entryPaidAt} is not null)::int`,
+      live: sql<number>`count(*) filter (where ${livePart})::int`,
+      signedUpMonth: sql<number>`count(*) filter (where ${pp.createdAt} >= ${monthStart})::int`,
+      paidMonth: sql<number>`count(*) filter (where ${pp.entryPaidAt} >= ${monthStart})::int`,
+    }).from(pp).where(isNotNull(pp.referredBy)).groupBy(pp.referredBy),
+  ]);
+  return list.map((p) => {
+    const i = inv.find((x) => x.by === p.userId);
+    const r = pros.find((x) => x.by === p.userId);
+    return {
+      userId: p.userId, name: [p.first, p.last].filter(Boolean).join(" ") || p.email || "Partner", code: p.code,
+      sent: i?.sent ?? 0, accepted: i?.accepted ?? 0, sentMonth: i?.sentMonth ?? 0,
+      signedUp: r?.signedUp ?? 0, paid: r?.paid ?? 0, live: r?.live ?? 0, signedUpMonth: r?.signedUpMonth ?? 0, paidMonth: r?.paidMonth ?? 0,
+    };
+  });
+}
