@@ -99,7 +99,7 @@ export async function emailInvite(form: FormData) {
   const inv = await db
     .select({ i: invitations, city: cities.name })
     .from(invitations)
-    .innerJoin(cities, eq(cities.id, invitations.cityId))
+    .leftJoin(cities, eq(cities.id, invitations.cityId))
     .where(and(eq(invitations.id, id), eq(invitations.status, "invited")))
     .limit(1);
   const hit = inv[0];

@@ -25,7 +25,7 @@ export async function foundingOpen() {
 }
 
 export type InviteCheck =
-  | { ok: true; invite: typeof invitations.$inferSelect; city: string }
+  | { ok: true; invite: typeof invitations.$inferSelect; city: string | null }
   | { ok: false; reason: "not_found" | "expired" | "used" | "revoked" | "closed" };
 
 export async function checkInvite(code: string | null | undefined): Promise<InviteCheck> {
@@ -34,7 +34,7 @@ export async function checkInvite(code: string | null | undefined): Promise<Invi
   const row = await db
     .select({ invite: invitations, city: cities.name })
     .from(invitations)
-    .innerJoin(cities, eq(cities.id, invitations.cityId))
+    .leftJoin(cities, eq(cities.id, invitations.cityId))
     .where(eq(invitations.code, code.trim().toUpperCase()))
     .limit(1);
   const hit = row[0];

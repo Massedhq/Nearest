@@ -64,34 +64,31 @@ export async function createInvite(_: FormState, form: FormData): Promise<FormSt
   const { user } = await requireAdmin();
   const name = String(form.get("name") ?? "").trim();
   const contact = String(form.get("contact") ?? "").trim();
-  const cityId = Number(form.get("cityId"));
   const category = String(form.get("category") ?? "").trim();
-  if (!name || !contact || !cityId || !category) return { error: "Fill in name, contact, city and category." };
+  if (!name || !contact || !category) return { error: "Fill in name, contact and category." };
 
   const f = await foundingOpen();
   if (!f.open) return { error: "First In is closed, so First In invitations can't be sent." };
 
-  const city = await db.query.cities.findFirst({ where: eq(cities.id, cityId) });
-  if (!city) return { error: "Pick a city." };
   const s = await getSettings();
   const expiresAt = new Date(Date.now() + Number(s["growth.invite_expiry_days"]) * 86400000);
 
   for (let attempt = 0; attempt < 5; attempt++) {
     const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(invitations);
-    const code = `FI-${city.abbreviation}-${String(n + 1 + attempt).padStart(4, "0")}`; // older FND- codes keep working
+    const code = `FI-${String(n + 1 + attempt).padStart(4, "0")}`; // older FND-/FI-CITY- codes keep working
     const [row] = await db
       .insert(invitations)
-      .values({ code, name, contact, cityId, category, cohort: "FOUNDING", expiresAt, createdBy: user.id })
+      .values({ code, name, contact, category, cohort: "FOUNDING", expiresAt, createdBy: user.id })
       .onConflictDoNothing()
       .returning();
     if (row) {
-      await logActivity({ actorUserId: user.id, action: "invite.created", targetType: "invitation", targetId: code, after: { name, contact, city: city.name, category } });
+      await logActivity({ actorUserId: user.id, action: "invite.created", targetType: "invitation", targetId: code, after: { name, contact, category } });
       let emailed = "0";
       if (contact.includes("@")) {
         const h = await headers();
         const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
         const res = await sendInviteEmail({
-          to: contact, name, city: city.name, code, link: `${origin}/pro/invite/${code}`,
+          to: contact, name, code, link: `${origin}/pro/invite/${code}`,
           expires: expiresAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Chicago" }),
         });
         if (res.sent) {

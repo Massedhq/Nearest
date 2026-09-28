@@ -20,7 +20,7 @@ export default async function CommandCenter() {
     foundingCount(),
     count(db.select({ n: sql<number>`count(*)::int` }).from(users).where(eq(users.accountType, "professional"))),
     count(db.select({ n: sql<number>`count(*)::int` }).from(users).where(eq(users.accountType, "student"))),
-    count(db.select({ n: sql<number>`count(distinct ${invitations.cityId})::int` }).from(invitations).where(eq(invitations.status, "registered"))),
+    count(db.select({ n: sql<number>`count(distinct ${professionalProfiles.cityId})::int` }).from(professionalProfiles).where(sql`${professionalProfiles.entryType} = 'FIRST_IN' and ${professionalProfiles.entryPaidAt} is not null and ${professionalProfiles.cityId} is not null`)),
     count(db.select({ n: sql<number>`count(*)::int` }).from(invitations).where(eq(invitations.status, "invited"))),
     db
       .select({ at: activityLog.createdAt, action: activityLog.action, target: activityLog.targetId, first: users.firstName })

@@ -41,7 +41,7 @@ export default async function InvitePage({ params }: { params: Promise<{ code: s
         <h1 className="disp h1">You&apos;re invited to join Nearest First In.</h1>
         <div className="card">
           <div className="row between small"><span className="muted">Invitation code</span><span className="b num">{invite.code}</span></div>
-          <div className="row between small"><span className="muted">City</span><span className="b">{city}</span></div>
+          {city && <div className="row between small"><span className="muted">City</span><span className="b">{city}</span></div>}
           <div className="row between small"><span className="muted">Expires</span><span className="b">{fmt(invite.expiresAt)} — {days} {days === 1 ? "day" : "days"}</span></div>
         </div>
         <div className="card pearl">

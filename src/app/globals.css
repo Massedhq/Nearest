@@ -232,3 +232,14 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .powered a:hover,.powered a:focus-visible{color:#ECE8E1}
 .powered a .b{color:#ECE8E1}
 .powered img{border-radius:4px}
+
+/* Rules & Settings: as many cards as fit; label left, value box always fully visible */
+.setgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px;align-items:start}
+.setrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;clear:both;border-top:1px solid #1C1C1F}
+.setrow label{flex:1;min-width:0}
+.setrow input{flex:none;width:110px;max-width:45%}
+@media (max-width:900px){
+  .setgrid{grid-template-columns:1fr}
+  .setrow input{width:120px}
+  .setsave{position:sticky;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:5;max-width:none !important;width:100%;box-shadow:0 6px 24px rgba(0,0,0,.6)}
+}

@@ -125,7 +125,7 @@ export const invitations = pgTable("invitations", {
   code: text("code").notNull().unique(),
   name: text("name").notNull(),
   contact: text("contact").notNull(),
-  cityId: integer("city_id").notNull().references(() => cities.id),
+  cityId: integer("city_id").references(() => cities.id), // optional — invitations no longer ask for a city
   category: text("category").notNull(),
   cohort: cohort("cohort").notNull().default("FOUNDING"),
   status: inviteStatus("status").notNull().default("invited"),
