@@ -11,7 +11,7 @@ const sql = neon(process.env.DATABASE_URL!);
 
 // Children first so nothing is left pointing at a deleted row.
 const ACTIVITY = [
-  "notifications", "favorites", "search_log", "messages", "reviews", "fines", "incidents", "appeals", "credits",
+  "pro_student_links", "notifications", "favorites", "search_log", "messages", "reviews", "fines", "incidents", "appeals", "credits",
   "membership_payments", "partner_payouts", "bookings", "model_calls", "pro_openings", "pro_blocks", "portfolio_items",
   "pro_services", "pro_hours", "pro_credentials", "student_id_docs", "school_requests", "student_profiles",
   "professional_profiles", "invitations", "activity_log",
@@ -24,6 +24,7 @@ async function main() {
   console.log(`\nDatabase: ${host}`);
   console.log(`Keeping owner/admin logins: ${admins.map((a) => a.email).join(", ") || "(none)"}`);
   console.log(`Keeping: settings, counties, cities, schools, categories, suggested services.`);
+  console.log(`Also: First In seat counter reset to 0; owners' TEST Stripe payout accounts cleared (reconnect with a real bank).`);
   console.log(`Removing: ${others[0].n} other user accounts, plus every booking, message, review, credit, fine, invitation,`);
   console.log(`          professional profile (owners' too), student profile, payment record and the activity log.\n`);
   console.log("Owners who also want a professional profile can register again afterwards through a new invitation.");
@@ -38,6 +39,12 @@ async function main() {
   }
   const u = (await sql`with d as (delete from users where id not in (select user_id from admin_members) returning 1) select count(*)::int as n from d`) as { n: number }[];
   await sql`update users set account_type = 'staff' where id in (select user_id from admin_members)`;
+  // First In starts at 0 real seats (test pros' seats are released).
+  await sql`delete from entry_counters`;
+  console.log("  First In seat counter: reset to 0");
+  // Owners' partner payouts pointed at TEST Stripe accounts — clear them so each owner reconnects with a real bank.
+  const p = (await sql`with u as (update admin_members set stripe_account_id = null, stripe_payouts_enabled = false, payout_destination = null where stripe_account_id is not null returning 1) select count(*)::int as n from u`) as { n: number }[];
+  console.log(`  Owner payout accounts cleared (reconnect on My profile): ${p[0].n}`);
   console.log(`  users: ${u[0].n} removed (owners kept)`);
   console.log("\nDone. Nearest is clean for launch.");
   process.exit(0);

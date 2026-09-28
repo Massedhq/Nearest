@@ -1,7 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { and, eq, gt, inArray } from "drizzle-orm";
+import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import {
   db, professionalProfiles, proServices, proHours, proBlocks, proOpenings, portfolioItems, proCredentials, categories, modelCalls, cities, cityCounties,
 } from "@/db";
@@ -9,6 +9,7 @@ import { requirePro, setupSteps, nextStep, setupComplete } from "@/lib/pro";
 import { getSettings } from "@/lib/settings";
 import { chicagoNow, chicagoToUtc, toMinutes } from "@/lib/time";
 import { geocode } from "@/lib/geo";
+import { instagramHandle, tiktokHandle, websiteUrl } from "@/lib/social";
 import { MAX_PRICE_DOLLARS } from "@/lib/pricing";
 import type { FormState } from "@/components/ActionForm";
 
@@ -37,13 +38,16 @@ export async function saveProfile(_: FormState, form: FormData): Promise<FormSta
   const bio = str(form, "bio", 1200);
   const yearsRaw = str(form, "years", 3);
   const years = yearsRaw ? Number(yearsRaw) : null;
-  const instagram = str(form, "instagram", 60).replace(/^@/, "") || null;
-  const tiktok = str(form, "tiktok", 60).replace(/^@/, "") || null;
-  const website = str(form, "website", 200) || null;
+  const igRaw = str(form, "instagram", 200), ttRaw = str(form, "tiktok", 200), webRaw = str(form, "website", 200);
+  const instagram = instagramHandle(igRaw);
+  const tiktok = tiktokHandle(ttRaw);
+  const website = websiteUrl(webRaw);
+  if (igRaw && !instagram) return { error: "Instagram: enter your @handle or paste your profile link (not a post)." };
+  if (ttRaw && !tiktok) return { error: "TikTok: enter your @handle or paste your profile link." };
+  if (webRaw && !website) return { error: "Website: that doesn't look like a website address." };
   if (!businessName) return { error: "Add your business or professional name." };
   if (!bio) return { error: "Tell customers a little about your work." };
   if (years !== null && (!Number.isInteger(years) || years < 0 || years > 70)) return { error: "Years of experience should be a whole number." };
-  if (website && !/^https?:\/\//i.test(website)) return { error: "Website should start with https://" };
   await db
     .update(professionalProfiles)
     .set({ businessName, bio, yearsExperience: years, instagram, tiktok, website, showInstagram: form.get("showInstagram") === "on" })
@@ -181,13 +185,35 @@ export async function saveCommunication(_: FormState, form: FormData): Promise<F
 }
 
 // ---------- Portfolio ----------
+const MAX_PORTFOLIO = 10; // also shown on the Portfolio screen
+
 export async function addPortfolio(urls: string[]): Promise<{ error?: string }> {
   const { user } = await requirePro();
-  const ok = urls.filter((u) => blobUrlOk(u, user.id)).slice(0, 30);
-  if (!ok.length) return { error: "Upload didn't complete. Try again." };
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(portfolioItems).where(eq(portfolioItems.userId, user.id));
+  const room = MAX_PORTFOLIO - n;
+  if (room <= 0) return { error: `You can show up to ${MAX_PORTFOLIO} photos. Remove one to add another.` };
+  const valid = urls.filter((u) => blobUrlOk(u, user.id));
+  if (!valid.length) return { error: "Upload didn't complete. Try again." };
+  const ok = valid.slice(0, room);
   await db.insert(portfolioItems).values(ok.map((url, i) => ({ userId: user.id, url, sort: Date.now() % 1_000_000 + i })));
   revalidatePath("/pro", "layout");
+  revalidatePath(`/p/${user.id}`);
+  if (valid.length > room) return { error: `Added ${ok.length}. You can show up to ${MAX_PORTFOLIO} photos, so ${valid.length - room} weren't added.` };
   return {};
+}
+
+/** Tag a photo with the service it shows (or clear it) — used for "Book this look". */
+export async function setPortfolioService(form: FormData) {
+  const { user } = await requirePro();
+  const id = String(form.get("id"));
+  const serviceId = String(form.get("serviceId") ?? "") || null;
+  if (serviceId) {
+    const svc = await db.query.proServices.findFirst({ where: and(eq(proServices.id, serviceId), eq(proServices.userId, user.id)) });
+    if (!svc) return;
+  }
+  await db.update(portfolioItems).set({ serviceId }).where(and(eq(portfolioItems.id, id), eq(portfolioItems.userId, user.id)));
+  revalidatePath("/pro", "layout");
+  revalidatePath(`/p/${user.id}`);
 }
 
 export async function removePortfolio(form: FormData) {

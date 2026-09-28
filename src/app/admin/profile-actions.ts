@@ -81,7 +81,10 @@ export async function connectPartnerPayout(_: FormState, form: FormData): Promis
       }
     }
     if (!acct) {
-      const a = await createPayoutAccount({ email: user.email, metadata: { partnerUserId: user.id, kind: "nearest_partner" } });
+      const a = await createPayoutAccount({ email: user.email, metadata: { partnerUserId: user.id, kind: "nearest_partner" }, prefill: {
+        firstName: user.firstName, lastName: user.lastName, email: user.email, phone: user.phone, dob: user.dateOfBirth,
+        url: process.env.APP_URL || "https://usenearest.com", productDescription: "Partner earnings from Nearest (usenearest.com).",
+      } });
       acct = a.id;
       await db.update(adminMembers).set({ stripeAccountId: acct }).where(eq(adminMembers.userId, user.id));
       await logActivity({ actorUserId: user.id, action: "profile.payout_stripe_started", targetType: "owner", targetId: user.email ?? user.id });

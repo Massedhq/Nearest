@@ -21,7 +21,7 @@ export default async function Money() {
     db.select({ v: sql<number>`coalesce(sum(${credits.amountCents}),0)::int` }).from(credits).where(isNull(credits.proId)),
     db.select({ v: sql<number>`coalesce(sum(${membershipPayments.amountCents}),0)::int` }).from(membershipPayments).where(gte(membershipPayments.paidAt, since)),
   ]);
-  const ENTRIES = [["FIRST_IN", "First In", 1000], ["PRO_STUDENT", "Professional + Student", 1500], ["GENERAL", "General Entry", 2000], ["STANDARD", "Standard", 3000]] as const;
+  const ENTRIES = [["FIRST_IN", "First In", 1100], ["PRO_STUDENT", "Professional + Student", 1600], ["GENERAL", "General Entry", 2100], ["STANDARD", "Standard", 3000]] as const;
   const paying = subs.filter((s) => s.status === "active" || s.status === "trialing");
   const mrr = paying.reduce((a, s) => a + s.n * s.rate, 0);
   const pastDue = subs.filter((s) => s.status === "past_due" || s.status === "unpaid").reduce((a, s) => a + s.n, 0);

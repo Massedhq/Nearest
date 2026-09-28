@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { desc, eq, sql } from "drizzle-orm";
-import { db, users, invitations, activityLog, professionalProfiles, proCredentials, studentProfiles } from "@/db";
+import { db, users, invitations, activityLog, professionalProfiles, proCredentials, studentProfiles, bookings } from "@/db";
+import { money } from "@/lib/time";
 import { AdminHead } from "@/components/AdminHead";
 import { StatusPanel } from "@/components/StatusPanel";
 import { requireAdmin } from "@/lib/admin";
@@ -31,6 +32,12 @@ export default async function CommandCenter() {
     count(db.select({ n: sql<number>`count(*)::int` }).from(proCredentials).where(eq(proCredentials.status, "pending"))),
     count(db.select({ n: sql<number>`count(*)::int` }).from(studentProfiles).where(eq(studentProfiles.verificationStatus, "pending"))),
   ]);
+  // Today (Chicago) and monthly membership income
+  const [[{ n: bookingsToday }], [{ cents: mrr, n: payingPros }]] = await Promise.all([
+    db.select({ n: sql<number>`count(*)::int` }).from(bookings).where(sql`(${bookings.startsAt} at time zone 'America/Chicago')::date = (now() at time zone 'America/Chicago')::date and ${bookings.status} in ('confirmed','completed')`),
+    db.select({ cents: sql<number>`coalesce(sum(coalesce(${professionalProfiles.monthlyRateCents}, 3000)), 0)::int`, n: sql<number>`count(*)::int` }).from(professionalProfiles).where(sql`${professionalProfiles.subscriptionStatus} in ('active','trialing')`),
+  ]);
+  const [{ n: proIdsToVerify }] = await db.select({ n: sql<number>`count(*)::int` }).from(professionalProfiles).where(eq(professionalProfiles.identityStatus, "pending"));
   const capacity = Number(settings["growth.founding_capacity"]);
   const pct = Math.min(100, Math.round((founding / capacity) * 100));
   const hello = Number(new Date().toLocaleString("en-US", { hour: "numeric", hour12: false, timeZone: "America/Chicago" })) < 12 ? "Good morning" : "Good afternoon";
@@ -43,8 +50,8 @@ export default async function CommandCenter() {
         <div className="card" style={{ gap: 6 }}><span className="xs muted">First In</span><span className="stat">{founding} / {capacity}</span><span className="bar" style={{ display: "block", marginTop: 6 }}><i style={{ width: `${pct}%` }} /></span></div>
         <div className="card" style={{ gap: 6 }}><span className="xs muted">Professionals</span><span className="stat">{pros}</span></div>
         <div className="card" style={{ gap: 6 }}><span className="xs muted">Students</span><span className="stat">{students}</span></div>
-        <div className="card" style={{ gap: 6 }}><span className="xs muted">Bookings Today</span><span className="stat">—</span><span className="xs muted">Phase 3</span></div>
-        <div className="card" style={{ gap: 6 }}><span className="xs muted">Professional MRR</span><span className="stat">—</span><span className="xs muted">Phase 2</span></div>
+        <Link className="card" href="/admin/bookings" style={{ gap: 6, textDecoration: "none", color: "inherit" }}><span className="xs muted">Bookings today</span><span className="stat">{bookingsToday}</span><span className="xs muted">confirmed or done</span></Link>
+        <Link className="card" href="/admin/money" style={{ gap: 6, textDecoration: "none", color: "inherit" }}><span className="xs muted">Professional MRR</span><span className="stat">{money(mrr)}</span><span className="xs muted">{payingPros} paying professional{payingPros === 1 ? "" : "s"}</span></Link>
       </div>
       <div className="acols">
         <div className="col g16">
@@ -52,7 +59,7 @@ export default async function CommandCenter() {
             <span className="eyebrow">Needs attention</span>
             <div className="grid3">
               <Link className="card" href="/admin/founding" style={{ textDecoration: "none", background: "#0A0A0B", gap: 8 }}><span className="stat">{pending}</span><span className="xs muted">Invitations waiting</span></Link>
-              <Link className="card" href="/admin/verification" style={{ textDecoration: "none", background: "#0A0A0B", gap: 8 }}><span className="stat">{toReview + licenses + studentsToVerify}</span><span className="xs muted">Students, pros &amp; licenses to verify</span></Link>
+              <Link className="card" href="/admin/verification" style={{ textDecoration: "none", background: "#0A0A0B", gap: 8 }}><span className="stat">{toReview + licenses + studentsToVerify + proIdsToVerify}</span><span className="xs muted">Students, pros &amp; licenses to verify</span></Link>
               <div className="card" style={{ background: "#0A0A0B", gap: 8 }}><span className="stat">{activeCities}</span><span className="xs muted">Cities with a First In pro</span></div>
             </div>
           </div>

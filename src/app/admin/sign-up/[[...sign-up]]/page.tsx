@@ -1,9 +1,13 @@
+import { redirect } from "next/navigation";
+import { auth } from "@clerk/nextjs/server";
 import Image from "next/image";
 import { OwnerSignUpForm } from "@/components/OwnerSignUpForm";
 
 export const metadata = { title: "Create owner login" };
 
-export default function OwnerSignUp() {
+export default async function OwnerSignUp() {
+  const { userId } = await auth();
+  if (userId) redirect("/go"); // already signed in → straight to their account
   return (
     <div className="scr" style={{ justifyContent: "center" }}>
       <div className="body" style={{ flex: "none", alignItems: "center" }}>

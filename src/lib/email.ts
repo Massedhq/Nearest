@@ -38,7 +38,7 @@ export async function sendInviteEmail(opts: { to: string; name: string; city: st
   const r = await sendEmail({
     to: opts.to, subject: "You're invited to join Nearest First In", eyebrow: "First In Invitation",
     heading: `${opts.name}, you're invited to join Nearest First In.`,
-    lines: [`Invitation code: ${opts.code}`, `City: ${opts.city}`, `Expires: ${opts.expires}`, "$10/month for your first 12 months. Your First In rate is locked to your account."],
+    lines: [`Invitation code: ${opts.code}`, `City: ${opts.city}`, `Expires: ${opts.expires}`, "$11/month for your first 12 months. Your First In rate is locked to your account."],
     button: { label: "Accept invitation", url: opts.link },
   });
   return r.sent ? { sent: true as const } : { sent: false as const, reason: "reason" in r ? r.reason ?? "Email failed" : "Email failed" };

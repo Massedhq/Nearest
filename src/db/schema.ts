@@ -144,7 +144,7 @@ export const professionalProfiles = pgTable("professional_profiles", {
   listingPausedAt: ts("listing_paused_at"), // set by Nearest admins (Pause listing); hides the pro from students
   // Entry (what they paid to join). Locked to the account — changing Nearest's enrollment phase never changes it.
   entryType: text("entry_type"), // "FIRST_IN" | "PRO_STUDENT" | "GENERAL"
-  monthlyRateCents: integer("monthly_rate_cents"), // 1000 | 1500 | 2000 for the first 12 months
+  monthlyRateCents: integer("monthly_rate_cents"), // 1100 | 1600 | 2100 for the first 12 months (earlier members may have 1000)
   entryPaidAt: ts("entry_paid_at"), // registration payment succeeded — counts toward First In's 750
   entryHoldUntil: ts("entry_hold_until"), // a First In spot held while they pay
   entryCheckoutId: text("entry_checkout_id"),
@@ -255,6 +255,8 @@ export const portfolioItems = pgTable("portfolio_items", {
   source: portfolioSource("source").notNull().default("upload"),
   featured: boolean("featured").notNull().default(false),
   sort: integer("sort").notNull().default(0),
+  // The service this photo shows — powers "Book this look" on the profile. Optional.
+  serviceId: uuid("service_id").references(() => proServices.id, { onDelete: "set null" }),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("portfolio_user_idx").on(t.userId)]);
 
@@ -515,7 +517,7 @@ export const entryCounters = pgTable("entry_counters", {
   taken: integer("taken").notNull().default(0),
 });
 
-// $15 Professional + Student entry: the student the professional registered with their entry.
+// $16 Professional + Student entry: the student the professional registered with their entry.
 export const proStudentLinks = pgTable("pro_student_links", {
   id: uuid("id").primaryKey().defaultRandom(),
   proId: uuid("pro_id").notNull().references(() => users.id, { onDelete: "cascade" }),

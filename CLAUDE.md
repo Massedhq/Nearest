@@ -54,6 +54,7 @@ Every admin write (invite, pause, refund, setting change, status switch) inserts
 - Phase 1 (foundation) is built. See `docs/PHASE-1.md`.
 - Phase 2 (professional side) is built. See `docs/PHASE-2.md`.
 - Phase 3A (student verification, search, model calls) is built. See `docs/PHASE-3A.md`.
+- Professional ID check is Nearest's own (driver's license/state ID + live selfie → Verification Queue → approveProId). No Stripe Identity screens. Payout setup pre-fills website/product/category/name/DOB/phone (`src/lib/stripe-connect.ts`) so Stripe only asks what the law requires.
 - No Clerk UI components (no "Secured by Clerk"): sign-in is `src/components/NearestSignIn.tsx` (password, email code, new-device code, forgot password) and sign-up is `StudentSignUpForm` / `ProSignUpForm`, all on Clerk's hooks. Keep it that way.
 - Sign-in IDs: a Clerk user we haven't seen is linked to the existing Nearest account with the same VERIFIED email (`relinkByEmail` in `src/lib/viewer.ts`) — needed when switching Clerk test → live keys.
 - Student price cap: no service or Model Call over $150 (`src/lib/pricing.ts`). Enforced when saving, at booking (on the total), and hidden from student search/profiles. Any future add-ons must count toward the same $150 total.

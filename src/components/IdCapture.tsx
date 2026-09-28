@@ -122,16 +122,20 @@ function Shot({ name, label, hint, facing, value, onPick, icon, allowUpload }: {
   );
 }
 
-export function IdCapture() {
-  const [state, run, pending] = useActionState<FormState, FormData>(submitIdDocs, {});
+type IdAction = (state: FormState, form: FormData) => Promise<FormState>;
+
+/** Photo of an ID + live selfie. Students: school ID. Professionals: driver's license or state ID. */
+export function IdCapture({ action = submitIdDocs as IdAction, idName = "school_id", idLabel = "Photo of school ID", idHint = "Name, school and photo clearly visible", submitLabel = "Submit for verification" }: { action?: IdAction; idName?: string; idLabel?: string; idHint?: string; submitLabel?: string } = {}) {
+  const [state, run, pending] = useActionState<FormState, FormData>(action, {});
   const [idPhoto, setIdPhoto] = useState("");
   const [selfie, setSelfie] = useState("");
   return (
     <form action={run} className="col g16">
-      <Shot name="school_id" label="Photo of school ID" hint="Name, school and photo clearly visible" facing="environment" value={idPhoto} onPick={setIdPhoto} icon="id" allowUpload />
+      <Shot name={idName} label={idLabel} hint={idHint} facing="environment" value={idPhoto} onPick={setIdPhoto} icon="id" allowUpload />
       <Shot name="selfie" label="Selfie" hint="Opens your camera — face it in good light" facing="user" value={selfie} onPick={setSelfie} icon="face" allowUpload={false} />
       {state.error && <p className="err" role="alert">{state.error}</p>}
-      <button className="btn" type="submit" disabled={pending || !idPhoto || !selfie}>{pending ? "Sending…" : "Submit for verification"}</button>
+      {state.ok && <p className="small" role="status">{state.ok}</p>}
+      <button className="btn" type="submit" disabled={pending || !idPhoto || !selfie}>{pending ? "Sending…" : submitLabel}</button>
     </form>
   );
 }

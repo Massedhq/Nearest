@@ -47,7 +47,7 @@ export default async function Sales({ searchParams }: { searchParams: Promise<{ 
         <div className="row between"><span className="eyebrow">Group progress</span><span className={`tag ${count.n >= pool ? "ok" : ""}`}>{count.n >= pool ? "Personal codes phase" : "Shared pool phase"}</span></div>
         <div className="row" style={{ gap: 18 }}><span className="stat" style={{ fontSize: 48 }}>{count.n.toLocaleString()} / {pool.toLocaleString()}</span><span className="small muted">professionals signed up</span></div>
         <div className="bar gold"><i style={{ width: `${pct}%` }} /></div>
-        <span className="xs muted">Pros #1–{(pool - Number(s["partner.nearest_block"])).toLocaleString()}: payments split equally between the {list.length} partners. The last {Number(s["partner.nearest_block"])} of the first {pool.toLocaleString()} go to Nearest. After {pool.toLocaleString()}, each partner earns $8 / $17 / $26 per $10 / $20 / $30 payment from pros who used their code.</span>
+        <span className="xs muted">Pros #1–{(pool - Number(s["partner.nearest_block"])).toLocaleString()}: payments split equally between the {list.length} partners. The last {Number(s["partner.nearest_block"])} of the first {pool.toLocaleString()} go to Nearest. After {pool.toLocaleString()}, each partner earns $8.80 / $13.60 / $17.85 / $26 per $11 / $16 / $21 / $30 payment (members who joined at $10: $8) from pros who used their code.</span>
       </div>
 
       <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>

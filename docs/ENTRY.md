@@ -16,9 +16,9 @@ Nearest is live. Professionals pay at registration, with no free trial, then con
 
 | entry_type | Monthly | Available when |
 |---|---|---|
-| FIRST_IN | $10 | `FIRST_IN_OPEN`, capped at 750 paid |
-| PRO_STUDENT | $15 | `NEXT_ENTRY_OPEN`. Requires registering one student, stored in `pro_student_links`. The student is emailed after payment and linked when they sign up with that email. |
-| GENERAL | $20 | `NEXT_ENTRY_OPEN` |
+| FIRST_IN | $11 (members who joined at $10 keep $10) | `FIRST_IN_OPEN`, capped at 750 paid |
+| PRO_STUDENT | $16 | `NEXT_ENTRY_OPEN`. Requires registering one student, stored in `pro_student_links`. The student is emailed after payment and linked when they sign up with that email. |
+| GENERAL | $21 | `NEXT_ENTRY_OPEN` |
 
 After the first 12 months, memberships step up to the standard rate ($30), as before.
 
@@ -26,9 +26,9 @@ After the first 12 months, memberships step up to the standard rate ($30), as be
 
 Stored in `platform_settings` under key `entry.state`, and changed in **Admin → First In → Enrollment phase** by owners (logged):
 
-- `FIRST_IN_OPEN`: only $10 First In.
+- `FIRST_IN_OPEN`: only $11 First In.
 - `FIRST_IN_CLOSED`: enrollment is paused; the Join screen says so.
-- `NEXT_ENTRY_OPEN`: the $15 and $20 options side by side.
+- `NEXT_ENTRY_OPEN`: the $16 and $21 options side by side.
 
 ## The 750 hard limit (`src/lib/entry.ts`)
 
@@ -38,4 +38,4 @@ Stored in `platform_settings` under key `entry.state`, and changed in **Admin �
 
 ## Invitations
 
-New codes use `FI-CITY-0000`, and older `FND-` codes keep working until they're used or expire. Invitations only work while First In is open. The invitation page and email say "First In" with "$10/month for your first 12 months."
+New codes use `FI-CITY-0000`, and older `FND-` codes keep working until they're used or expire. Invitations only work while First In is open. The invitation page and email say "First In" with "$11/month for your first 12 months."

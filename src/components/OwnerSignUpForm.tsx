@@ -1,4 +1,5 @@
 "use client";
+import { useAlreadySignedIn, SignedInBanner } from "./AlreadySignedIn";
 import { PasswordInput } from "./PasswordInput";
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -12,6 +13,7 @@ const msg = (e: { longMessage?: string; message: string } | null) => (e ? e.long
 export function OwnerSignUpForm() {
   const { signUp, fetchStatus } = useSignUp();
   const router = useRouter();
+  const alreadySignedIn = useAlreadySignedIn();
   const [stage, setStage] = useState<"details" | "code">("details");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -23,7 +25,7 @@ export function OwnerSignUpForm() {
 
   async function sendCode() {
     const { error } = await signUp.verifications.sendEmailCode();
-    if (error) { setError(msg(error)); return false; }
+    if (error) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return false; }
     setWait(45);
     return true;
   }
@@ -37,10 +39,14 @@ export function OwnerSignUpForm() {
     const allowed = await isOwnerEmail(emailAddress);
     setChecking(false);
     if (!allowed) return setError("This email isn't a Nearest owner email. Owner logins can only be created for the owner addresses.");
-    const { error } = await signUp.password({ emailAddress, password, legalAccepted: true, unsafeMetadata: { door: "admin" } });
+    const params = { emailAddress, password, legalAccepted: true, unsafeMetadata: { door: "admin" } };
+    // Always start a brand-new sign-up (an old, unfinished one is rejected as "signed out").
+    await signUp.reset();
+    let { error } = await signUp.password(params);
+    if (error && /signed out/i.test(msg(error))) { await signUp.reset(); ({ error } = await signUp.password(params)); }
     if (error) {
       if (/taken|already exists/i.test(msg(error))) return setError("There's already a login for this email. Go back and sign in, or use Forgot password.");
-      return setError(msg(error));
+      { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return; };
     }
     setEmail(emailAddress);
     if (await sendCode()) setStage("code");
@@ -52,7 +58,7 @@ export function OwnerSignUpForm() {
       const c = code.replace(/\D/g, "");
       if (c.length !== 6) return setError("Enter the 6-digit code.");
       const { error } = await signUp.verifications.verifyEmailCode({ code: c });
-      if (error && !/already been verified/i.test(msg(error))) return setError(msg(error));
+      if (error && !/already been verified/i.test(msg(error))) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return; };
     }
     if (signUp.status !== "complete" && signUp.missingFields.includes("username")) {
       const local = email.split("@")[0].toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 20) || "owner";
@@ -88,6 +94,7 @@ export function OwnerSignUpForm() {
   return (
     <form action={onDetails} className="col" style={{ gap: 14 }}>
       <h2 className="disp h2">Create your owner login</h2>
+      <SignedInBanner />
       <p className="xs muted p" style={{ margin: 0 }}>For Nearest owners only. Use your @usenearest.com owner email.</p>
       <div className="field"><label htmlFor="own-email">Owner email</label><input id="own-email" name="email" type="email" autoComplete="email" required /></div>
       <div className="field"><label htmlFor="own-password">Choose a password</label><PasswordInput id="own-password" name="password" autoComplete="new-password" minLength={8} required /></div>

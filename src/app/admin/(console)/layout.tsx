@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { SignOutButton } from "@clerk/nextjs";
 import { AdminNav } from "@/components/AdminNav";
+import { AdminMobileBar } from "@/components/AdminMobileBar";
 import { Icon } from "@/components/Icon";
 import { requireAdmin } from "@/lib/admin";
 import { displayName, initials } from "@/lib/viewer";
@@ -12,7 +13,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const { user, role } = await requireAdmin();
   return (
     <div className="adm">
-      <aside className="side">
+      <AdminMobileBar />
+      <aside className="side" id="admin-menu" aria-label="Admin menu">
         <div className="row" style={{ padding: "0 8px 14px" }}>
           <Image src="/brand/nearest-monogram.png" alt="" width={44} height={44} />
           <div className="col g4"><span className="disp" style={{ fontSize: 20 }}>Nearest</span><span className="xs muted">Administration</span></div>

@@ -24,7 +24,7 @@ export default function Privacy() {
               "Account details: first and last name, date of birth, email address, optional mobile number, and password (passwords are handled by our sign-in provider, Clerk; we never see them).",
               "Students: school, graduation year, optional interests and communication preferences (for example, text communication or ASL).",
               "Professionals: business name, profile photo, bio, years of experience, services and prices, hours, city, ZIP code, service address, travel radius, languages and ASL level, portfolio photos, social media and website links, and license information (type, number, state and expiration).",
-              "Verification: Students provide a school ID photo and a selfie for review. Professionals verify identity through Stripe Identity (see Section 3).",
+              "Verification: Students provide a school ID photo and a selfie for review; Professionals provide a photo of a government ID (driver's license or state ID) and a live selfie for review (see Section 3).",
               "Bookings and activity: appointments, Model Calls, messages, reviews, ratings, the required check-in and result photos for each appointment, problem reports, requests for review, favorites and searches within the app.",
               "Payments: payment and payout details are collected and stored by Stripe. Nearest receives limited information such as the amount, date, card brand and last four digits, and payout status — never your full card or bank account number.",
             ],
@@ -56,7 +56,7 @@ export default function Privacy() {
           h: "3. Verification photos and biometric information",
           p: [
             "Students: your school ID photo and selfie are stored privately and can be viewed only by Nearest reviewers to confirm your identity and school. Every view is logged. The photos are permanently deleted as soon as your review is finished (approved or sent back). They are never shown on your profile or to Professionals.",
-            "Professionals: identity verification is performed by Stripe Identity, which captures an image of your government ID and a live selfie and may create a record of face geometry to confirm the two match. By starting verification, you consent to this capture and use for identity verification only. Nearest does not receive or store your ID images or any biometric record — only the result (for example, verified or not verified). Stripe retains verification data according to its own privacy policy and legal obligations.",
+            "Professionals: Nearest staff compare a photo of your government ID (driver's license or state ID) with a live selfie to confirm you're a real person using your own name. The photos are stored privately, viewed only by authorized Nearest staff (each view is logged), and deleted as soon as the review is decided. We don't create face-recognition templates. This is identity verification, not a background check.",
             "Nearest does not sell, lease or disclose biometric information, and uses verification photos only to verify identity.",
           ],
         },
@@ -89,7 +89,7 @@ export default function Privacy() {
             "We don't sell personal information. We share it only as follows:",
             [
               "Between users, as described in Section 4, to make bookings work.",
-              "Service providers who process data for us under contract and only to provide their services: Clerk (sign-in and account security), Stripe (payments, payouts, memberships and identity verification), Neon (database hosting), Vercel (website hosting and photo storage), Resend (email delivery), and the U.S. Census Bureau's address lookup (to turn addresses into map coordinates for check-in; only the address is sent).",
+              "Service providers who process data for us under contract and only to provide their services: Clerk (sign-in and account security), Stripe (payments, payouts and memberships), Neon (database hosting), Vercel (website hosting and photo storage), Resend (email delivery), and the U.S. Census Bureau's address lookup (to turn addresses into map coordinates for check-in; only the address is sent).",
               "For safety and legal reasons: to comply with law or legal process, to protect the rights, property or safety of Nearest, our users or the public, and to investigate fraud or violations of our Terms.",
               "Business changes: if Nearest is involved in a merger, acquisition or sale of assets, information may transfer as part of that transaction, subject to this Policy.",
               "With your direction or consent.",

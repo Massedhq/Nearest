@@ -42,7 +42,7 @@ export default async function Founding({ searchParams }: { searchParams: Promise
   const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
   const fi = await firstInStats();
   const pct = Math.min(100, Math.round((fi.registered / fi.capacity) * 100));
-  const STATE_LABEL = { FIRST_IN_OPEN: "First In open", FIRST_IN_CLOSED: "First In closed — enrollment paused", NEXT_ENTRY_OPEN: "Next entry open ($15 / $20)" } as const;
+  const STATE_LABEL = { FIRST_IN_OPEN: "First In open", FIRST_IN_CLOSED: "First In closed — enrollment paused", NEXT_ENTRY_OPEN: "Next entry open ($16 / $21)" } as const;
 
   return (
     <>
@@ -111,7 +111,7 @@ export default async function Founding({ searchParams }: { searchParams: Promise
               <form key={st} action={changeEntryState}>
                 <input type="hidden" name="state" value={st} />
                 <button className={`btn ${fi.state === st ? "" : "ghost "}sm`} type="submit" disabled={fi.state === st || (st === "FIRST_IN_OPEN" && fi.registered >= fi.capacity)}>
-                  {st === "FIRST_IN_OPEN" ? "Open First In ($10)" : st === "FIRST_IN_CLOSED" ? "Pause enrollment" : "Open next entry ($15 / $20)"}
+                  {st === "FIRST_IN_OPEN" ? "Open First In ($11)" : st === "FIRST_IN_CLOSED" ? "Pause enrollment" : "Open next entry ($16 / $21)"}
                 </button>
               </form>
             ))}

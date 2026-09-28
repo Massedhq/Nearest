@@ -34,8 +34,8 @@ export default async function ReviewStep() {
               <span className={`tag ${s.done ? "ok" : s.optional ? "" : "warn"}`}>{s.done ? "Done" : s.optional ? "Optional" : "To do"}</span>
             </Link>
           ))}
-          <div className="row small"><Icon name="shield" size="s" /><span className="grow">Identity verification</span><span className="tag">Phase 3</span></div>
-          <div className="row small"><Icon name="card" size="s" /><span className="grow">Membership</span><span className="tag">Phase 3</span></div>
+          <Link href="/pro/payments" className="row small" style={{ textDecoration: "none" }}><Icon name="shield" size="s" /><span className="grow">Identity verification</span><span className={`tag ${p.identityStatus === "verified" ? "ok" : "warn"}`}>{p.identityStatus === "verified" ? "Done" : p.identityStatus === "pending" ? "Checking" : "To do"}</span></Link>
+          <Link href="/pro/payments" className="row small" style={{ textDecoration: "none" }}><Icon name="card" size="s" /><span className="grow">Payouts</span><span className={`tag ${p.payoutsEnabled ? "ok" : "warn"}`}>{p.payoutsEnabled ? "Done" : "To do"}</span></Link>
         </div>
         {p.reviewStatus === "submitted" && <div className="card ok small"><span className="b">Submitted — Nearest is reviewing your profile.</span><span className="muted">We&apos;ll let you know when you&apos;re approved.</span></div>}
         {p.reviewStatus === "approved" && <div className="card ok small"><span className="b">You&apos;re approved.</span></div>}

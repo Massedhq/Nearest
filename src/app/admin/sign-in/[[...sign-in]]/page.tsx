@@ -1,10 +1,14 @@
+import { redirect } from "next/navigation";
+import { auth } from "@clerk/nextjs/server";
 import Image from "next/image";
 import { NearestSignIn } from "@/components/NearestSignIn";
 
 export const metadata = { title: "Admin sign in" };
 
 // Sign in only. Owner accounts are created in the Clerk dashboard (Users > Create user).
-export default function AdminSignIn() {
+export default async function AdminSignIn() {
+  const { userId } = await auth();
+  if (userId) redirect("/go"); // already signed in → straight to their account
   return (
     <div className="scr" style={{ justifyContent: "center" }}>
       <div className="body" style={{ flex: "none", alignItems: "center" }}>

@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import type Stripe from "stripe";
 import { db, professionalProfiles } from "@/db";
 import { requirePro } from "@/lib/pro";
-import { createPayoutAccount } from "@/lib/stripe-connect";
+import { createPayoutAccount, prefillExisting } from "@/lib/stripe-connect";
 import { stripe, origin, priceFor } from "@/lib/stripe";
 import { saveSubscription } from "@/lib/pro-stripe";
 import { cancelAsProFault } from "@/lib/bookings";
@@ -57,10 +57,19 @@ export async function startPayouts() {
   const { user, profile } = await requirePro();
   const base = await origin();
   let acct = profile.stripeAccountId;
+  // Everything Nearest already knows, so Stripe doesn't ask for a website or "what you sell".
+  const prefill = {
+    firstName: user.firstName, lastName: user.lastName, email: user.email, phone: user.phone, dob: user.dateOfBirth,
+    url: `${process.env.APP_URL || base}/p/${user.id}`,
+    productDescription: "Beauty services (hair, lashes, nails, brows, makeup and more) booked and paid for by customers through Nearest (usenearest.com).",
+    mcc: "7230", // Beauty & barber shops
+  };
   if (!acct) {
-    const a = await createPayoutAccount({ email: user.email, metadata: { userId: user.id } });
+    const a = await createPayoutAccount({ email: user.email, metadata: { userId: user.id }, prefill });
     acct = a.id;
     await db.update(professionalProfiles).set({ stripeAccountId: acct }).where(eq(professionalProfiles.userId, user.id));
+  } else if (!profile.payoutsEnabled) {
+    await prefillExisting(acct, prefill);
   }
   if (profile.payoutsEnabled) {
     const link = await stripe().accounts.createLoginLink(acct);

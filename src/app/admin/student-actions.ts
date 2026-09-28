@@ -1,7 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
-import { db, studentProfiles, studentIdDocs, schools, schoolRequests, users } from "@/db";
+import { db, studentProfiles, studentIdDocs, schools, schoolRequests, users, professionalProfiles } from "@/db";
 import { requireAdmin } from "@/lib/admin";
 import { logActivity } from "@/lib/log";
 import { nextAug31 } from "@/lib/student";
@@ -80,4 +80,32 @@ export async function dismissRequest(form: FormData) {
   const [req] = await db.update(schoolRequests).set({ status: "dismissed" }).where(eq(schoolRequests.id, str(form, "id", 40))).returning();
   if (req) await logActivity({ actorUserId: user.id, action: "school_request.dismissed", targetType: "school_request", targetId: req.name });
   revalidatePath("/admin/schools");
+}
+
+// ---------- Professional ID checks (Nearest's own — driver's license/state ID + live selfie) ----------
+export async function approveProId(form: FormData) {
+  const { user } = await requireAdmin();
+  const id = str(form, "userId", 40);
+  const [row] = await db.update(professionalProfiles).set({ identityStatus: "verified" })
+    .where(and(eq(professionalProfiles.userId, id), eq(professionalProfiles.identityStatus, "pending"))).returning();
+  if (!row) return;
+  await db.delete(studentIdDocs).where(eq(studentIdDocs.userId, id));
+  await inbox(id, { kind: "verification", title: "Your ID is verified", body: "Finish any remaining steps and you'll be live for students.", href: "/pro/payments" });
+  const u = await db.query.users.findFirst({ where: eq(users.id, id) });
+  await logActivity({ actorUserId: user.id, action: "pro.id_verified", targetType: "professional", targetId: u ? `${u.firstName} ${u.lastName}` : id, before: "pending", after: "verified" });
+  revalidatePath("/admin", "layout");
+}
+
+export async function rejectProId(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireAdmin();
+  const id = str(form, "userId", 40);
+  const note = str(form, "note");
+  if (!note) return { error: "Tell the professional what to fix." };
+  await db.update(professionalProfiles).set({ identityStatus: "rejected" }).where(and(eq(professionalProfiles.userId, id), eq(professionalProfiles.identityStatus, "pending")));
+  await db.delete(studentIdDocs).where(eq(studentIdDocs.userId, id));
+  await inbox(id, { kind: "verification", title: "Please retake your ID photos", body: note, href: "/pro/payments" });
+  const u = await db.query.users.findFirst({ where: eq(users.id, id) });
+  await logActivity({ actorUserId: user.id, action: "pro.id_rejected", targetType: "professional", targetId: u ? `${u.firstName} ${u.lastName}` : id, before: "pending", after: note });
+  revalidatePath("/admin", "layout");
+  return { ok: "Sent back. Their photos were deleted." };
 }

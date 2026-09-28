@@ -142,7 +142,20 @@ body{min-height:100dvh}
 .tbl td form{display:inline}
 .tbl .empty{color:#6E6A63;text-align:center;padding:28px}
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #E3C58A;outline-offset:2px}
-@media (max-width:900px){.adm{grid-template-columns:1fr}.side{position:static;height:auto;flex-direction:row;flex-wrap:wrap}.navh{width:100%}.kpis,.k4,.k3,.acols,.acols.even{grid-template-columns:1fr 1fr}.main{padding:20px}}
+.admtop,.admscrim{display:none}
+@media (max-width:900px){
+  .adm{display:block}
+  .admtop{display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:40;padding:calc(10px + env(safe-area-inset-top,0px)) 16px 10px;background:#050506;border-bottom:1px solid #1C1C1F}
+  .side{display:none;position:fixed;top:0;left:0;bottom:0;z-index:60;width:min(86vw,340px);height:100%;overflow-y:auto;border-right:1px solid #1C1C1F;box-shadow:0 0 40px rgba(0,0,0,.6);padding-top:calc(22px + env(safe-area-inset-top,0px))}
+  body.admnav-open{overflow:hidden}
+  body.admnav-open .side{display:flex}
+  body.admnav-open .admscrim{display:block;position:fixed;inset:0;z-index:55;background:rgba(0,0,0,.6)}
+  .main{padding:16px}
+  .acols,.acols.even{grid-template-columns:1fr}
+  .kpis,.k4,.k3{grid-template-columns:1fr 1fr}
+  .main .tbl{display:block;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
+  .main .card{min-width:0}
+}
 
 /* ---- light (cream) screens: student sign-up flow ---- */
 .scr.light{background:#F4EFE6;color:#141414}

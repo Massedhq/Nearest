@@ -128,7 +128,7 @@ export async function sendReminders() {
   return sent;
 }
 
-/** After the first 12 months, First In ($10), Professional + Student ($15) and General ($20) move to the standard price. */
+/** After the first 12 months, First In ($11; earlier members $10), Professional + Student ($16) and General ($21) move to the standard price. */
 export async function stepUpPrices() {
   const { stripe, stripeEnabled, priceFor } = await import("./stripe");
   if (!stripeEnabled()) return 0;

@@ -1,4 +1,5 @@
 "use client";
+import { useAlreadySignedIn, SignedInBanner } from "./AlreadySignedIn";
 import { PasswordInput } from "./PasswordInput";
 import { DobInput } from "@/components/DobInput";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -13,6 +14,7 @@ const msg = (e: { longMessage?: string; message: string } | null) => (e ? e.long
 export function StudentSignUpForm() {
   const { signUp, fetchStatus } = useSignUp();
   const router = useRouter();
+  const alreadySignedIn = useAlreadySignedIn();
   const [stage, setStage] = useState<"details" | "code">("details");
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
@@ -33,7 +35,7 @@ export function StudentSignUpForm() {
 
   async function sendCode() {
     const { error } = await signUp.verifications.sendEmailCode();
-    if (error) { setError(msg(error)); return false; }
+    if (error) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return false; }
     setWait(45);
     return true;
   }
@@ -57,11 +59,15 @@ export function StudentSignUpForm() {
     }
     if (password.length < 8) return setError("Use at least 8 characters for your password.");
     if (form.get("agree") !== "on") return setError("Please agree to the Terms and Privacy Policy.");
-    const { error } = await signUp.password({
+    const params = {
       emailAddress, password, firstName, lastName, legalAccepted: true,
       unsafeMetadata: { door: "student", dob, phone, ...(years < 18 ? { guardianEmail, guardianConsent: true } : {}) },
-    });
-    if (error) return setError(msg(error));
+    };
+    // Always start a brand-new sign-up (an old, unfinished one is rejected as "signed out").
+    await signUp.reset();
+    let { error } = await signUp.password(params);
+    if (error && /signed out/i.test(msg(error))) { await signUp.reset(); ({ error } = await signUp.password(params)); }
+    if (error) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return; };
     setEmail(emailAddress);
     if (await sendCode()) setStage("code");
   }
@@ -74,7 +80,7 @@ export function StudentSignUpForm() {
       const code = digits.join("");
       if (code.length !== 6) return setError("Enter all 6 digits.");
       const { error } = await signUp.verifications.verifyEmailCode({ code });
-      if (error && !/already been verified/i.test(msg(error))) return setError(msg(error));
+      if (error && !/already been verified/i.test(msg(error))) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return; };
     }
     // If Clerk's settings require a username, create one quietly from the email (students never see it).
     if (signUp.status !== "complete" && signUp.missingFields.includes("username")) {
@@ -83,7 +89,7 @@ export function StudentSignUpForm() {
         const username = `${local.padEnd(4, "0")}_${Math.random().toString(36).slice(2, 7)}`;
         const { error } = await signUp.update({ username });
         if (!error) break;
-        if (attempt === 3) return setError(msg(error));
+        if (attempt === 3) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return; };
       }
     }
     if (signUp.status !== "complete") {
@@ -146,6 +152,7 @@ export function StudentSignUpForm() {
 
   return (
     <form action={onDetails} className="col" style={{ gap: 14 }}>
+      <SignedInBanner />
       <h1 className="disp h2">Create your account</h1>
       <div className="grid2">
         <div className="field"><label htmlFor="firstName">First name</label><input id="firstName" name="firstName" autoComplete="given-name" required /></div>

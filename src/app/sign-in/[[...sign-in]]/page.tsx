@@ -1,10 +1,14 @@
+import { redirect } from "next/navigation";
+import { auth } from "@clerk/nextjs/server";
 import Image from "next/image";
 import { NearestSignIn } from "@/components/NearestSignIn";
 import { TopBar } from "@/components/TopBar";
 
 export const metadata = { title: "Sign in" };
 
-export default function SignInPage() {
+export default async function SignInPage() {
+  const { userId } = await auth();
+  if (userId) redirect("/go"); // already signed in → straight to their account
   return (
     <div className="scr">
       <TopBar back="/" />

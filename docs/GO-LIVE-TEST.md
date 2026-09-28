@@ -14,9 +14,9 @@ Use a **real debit or credit card** you own. Every payment below is small and ca
 
 ## B. Professional (Incognito window 1)
 
-1. Open the invitation link from the email. **Expect:** FIRST IN INVITATION, $10/month for your first 12 months.
+1. Open the invitation link from the email. **Expect:** FIRST IN INVITATION, $11/month for your first 12 months.
 2. Tap **Accept invitation**, sign up with the invited email, enter the code, then your legal name and birthday.
-3. **Join Nearest → Pay $10 and continue.** Use your real card. **Expect:** you're charged $10 now, then you land in setup. Admin → First In shows 1 / 750.
+3. **Join Nearest → Pay $11 and continue.** Use your real card. **Expect:** you're charged $11 now, then you land in setup. Admin → First In shows 1 / 750.
 4. Finish setup:
    - profile and photo
    - one service at $150 or less (try typing 333 and confirm the box refuses it)
@@ -25,12 +25,12 @@ Use a **real debit or credit card** you own. Every payment below is small and ca
    - communication
    - optional portfolio
    - **Submit for review**
-5. **My Business → Membership, ID & payouts.** **Expect:** Membership shows First In $10 (Active). Then **Verify my identity** (real ID and selfie) and **Set up payouts** (your real bank or debit card).
+5. **My Business → Membership, ID & payouts.** **Expect:** Membership shows First In $11 (Active). Then **Verify my identity** (real ID and selfie) and **Set up payouts** (your real bank or debit card).
 
 ## C. Owner approves (normal window)
 
 1. **Verification Queue:** approve the professional's profile (and license, if asked). **Expect:** the pro's bell shows "You're approved."
-2. **Professionals:** the pro shows Entry "First In · $10," Payment "Paid," and Registered today.
+2. **Professionals:** the pro shows Entry "First In · $11," Payment "Paid," and Registered today.
 
 ## D. Student (Incognito window 2)
 
@@ -52,7 +52,7 @@ The quickest way to test this is to book a same-day opening, or have the pro add
 
 ## F. Money check (Stripe dashboard, live mode)
 
-- **Payments:** $10 pro entry, and the student's booking.
+- **Payments:** $11 pro entry, and the student's booking.
 - **Connect → Accounts:** the pro, and you as partner.
 - **Transfers:** the released payment went to the pro.
 - Refund your own test payments from each payment's page if you like.

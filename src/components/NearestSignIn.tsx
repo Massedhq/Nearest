@@ -1,4 +1,5 @@
 "use client";
+import { useAlreadySignedIn, SignedInBanner, rememberedEmail } from "./AlreadySignedIn";
 import { PasswordInput } from "./PasswordInput";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -16,8 +17,10 @@ type Stage = "password" | "code" | "device" | "reset";
 export function NearestSignIn({ signUpHref, signUpLabel = "Create an account" }: { signUpHref?: string; signUpLabel?: string }) {
   const { signIn, fetchStatus } = useSignIn();
   const router = useRouter();
+  const alreadySignedIn = useAlreadySignedIn();
   const [stage, setStage] = useState<Stage>("password");
   const [email, setEmail] = useState("");
+  useEffect(() => { const e = rememberedEmail(); if (e) setEmail(e); }, []);
   const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [error, setError] = useState("");
@@ -45,7 +48,7 @@ export function NearestSignIn({ signUpHref, signUpLabel = "Create an account" }:
     if (signIn.status === "complete") return finish();
     if (signIn.status === "needs_second_factor" || signIn.status === "needs_client_trust") {
       const { error } = await signIn.mfa.sendEmailCode();
-      if (error) return setError(msg(error));
+      if (error) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return; };
       setWait(45); setCode(""); setNote(`New device — we emailed a 6-digit code to ${email}.`); setStage("device");
       return;
     }
@@ -58,8 +61,10 @@ export function NearestSignIn({ signUpHref, signUpLabel = "Create an account" }:
     const password = String(form.get("password") ?? "");
     if (!emailAddress || !password) return setError("Enter your email and password.");
     setEmail(emailAddress);
-    const { error } = await signIn.password({ identifier: emailAddress, password });
-    if (error) return setError(msg(error));
+    await signIn.reset(); // a fresh attempt every time
+    let { error } = await signIn.password({ identifier: emailAddress, password });
+    if (error && /signed out/i.test(msg(error))) { await signIn.reset(); ({ error } = await signIn.password({ identifier: emailAddress, password })); }
+    if (error) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return; };
     await next();
   }
 
@@ -69,8 +74,10 @@ export function NearestSignIn({ signUpHref, signUpLabel = "Create an account" }:
     const emailAddress = (input?.value ?? email).trim();
     if (!emailAddress) return setError("Enter your email first.");
     setEmail(emailAddress);
-    const { error } = await signIn.emailCode.sendCode({ emailAddress });
-    if (error) return setError(msg(error));
+    await signIn.reset();
+    let { error } = await signIn.emailCode.sendCode({ emailAddress });
+    if (error && /signed out/i.test(msg(error))) { await signIn.reset(); ({ error } = await signIn.emailCode.sendCode({ emailAddress })); }
+    if (error) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return; };
     setWait(45); setCode(""); setNote(`We emailed a 6-digit code to ${emailAddress}.`); setStage("code");
   }
 
@@ -80,10 +87,11 @@ export function NearestSignIn({ signUpHref, signUpLabel = "Create an account" }:
     const emailAddress = (input?.value ?? email).trim();
     if (!emailAddress) return setError("Enter your email first, then tap Forgot password.");
     setEmail(emailAddress);
+    await signIn.reset();
     const created = await signIn.create({ identifier: emailAddress });
-    if (created.error) return setError(msg(created.error));
+    if (created.error) { if (!(await alreadySignedIn(msg(created.error)))) setError(msg(created.error)); return; };
     const { error } = await signIn.resetPasswordEmailCode.sendCode();
-    if (error) return setError(msg(error));
+    if (error) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return; };
     setWait(45); setCode(""); setNewPassword(""); setNote(`We emailed a 6-digit code to ${emailAddress}.`); setStage("reset");
   }
 
@@ -93,20 +101,20 @@ export function NearestSignIn({ signUpHref, signUpLabel = "Create an account" }:
     if (c.length !== 6) return setError("Enter the 6-digit code.");
     if (stage === "code") {
       const { error } = await signIn.emailCode.verifyCode({ code: c });
-      if (error) return setError(msg(error));
+      if (error) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return; };
       return next();
     }
     if (stage === "device") {
       const { error } = await signIn.mfa.verifyEmailCode({ code: c });
-      if (error) return setError(msg(error));
+      if (error) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return; };
       return next();
     }
     if (stage === "reset") {
       if (newPassword.length < 8) return setError("Choose a new password with at least 8 characters.");
       const v = await signIn.resetPasswordEmailCode.verifyCode({ code: c });
-      if (v.error && !/already been verified/i.test(msg(v.error))) return setError(msg(v.error));
+      if (v.error && !/already been verified/i.test(msg(v.error))) { if (!(await alreadySignedIn(msg(v.error)))) setError(msg(v.error)); return; };
       const { error } = await signIn.resetPasswordEmailCode.submitPassword({ password: newPassword, signOutOfOtherSessions: true });
-      if (error) return setError(msg(error));
+      if (error) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return; };
       return next();
     }
   }
@@ -116,7 +124,7 @@ export function NearestSignIn({ signUpHref, signUpLabel = "Create an account" }:
     const r = stage === "code" ? await signIn.emailCode.sendCode({ emailAddress: email })
       : stage === "device" ? await signIn.mfa.sendEmailCode()
       : await signIn.resetPasswordEmailCode.sendCode();
-    if (r.error) return setError(msg(r.error));
+    if (r.error) { if (!(await alreadySignedIn(msg(r.error)))) setError(msg(r.error)); return; };
     setWait(45);
   }
 
@@ -145,7 +153,8 @@ export function NearestSignIn({ signUpHref, signUpLabel = "Create an account" }:
   return (
     <form action={withPassword} className="col" style={{ gap: 14 }}>
       <h2 className="disp h2">Sign in</h2>
-      <div className="field"><label htmlFor="si-email">Email</label><input id="si-email" name="email" type="email" autoComplete="email" defaultValue={email} required /></div>
+      <SignedInBanner />
+      <div className="field"><label htmlFor="si-email">Email</label><input id="si-email" name="email" type="email" autoComplete="email" key={email} defaultValue={email} required /></div>
       <div className="field"><label htmlFor="si-password">Password</label><PasswordInput id="si-password" name="password" autoComplete="current-password" /></div>
       {error && <p className="err" role="alert">{error}</p>}
       <button className="btn" type="submit" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>

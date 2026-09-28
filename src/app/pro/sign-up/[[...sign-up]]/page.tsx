@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { auth } from "@clerk/nextjs/server";
 import { ProSignUpForm } from "@/components/ProSignUpForm";
 import { TopBar } from "@/components/TopBar";
 import { Icon } from "@/components/Icon";
@@ -13,6 +15,8 @@ export default async function ProSignUp({ searchParams }: { searchParams: Promis
   const code = check?.ok ? check.invite.code : null;
   const canSignUp = Boolean(code) || regOpen;
   const redirectTo = code ? `/pro/onboarding?invite=${encodeURIComponent(code)}` : "/pro/onboarding";
+  const { userId } = await auth();
+  if (userId) redirect(redirectTo); // already signed in → continue (onboarding keeps owner accounts safe)
 
   return (
     <div className="scr">

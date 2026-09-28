@@ -45,7 +45,7 @@ export default async function InvitePage({ params }: { params: Promise<{ code: s
           <div className="row between small"><span className="muted">Expires</span><span className="b">{fmt(invite.expiresAt)} — {days} {days === 1 ? "day" : "days"}</span></div>
         </div>
         <div className="card pearl">
-          <span className="disp h2">$10/month</span>
+          <span className="disp h2">$11/month</span>
           <span className="small">For your first 12 months.</span>
           <span className="xs muted">Your First In rate is locked to your account.</span>
         </div>

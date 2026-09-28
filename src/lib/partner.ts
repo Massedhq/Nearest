@@ -9,10 +9,10 @@ import { getSettings } from "./settings";
  * - Pool: pros #1–(pool − block) → their membership payments are split equally among the partners;
  *   pros in the last `block` of the pool (#3,001–3,500) → Nearest.
  * - After the pool (#3,501+): a pro brought in by a partner's code earns that partner $8 / $17 / $26 per
- *   $10 / $20 / $30 payment; Nearest keeps $2 / $3 / $4. Pros with no partner code → Nearest.
+ *   $11 / $16 / $21 / $30 payment ($8.80 / $13.60 / $17.85 / $26); earlier $10 / $20 members: $8 / $17. Pros with no partner code → Nearest.
  * Pro numbers follow sign-up order.
  */
-const CUT: Record<number, number> = { 1000: 800, 2000: 1700, 3000: 2600 };
+const CUT: Record<number, number> = { 1000: 800, 1100: 880, 1600: 1360, 2000: 1700, 2100: 1785, 3000: 2600 }; // $11 → 80%; $16/$21 → 85% (same shares as before)
 export const partnerCut = (cents: number) => CUT[cents] ?? Math.round(cents * 0.85);
 
 export async function partners() {

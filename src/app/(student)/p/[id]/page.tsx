@@ -1,4 +1,6 @@
 import Image from "next/image";
+import { PortfolioViewer } from "@/components/PortfolioViewer";
+import { instagramHandle, tiktokHandle, websiteUrl, instagramUrl, tiktokUrl } from "@/lib/social";
 import Link from "next/link";
 import { getFlag } from "@/lib/settings";
 import { notFound } from "next/navigation";
@@ -30,7 +32,7 @@ export default async function ProProfile({ params }: { params: Promise<{ id: str
   const today = chicagoNow().date;
   const [services, photos, hours, openings, city, calls] = await Promise.all([
     db.select().from(proServices).where(and(eq(proServices.userId, id), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS))).orderBy(asc(proServices.sort)),
-    db.select().from(portfolioItems).where(eq(portfolioItems.userId, id)).orderBy(desc(portfolioItems.featured), asc(portfolioItems.sort)).limit(24),
+    db.select().from(portfolioItems).where(eq(portfolioItems.userId, id)).orderBy(desc(portfolioItems.featured), asc(portfolioItems.sort)).limit(10),
     db.select().from(proHours).where(eq(proHours.userId, id)),
     p.vacationMode ? [] : db.select().from(proOpenings).where(and(eq(proOpenings.userId, id), eq(proOpenings.day, today))).orderBy(asc(proOpenings.startTime)),
     p.cityId ? db.query.cities.findFirst({ where: eq(cities.id, p.cityId) }) : null,
@@ -41,11 +43,12 @@ export default async function ProProfile({ params }: { params: Promise<{ id: str
   const [{ n: favCount }] = await db.select({ n: sql<number>`count(*)::int` }).from(favorites).where(eq(favorites.proId, id));
   const here = await nearPoint();
   const away = here ? miles(here, p) : null;
+  const ig = instagramHandle(p.instagram), tt = tiktokHandle(p.tiktok), web = websiteUrl(p.website);
   const social = [
-    p.instagram && { icon: "insta", label: "Instagram", href: `https://www.instagram.com/${encodeURIComponent(p.instagram)}/` },
-    p.tiktok && { icon: "tiktok", label: "TikTok", href: `https://www.tiktok.com/@${encodeURIComponent(p.tiktok)}` },
-    p.website && { icon: "globe", label: "Website", href: p.website },
-  ].filter(Boolean) as { icon: string; label: string; href: string }[];
+    ig && { icon: "insta", label: "Instagram", text: `@${ig}`, href: instagramUrl(ig) },
+    tt && { icon: "tiktok", label: "TikTok", text: `@${tt}`, href: tiktokUrl(tt) },
+    web && { icon: "globe", label: "Website", text: new URL(web).hostname.replace(/^www\./, ""), href: web },
+  ].filter(Boolean) as { icon: string; label: string; text: string; href: string }[];
   const revs = await db.select().from(reviews).where(and(eq(reviews.proId, id), eq(reviews.hidden, false))).orderBy(desc(reviews.createdAt)).limit(20);
   const avg = revs.length ? Math.round((revs.reduce((a, r) => a + r.rating, 0) / revs.length) * 10) / 10 : null;
   const initials = (p.businessName ?? "N").split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
@@ -61,8 +64,12 @@ export default async function ProProfile({ params }: { params: Promise<{ id: str
           <FavButton proId={id} on={isFav} size={44} count={favCount} />
         </div>
         {social.length > 0 && (
-          <div className="row" style={{ gap: 8 }}>
-            {social.map((x) => <a key={x.label} className="iconbtn" href={x.href} target="_blank" rel="noopener noreferrer" aria-label={`${p.businessName} on ${x.label}`}><Icon name={x.icon} /></a>)}
+          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+            {social.map((x) => (
+              <a key={x.label} className="chip" href={x.href} target="_blank" rel="noopener noreferrer" aria-label={`${p.businessName} on ${x.label} (opens ${x.label})`} style={{ gap: 6 }}>
+                <Icon name={x.icon} size="s" /> {x.text} <span aria-hidden="true">↗</span>
+              </a>
+            ))}
           </div>
         )}
         <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
@@ -81,14 +88,17 @@ export default async function ProProfile({ params }: { params: Promise<{ id: str
         {photos.length > 0 && (
           <>
             <h3 className="eyebrow p">Portfolio</h3>
-            <div className="grid3">{photos.map((ph) => <div key={ph.id} className="ph" style={{ height: 112, padding: 0 }}><Image src={ph.url} alt="Portfolio work" fill sizes="140px" style={{ objectFit: "cover" }} /></div>)}</div>
+            <PortfolioViewer bookingOpen={bookingOpen} photos={photos.map((ph) => {
+              const svc = ph.serviceId ? services.find((x) => x.id === ph.serviceId) : undefined;
+              return { id: ph.id, url: ph.url, serviceName: svc?.name ?? null, price: svc ? money(svc.priceCents) : null, bookHref: svc ? `/book/${svc.id}` : null };
+            })} />
           </>
         )}
 
         <h3 className="eyebrow p">About</h3>
         <p className="p muted" style={{ whiteSpace: "pre-line" }}>{p.bio}</p>
 
-        <h3 className="eyebrow p">Services</h3>
+        <h3 className="eyebrow p" id="services" style={{ scrollMarginTop: 80 }}>Services</h3>
         <div className="col" style={{ gap: 0 }}>
           {services.map((s) => (
             <div key={s.id} className="item"><div className="grow"><div className="b">{s.name}</div><div className="small muted">{money(s.priceCents)} • {s.durationMin} min</div></div>{bookingOpen ? <Link className="btn sm" href={`/book/${s.id}`}>Book</Link> : <button className="btn dis sm" type="button" disabled>Book</button>}</div>

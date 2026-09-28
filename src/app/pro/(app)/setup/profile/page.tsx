@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { requirePro, setupSteps } from "@/lib/pro";
 import { SetupShell } from "@/components/SetupShell";
+import { SocialField } from "@/components/SocialField";
 import { ActionForm } from "@/components/ActionForm";
 import { Uploader } from "@/components/Uploader";
 import { Icon } from "@/components/Icon";
@@ -28,10 +29,10 @@ export default async function ProfileStep({ searchParams }: { searchParams: Prom
         <div className="field"><label htmlFor="bio">About me</label><textarea id="bio" name="bio" defaultValue={p.bio ?? ""} placeholder="Tell customers about your work and experience." required /></div>
         <div className="field"><label htmlFor="years">Years of experience (optional)</label><input id="years" name="years" inputMode="numeric" defaultValue={p.yearsExperience ?? ""} /></div>
         <span className="lbl">Links (optional)</span>
-        <div className="field"><label htmlFor="instagram">Instagram</label><input id="instagram" name="instagram" placeholder="@handle" defaultValue={p.instagram ? `@${p.instagram}` : ""} /></div>
+        <SocialField kind="instagram" defaultValue={p.instagram ? `@${p.instagram}` : ""} />
         <div className="grid2">
-          <div className="field"><label htmlFor="tiktok">TikTok</label><input id="tiktok" name="tiktok" placeholder="@handle" defaultValue={p.tiktok ? `@${p.tiktok}` : ""} /></div>
-          <div className="field"><label htmlFor="website">Website</label><input id="website" name="website" placeholder="https://" defaultValue={p.website ?? ""} /></div>
+          <SocialField kind="tiktok" defaultValue={p.tiktok ? `@${p.tiktok}` : ""} />
+          <SocialField kind="website" defaultValue={p.website ?? ""} />
         </div>
         <p className="xs muted p">Students can tap these icons on your profile to open your pages.</p>
       </ActionForm>

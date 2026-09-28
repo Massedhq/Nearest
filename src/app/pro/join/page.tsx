@@ -32,16 +32,16 @@ export default async function Join({ searchParams }: { searchParams: Promise<{ s
             <span className="tag warn" style={{ alignSelf: "flex-start" }}>First In</span>
             <h1 className="disp h1">Join Nearest First In.</h1>
             <div className="card pearl">
-              <span className="disp h2">$10/month</span>
+              <span className="disp h2">$11/month</span>
               <span className="small">For your first 12 months.</span>
               <span className="xs muted">Your First In rate is locked to your account.</span>
             </div>
             {stats && !stats.open ? (
               <div className="card warn small"><span>First In is full.</span></div>
             ) : (
-              <ActionForm action={payEntry} submitLabel="Pay $10 and continue"><input type="hidden" name="type" value="FIRST_IN" /></ActionForm>
+              <ActionForm action={payEntry} submitLabel="Pay $11 and continue"><input type="hidden" name="type" value="FIRST_IN" /></ActionForm>
             )}
-            <p className="xs muted p">$10 is charged today, then $10 each month for your first 12 months. No commission on bookings.</p>
+            <p className="xs muted p">$11 is charged today, then $11 each month for your first 12 months. No commission on bookings.</p>
           </>
         )}
 
@@ -58,9 +58,9 @@ export default async function Join({ searchParams }: { searchParams: Promise<{ s
             <div className="acols even">
               <div className="card" style={{ gap: 12 }}>
                 <span className="eyebrow">Professional + Student</span>
-                <span className="disp h2">$15/month</span>
+                <span className="disp h2">$16/month</span>
                 <span className="small">For your first 12 months. Register one student to join with you.</span>
-                <ActionForm action={payEntry} submitLabel="Pay $15 and continue">
+                <ActionForm action={payEntry} submitLabel="Pay $16 and continue">
                   <input type="hidden" name="type" value="PRO_STUDENT" />
                   <div className="grid2">
                     <div className="field"><label htmlFor="sf">Student first name</label><input id="sf" name="studentFirst" required /></div>
@@ -72,9 +72,9 @@ export default async function Join({ searchParams }: { searchParams: Promise<{ s
               </div>
               <div className="card" style={{ gap: 12 }}>
                 <span className="eyebrow">General Entry</span>
-                <span className="disp h2">$20/month</span>
+                <span className="disp h2">$21/month</span>
                 <span className="small">For your first 12 months. No student registration required.</span>
-                <ActionForm action={payEntry} submitLabel="Pay $20 and continue"><input type="hidden" name="type" value="GENERAL" /></ActionForm>
+                <ActionForm action={payEntry} submitLabel="Pay $21 and continue"><input type="hidden" name="type" value="GENERAL" /></ActionForm>
               </div>
             </div>
             <p className="xs muted p">The first month is charged today. Your rate is locked to your account for your first 12 months. No commission on bookings.</p>

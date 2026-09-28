@@ -1,4 +1,5 @@
 "use client";
+import { useAlreadySignedIn, SignedInBanner } from "./AlreadySignedIn";
 import { PasswordInput } from "./PasswordInput";
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -11,6 +12,7 @@ const msg = (e: { longMessage?: string; message: string } | null) => (e ? e.long
 export function ProSignUpForm({ invite, refCode, redirectTo }: { invite: string | null; refCode: string | null; redirectTo: string }) {
   const { signUp, fetchStatus } = useSignUp();
   const router = useRouter();
+  const alreadySignedIn = useAlreadySignedIn();
   const [stage, setStage] = useState<"details" | "code">("details");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -21,7 +23,7 @@ export function ProSignUpForm({ invite, refCode, redirectTo }: { invite: string 
 
   async function sendCode() {
     const { error } = await signUp.verifications.sendEmailCode();
-    if (error) { setError(msg(error)); return false; }
+    if (error) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return false; }
     setWait(45);
     return true;
   }
@@ -32,11 +34,15 @@ export function ProSignUpForm({ invite, refCode, redirectTo }: { invite: string 
     const password = String(form.get("password") ?? "");
     if (password.length < 8) return setError("Use at least 8 characters for your password.");
     if (form.get("agree") !== "on") return setError("Please agree to the Terms and Privacy Policy.");
-    const { error } = await signUp.password({
+    const params = {
       emailAddress, password, legalAccepted: true,
       unsafeMetadata: { door: "pro", ...(invite ? { invite } : {}), ...(refCode ? { ref: refCode } : {}) },
-    });
-    if (error) return setError(msg(error));
+    };
+    // Always start a brand-new sign-up (an old, unfinished one is rejected as "signed out").
+    await signUp.reset();
+    let { error } = await signUp.password(params);
+    if (error && /signed out/i.test(msg(error))) { await signUp.reset(); ({ error } = await signUp.password(params)); }
+    if (error) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return; };
     setEmail(emailAddress);
     if (await sendCode()) setStage("code");
   }
@@ -47,7 +53,7 @@ export function ProSignUpForm({ invite, refCode, redirectTo }: { invite: string 
       const c = code.replace(/\D/g, "");
       if (c.length !== 6) return setError("Enter the 6-digit code.");
       const { error } = await signUp.verifications.verifyEmailCode({ code: c });
-      if (error && !/already been verified/i.test(msg(error))) return setError(msg(error));
+      if (error && !/already been verified/i.test(msg(error))) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return; };
     }
     if (signUp.status !== "complete" && signUp.missingFields.includes("username")) {
       const local = email.split("@")[0].toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 20) || "pro";
@@ -83,6 +89,7 @@ export function ProSignUpForm({ invite, refCode, redirectTo }: { invite: string 
   return (
     <form action={onDetails} className="col" style={{ gap: 14 }}>
       <h2 className="disp h2">Create your account</h2>
+      <SignedInBanner />
       <div className="field"><label htmlFor="pro-email">Email</label><input id="pro-email" name="email" type="email" autoComplete="email" required /></div>
       <div className="field"><label htmlFor="pro-password">Password</label><PasswordInput id="pro-password" name="password" autoComplete="new-password" minLength={8} required /></div>
       <label className="check" style={{ fontSize: 13 }}><input type="checkbox" name="agree" required /><span>I agree to the <Link className="link" href="/terms" target="_blank" style={{ fontSize: "inherit" }}>Terms</Link> and <Link className="link" href="/privacy" target="_blank" style={{ fontSize: "inherit" }}>Privacy Policy</Link></span></label>

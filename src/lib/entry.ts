@@ -9,9 +9,9 @@ import { logActivity } from "./log";
 
 // ---------- Entry types (rate locked to each professional's account) ----------
 export const ENTRY = {
-  FIRST_IN: { cents: 1000, label: "First In", short: "First In" },
-  PRO_STUDENT: { cents: 1500, label: "Professional + Student", short: "Pro + Student" },
-  GENERAL: { cents: 2000, label: "General Entry", short: "General" },
+  FIRST_IN: { cents: 1100, label: "First In", short: "First In" },
+  PRO_STUDENT: { cents: 1600, label: "Professional + Student", short: "Pro + Student" },
+  GENERAL: { cents: 2100, label: "General Entry", short: "General" },
 } as const;
 export type EntryType = keyof typeof ENTRY;
 export const isEntryType = (v: unknown): v is EntryType => typeof v === "string" && v in ENTRY;

@@ -5,7 +5,9 @@ import { stripeEnabled, planCents } from "@/lib/stripe";
 import { fmtDate, money } from "@/lib/time";
 import { TopBar } from "@/components/TopBar";
 import { Icon } from "@/components/Icon";
-import { startMembership, startIdentity, startPayouts, finishMembership } from "@/app/pro/pay-actions";
+import { startMembership, startPayouts, finishMembership } from "@/app/pro/pay-actions";
+import { submitProIdDocs } from "@/app/pro/id-actions";
+import { IdCapture } from "@/components/IdCapture";
 
 export const metadata = { title: "Membership & payments" };
 
@@ -42,9 +44,22 @@ export default async function Payments({ searchParams }: { searchParams: Promise
         </div>
 
         <div className="card">
-          <div className="row between"><span className="eyebrow">Identity</span><span className={`tag ${p.identityStatus === "verified" ? "ok" : p.identityStatus === "rejected" ? "bad" : "warn"}`}>{p.identityStatus}</span></div>
-          <span className="small">Government photo ID plus a live selfie, checked by Stripe. This is identity verification, not a background check. Your ID is never shown publicly.</span>
-          {p.identityStatus !== "verified" && <form action={startIdentity}><button className="btn sm" type="submit" style={{ width: "100%" }}><Icon name="face" size="s" /> {p.identityStatus === "rejected" ? "Try again" : p.identityStatus === "pending" ? "Continue verification" : "Verify my identity"}</button></form>}
+          <div className="row between"><span className="eyebrow">Identity</span><span className={`tag ${p.identityStatus === "verified" ? "ok" : p.identityStatus === "rejected" ? "bad" : "warn"}`}>{p.identityStatus === "verified" ? "Verified" : p.identityStatus === "pending" ? "Checking" : p.identityStatus === "rejected" ? "Try again" : "To do"}</span></div>
+          {p.identityStatus === "verified" ? (
+            <span className="small">Your ID is verified.</span>
+          ) : (
+            <>
+              <span className="small">A photo of your driver&apos;s license or state ID, plus a live selfie. Nearest checks that they match — it&apos;s not a background check, your ID is never shown publicly, and the photos are deleted after review.</span>
+              {p.identityStatus === "pending" ? (
+                <>
+                  <span className="small b">Thanks — we&apos;re checking your ID, usually within a day.</span>
+                  <details><summary className="link small">Send new photos</summary><IdCapture action={submitProIdDocs} idName="gov_id" idLabel="Photo of your driver's license or state ID" idHint="Your name and photo clearly visible" submitLabel="Send new photos" /></details>
+                </>
+              ) : (
+                <IdCapture action={submitProIdDocs} idName="gov_id" idLabel="Photo of your driver's license or state ID" idHint="Your name and photo clearly visible" submitLabel="Send for review" />
+              )}
+            </>
+          )}
         </div>
 
         <div className="card">

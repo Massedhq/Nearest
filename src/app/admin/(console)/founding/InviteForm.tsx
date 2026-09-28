@@ -29,7 +29,7 @@ export function InviteForm({ groups, disabled }: { groups: CityGroup[]; disabled
       </div>
       {state.error && <p className="err" role="alert">{state.error}</p>}
       <div className="row between small">
-        <span className="muted">Private code • First In ($10/month)</span>
+        <span className="muted">Private code • First In ($11/month)</span>
         <button className="btn sm" type="submit" disabled={pending || disabled}>{pending ? "Generating…" : "Generate invitation"}</button>
       </div>
     </form>

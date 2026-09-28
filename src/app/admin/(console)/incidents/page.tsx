@@ -68,7 +68,7 @@ export default async function Incidents() {
           )}
         </div>
       ))}
-      <p className="xs muted p">Fines and suspensions for confirmed professional fault arrive with Enforcement (Phase 5).</p>
+      <p className="xs muted p">Marking a report as professional fault adds a $50 fine automatically; a 3rd fault suspends the professional for 30 days. See Enforcement.</p>
     </>
   );
 }
