@@ -5,6 +5,7 @@ import { and, eq, gt, inArray, ne, or, lt } from "drizzle-orm";
 import { db, bookings, proServices, modelCalls, professionalProfiles, cities } from "@/db";
 import { geocode } from "@/lib/geo";
 import { MAX_PRICE_CENTS } from "@/lib/pricing";
+import { isAdult } from "@/lib/age";
 import { studentSuspendedUntil } from "@/lib/enforcement";
 import { requireVerifiedStudent } from "@/lib/student";
 import { liveProWhere } from "@/lib/search";
@@ -113,6 +114,7 @@ export async function bookService(_: FormState, form: FormData): Promise<FormSta
   const time = String(form.get("time") ?? "");
   const svc = await db.query.proServices.findFirst({ where: and(eq(proServices.id, serviceId), eq(proServices.active, true)) });
   if (!svc) return { error: "That service isn't available." };
+  if (svc.adultsOnly && !isAdult(user.dateOfBirth)) return { error: "This service is 18+ only. You must be 18 or older to book it." };
   const pro = await livePro(svc.userId);
   if (!pro) return { error: "This professional isn't taking bookings right now." };
   if (!(await openSlots(svc.userId, svc.durationMin, day)).includes(time)) return { error: "That time was just taken or is no longer available. Please pick another." };

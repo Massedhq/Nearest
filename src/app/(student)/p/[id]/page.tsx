@@ -12,6 +12,7 @@ import { ShareProButton } from "@/components/ShareProButton";
 import { ensureProSlug, proLink } from "@/lib/connections";
 import { nearPoint, miles } from "@/lib/near";
 import { requireVerifiedStudent } from "@/lib/student";
+import { isAdult } from "@/lib/age";
 import { openModelCalls } from "@/lib/search";
 import { chicagoNow, label12, money, WEEKDAYS } from "@/lib/time";
 import { TopBar } from "@/components/TopBar";
@@ -25,6 +26,7 @@ const MODE: Record<string, string> = { come_to_me: "Customers come to me", trave
 
 export default async function ProProfile({ params }: { params: Promise<{ id: string }> }) {
   const { user } = await requireVerifiedStudent();
+  const adult = isAdult(user.dateOfBirth);
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const p = await db.query.professionalProfiles.findFirst({
@@ -94,7 +96,8 @@ export default async function ProProfile({ params }: { params: Promise<{ id: str
             <h3 className="eyebrow p">Portfolio</h3>
             <PortfolioViewer bookingOpen={bookingOpen} photos={photos.map((ph) => {
               const svc = ph.serviceId ? services.find((x) => x.id === ph.serviceId) : undefined;
-              return { id: ph.id, url: ph.url, serviceName: svc?.name ?? null, price: svc ? money(svc.priceCents) : null, bookHref: svc ? `/book/${svc.id}` : null };
+              const blocked = svc?.adultsOnly && !adult;
+              return { id: ph.id, url: ph.url, serviceName: svc ? `${svc.name}${svc.adultsOnly ? " (18+)" : ""}` : null, price: svc ? money(svc.priceCents) : null, bookHref: svc && !blocked ? `/book/${svc.id}` : null };
             })} />
           </>
         )}
@@ -105,7 +108,7 @@ export default async function ProProfile({ params }: { params: Promise<{ id: str
         <h3 className="eyebrow p" id="services" style={{ scrollMarginTop: 80 }}>Services</h3>
         <div className="col" style={{ gap: 0 }}>
           {services.map((s) => (
-            <div key={s.id} className="item"><div className="grow"><div className="b">{s.name}</div><div className="small muted">{money(s.priceCents)} • {s.durationMin} min</div></div>{bookingOpen ? <Link className="btn sm" href={`/book/${s.id}`}>Book</Link> : <button className="btn dis sm" type="button" disabled>Book</button>}</div>
+            <div key={s.id} className="item"><div className="grow"><div className="b">{s.name}{s.adultsOnly && <span className="tag warn" style={{ marginLeft: 8 }}>18+</span>}</div><div className="small muted">{money(s.priceCents)} • {s.durationMin} min</div></div>{s.adultsOnly && !adult ? <button className="btn dis sm" type="button" disabled title="You must be 18 or older to book this service">18+ only</button> : bookingOpen ? <Link className="btn sm" href={`/book/${s.id}`}>Book</Link> : <button className="btn dis sm" type="button" disabled>Book</button>}</div>
           ))}
         </div>
         {!bookingOpen && <p className="xs muted p">Booking is paused right now.</p>}

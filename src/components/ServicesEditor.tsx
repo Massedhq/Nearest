@@ -4,7 +4,7 @@ import { MAX_PRICE_DOLLARS } from "@/lib/pricing";
 import { cleanPrice, underCap } from "./PriceInput";
 
 export type Cat = { id: number; name: string; licenseRequired: boolean; suggestions: string[] };
-export type Row = { categoryId: number; name: string; price: string; duration: string };
+export type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean };
 
 /** Pick categories, then list each service with a price and length. Sends everything as one JSON field. */
 export function ServicesEditor({ categories, initial }: { categories: Cat[]; initial: Row[] }) {
@@ -34,13 +34,19 @@ export function ServicesEditor({ categories, initial }: { categories: Cat[]; ini
             <div className="row between"><span className="eyebrow">{c.name}</span><span className="xs muted">Price • Minutes</span></div>
             {c.licenseRequired && <span className="tag warn" style={{ alignSelf: "flex-start" }}>License required</span>}
             {mine.map(({ r, i }) => (
-              <div key={i} className="row">
+              <div key={i} className="col" style={{ gap: 6 }}>
+              <div className="row">
                 <input className="ainput grow" aria-label="Service name" placeholder="Service name" value={r.name} onChange={(e) => update(i, { name: e.target.value })} />
                 <input className="ainput" style={{ width: 70, ...(Number(r.price) > MAX_PRICE_DOLLARS ? { borderColor: "#F2A38F" } : {}) }} aria-label={`${r.name || "Service"} price in dollars, up to $${MAX_PRICE_DOLLARS}`} aria-invalid={Number(r.price) > MAX_PRICE_DOLLARS || undefined} placeholder="$" inputMode="decimal" value={r.price}
                   onChange={(e) => { const next = cleanPrice(e.target.value); if (!underCap(next)) { setCapWarn(true); return; } setCapWarn(false); update(i, { price: next }); }} />
                 <input className="ainput" style={{ width: 62 }} aria-label={`${r.name || "Service"} length in minutes`} inputMode="numeric" value={r.duration} onChange={(e) => update(i, { duration: e.target.value })} />
                 <button type="button" className="iconbtn" style={{ width: 36, height: 36 }} aria-label={`Remove ${r.name || "service"}`} onClick={() => remove(i)}>×</button>
               </div>
+              <label className="check" style={{ fontSize: 12, marginTop: -4 }}>
+                <input type="checkbox" checked={Boolean(r.adultsOnly)} onChange={(e) => update(i, { adultsOnly: e.target.checked })} />
+                <span><span className="b">18+ only</span> — must be 18 or older to book</span>
+              </label>
+            </div>
             ))}
             {unused.length > 0 && (
               <div className="chips">{unused.map((s) => <button key={s} type="button" className="chip" style={{ height: 32 }} onClick={() => add(c.id, s)}>+ {s}</button>)}</div>

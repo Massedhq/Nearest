@@ -222,6 +222,7 @@ export const proServices = pgTable("pro_services", {
   name: text("name").notNull(),
   priceCents: integer("price_cents").notNull(),
   durationMin: integer("duration_min").notNull(),
+  adultsOnly: boolean("adults_only").notNull().default(false), // "18+ only" — students under 18 can't book it
   active: boolean("active").notNull().default(true),
   sort: integer("sort").notNull().default(0),
   createdAt: ts("created_at").notNull().defaultNow(),

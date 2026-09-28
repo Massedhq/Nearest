@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, proServices, professionalProfiles } from "@/db";
 import { requireVerifiedStudent } from "@/lib/student";
+import { isAdult } from "@/lib/age";
 import { liveProWhere } from "@/lib/search";
 import { openSlots, nextDays } from "@/lib/availability";
 import { getFlag } from "@/lib/settings";
@@ -13,11 +14,20 @@ import { Icon } from "@/components/Icon";
 export const metadata = { title: "Choose a time" };
 
 export default async function ChooseTime({ params, searchParams }: { params: Promise<{ serviceId: string }>; searchParams: Promise<{ day?: string }> }) {
-  await requireVerifiedStudent();
+  const { user: me } = await requireVerifiedStudent();
   const { serviceId } = await params;
   if (!/^[0-9a-f-]{36}$/.test(serviceId)) notFound();
   const svc = await db.query.proServices.findFirst({ where: and(eq(proServices.id, serviceId), eq(proServices.active, true)) });
   if (!svc) notFound();
+  if (svc?.adultsOnly && !isAdult(me.dateOfBirth)) {
+    return (
+      <div className="scr"><div className="body" style={{ gap: 14 }}>
+        <h1 className="disp h2">This service is 18+ only.</h1>
+        <p className="small muted p">{svc.name} can only be booked by students who are 18 or older. You can still book this professional&apos;s other services.</p>
+        <a className="btn" href={`/p/${svc.userId}#services`}>See their other services</a>
+      </div></div>
+    );
+  }
   const [pro] = await db.select().from(professionalProfiles).where(and(eq(professionalProfiles.userId, svc.userId), ...liveProWhere(null, "all"))).limit(1);
   if (!pro) notFound();
   const open = await getFlag("status.bookings");

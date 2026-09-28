@@ -72,7 +72,7 @@ export async function saveAvatar(urls: string[]): Promise<{ error?: string }> {
 }
 
 // ---------- Services ----------
-type Row = { categoryId: number; name: string; price: string; duration: string };
+type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean };
 
 export async function saveServices(_: FormState, form: FormData): Promise<FormState> {
   const { user } = await requirePro();
@@ -95,7 +95,7 @@ export async function saveServices(_: FormState, form: FormData): Promise<FormSt
     if (!Number.isFinite(price) || price <= 0) return { error: `Enter a price for ${name}.` };
     if (price > MAX_PRICE_DOLLARS) return { error: `Student prices can't be more than $${MAX_PRICE_DOLLARS} — ${name} is set to $${price}.` };
     if (!Number.isInteger(duration) || duration < 10 || duration > 600) return { error: `Enter ${name}'s length in minutes (10–600).` };
-    values.push({ userId: user.id, categoryId: Number(r.categoryId), name, priceCents: Math.round(price * 100), durationMin: duration, sort: i });
+    values.push({ userId: user.id, categoryId: Number(r.categoryId), name, priceCents: Math.round(price * 100), durationMin: duration, sort: i, adultsOnly: Boolean(r.adultsOnly) });
   }
   // Replace the whole menu. (Later phases keep old rows once bookings reference them.)
   await db.delete(proServices).where(eq(proServices.userId, user.id));

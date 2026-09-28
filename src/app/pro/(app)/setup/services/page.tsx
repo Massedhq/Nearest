@@ -18,7 +18,7 @@ export default async function ServicesStep({ searchParams }: { searchParams: Pro
     db.select().from(proServices).where(eq(proServices.userId, user.id)).orderBy(asc(proServices.sort)),
   ]);
   const catProps = cats.map((c) => ({ id: c.id, name: c.name, licenseRequired: c.licenseRequired, suggestions: sugg.filter((s) => s.categoryId === c.id).map((s) => s.name) }));
-  const initial = mine.map((s) => ({ categoryId: s.categoryId, name: s.name, price: String(s.priceCents / 100), duration: String(s.durationMin) }));
+  const initial = mine.map((s) => ({ categoryId: s.categoryId, name: s.name, price: String(s.priceCents / 100), duration: String(s.durationMin), adultsOnly: s.adultsOnly }));
   return (
     <SetupShell steps={steps} current="services" title="What do you do?" edit={edit}>
       <p className="muted small p">Customers search the actual service, not just your category.</p>
