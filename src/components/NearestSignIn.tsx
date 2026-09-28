@@ -152,7 +152,7 @@ export function NearestSignIn({ signUpHref, signUpLabel = "Create an account" }:
         <button type="button" className="link small" onClick={sendLoginCode} disabled={busy}>Email me a code instead</button>
         <button type="button" className="link small" onClick={startReset} disabled={busy}>Forgot password?</button>
       </div>
-      {signUpHref && <p className="small muted" style={{ textAlign: "center", margin: 0 }}>New to Nearest? <Link className="link" href={signUpHref}>{signUpLabel}</Link></p>}
+      {signUpHref && <p className="small muted" style={{ textAlign: "center", margin: 0 }}>{signUpHref.startsWith("/admin") ? "First time here?" : "New to Nearest?"} <Link className="link" href={signUpHref}>{signUpLabel}</Link></p>}
     </form>
   );
 }

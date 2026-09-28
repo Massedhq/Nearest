@@ -10,7 +10,7 @@ export default function AdminSignIn() {
       <div className="body" style={{ flex: "none", alignItems: "center" }}>
         <Image src="/brand/nearest-monogram.png" alt="" width={84} height={84} />
         <h1 className="disp h2">Nearest Administration</h1>
-        <div className="lightbox" style={{ width: "100%", maxWidth: 420 }}><NearestSignIn /></div>
+        <div className="lightbox" style={{ width: "100%", maxWidth: 420 }}><NearestSignIn signUpHref="/admin/sign-up" signUpLabel="Create your owner login" /></div>
       </div>
     </div>
   );
