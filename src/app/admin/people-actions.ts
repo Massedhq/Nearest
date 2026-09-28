@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { and, eq, ne } from "drizzle-orm";
-import { db, users, invitations } from "@/db";
+import { db, users, invitations, professionalProfiles } from "@/db";
 import { requireAdmin } from "@/lib/admin";
 import { logActivity } from "@/lib/log";
 import { deleteAccount } from "@/lib/accounts";
@@ -12,7 +12,11 @@ export async function deleteAccountAction(_: FormState, form: FormData): Promise
   const { user } = await requireAdmin();
   const id = String(form.get("userId"));
   if (String(form.get("confirm") ?? "").trim().toUpperCase() !== "DELETE") return { error: 'Type DELETE to confirm.' };
-  if (id === user.id) return { error: "You can't delete your own account here." };
+  if (id === user.id) {
+    // Your own professional business can go (e.g. a test business); your owner login never can.
+    const ownBusiness = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, id) });
+    if (!ownBusiness) return { error: "Your owner login can't be deleted." };
+  }
   const target = await db.query.users.findFirst({ where: eq(users.id, id) });
   const res = await deleteAccount(id);
   if (res.ok) {
