@@ -2,8 +2,8 @@ import { LegalPage } from "@/components/LegalPage";
 
 export const metadata = { title: "Terms of Service" };
 
-const ENTITY = "[Company legal name]";
-const ADDRESS = "[Mailing address]";
+const ENTITY = "Nearest";
+const ADDRESS = "5729 Lebanon Rd #144605, Frisco, Texas 75034";
 
 export default function Terms() {
   return (

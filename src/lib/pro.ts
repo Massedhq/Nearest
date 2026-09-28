@@ -13,7 +13,7 @@ export async function requirePro(opts: { allowUnpaid?: boolean } = {}) {
   if (!viewer.user || !(await proAccess(viewer))) redirect(await destinationFor(viewer));
   const profile = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, viewer.user!.id) });
   if (!profile) redirect("/pro/onboarding");
-  if (!opts.allowUnpaid && !hasPaidEntry(profile)) redirect("/pro/join");
+  if (!opts.allowUnpaid && !hasPaidEntry(profile) && viewer.admin?.role !== "OWNER") redirect("/pro/join"); // owners never pay
   return { viewer, user: viewer.user!, profile };
 }
 

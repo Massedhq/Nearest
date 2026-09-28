@@ -15,7 +15,8 @@ export default async function Join({ searchParams }: { searchParams: Promise<{ s
   if (session && stripeEnabled()) {
     try { await finalizeEntry(session); } catch (e) { console.error("finalizeEntry", e); }
   }
-  const { profile } = await requirePro({ allowUnpaid: true });
+  const { profile, viewer } = await requirePro({ allowUnpaid: true });
+  if (viewer.admin?.role === "OWNER") redirect("/pro/home"); // owners never pay
   if (hasPaidEntry(profile)) redirect("/pro/home");
 
   const state = await getEntryState();

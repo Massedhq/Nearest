@@ -11,6 +11,6 @@ export default async function ProAppLayout({ children }: { children: React.React
   if (viewer.user!.status === "deactivated") redirect("/pro");
   // Pay first: no one reaches the professional side until their entry is paid.
   const profile = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, viewer.user!.id) });
-  if (profile && !hasPaidEntry(profile)) redirect("/pro/join");
+  if (profile && !hasPaidEntry(profile) && viewer.admin?.role !== "OWNER") redirect("/pro/join"); // owners never pay
   return <>{children}</>;
 }

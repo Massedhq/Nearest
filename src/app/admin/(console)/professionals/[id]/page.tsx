@@ -6,7 +6,7 @@ import { db, users, professionalProfiles, proServices, proCredentials, categorie
 import { AdminHead } from "@/components/AdminHead";
 import { requireAdmin } from "@/lib/admin";
 import { setupSteps } from "@/lib/pro";
-import { hasPaidEntry, ENTRY, type EntryType } from "@/lib/entry";
+import { hasPaidEntry, isOwnerBusiness, ENTRY, type EntryType } from "@/lib/entry";
 import { proStanding } from "@/lib/enforcement";
 import { fmtDate, money } from "@/lib/time";
 import { instagramHandle, tiktokHandle, instagramUrl, tiktokUrl } from "@/lib/social";
@@ -46,7 +46,8 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
     proStanding(id),
     db.select().from(appeals).where(and(eq(appeals.userId, id), eq(appeals.status, "under_review"))),
   ]);
-  const paid = hasPaidEntry(p);
+  const owner = await isOwnerBusiness(id);
+  const paid = owner || hasPaidEntry(p);
   const subActive = ["active", "trialing"].includes(p.subscriptionStatus ?? "");
   // What's stopping them from being bookable right now
   const blockers = [
@@ -55,7 +56,7 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
     p.reviewStatus !== "approved" && (p.reviewStatus === "submitted" ? "Waiting for your approval (Verification Queue)" : "Profile not submitted for review yet"),
     p.identityStatus !== "verified" && (p.identityStatus === "pending" ? "ID waiting for your check (Verification Queue)" : "ID not verified yet"),
     !p.payoutsEnabled && "Payouts not set up",
-    !subActive && `Membership not active (${p.subscriptionStatus ?? "not started"})`,
+    !owner && !subActive && `Membership not active (${p.subscriptionStatus ?? "not started"})`,
     p.membershipPausedAt && "Membership paused by Nearest",
     p.listingPausedAt && "Listing paused by Nearest",
     standing.suspendedUntil && `Suspended until ${fmtDate(standing.suspendedUntil)}`,
@@ -97,7 +98,7 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
 
         <div className="card" style={{ gap: 8 }}>
           <span className="eyebrow">Money & checks</span>
-          <Row k="Entry" v={p.entryType && p.entryType in ENTRY ? `${ENTRY[p.entryType as EntryType].label} • ${money(p.monthlyRateCents ?? 0)}/mo` : "Not paid"} />
+          <Row k="Entry" v={owner ? "Owner business — free" : p.entryType && p.entryType in ENTRY ? `${ENTRY[p.entryType as EntryType].label} • ${money(p.monthlyRateCents ?? 0)}/mo` : "Not paid"} />
           <Row k="Paid entry on" v={p.entryPaidAt ? fmtDate(p.entryPaidAt) : "—"} />
           <Row k="Membership" v={<Tag ok={subActive && !p.membershipPausedAt}>{p.membershipPausedAt ? "Paused" : p.membershipEndsAt ? `Ends ${fmtDate(p.membershipEndsAt, { month: "short", day: "numeric" })}` : p.subscriptionStatus ?? "Not started"}</Tag>} />
           {p.currentPeriodEnd && <Row k="Paid through" v={fmtDate(p.currentPeriodEnd)} />}

@@ -54,6 +54,8 @@ Every admin write (invite, pause, refund, setting change, status switch) inserts
 - Phase 1 (foundation) is built. See `docs/PHASE-1.md`.
 - Phase 2 (professional side) is built. See `docs/PHASE-2.md`.
 - Phase 3A (student verification, search, model calls) is built. See `docs/PHASE-3A.md`.
+- Owners' own pro businesses are free: no Join payment, no membership (`isOwnerBusiness` in entry.ts; owner exception in requirePro, the pro layout, Join and liveProWhere). They still need ID + payouts.
+- Legal entity: Nearest, 5729 Lebanon Rd #144605, Frisco, Texas 75034 (Terms & Privacy).
 - DATABASE SAFETY: never add `.unique()` to a new column on a table that has rows — drizzle-kit push then asks to TRUNCATE the table. Use a `uniqueIndex(...)` in the table's extras instead (applies silently).
 - Connections (students): usernames, Connect → Pending → My Connections, Share with a Connection (accepted only). Minors are name-searchable only by same-school students; anyone can use an exact username. Pro share links: usenearest.com/pro-<slug> (public page `app/[handle]`). See `src/lib/connections.ts`.
 - Problem reports: `ProblemReporter` (root layout) catches errors, screenshots the screen (html-to-image), shows a one-tap popup → `/api/report` saves to `problem_reports` and emails support@usenearest.com with the screenshot. `app/error.tsx` + `app/global-error.tsx` cover pages that fail to load. Admin → Problem reports.

@@ -183,3 +183,10 @@ export async function linkRegisteredStudent(studentUserId: string, email: string
 /** Has this professional paid their entry? (Older accounts with a live membership count as paid.) */
 export const hasPaidEntry = (p: typeof professionalProfiles.$inferSelect) =>
   Boolean(p.entryPaidAt) || ["active", "trialing", "past_due"].includes(p.subscriptionStatus ?? "");
+
+/** Nearest owners (Avy, Kisses, Kee) run their own businesses on Nearest free — no entry payment, no membership. */
+export async function isOwnerBusiness(userId: string) {
+  const { adminMembers } = await import("@/db");
+  const row = await db.query.adminMembers.findFirst({ where: and(eq(adminMembers.userId, userId), eq(adminMembers.role, "OWNER"), eq(adminMembers.active, true)) });
+  return Boolean(row);
+}

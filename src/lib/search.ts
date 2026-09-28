@@ -13,7 +13,7 @@ export function liveProWhere(area: Area, areaMode: string | undefined) {
     eq(professionalProfiles.searchable, true),
     eq(professionalProfiles.vacationMode, false),
     // Live only when membership is trialing/active, ID is verified and payouts are set up.
-    inArray(professionalProfiles.subscriptionStatus, ["trialing", "active"]),
+    sql`(${professionalProfiles.subscriptionStatus} in ('trialing', 'active') or exists (select 1 from admin_members a where a.user_id = ${professionalProfiles.userId} and a.role = 'OWNER' and a.active))`, // owners never pay
     eq(professionalProfiles.identityStatus, "verified"),
     eq(professionalProfiles.payoutsEnabled, true),
     // Not paused by Nearest, not suspended, and no fine past its due date.

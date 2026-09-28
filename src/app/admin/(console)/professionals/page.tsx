@@ -49,8 +49,8 @@ export default async function Professionals({ searchParams }: { searchParams: Pr
   const suspended = (r: (typeof rows)[number]) => Boolean(r.p.suspendedUntil && r.p.suspendedUntil.getTime() > now);
   const statusOf = (r: (typeof rows)[number]): Filter => {
     if (suspended(r)) return "Suspended";
-    if (!r.p.entryPaidAt && !["active", "trialing", "past_due"].includes(r.p.subscriptionStatus ?? "")) return "Unpaid";
-    if (r.p.reviewStatus === "approved" && ["active", "trialing"].includes(r.p.subscriptionStatus ?? "") && !r.p.listingPausedAt && !r.p.membershipPausedAt) return "Active";
+    if (!r.isOwner && !r.p.entryPaidAt && !["active", "trialing", "past_due"].includes(r.p.subscriptionStatus ?? "")) return "Unpaid";
+    if (r.p.reviewStatus === "approved" && (r.isOwner || ["active", "trialing"].includes(r.p.subscriptionStatus ?? "")) && !r.p.listingPausedAt && !r.p.membershipPausedAt) return "Active";
     return "Inactive";
   };
   const matches = (r: (typeof rows)[number]) =>
@@ -83,7 +83,7 @@ export default async function Professionals({ searchParams }: { searchParams: Pr
         <td>
           {r.fineCents > 0 && r.fineDue && r.fineDue.getTime() < now ? <span className="tag bad">Past due {money(r.fineCents)}</span>
             : sub === "past_due" ? <span className="tag bad">Past due</span>
-            : r.p.membershipPausedAt ? "Paused" : r.p.membershipEndsAt ? `Ends ${fmtDate(r.p.membershipEndsAt, { month: "short", day: "numeric" })}` : sub === "active" || sub === "trialing" ? "Paid" : sub === "canceled" ? "Canceled" : r.p.entryPaidAt ? "Paid" : "Not paid"}
+            : r.isOwner ? "Owner — free" : r.p.membershipPausedAt ? "Paused" : r.p.membershipEndsAt ? `Ends ${fmtDate(r.p.membershipEndsAt, { month: "short", day: "numeric" })}` : sub === "active" || sub === "trialing" ? "Paid" : sub === "canceled" ? "Canceled" : r.p.entryPaidAt ? "Paid" : "Not paid"}
         </td>
         <td>{r.bookings}</td>
         <td>{r.rating ?? "—"}</td>
