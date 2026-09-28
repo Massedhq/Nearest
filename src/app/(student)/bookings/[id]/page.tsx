@@ -5,6 +5,8 @@ import { requireVerifiedStudent } from "@/lib/student";
 import { bookingCode, confirmFromCheckout, expireStaleHolds } from "@/lib/bookings";
 import { getSettings } from "@/lib/settings";
 import { fmtDate, fmtTime, money } from "@/lib/time";
+import { ShareProButton } from "@/components/ShareProButton";
+import { ensureProSlug, proLink } from "@/lib/connections";
 import { TopBar } from "@/components/TopBar";
 import { ActionForm } from "@/components/ActionForm";
 import { Icon } from "@/components/Icon";
@@ -32,6 +34,7 @@ export default async function Booking({ params, searchParams }: { params: Promis
     .where(and(eq(bookings.id, id), eq(bookings.studentId, user.id))).limit(1))[0];
   if (!row) notFound();
   const { b, pro } = row;
+  const shareLink = proLink((await ensureProSlug(b.proId)) ?? b.proId);
   const s = await getSettings();
   const total = b.chargedCents + b.creditProCents + b.creditGeneralCents;
   const hoursAway = (b.startsAt.getTime() - Date.now()) / 3600000;
@@ -51,7 +54,10 @@ export default async function Booking({ params, searchParams }: { params: Promis
         )}
         {sp.cancelled && b.status === "pending_payment" && <div className="card warn small"><span>Payment wasn&apos;t finished. Your time is held for a few more minutes.</span></div>}
         <div className="row"><span className={`tag ${b.status === "confirmed" ? "ok" : b.status.startsWith("cancelled") ? "bad" : ""}`}>{b.status.replace("_", " ")}</span><span className="xs muted">Booking #{bookingCode(b.number)}</span></div>
-        <h1 className="disp h2">{b.serviceName} with {pro}</h1>
+        <div className="row between" style={{ gap: 10 }}>
+          <h1 className="disp h2">{b.serviceName} with {pro}</h1>
+          <ShareProButton proId={b.proId} proName={pro ?? "This professional"} link={shareLink} compact />
+        </div>
         <div className="card">
           <div className="row"><Icon name="cal" /><div className="grow"><div className="b">{fmtDate(b.startsAt, { weekday: "long", month: "long", day: "numeric" })}</div><div className="small muted">{fmtTime(b.startsAt)} – {fmtTime(b.endsAt)}</div></div></div>
           <hr className="hr" />

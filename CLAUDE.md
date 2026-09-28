@@ -54,6 +54,9 @@ Every admin write (invite, pause, refund, setting change, status switch) inserts
 - Phase 1 (foundation) is built. See `docs/PHASE-1.md`.
 - Phase 2 (professional side) is built. See `docs/PHASE-2.md`.
 - Phase 3A (student verification, search, model calls) is built. See `docs/PHASE-3A.md`.
+- DATABASE SAFETY: never add `.unique()` to a new column on a table that has rows — drizzle-kit push then asks to TRUNCATE the table. Use a `uniqueIndex(...)` in the table's extras instead (applies silently).
+- Connections (students): usernames, Connect → Pending → My Connections, Share with a Connection (accepted only). Minors are name-searchable only by same-school students; anyone can use an exact username. Pro share links: usenearest.com/pro-<slug> (public page `app/[handle]`). See `src/lib/connections.ts`.
+- Problem reports: `ProblemReporter` (root layout) catches errors, screenshots the screen (html-to-image), shows a one-tap popup → `/api/report` saves to `problem_reports` and emails support@usenearest.com with the screenshot. `app/error.tsx` + `app/global-error.tsx` cover pages that fail to load. Admin → Problem reports.
 - Professional ID check is Nearest's own (driver's license/state ID + live selfie → Verification Queue → approveProId). No Stripe Identity screens. Payout setup pre-fills website/product/category/name/DOB/phone (`src/lib/stripe-connect.ts`) so Stripe only asks what the law requires.
 - No Clerk UI components (no "Secured by Clerk"): sign-in is `src/components/NearestSignIn.tsx` (password, email code, new-device code, forgot password) and sign-up is `StudentSignUpForm` / `ProSignUpForm`, all on Clerk's hooks. Keep it that way.
 - Sign-in IDs: a Clerk user we haven't seen is linked to the existing Nearest account with the same VERIFIED email (`relinkByEmail` in `src/lib/viewer.ts`) — needed when switching Clerk test → live keys.

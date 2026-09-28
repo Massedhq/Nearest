@@ -6,7 +6,7 @@ const ASL_LABEL: Record<string, string> = { basic: "Basic", conversational: "Con
 
 /** The card students will see in search (Phase 3), used here as the pro's preview. */
 export function ProCard({ p, services, photos, city }: {
-  p: { businessName: string | null; photoUrl: string | null; aslLevel: string; serviceMode: string | null; travelRadiusMi: number | null };
+  p: { businessName: string | null; photoUrl: string | null; aslLevel: string; serviceMode: string | null; travelRadiusMi: number | null; favCount?: number };
   services: { name: string; priceCents: number }[];
   photos: string[];
   city: string | null;
@@ -18,7 +18,16 @@ export function ProCard({ p, services, photos, city }: {
       <div className="row top-a">
         {p.photoUrl ? <Image src={p.photoUrl} alt="" width={52} height={52} style={{ borderRadius: 26, objectFit: "cover" }} /> : <div className="avatar">{initials}</div>}
         <div className="col g4 grow">
-          <span className="h3">{p.businessName ?? "Your business name"}</span>
+          <div className="row between">
+            <span className="h3">{p.businessName ?? "Your business name"}</span>
+            {/* Same heart students see (preview only — tapping it here does nothing) */}
+            <span className="row" style={{ gap: 6 }} title="Students tap the heart to save you to their favorites">
+              <span className="iconbtn" aria-hidden="true" style={{ width: 36, height: 36 }}>
+                <svg className="i s" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z" /></svg>
+              </span>
+              <span className="small b" aria-label={`Saved by ${p.favCount ?? 0} students`}>{(p.favCount ?? 0).toLocaleString()}</span>
+            </span>
+          </div>
           <span className="badge"><Icon name="shield" size="s" /> Approved by Nearest</span>
           {p.aslLevel !== "none" && <span className="badge pearl"><Icon name="hand" size="s" /> ASL — {ASL_LABEL[p.aslLevel]}</span>}
           <div className="row small" style={{ gap: 12 }}>

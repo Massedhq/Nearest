@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { PortfolioViewer } from "@/components/PortfolioViewer";
-import { instagramHandle, tiktokHandle, websiteUrl, instagramUrl, tiktokUrl } from "@/lib/social";
+import { instagramHandle, tiktokHandle, instagramUrl, tiktokUrl } from "@/lib/social";
 import Link from "next/link";
 import { getFlag } from "@/lib/settings";
 import { notFound } from "next/navigation";
@@ -8,6 +8,8 @@ import { and, asc, desc, eq, lte, sql } from "drizzle-orm";
 import { MAX_PRICE_CENTS } from "@/lib/pricing";
 import { db, professionalProfiles, proServices, portfolioItems, proHours, proOpenings, cities, reviews, favorites } from "@/db";
 import { FavButton } from "@/components/FavButton";
+import { ShareProButton } from "@/components/ShareProButton";
+import { ensureProSlug, proLink } from "@/lib/connections";
 import { nearPoint, miles } from "@/lib/near";
 import { requireVerifiedStudent } from "@/lib/student";
 import { openModelCalls } from "@/lib/search";
@@ -43,11 +45,10 @@ export default async function ProProfile({ params }: { params: Promise<{ id: str
   const [{ n: favCount }] = await db.select({ n: sql<number>`count(*)::int` }).from(favorites).where(eq(favorites.proId, id));
   const here = await nearPoint();
   const away = here ? miles(here, p) : null;
-  const ig = instagramHandle(p.instagram), tt = tiktokHandle(p.tiktok), web = websiteUrl(p.website);
+  const ig = instagramHandle(p.instagram), tt = tiktokHandle(p.tiktok);
   const social = [
     ig && { icon: "insta", label: "Instagram", text: `@${ig}`, href: instagramUrl(ig) },
     tt && { icon: "tiktok", label: "TikTok", text: `@${tt}`, href: tiktokUrl(tt) },
-    web && { icon: "globe", label: "Website", text: new URL(web).hostname.replace(/^www\./, ""), href: web },
   ].filter(Boolean) as { icon: string; label: string; text: string; href: string }[];
   const revs = await db.select().from(reviews).where(and(eq(reviews.proId, id), eq(reviews.hidden, false))).orderBy(desc(reviews.createdAt)).limit(20);
   const avg = revs.length ? Math.round((revs.reduce((a, r) => a + r.rating, 0) / revs.length) * 10) / 10 : null;
@@ -62,12 +63,15 @@ export default async function ProProfile({ params }: { params: Promise<{ id: str
           {p.photoUrl ? <Image src={p.photoUrl} alt="" width={84} height={84} style={{ borderRadius: 42, objectFit: "cover" }} /> : <div className="avatar lg">{initials}</div>}
           <div className="col g4 grow"><h1 className="disp h2">{p.businessName}</h1><span className="badge"><Icon name="shield" size="s" /> Approved by Nearest</span></div>
           <FavButton proId={id} on={isFav} size={44} count={favCount} />
+          <ShareProButton proId={id} proName={p.businessName ?? "This professional"} link={proLink((await ensureProSlug(id)) ?? id)} compact />
         </div>
         {social.length > 0 && (
-          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          <div className="row" style={{ gap: 18, flexWrap: "wrap" }}>
             {social.map((x) => (
-              <a key={x.label} className="chip" href={x.href} target="_blank" rel="noopener noreferrer" aria-label={`${p.businessName} on ${x.label} (opens ${x.label})`} style={{ gap: 6 }}>
-                <Icon name={x.icon} size="s" /> {x.text} <span aria-hidden="true">↗</span>
+              <a key={x.label} href={x.href} target="_blank" rel="noopener noreferrer" aria-label={`Open ${p.businessName} on ${x.label}`} title={x.text}
+                className="col" style={{ alignItems: "center", gap: 4, textDecoration: "none", color: "inherit" }}>
+                <span className="iconbtn" style={{ width: 48, height: 48, ...(x.icon === "insta" ? { background: "linear-gradient(45deg,#F58529,#DD2A7B,#8134AF)", color: "#fff", borderColor: "transparent" } : {}) }}><Icon name={x.icon} /></span>
+                <span className="xs">{x.label}</span>
               </a>
             ))}
           </div>

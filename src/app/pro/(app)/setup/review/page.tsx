@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { asc, desc, eq } from "drizzle-orm";
-import { db, proServices, portfolioItems, cities } from "@/db";
+import { asc, desc, eq, sql } from "drizzle-orm";
+import { db, proServices, portfolioItems, cities, favorites } from "@/db";
 import { requirePro, setupSteps, setupComplete } from "@/lib/pro";
 import { TopBar } from "@/components/TopBar";
 import { ActionForm } from "@/components/ActionForm";
@@ -19,12 +19,13 @@ export default async function ReviewStep() {
     p.cityId ? db.query.cities.findFirst({ where: eq(cities.id, p.cityId) }) : null,
   ]);
   const ready = setupComplete(steps);
+  const [{ n: favCount }] = await db.select({ n: sql<number>`count(*)::int` }).from(favorites).where(eq(favorites.proId, p.userId));
   return (
     <div className="scr">
       <TopBar title="Preview" back="/pro/home" />
       <div className="body">
         <h1 className="disp h2">This is how customers see you.</h1>
-        <ProCard p={p} services={services} photos={photos.map((x) => x.url)} city={city?.name ?? null} />
+        <ProCard p={{ ...p, favCount }} services={services} photos={photos.map((x) => x.url)} city={city?.name ?? null} />
         <div className="card">
           <span className="eyebrow">Ready to go live</span>
           {steps.map((s) => (

@@ -6,6 +6,8 @@ import { requireVerifiedStudent } from "@/lib/student";
 import { liveProWhere } from "@/lib/search";
 import { TopBar } from "@/components/TopBar";
 import { FavButton } from "@/components/FavButton";
+import { ShareProButton } from "@/components/ShareProButton";
+import { proLink } from "@/lib/connections";
 
 export const metadata = { title: "Favorites" };
 
@@ -28,6 +30,7 @@ export default async function Favorites() {
             <div key={p.userId} className="item">
               {p.photoUrl ? <Image src={p.photoUrl} alt="" width={52} height={52} style={{ borderRadius: 26, objectFit: "cover" }} /> : <div className="avatar">{(p.businessName ?? "N").slice(0, 2).toUpperCase()}</div>}
               <Link href={`/p/${p.userId}`} className="grow" style={{ textDecoration: "none" }}><div className="b">{p.businessName}</div><div className="small muted">{city}</div></Link>
+              <ShareProButton proId={p.userId} proName={p.businessName ?? "This professional"} link={proLink(p.slug ?? p.userId)} compact />
               <FavButton proId={p.userId} on />
             </div>
           ))}

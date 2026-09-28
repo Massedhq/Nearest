@@ -9,7 +9,7 @@ import { AdminHead } from "@/components/AdminHead";
 import { RejectForm } from "@/components/RejectForm";
 import { requireAdmin } from "@/lib/admin";
 import { MAX_PRICE_CENTS } from "@/lib/pricing";
-import { instagramHandle, tiktokHandle, websiteUrl, instagramUrl, tiktokUrl } from "@/lib/social";
+import { instagramHandle, tiktokHandle, instagramUrl, tiktokUrl } from "@/lib/social";
 import { approvePro, setCredential } from "@/app/admin/pro-actions";
 import { money } from "@/lib/time";
 
@@ -154,10 +154,9 @@ export default async function Verification() {
               {details[i].services.map((s) => <div key={s.id} className="row between small"><span>{s.name}</span><span>{s.priceCents > MAX_PRICE_CENTS && <span className="tag bad" style={{ marginRight: 6 }}>Over $150</span>}{money(s.priceCents)} • {s.durationMin} min</span></div>)}
               <span className="lbl">Links</span>
               <span className="small row" style={{ gap: 12, flexWrap: "wrap" }}>
-                {!p.instagram && !p.tiktok && !p.website && "—"}
+                {!p.instagram && !p.tiktok && "—"}
                 {p.instagram && instagramHandle(p.instagram) && <a className="link small" href={instagramUrl(instagramHandle(p.instagram)!)} target="_blank" rel="noopener noreferrer">Instagram @{instagramHandle(p.instagram)} ↗</a>}
                 {p.tiktok && tiktokHandle(p.tiktok) && <a className="link small" href={tiktokUrl(tiktokHandle(p.tiktok)!)} target="_blank" rel="noopener noreferrer">TikTok @{tiktokHandle(p.tiktok)} ↗</a>}
-                {p.website && websiteUrl(p.website) && <a className="link small" href={websiteUrl(p.website)!} target="_blank" rel="noopener noreferrer">{new URL(websiteUrl(p.website)!).hostname} ↗</a>}
               </span>
             </div>
             <div className="col" style={{ gap: 8 }}>

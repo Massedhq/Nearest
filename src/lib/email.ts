@@ -8,7 +8,7 @@ export const emailEnabled = () => Boolean(process.env.RESEND_API_KEY);
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
 /** One branded layout for every Nearest email: black, pearl text, one button. Never throws. */
-export async function sendEmail(opts: { to: string | null | undefined; subject: string; eyebrow?: string; heading: string; lines: string[]; button?: { label: string; url: string } }) {
+export async function sendEmail(opts: { to: string | null | undefined; subject: string; eyebrow?: string; heading: string; lines: string[]; button?: { label: string; url: string }; attachments?: { filename: string; content: string }[]; replyTo?: string }) {
   if (!emailEnabled() || !opts.to) return { sent: false as const };
   const html = `
   <div style="background:#000;padding:32px 20px;font-family:Arial,Helvetica,sans-serif;color:#ECE8E1">
@@ -23,6 +23,8 @@ export async function sendEmail(opts: { to: string | null | undefined; subject: 
   try {
     const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
       from: FROM, to: opts.to, subject: opts.subject, html,
+      ...(opts.attachments?.length ? { attachments: opts.attachments } : {}),
+      ...(opts.replyTo ? { replyTo: opts.replyTo } : {}),
       text: [opts.heading, ...opts.lines, opts.button ? `${opts.button.label}: ${opts.button.url}` : ""].join("\n\n"),
     });
     if (error) { console.error("Email failed", opts.subject, error.message); return { sent: false as const, reason: error.message }; }

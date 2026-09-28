@@ -7,6 +7,7 @@ const PUBLIC_EXACT = new Set(["/", "/pro", "/manifest.webmanifest", "/pro/manife
 const PUBLIC_PREFIX = ["/sign-in", "/sign-up", "/pro/sign-in", "/pro/sign-up", "/pro/invite/", "/admin/sign-in", "/admin/sign-up"];
 
 function isPublic(path: string) {
+  if (/^\/pro-[a-z0-9-]{2,40}$/i.test(path)) return true; // shareable pro links: usenearest.com/pro-<name>
   return PUBLIC_EXACT.has(path) || PUBLIC_PREFIX.some((p) => path === p || path.startsWith(p.endsWith("/") ? p : `${p}/`));
 }
 

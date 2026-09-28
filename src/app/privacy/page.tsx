@@ -23,8 +23,10 @@ export default function Privacy() {
             [
               "Account details: first and last name, date of birth, email address, optional mobile number, and password (passwords are handled by our sign-in provider, Clerk; we never see them).",
               "Students: school, graduation year, optional interests and communication preferences (for example, text communication or ASL).",
-              "Professionals: business name, profile photo, bio, years of experience, services and prices, hours, city, ZIP code, service address, travel radius, languages and ASL level, portfolio photos, social media and website links, and license information (type, number, state and expiration).",
+              "Professionals: business name, profile photo, bio, years of experience, services and prices, hours, city, ZIP code, service address, travel radius, languages and ASL level, portfolio photos, Instagram and TikTok links, and license information (type, number, state and expiration).",
               "Verification: Students provide a school ID photo and a selfie for review; Professionals provide a photo of a government ID (driver's license or state ID) and a live selfie for review (see Section 3).",
+              "Connections: verified students get a username and can Connect with other verified students. Other students see only your first name, last initial and school. Students under 18 can be found by name only by students at their own school (anyone else needs your exact username). Only accepted connections can send you professionals, and you can remove a connection anytime.",
+              "Problem reports: if something in the app breaks, you can send an automatic report that includes the error details, the page, your device type and a screenshot of your screen at that moment. It goes only to Nearest support and is used only to fix the problem.",
               "Bookings and activity: appointments, Model Calls, messages, reviews, ratings, the required check-in and result photos for each appointment, problem reports, requests for review, favorites and searches within the app.",
               "Payments: payment and payout details are collected and stored by Stripe. Nearest receives limited information such as the amount, date, card brand and last four digits, and payout status — never your full card or bank account number.",
             ],
@@ -151,7 +153,7 @@ export default function Privacy() {
         },
         {
           h: "12. Links to other sites",
-          p: ["Profiles may link to a Professional's Instagram, TikTok or website. Those sites are run by others and have their own privacy policies; we're not responsible for their practices."],
+          p: ["Profiles may link to a Professional's Instagram or TikTok. Those sites are run by others and have their own privacy policies; we're not responsible for their practices."],
         },
         {
           h: "13. Changes to this Policy",

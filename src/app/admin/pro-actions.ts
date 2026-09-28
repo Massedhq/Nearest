@@ -9,6 +9,7 @@ import { logActivity } from "@/lib/log";
 import { sendInviteEmail, emailEnabled } from "@/lib/email";
 import type { FormState } from "@/components/ActionForm";
 import { inbox } from "@/lib/inbox";
+import { stripe, stripeEnabled } from "@/lib/stripe";
 
 const str = (f: FormData, k: string, max = 500) => String(f.get(k) ?? "").trim().slice(0, max);
 
@@ -132,4 +133,57 @@ export async function toggleListingPause(form: FormData) {
     : { kind: "approved", title: "Your listing is live again", href: "/pro/home" });
   await logActivity({ actorUserId: user.id, action: pausing ? "pro.listing_paused" : "pro.listing_resumed", targetType: "professional", targetId: p.businessName ?? id });
   revalidatePath("/admin/professionals");
+}
+
+// ---------- Memberships (billing) ----------
+async function proFor(form: FormData) {
+  const id = String(form.get("userId"));
+  const p = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, id) });
+  return p ?? null;
+}
+
+/** Pause or resume a professional's membership billing. Paused = no charges and hidden from students. */
+export async function toggleMembershipPause(form: FormData) {
+  const { user } = await requireAdmin();
+  const p = await proFor(form);
+  if (!p) return;
+  const pausing = !p.membershipPausedAt;
+  if (p.subscriptionId && stripeEnabled()) {
+    await stripe().subscriptions.update(p.subscriptionId, { pause_collection: pausing ? { behavior: "void" } : "" });
+  }
+  await db.update(professionalProfiles).set({ membershipPausedAt: pausing ? new Date() : null }).where(eq(professionalProfiles.userId, p.userId));
+  await inbox(p.userId, pausing
+    ? { kind: "review", title: "Your membership is paused", body: "Nearest paused your membership — you won't be charged and students can't book you while it's paused. Questions? hello@usenearest.com", href: "/pro/payments" }
+    : { kind: "approved", title: "Your membership is active again", body: "Billing has resumed and students can book you again.", href: "/pro/payments" });
+  await logActivity({ actorUserId: user.id, action: pausing ? "pro.membership_paused" : "pro.membership_resumed", targetType: "professional", targetId: p.businessName ?? p.userId });
+  revalidatePath("/admin", "layout");
+}
+
+/** Cancel a membership now, or at the end of the period they already paid for (and undo that). */
+export async function cancelMembership(form: FormData) {
+  const { user } = await requireAdmin();
+  const p = await proFor(form);
+  if (!p) return;
+  const when = String(form.get("when")); // "now" | "end" | "undo"
+  const s = p.subscriptionId && stripeEnabled() ? stripe() : null;
+  if (when === "now") {
+    if (s && p.subscriptionId) { try { await s.subscriptions.cancel(p.subscriptionId); } catch (e) { if (!/No such subscription|canceled/i.test((e as Error).message)) throw e; } }
+    await db.update(professionalProfiles).set({ subscriptionStatus: "canceled", membershipPausedAt: null, membershipEndsAt: null }).where(eq(professionalProfiles.userId, p.userId));
+    await inbox(p.userId, { kind: "review", title: "Your membership was cancelled", body: "Nearest cancelled your membership, so students can't book you. You can restart it anytime from Membership, ID & payouts.", href: "/pro/payments" });
+  } else if (when === "end") {
+    let endsAt = p.currentPeriodEnd ?? null;
+    if (s && p.subscriptionId) {
+      const sub = await s.subscriptions.update(p.subscriptionId, { cancel_at_period_end: true, pause_collection: "" });
+      const end = sub.items.data[0]?.current_period_end;
+      if (end) endsAt = new Date(end * 1000);
+    }
+    await db.update(professionalProfiles).set({ membershipEndsAt: endsAt ?? new Date(), membershipPausedAt: null }).where(eq(professionalProfiles.userId, p.userId));
+    await inbox(p.userId, { kind: "review", title: "Your membership will end", body: `Nearest cancelled your membership at the end of your paid period${endsAt ? ` (${endsAt.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Chicago" })})` : ""}. You won't be charged again.`, href: "/pro/payments" });
+  } else if (when === "undo") {
+    if (s && p.subscriptionId) await s.subscriptions.update(p.subscriptionId, { cancel_at_period_end: false });
+    await db.update(professionalProfiles).set({ membershipEndsAt: null }).where(eq(professionalProfiles.userId, p.userId));
+    await inbox(p.userId, { kind: "approved", title: "Your membership will continue", body: "The scheduled cancellation was removed.", href: "/pro/payments" });
+  } else return;
+  await logActivity({ actorUserId: user.id, action: `pro.membership_cancel_${when}`, targetType: "professional", targetId: p.businessName ?? p.userId });
+  revalidatePath("/admin", "layout");
 }

@@ -16,7 +16,7 @@ export function NearMe({ active, href }: { active: boolean; href: string }) {
       <button
         type="button"
         className={`card${active ? " pearl" : ""}`}
-        style={{ gap: 6, textAlign: "left", cursor: "pointer", font: "inherit", color: "inherit" }}
+        style={{ gap: 6, textAlign: "left", cursor: "pointer", font: "inherit", ...(active ? {} : { color: "inherit" }) }}
         aria-pressed={active}
         onClick={() => {
           if (active) { router.push(href.replace(/([?&])sort=near&?/, "$1").replace(/[?&]$/, "")); return; }
@@ -33,7 +33,7 @@ export function NearMe({ active, href }: { active: boolean; href: string }) {
           );
         }}
       >
-        <Icon name="pin" /><span className="b">{busy ? "Finding you…" : "Near Me"}</span>
+        <Icon name="pin" /><span className="b">{busy ? "Finding you…" : "Near Me"}</span>{active && <span className="xs">Nearest first — tap to turn off</span>}
       </button>
       {err && <span className="xs err">{err}</span>}
     </div>

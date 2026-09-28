@@ -9,7 +9,8 @@ import { requirePro, setupSteps, nextStep, setupComplete } from "@/lib/pro";
 import { getSettings } from "@/lib/settings";
 import { chicagoNow, chicagoToUtc, toMinutes } from "@/lib/time";
 import { geocode } from "@/lib/geo";
-import { instagramHandle, tiktokHandle, websiteUrl } from "@/lib/social";
+import { instagramHandle, tiktokHandle } from "@/lib/social";
+import { slugify, validSlug } from "@/lib/connections";
 import { MAX_PRICE_DOLLARS } from "@/lib/pricing";
 import type { FormState } from "@/components/ActionForm";
 
@@ -38,19 +39,25 @@ export async function saveProfile(_: FormState, form: FormData): Promise<FormSta
   const bio = str(form, "bio", 1200);
   const yearsRaw = str(form, "years", 3);
   const years = yearsRaw ? Number(yearsRaw) : null;
-  const igRaw = str(form, "instagram", 200), ttRaw = str(form, "tiktok", 200), webRaw = str(form, "website", 200);
+  const igRaw = str(form, "instagram", 200), ttRaw = str(form, "tiktok", 200);
+  const slugRaw = str(form, "slug", 40).toLowerCase().replace(/^pro-/, "");
+  if (slugRaw) {
+    const slug = slugify(slugRaw);
+    if (!validSlug(slug)) return { error: "Booking link: use 3–30 letters, numbers or dashes." };
+    const taken = await db.query.professionalProfiles.findFirst({ where: and(eq(professionalProfiles.slug, slug), sql`${professionalProfiles.userId} <> ${user.id}`) });
+    if (taken) return { error: `usenearest.com/pro-${slug} is taken. Try another.` };
+    await db.update(professionalProfiles).set({ slug }).where(eq(professionalProfiles.userId, user.id));
+  }
   const instagram = instagramHandle(igRaw);
   const tiktok = tiktokHandle(ttRaw);
-  const website = websiteUrl(webRaw);
   if (igRaw && !instagram) return { error: "Instagram: enter your @handle or paste your profile link (not a post)." };
   if (ttRaw && !tiktok) return { error: "TikTok: enter your @handle or paste your profile link." };
-  if (webRaw && !website) return { error: "Website: that doesn't look like a website address." };
   if (!businessName) return { error: "Add your business or professional name." };
   if (!bio) return { error: "Tell customers a little about your work." };
   if (years !== null && (!Number.isInteger(years) || years < 0 || years > 70)) return { error: "Years of experience should be a whole number." };
   await db
     .update(professionalProfiles)
-    .set({ businessName, bio, yearsExperience: years, instagram, tiktok, website, showInstagram: form.get("showInstagram") === "on" })
+    .set({ businessName, bio, yearsExperience: years, instagram, tiktok, website: null, showInstagram: form.get("showInstagram") === "on" })
     .where(eq(professionalProfiles.userId, user.id));
   return done(user.id, "profile", form);
 }

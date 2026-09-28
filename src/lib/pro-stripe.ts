@@ -19,6 +19,9 @@ export async function saveSubscription(userId: string, sub: Stripe.Subscription)
     trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000) : null,
     currentPeriodEnd: end ? new Date(end * 1000) : null,
     introEndsAt,
+    // Follow pauses and end-of-period cancellations made in Nearest or directly in Stripe.
+    membershipPausedAt: sub.pause_collection ? (current?.membershipPausedAt ?? new Date()) : null,
+    membershipEndsAt: sub.cancel_at_period_end && end ? new Date(end * 1000) : null,
   }).where(eq(professionalProfiles.userId, userId));
 }
 

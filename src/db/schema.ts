@@ -35,13 +35,14 @@ export const users = pgTable("users", {
   lastName: text("last_name"),
   dateOfBirth: date("date_of_birth"),
   phone: text("phone"),
+  username: text("username"), // students: shown in Connections (e.g. mayaj27); unique via users_username_idx
   phoneVerifiedAt: ts("phone_verified_at"),
   email: text("email"),
   emailVerifiedAt: ts("email_verified_at"),
   status: userStatus("status").notNull().default("active"),
   createdAt: ts("created_at").notNull().defaultNow(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
-});
+}, (t) => [uniqueIndex("users_username_idx").on(t.username)]);
 
 // County names repeat across states (Washington County…), so uniqueness is state + name — enforced in code
 // (no DB constraint, so upgrades never prompt).
@@ -141,7 +142,10 @@ export const professionalProfiles = pgTable("professional_profiles", {
   invitationId: uuid("invitation_id").references(() => invitations.id),
   identityStatus: identityStatus("identity_status").notNull().default("unverified"),
   searchable: boolean("searchable").notNull().default(false),
+  slug: text("slug"), // public booking link: usenearest.com/pro-<slug>; unique via pro_slug_idx
   listingPausedAt: ts("listing_paused_at"), // set by Nearest admins (Pause listing); hides the pro from students
+  membershipPausedAt: ts("membership_paused_at"), // billing paused (by Nearest); hidden from students while paused
+  membershipEndsAt: ts("membership_ends_at"), // set when a membership is cancelled at the end of the paid period
   // Entry (what they paid to join). Locked to the account — changing Nearest's enrollment phase never changes it.
   entryType: text("entry_type"), // "FIRST_IN" | "PRO_STUDENT" | "GENERAL"
   monthlyRateCents: integer("monthly_rate_cents"), // 1100 | 1600 | 2100 for the first 12 months (earlier members may have 1000)
@@ -193,7 +197,7 @@ export const professionalProfiles = pgTable("professional_profiles", {
   submittedAt: ts("submitted_at"),
   approvedAt: ts("approved_at"),
   createdAt: ts("created_at").notNull().defaultNow(),
-});
+}, (t) => [uniqueIndex("pro_slug_idx").on(t.slug)]);
 
 export const categories = pgTable("categories", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
@@ -529,3 +533,41 @@ export const proStudentLinks = pgTable("pro_student_links", {
   studentUserId: uuid("student_user_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("pro_student_links_pro_idx").on(t.proId), index("pro_student_links_email_idx").on(t.email)]);
+
+// Automatic problem reports (error + screenshot), emailed to support@usenearest.com and kept here.
+export const problemReports = pgTable("problem_reports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  ref: text("ref").notNull(), // short reference shown to the person, e.g. NR-7K2Q
+  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+  accountType: text("account_type"), // student | professional | staff | signed out
+  url: text("url").notNull(),
+  message: text("message").notNull(),
+  stack: text("stack"),
+  digest: text("digest"), // server error id (matches Vercel logs)
+  userAgent: text("user_agent"),
+  viewport: text("viewport"),
+  note: text("note"),
+  screenshotB64: text("screenshot_b64"),
+  emailed: boolean("emailed").notNull().default(false),
+  status: text("status").notNull().default("new"), // new | resolved
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("problem_reports_created_idx").on(t.createdAt)]);
+
+// Connections between students (Connect → accepted). Only accepted connections can share professionals.
+export const connections = pgTable("connections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  requesterId: uuid("requester_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  addresseeId: uuid("addressee_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("pending"), // pending | accepted
+  createdAt: ts("created_at").notNull().defaultNow(),
+  respondedAt: ts("responded_at"),
+}, (t) => [uniqueIndex("connections_pair_idx").on(t.requesterId, t.addresseeId), index("connections_addressee_idx").on(t.addresseeId)]);
+
+// A professional sent from one student to a connection ("Share with a Connection").
+export const proShares = pgTable("pro_shares", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  fromId: uuid("from_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  toId: uuid("to_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  proId: uuid("pro_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("pro_shares_to_idx").on(t.toId)]);

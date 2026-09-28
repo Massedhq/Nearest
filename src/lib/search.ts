@@ -18,6 +18,7 @@ export function liveProWhere(area: Area, areaMode: string | undefined) {
     eq(professionalProfiles.payoutsEnabled, true),
     // Not paused by Nearest, not suspended, and no fine past its due date.
     sql`${professionalProfiles.listingPausedAt} is null`,
+    sql`${professionalProfiles.membershipPausedAt} is null`, // membership billing paused → not bookable
     sql`(${professionalProfiles.suspendedUntil} is null or ${professionalProfiles.suspendedUntil} < now())`,
     sql`not exists (select 1 from ${fines} f where f.pro_id = ${professionalProfiles.userId} and f.status = 'outstanding' and f.due_at < now())`,
   ];

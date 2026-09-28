@@ -46,7 +46,7 @@ export default function Terms() {
           h: "4. Your account and verification",
           p: [
             "You agree to give accurate, current and complete information, keep it up to date, keep your login secure, and use only one account. You're responsible for everything that happens under your account. Tell us right away at hello@usenearest.com if you think your account has been used without permission.",
-            "Student verification is reviewed by Nearest staff. Professional identity is reviewed by Nearest staff using a photo of a government ID (driver's license or state ID) and a live selfie. Identity verification only confirms that a real person is behind an account — it is not a background check, criminal history search, or endorsement of anyone's skills, character or safety.",
+            "Connections let verified students connect with each other and share professionals. Only send requests to people you know, and don't use Connections to harass, spam or contact anyone who hasn't accepted. Nearest may limit or remove Connections that are misused.", "Student verification is reviewed by Nearest staff. Professional identity is reviewed by Nearest staff using a photo of a government ID (driver's license or state ID) and a live selfie. Identity verification only confirms that a real person is behind an account — it is not a background check, criminal history search, or endorsement of anyone's skills, character or safety.",
             "\"Approved by Nearest,\" \"Identity Verified,\" \"Verified Student\" and similar labels describe the checks described here and nothing more.",
           ],
         },

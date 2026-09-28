@@ -2,6 +2,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { and, asc, eq, gte, inArray } from "drizzle-orm";
 import { db, modelCalls, proOpenings, bookings } from "@/db";
+import { FollowNearest } from "@/components/FollowNearest";
+import { ShareMyLink } from "@/components/ShareMyLink";
+import { ensureProSlug, proLink } from "@/lib/connections";
 import { Icon } from "@/components/Icon";
 import { Tabs } from "@/components/Tabs";
 import { requirePro, setupSteps, setupComplete } from "@/lib/pro";
@@ -67,6 +70,8 @@ export default async function ProHome() {
           </div>
         )}
 
+        <ShareMyLink link={proLink((await ensureProSlug(profile.userId)) ?? profile.userId)} name={profile.businessName ?? "Your business"} />
+        <FollowNearest />
         {profile.entryType === "FIRST_IN" && (
           <div className="card pearl"><span className="tag solid" style={{ background: "#0A0A0A", color: "#ECE8E1", alignSelf: "flex-start" }}>First In</span><span className="small">Your First In rate is locked to your account.</span></div>
         )}

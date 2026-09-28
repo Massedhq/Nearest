@@ -25,7 +25,7 @@ export default async function Payments({ searchParams }: { searchParams: Promise
     return (<div className="scr"><TopBar title="Membership & payments" back="/pro/business" /><div className="body"><div className="card warn small"><span>Payments aren&apos;t set up yet.</span></div></div></div>);
   }
   const subState = p.subscriptionStatus ? SUB[p.subscriptionStatus] ?? [p.subscriptionStatus, ""] : ["Not started", "warn"];
-  const live = ["trialing", "active"].includes(p.subscriptionStatus ?? "") && p.identityStatus === "verified" && p.payoutsEnabled;
+  const live = ["trialing", "active"].includes(p.subscriptionStatus ?? "") && !p.membershipPausedAt && p.identityStatus === "verified" && p.payoutsEnabled;
   const rate = money(planCents(p.cohort));
   return (
     <div className="scr">
@@ -38,7 +38,13 @@ export default async function Payments({ searchParams }: { searchParams: Promise
           <span className="disp h2">{p.entryType && p.entryType in ENTRY ? ENTRY[p.entryType as EntryType].label : "Standard"}</span>
           <span className="small">{money(p.monthlyRateCents ?? planCents(p.cohort))}/month{p.entryType ? " for your first 12 months — locked to your account" : ""}.</span>
           {p.entryPaidAt && <span className="xs muted">Joined {fmtDate(p.entryPaidAt, { month: "short", day: "numeric", year: "numeric" })}</span>}
-          {p.currentPeriodEnd && p.subscriptionStatus === "active" && <span className="xs muted">Renews {fmtDate(p.currentPeriodEnd, { month: "short", day: "numeric", year: "numeric" })}</span>}
+          {p.membershipPausedAt ? (
+            <span className="small b">Paused by Nearest — you won&apos;t be charged, and students can&apos;t book you while it&apos;s paused. Questions? hello@usenearest.com</span>
+          ) : p.membershipEndsAt ? (
+            <span className="small b">Ends {fmtDate(p.membershipEndsAt, { month: "short", day: "numeric", year: "numeric" })}. You won&apos;t be charged again.</span>
+          ) : p.currentPeriodEnd && p.subscriptionStatus === "active" ? (
+            <span className="xs muted">Renews {fmtDate(p.currentPeriodEnd, { month: "short", day: "numeric", year: "numeric" })}</span>
+          ) : null}
           <span className="xs muted">No commission on bookings. Card-processing fees come out of each payment.</span>
           <form action={startMembership}><button className="btn sm" type="submit" style={{ width: "100%" }}>{p.subscriptionId && p.subscriptionStatus !== "canceled" ? "Manage billing" : "Restart membership"}</button></form>
         </div>

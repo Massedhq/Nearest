@@ -8,7 +8,7 @@ import { Icon } from "@/components/Icon";
 import { requireAdmin } from "@/lib/admin";
 import { getSettings } from "@/lib/settings";
 import { fmtDate, money } from "@/lib/time";
-import { toggleListingPause } from "@/app/admin/pro-actions";
+import { toggleMembershipPause, cancelMembership, toggleListingPause } from "@/app/admin/pro-actions";
 
 export const metadata = { title: "Professionals" };
 export const dynamic = "force-dynamic";
@@ -50,7 +50,7 @@ export default async function Professionals({ searchParams }: { searchParams: Pr
   const statusOf = (r: (typeof rows)[number]): Filter => {
     if (suspended(r)) return "Suspended";
     if (!r.p.entryPaidAt && !["active", "trialing", "past_due"].includes(r.p.subscriptionStatus ?? "")) return "Unpaid";
-    if (r.p.reviewStatus === "approved" && ["active", "trialing"].includes(r.p.subscriptionStatus ?? "") && !r.p.listingPausedAt) return "Active";
+    if (r.p.reviewStatus === "approved" && ["active", "trialing"].includes(r.p.subscriptionStatus ?? "") && !r.p.listingPausedAt && !r.p.membershipPausedAt) return "Active";
     return "Inactive";
   };
   const matches = (r: (typeof rows)[number]) =>
@@ -83,7 +83,7 @@ export default async function Professionals({ searchParams }: { searchParams: Pr
         <td>
           {r.fineCents > 0 && r.fineDue && r.fineDue.getTime() < now ? <span className="tag bad">Past due {money(r.fineCents)}</span>
             : sub === "past_due" ? <span className="tag bad">Past due</span>
-            : sub === "active" || sub === "trialing" ? "Paid" : sub === "canceled" ? "Canceled" : r.p.entryPaidAt ? "Paid" : "Not paid"}
+            : r.p.membershipPausedAt ? "Paused" : r.p.membershipEndsAt ? `Ends ${fmtDate(r.p.membershipEndsAt, { month: "short", day: "numeric" })}` : sub === "active" || sub === "trialing" ? "Paid" : sub === "canceled" ? "Canceled" : r.p.entryPaidAt ? "Paid" : "Not paid"}
         </td>
         <td>{r.bookings}</td>
         <td>{r.rating ?? "—"}</td>
@@ -131,6 +131,24 @@ export default async function Professionals({ searchParams }: { searchParams: Pr
             </div>
             <Link className="btn ghost sm" href={href({ view: sp.view ? undefined : "1" })}>{sp.view ? "Hide profile" : "View profile"}</Link>
             <form action={toggleListingPause}><input type="hidden" name="userId" value={selected.p.userId} /><button className="btn ghost sm" type="submit">{selected.p.listingPausedAt ? "Resume listing" : "Pause listing"}</button></form>
+            {selected.p.subscriptionStatus && selected.p.subscriptionStatus !== "canceled" && (
+              <form action={toggleMembershipPause}><input type="hidden" name="userId" value={selected.p.userId} /><button className="btn ghost sm" type="submit">{selected.p.membershipPausedAt ? "Resume membership" : "Pause membership"}</button></form>
+            )}
+            {selected.p.subscriptionStatus && selected.p.subscriptionStatus !== "canceled" && (
+              selected.p.membershipEndsAt ? (
+                <form action={cancelMembership}><input type="hidden" name="userId" value={selected.p.userId} /><input type="hidden" name="when" value="undo" /><button className="btn ghost sm" type="submit">Keep membership (undo cancel)</button></form>
+              ) : (
+                <details className="menu-inline" style={{ position: "relative" }}>
+                  <summary className="btn ghost sm" style={{ listStyle: "none", cursor: "pointer" }}>Cancel membership</summary>
+                  <div className="card" style={{ position: "absolute", zIndex: 20, top: "110%", right: 0, width: 280, gap: 8, background: "#0A0A0B" }}>
+                    <span className="small">Cancel {selected.p.businessName ?? "this professional"}&apos;s membership?</span>
+                    <form action={cancelMembership}><input type="hidden" name="userId" value={selected.p.userId} /><input type="hidden" name="when" value="end" /><button className="btn ghost sm" type="submit" style={{ width: "100%" }}>At the end of their paid period</button></form>
+                    <form action={cancelMembership}><input type="hidden" name="userId" value={selected.p.userId} /><input type="hidden" name="when" value="now" /><button className="btn danger sm" type="submit" style={{ width: "100%" }}>Right now</button></form>
+                    <span className="xs muted">They&apos;re notified and can restart it themselves later.</span>
+                  </div>
+                </details>
+              )
+            )}
             {selected.u.email && <a className="btn ghost sm" href={`mailto:${selected.u.email}`}>Contact</a>}
             <Link className="btn sm" href={selected.p.reviewStatus === "submitted" ? "/admin/verification" : "/admin/enforcement"}>Review account</Link>
           </div>

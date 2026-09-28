@@ -5,6 +5,7 @@ import "@fontsource-variable/manrope";
 import { ClerkProvider } from "@clerk/nextjs";
 import { clerkLightAppearance } from "@/lib/clerk-appearance";
 import { SwRegister } from "@/components/SwRegister";
+import { ProblemReporter } from "@/components/ProblemReporter";
 import { PoweredBy } from "@/components/PoweredBy";
 import "./globals.css";
 
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
           <PoweredBy />
           <SwRegister />
+          <ProblemReporter />
         </body>
       </html>
     </ClerkProvider>

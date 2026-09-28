@@ -96,9 +96,29 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
             </Link>
           ))}
         </div>
-        <div className="row between"><h2 className="disp h2">{pros.length ? "Near you" : "No matches yet"}</h2><span className="xs muted">{pros.length} professional{pros.length === 1 ? "" : "s"}</span></div>
-        {pros.length === 0 && <p className="small muted p">Try removing a filter or choosing All {marketName(area?.market) || "areas"}. New professionals join every week.</p>}
-        <Link className={`card${f.asl ? " pearl" : ""}`} href={href({ asl: f.asl ? undefined : "1" })} style={{ textDecoration: "none" }} aria-pressed={!!f.asl}><div className="row"><Icon name="hand" /><span className="b grow">Professionals who communicate in ASL</span><Icon name="right" /></div></Link>
+        <Link className={`card${f.asl ? " pearl" : ""}`} href={href({ asl: f.asl ? undefined : "1" })} style={{ textDecoration: "none", gap: 4 }} aria-pressed={!!f.asl}>
+          <div className="row"><Icon name="hand" /><span className="b grow">Professionals who communicate in ASL</span>{f.asl ? <Icon name="check" /> : <Icon name="right" />}</div>
+          {f.asl && <span className="xs">Showing only professionals who communicate in ASL — tap to show everyone</span>}
+        </Link>
+        {(() => {
+          const on = [f.cat && cats.find((c) => String(c.id) === f.cat)?.name, f.today && "Available Today", f.after && "After School", f.under && "Under $25", f.asl && "communicates in ASL", f.q && `“${f.q}”`].filter(Boolean) as string[];
+          const title = pros.length ? (f.asl ? "ASL professionals near you" : "Near you") : on.length ? "No matches for these filters" : "No professionals here yet";
+          return (
+            <>
+              <div className="row between"><h2 className="disp h2">{title}</h2><span className="xs muted">{pros.length} professional{pros.length === 1 ? "" : "s"}</span></div>
+              {on.length > 0 && <div className="row" style={{ gap: 8, flexWrap: "wrap" }}><span className="xs muted">Filters on: {on.join(" • ")}</span><Link className="link xs" href="/home">Clear all</Link></div>}
+              {pros.length === 0 && (
+                <p className="small muted p">
+                  {f.asl && on.length === 1
+                    ? `No professionals who communicate in ASL are listed in ${marketName(area?.market) || "your area"} yet. They'll show up here as they join.`
+                    : on.length
+                      ? `Nobody matches all of these right now. Try turning a filter off, or choose All ${marketName(area?.market) || "areas"}.`
+                      : `No professionals are live in ${marketName(area?.market) || "your area"} yet. New professionals join every week.`}
+                </p>
+              )}
+            </>
+          );
+        })()}
         {pros.map((p) => <ProResult key={p.userId} p={p} fav={favSet.has(p.userId)} />)}
       </div>
       <Tabs kind="student" active="Explore" />
