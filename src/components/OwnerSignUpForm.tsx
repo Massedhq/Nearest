@@ -1,4 +1,5 @@
 "use client";
+import { PasswordInput } from "./PasswordInput";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -89,7 +90,7 @@ export function OwnerSignUpForm() {
       <h2 className="disp h2">Create your owner login</h2>
       <p className="xs muted p" style={{ margin: 0 }}>For Nearest owners only. Use your @usenearest.com owner email.</p>
       <div className="field"><label htmlFor="own-email">Owner email</label><input id="own-email" name="email" type="email" autoComplete="email" required /></div>
-      <div className="field"><label htmlFor="own-password">Choose a password</label><input id="own-password" name="password" type="password" autoComplete="new-password" minLength={8} required /></div>
+      <div className="field"><label htmlFor="own-password">Choose a password</label><PasswordInput id="own-password" name="password" autoComplete="new-password" minLength={8} required /></div>
       {error && <p className="err" role="alert">{error}</p>}
       <div id="clerk-captcha" />
       <button className="btn" type="submit" disabled={busy}>{busy ? "Checking…" : "Continue"}</button>

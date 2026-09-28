@@ -1,4 +1,5 @@
 "use client";
+import { PasswordInput } from "./PasswordInput";
 import { DobInput } from "@/components/DobInput";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ageFrom } from "@/lib/validate";
@@ -161,7 +162,7 @@ export function StudentSignUpForm() {
       )}
       <div className="field"><label htmlFor="phone">Mobile number (optional)</label><input id="phone" name="phone" type="tel" autoComplete="tel" /></div>
       <div className="field"><label htmlFor="email">Email</label><input id="email" name="email" type="email" autoComplete="email" required /></div>
-      <div className="field"><label htmlFor="password">Password</label><input id="password" name="password" type="password" autoComplete="new-password" minLength={8} required /></div>
+      <div className="field"><label htmlFor="password">Password</label><PasswordInput id="password" name="password" autoComplete="new-password" minLength={8} required /></div>
       <label className="check" style={{ fontSize: 13 }}><input type="checkbox" name="agree" required /><span>I agree to the <Link className="link" href="/terms" target="_blank" style={{ fontSize: "inherit", color: "#141414" }}>Terms</Link> and <Link className="link" href="/privacy" target="_blank" style={{ fontSize: "inherit", color: "#141414" }}>Privacy Policy</Link></span></label>
       <p className="xs muted p">We&apos;ll email a code to verify your account. Your date of birth, phone and email are never shown publicly.</p>
       {error && <p className="err" role="alert">{error}</p>}

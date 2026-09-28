@@ -1,4 +1,5 @@
 "use client";
+import { PasswordInput } from "./PasswordInput";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -83,7 +84,7 @@ export function ProSignUpForm({ invite, refCode, redirectTo }: { invite: string 
     <form action={onDetails} className="col" style={{ gap: 14 }}>
       <h2 className="disp h2">Create your account</h2>
       <div className="field"><label htmlFor="pro-email">Email</label><input id="pro-email" name="email" type="email" autoComplete="email" required /></div>
-      <div className="field"><label htmlFor="pro-password">Password</label><input id="pro-password" name="password" type="password" autoComplete="new-password" minLength={8} required /></div>
+      <div className="field"><label htmlFor="pro-password">Password</label><PasswordInput id="pro-password" name="password" autoComplete="new-password" minLength={8} required /></div>
       <label className="check" style={{ fontSize: 13 }}><input type="checkbox" name="agree" required /><span>I agree to the <Link className="link" href="/terms" target="_blank" style={{ fontSize: "inherit" }}>Terms</Link> and <Link className="link" href="/privacy" target="_blank" style={{ fontSize: "inherit" }}>Privacy Policy</Link></span></label>
       <p className="xs muted p" style={{ margin: 0 }}>We&apos;ll email you a 6-digit code to verify your account. Your email is never shown to customers.</p>
       {error && <p className="err" role="alert">{error}</p>}

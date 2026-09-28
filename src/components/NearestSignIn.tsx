@@ -1,4 +1,5 @@
 "use client";
+import { PasswordInput } from "./PasswordInput";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -129,7 +130,7 @@ export function NearestSignIn({ signUpHref, signUpLabel = "Create an account" }:
           <input id="si-code" ref={codeBox} inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} />
         </div>
         {stage === "reset" && (
-          <div className="field"><label htmlFor="si-newpw">New password</label><input id="si-newpw" type="password" autoComplete="new-password" minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} /></div>
+          <div className="field"><label htmlFor="si-newpw">New password</label><PasswordInput id="si-newpw" autoComplete="new-password" minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} /></div>
         )}
         {error && <p className="err" role="alert">{error}</p>}
         <button className="btn" type="button" disabled={busy} onClick={verify}>{busy ? "Checking…" : stage === "reset" ? "Save new password" : "Continue"}</button>
@@ -145,7 +146,7 @@ export function NearestSignIn({ signUpHref, signUpLabel = "Create an account" }:
     <form action={withPassword} className="col" style={{ gap: 14 }}>
       <h2 className="disp h2">Sign in</h2>
       <div className="field"><label htmlFor="si-email">Email</label><input id="si-email" name="email" type="email" autoComplete="email" defaultValue={email} required /></div>
-      <div className="field"><label htmlFor="si-password">Password</label><input id="si-password" name="password" type="password" autoComplete="current-password" /></div>
+      <div className="field"><label htmlFor="si-password">Password</label><PasswordInput id="si-password" name="password" autoComplete="current-password" /></div>
       {error && <p className="err" role="alert">{error}</p>}
       <button className="btn" type="submit" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
       <div className="row between small" style={{ flexWrap: "wrap", gap: 8 }}>
