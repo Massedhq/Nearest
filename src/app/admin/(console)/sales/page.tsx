@@ -6,8 +6,9 @@ import { ActionForm } from "@/components/ActionForm";
 import { CopyLink } from "../founding/CopyLink";
 import { requireAdmin } from "@/lib/admin";
 import { getSettings } from "@/lib/settings";
-import { earningsFor, mainOwnerId, partners, payoutsFor, partnerPerformance } from "@/lib/partner";
-import { chicagoNow, money } from "@/lib/time";
+import { earningsFor, mainOwnerId, partners, payoutsFor, partnerPerformance, referredPros } from "@/lib/partner";
+import { ENTRY, type EntryType } from "@/lib/entry";
+import { chicagoNow, money, fmtDate } from "@/lib/time";
 import { approvePayout, changePayoutAmount, markPayoutPaid, syncPayments, sendPayoutStripe } from "@/app/admin/enforce-actions";
 import Link from "next/link";
 
@@ -33,6 +34,7 @@ export default async function Sales({ searchParams }: { searchParams: Promise<{ 
     db.select({ n: sql<number>`count(*)::int` }).from(professionalProfiles),
   ]);
   const isMain = main === user.id;
+  const brought = await referredPros(isMain ? null : user.id);
   const pool = Number(s["partner.pool_size"]);
   const me = list.find((p) => p.userId === user.id);
   const rows = isMain ? e.perPartner : e.perPartner.filter((p) => p.userId === user.id);
@@ -144,6 +146,31 @@ export default async function Sales({ searchParams }: { searchParams: Promise<{ 
           </tbody>
         </table>
         <span className="xs muted">Counts professionals who came in through each partner&apos;s invitations or partner link. &ldquo;Live&rdquo; means approved, paid, ID-verified and payouts set up. {isMain ? "Kisses and Kee each see only their own row." : ""}</span>
+      </div>
+
+      <div className="card" style={{ gap: 12, overflowX: "auto" }}>
+        <div className="row between"><span className="eyebrow">{isMain ? "Professionals brought in by partners" : "Professionals you brought in"}</span><span className="xs muted">{brought.length} total</span></div>
+        {brought.length === 0 ? (
+          <span className="small muted">No one yet. Share your partner link or send invitations from First In — every professional who joins through them shows here.</span>
+        ) : (
+          <table className="tbl">
+            <thead><tr><th>Professional</th>{isMain && <th>Partner</th>}<th>City</th><th>How they came in</th><th>Signed up</th><th>Entry</th><th>Status</th></tr></thead>
+            <tbody>
+              {brought.map((b) => (
+                <tr key={b.userId}>
+                  <td className="b"><Link href={`/admin/professionals/${b.userId}`} style={{ color: "inherit" }}>{b.business ?? `${b.first ?? ""} ${b.last?.[0] ?? ""}.`}</Link></td>
+                  {isMain && <td>{[b.partnerFirst, b.partnerLast].filter(Boolean).join(" ") || "—"}</td>}
+                  <td>{b.city ?? "—"}</td>
+                  <td className="small">{b.viaInvite ? `Invitation ${b.viaInvite}` : "Partner link"}</td>
+                  <td>{fmtDate(b.signedUp, { month: "short", day: "numeric", year: "numeric" })}</td>
+                  <td className="small">{b.paidAt && b.entryType && b.entryType in ENTRY ? `${ENTRY[b.entryType as EntryType].short} • ${money(b.rate ?? 0)}` : "Not paid yet"}</td>
+                  <td><span className={`tag ${b.isLive ? "ok" : ""}`}>{b.isLive ? "Live" : b.paidAt ? "Setting up" : "Signed up"}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <span className="xs muted">Credit comes from your partner link (remembered for 30 days after they open it) or invitations you create in First In. Once credited, it&apos;s permanent.</span>
       </div>
 
       {me?.code && (

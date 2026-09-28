@@ -134,3 +134,12 @@ export async function changeEntryState(form: FormData) {
   await setEntryState(next as (typeof ENTRY_STATES)[number], user.id);
   revalidatePath("/admin", "layout");
 }
+
+/** Launch readiness: remove Stripe links left over from test mode (keeps the accounts). Owners only; logged. */
+export async function clearTestStripeLinks() {
+  const { user } = await requireAdmin({ owner: true });
+  const { clearStaleStripeRefs } = await import("@/lib/stripe-hygiene");
+  const cleared = await clearStaleStripeRefs();
+  await logActivity({ actorUserId: user.id, action: "stripe.test_links_cleared", targetType: "setting", targetId: "stripe", after: cleared.map((c) => `${c.name}: ${[c.customer && "customer", c.account && "payout account", c.subscription && "membership"].filter(Boolean).join(", ")}`).join("; ") || "none" });
+  revalidatePath("/admin", "layout");
+}

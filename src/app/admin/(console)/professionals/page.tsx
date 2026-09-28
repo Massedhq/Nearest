@@ -150,7 +150,7 @@ export default async function Professionals({ searchParams }: { searchParams: Pr
               )
             )}
             {selected.u.email && <a className="btn ghost sm" href={`mailto:${selected.u.email}`}>Contact</a>}
-            <Link className="btn sm" href={selected.p.reviewStatus === "submitted" ? "/admin/verification" : "/admin/enforcement"}>Review account</Link>
+            <Link className="btn sm" href={`/admin/professionals/${selected.p.userId}`}>Review account</Link>
           </div>
           {sp.view && (
             <div className="acols even" style={{ borderTop: "1px solid #1C1C1F", paddingTop: 12 }}>

@@ -1,6 +1,7 @@
 import "server-only";
 import type Stripe from "stripe";
 import { and, asc, eq, gte, isNotNull, lt, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db, adminMembers, users, professionalProfiles, membershipPayments, partnerPayouts } from "@/db";
 import { getSettings } from "./settings";
 
@@ -166,4 +167,25 @@ export async function partnerPerformance() {
       signedUp: r?.signedUp ?? 0, paid: r?.paid ?? 0, live: r?.live ?? 0, signedUpMonth: r?.signedUpMonth ?? 0, paidMonth: r?.paidMonth ?? 0,
     };
   });
+}
+
+/** The professionals a partner brought in (their invitations or their partner link). Pass null for every partner. */
+export async function referredPros(partnerId: string | null) {
+  const { invitations, cities, users } = await import("@/db");
+  const { liveProWhere } = await import("./search");
+  const live = sql.join(liveProWhere(null, "all"), sql` and `);
+  const partner = alias(users, "partner");
+  const rows = await db.select({
+    userId: professionalProfiles.userId, business: professionalProfiles.businessName, first: users.firstName, last: users.lastName,
+    city: cities.name, signedUp: professionalProfiles.createdAt, entryType: professionalProfiles.entryType, rate: professionalProfiles.monthlyRateCents,
+    paidAt: professionalProfiles.entryPaidAt, viaInvite: invitations.code, isLive: sql<boolean>`(${live})`,
+    partnerId: professionalProfiles.referredBy, partnerFirst: partner.firstName, partnerLast: partner.lastName,
+  }).from(professionalProfiles)
+    .innerJoin(users, eq(users.id, professionalProfiles.userId))
+    .leftJoin(partner, eq(partner.id, professionalProfiles.referredBy))
+    .leftJoin(cities, eq(cities.id, professionalProfiles.cityId))
+    .leftJoin(invitations, eq(invitations.id, professionalProfiles.invitationId))
+    .where(partnerId ? eq(professionalProfiles.referredBy, partnerId) : isNotNull(professionalProfiles.referredBy))
+    .orderBy(sql`${professionalProfiles.createdAt} desc`).limit(500);
+  return rows;
 }

@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { ProSignUpForm } from "@/components/ProSignUpForm";
@@ -9,7 +10,8 @@ import { getFlag } from "@/lib/settings";
 export const metadata = { title: "Join as a professional" };
 
 export default async function ProSignUp({ searchParams }: { searchParams: Promise<{ invite?: string; ref?: string }> }) {
-  const { invite, ref } = await searchParams;
+  const { invite, ref: refParam } = await searchParams;
+  const ref = refParam ?? (await cookies()).get("nearest_ref")?.value; // remembered for 30 days
   const check = invite ? await checkInvite(invite) : null;
   const regOpen = await getFlag("status.pro_registration");
   const code = check?.ok ? check.invite.code : null;

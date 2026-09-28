@@ -7,6 +7,7 @@ import { getSettings } from "@/lib/settings";
 import { checkInvite, INVITE_MESSAGES } from "@/lib/invites";
 import { validName, validDob } from "@/lib/validate";
 import { partnerByCode } from "@/lib/partner";
+import { cookies } from "next/headers";
 import { adminMembers } from "@/db";
 
 export type FormState = { error?: string };
@@ -77,6 +78,7 @@ export async function completePro(_: FormState, form: FormData): Promise<FormSta
     referredBy = isPartner ? inv!.createdBy : null;
   }
   referredBy ??= await partnerByCode(c.ref);
+  referredBy ??= await partnerByCode((await cookies()).get("nearest_ref")?.value); // opened a partner link within 30 days
   await db.insert(professionalProfiles).values({ userId: user.id, cohort, invitationId, referredBy }).onConflictDoNothing();
   redirect("/pro/join"); // pay the entry rate, then straight into onboarding
 }

@@ -6,6 +6,8 @@ import { requireAdmin } from "@/lib/admin";
 import { getSettings } from "@/lib/settings";
 import { stripe } from "@/lib/stripe";
 import { getEntryState } from "@/lib/entry";
+import { findStaleStripeRefs } from "@/lib/stripe-hygiene";
+import { clearTestStripeLinks } from "@/app/admin/actions";
 
 export const metadata = { title: "Launch readiness" };
 export const dynamic = "force-dynamic";
@@ -79,9 +81,11 @@ export default async function Launch() {
     db.select({ n: sql<number>`count(*)::int` }).from(studentProfiles),
     db.select({ n: sql<number>`count(*)::int` }).from(bookings),
   ]);
-  const testCustomers = sk.startsWith("sk_live_") ? (await db.select({ n: sql<number>`count(*)::int` }).from(professionalProfiles).where(sql`${professionalProfiles.stripeCustomerId} is not null or ${professionalProfiles.stripeAccountId} is not null`))[0].n : 0;
-  add({ area: "Test data", label: "Test accounts cleared before promoting", ok: null, detail: `${u.n} users • ${p.n} professionals • ${st.n} students • ${b.n} bookings`, fix: "When you're done testing: in the terminal run npm run db:cleanup and type DELETE TEST DATA. It keeps owners, settings, cities and schools." });
-  if (testCustomers) add({ area: "Test data", label: "Professionals linked to TEST Stripe accounts", ok: false, detail: `${testCustomers} profile(s) still point to test-mode Stripe customers/accounts`, fix: "Run npm run db:cleanup (or have those pros reconnect payouts) — test Stripe IDs don't exist in live mode." });
+  let stale: Awaited<ReturnType<typeof findStaleStripeRefs>> = [];
+  if (sk) { try { stale = await findStaleStripeRefs(); } catch { /* Stripe unreachable — shown in Payments above */ } }
+  add({ area: "Test data", label: "Stripe links left over from test mode", ok: stale.length === 0,
+    detail: stale.length ? stale.map((x) => `${x.name} (${[x.customer && "customer", x.account && "payout account", x.subscription && "membership"].filter(Boolean).join(", ")})`).join(" • ") : "none — every saved Stripe link exists in live mode",
+    fix: stale.length ? "Tap Clear test Stripe links below. It keeps the accounts; those people just reconnect (payouts) or restart their membership in live mode." : undefined });
 
   const areas = [...new Set(checks.map((c) => c.area))];
   const red = checks.filter((c) => c.ok === false).length;
@@ -103,6 +107,12 @@ export default async function Launch() {
           ))}
         </div>
       ))}
+      {stale.length > 0 && (
+        <form action={clearTestStripeLinks} className="card" style={{ gap: 8 }}>
+          <span className="small">Found {stale.length} Stripe link{stale.length === 1 ? "" : "s"} from test mode. Clearing removes only those links — accounts, profiles and bookings stay.</span>
+          <button className="btn sm" type="submit">Clear test Stripe links</button>
+        </form>
+      )}
       <p className="xs muted p">Full step-by-step guide: <Link className="link xs" href="https://github.com/Massedhq/Nearest/blob/main/docs/LAUNCH.md">docs/LAUNCH.md</Link></p>
     </>
   );
