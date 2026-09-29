@@ -93,3 +93,6 @@ Every admin write (invite, pause, refund, setting change, status switch) inserts
   - Use `Set-Content -Encoding UTF8` (never without the encoding flag).
   - Deploy with: `npm run build; git add .; git commit -m "..."; git push; npx vercel --prod`
 - Keep secrets in `.env.local` and Vercel environment variables. Never commit them.
+
+- Payouts are NOT required to go live (liveProWhere/proBlockers). When a pro without payouts is paid (release or forfeited deposit), the booking completes and `bookings.payout_owed_cents` holds the amount; `payOwedToPro()` sends it when payouts turn on (webhook account.updated + syncProStripe). Earnings shows "$X waiting for you".
+- Owner view on customer Explore lists hidden pros with reasons (`src/lib/live-check.ts` — keep in step with liveProWhere).

@@ -392,6 +392,8 @@ export const bookings = pgTable("bookings", {
   remind2At: ts("remind_2_at"),
   paidAt: ts("paid_at"),
   releasedAt: ts("released_at"),
+  // Money owed to a pro who hadn't connected payouts yet — sent automatically once they do (payOwedToPro).
+  payoutOwedCents: integer("payout_owed_cents").notNull().default(0),
   cancelledAt: ts("cancelled_at"),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("bookings_pro_starts_idx").on(t.proId, t.startsAt), index("bookings_student_idx").on(t.studentId)]);

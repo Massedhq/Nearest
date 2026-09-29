@@ -6,11 +6,12 @@ import { db, users, professionalProfiles, proServices, proCredentials, categorie
 import { AdminHead } from "@/components/AdminHead";
 import { requireAdmin } from "@/lib/admin";
 import { setupSteps } from "@/lib/pro";
-import { hasPaidEntry, isOwnerBusiness, ENTRY, type EntryType } from "@/lib/entry";
+import { isOwnerBusiness, ENTRY, type EntryType } from "@/lib/entry";
 import { proStanding } from "@/lib/enforcement";
 import { fmtDate, money } from "@/lib/time";
 import { instagramHandle, tiktokHandle, instagramUrl, tiktokUrl } from "@/lib/social";
 import { proLink } from "@/lib/connections";
+import { proBlockers } from "@/lib/live-check";
 
 export const metadata = { title: "Review account" };
 export const dynamic = "force-dynamic";
@@ -47,21 +48,9 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
     db.select().from(appeals).where(and(eq(appeals.userId, id), eq(appeals.status, "under_review"))),
   ]);
   const owner = await isOwnerBusiness(id);
-  const paid = owner || hasPaidEntry(p);
   const subActive = ["active", "trialing"].includes(p.subscriptionStatus ?? "");
-  // What's stopping them from being bookable right now
-  const blockers = [
-    !paid && "Hasn't paid their entry (Join)",
-    ...steps.filter((s) => !s.done && !s.optional).map((s) => `Setup not finished: ${s.label}`),
-    p.reviewStatus !== "approved" && (p.reviewStatus === "submitted" ? "Waiting for your approval (Verification Queue)" : "Profile not submitted for review yet"),
-    p.identityStatus !== "verified" && (p.identityStatus === "pending" ? "ID waiting for your check (Verification Queue)" : "ID not verified yet"),
-    !p.payoutsEnabled && "Payouts not set up",
-    !owner && !subActive && `Membership not active (${p.subscriptionStatus ?? "not started"})`,
-    p.membershipPausedAt && "Membership paused by Nearest",
-    p.listingPausedAt && "Listing paused by Nearest",
-    standing.suspendedUntil && `Suspended until ${fmtDate(standing.suspendedUntil)}`,
-    standing.overdue.length > 0 && "Overdue fine (hidden from search until paid)",
-  ].filter(Boolean) as string[];
+  // What's stopping them from being bookable right now — same checks as student search
+  const blockers = await proBlockers(p);
   const ig = instagramHandle(p.instagram), tt = tiktokHandle(p.tiktok);
 
   return (

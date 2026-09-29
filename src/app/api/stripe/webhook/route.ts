@@ -55,6 +55,11 @@ export async function POST(req: Request) {
       case "account.updated": {
         const a = event.data.object;
         await db.update(professionalProfiles).set({ payoutsEnabled: Boolean(a.payouts_enabled) }).where(eq(professionalProfiles.stripeAccountId, a.id));
+        if (a.payouts_enabled) {
+          // Send anything Nearest was holding while this pro finished payout setup.
+          const pro = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.stripeAccountId, a.id) });
+          if (pro) await (await import("@/lib/bookings")).payOwedToPro(pro.userId);
+        }
         await savePartnerAccount(a); // partner payout accounts (bank or debit card)
         break;
       }

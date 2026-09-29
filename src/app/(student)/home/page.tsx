@@ -4,6 +4,7 @@ import { marketName } from "@/lib/markets";
 import { asc, eq } from "drizzle-orm";
 import { db, categories, searchLog, favorites } from "@/db";
 import { NearMe } from "@/components/NearMe";
+import { ExploreFilters } from "@/components/ExploreFilters";
 import { Bell } from "@/components/Inbox";
 import { nearPoint, miles } from "@/lib/near";
 import { unreadCount } from "@/lib/inbox";
@@ -14,6 +15,8 @@ import { requireVerifiedStudent } from "@/lib/student";
 import { searchPros, type Filters } from "@/lib/search";
 import { studentSuspendedUntil, SUSPENSION_TEXT } from "@/lib/enforcement";
 import { fmtDate } from "@/lib/time";
+import { getViewer } from "@/lib/viewer";
+import { hiddenPros } from "@/lib/live-check";
 
 export const metadata = { title: "Explore" };
 
@@ -49,6 +52,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
     nearPoint(),
   ]);
   const favSet = new Set(favRows.map((r) => r.proId));
+  // Owners browsing as a customer: when nobody shows, explain exactly which pros are hidden and why.
+  const isOwner = found.length === 0 && (await getViewer())?.admin?.role === "OWNER";
+  const hidden = isOwner ? await hiddenPros() : [];
   const pros = found.map((p) => ({ ...p, miles: here ? miles(here, p) : null }));
   if (f.sort === "near" && here) pros.sort((a, b) => (a.miles ?? 9999) - (b.miles ?? 9999));
   if (f.q || f.cat || f.today || f.after || f.under || f.asl) {
@@ -61,15 +67,16 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
     const s = p.toString();
     return s ? `/home?${s}` : "/home";
   };
-  const areaMode = f.area ?? "county";
-  const areaLabel = areaMode === "city" ? area?.city : areaMode === "all" ? `All ${marketName(area?.market) || "areas"}` : `${area?.city ?? "My"} area`;
-  const nextArea = areaMode === "county" ? "city" : areaMode === "city" ? "all" : "county";
+  const areaOptions = area
+    ? [{ value: "county", label: `${area.city} area` }, { value: "city", label: `${area.city} only` }, { value: "all", label: `All ${marketName(area.market) || "areas"}` }]
+    : [];
+  // "Other" is typed in, so the stored "Other" category isn't listed separately.
+  const listCats = cats.filter((c) => c.name.trim().toLowerCase() !== "other");
 
   return (
     <div className="scr">
       <div className="top" style={{ justifyContent: "space-between" }}>
         <Image src="/brand/nearest-monogram.png" alt="Nearest" width={48} height={48} />
-        <Link className="chip" href={href({ area: nextArea === "county" ? undefined : nextArea })} aria-label="Change area"><Icon name="pin" size="s" /> {areaLabel} <Icon name="down" size="s" /></Link>
         <Bell href="/notifications" unread={unread} />
       </div>
       <div className="body">
@@ -84,10 +91,15 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
           <div className="row between"><span className="disp h1">Model Calls</span><Icon name="right" /></div>
           <span className="small b">Model Calls near me</span>
         </Link>
-        <div className="scrollx" style={{ flexWrap: "wrap", marginRight: 0 }}>
-          <Link className={`chip${!f.cat ? " on" : ""}`} href={href({ cat: undefined })}>All</Link>
-          {cats.map((c) => <Link key={c.id} className={`chip${f.cat === String(c.id) ? " on" : ""}`} href={href({ cat: f.cat === String(c.id) ? undefined : String(c.id) })}>{c.name}</Link>)}
-        </div>
+        <ExploreFilters
+          key={`${f.cat ?? ""}|${f.q ?? ""}|${f.area ?? ""}`}
+          cats={listCats}
+          cat={f.cat}
+          q={f.q}
+          area={f.area}
+          areaOptions={areaOptions}
+          keep={{ today: f.today, after: f.after, under: f.under, asl: f.asl, sort: f.sort }}
+        />
         <div className="grid2">
           <NearMe active={f.sort === "near" && !!here} href={href({})} />
           {QUICK.map(([key, icon, label]) => (
@@ -101,7 +113,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
           {f.asl && <span className="xs">Showing only professionals who communicate in ASL — tap to show everyone</span>}
         </Link>
         {(() => {
-          const on = [f.cat && cats.find((c) => String(c.id) === f.cat)?.name, f.today && "Available Today", f.after && "After School", f.under && "Under $25", f.asl && "communicates in ASL", f.q && `“${f.q}”`].filter(Boolean) as string[];
+          const on = [f.cat && f.cat !== "other" && cats.find((c) => String(c.id) === f.cat)?.name, f.today && "Available Today", f.after && "After School", f.under && "Under $25", f.asl && "communicates in ASL", f.q && `“${f.q}”`].filter(Boolean) as string[];
           const title = pros.length ? (f.asl ? "ASL professionals near you" : "Near you") : on.length ? "No matches for these filters" : "No professionals here yet";
           return (
             <>
@@ -119,6 +131,22 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
             </>
           );
         })()}
+        {isOwner && (
+          <div className="card warn" style={{ gap: 10 }}>
+            <span className="eyebrow">Owner view — only you see this</span>
+            {hidden.length === 0
+              ? <span className="small">Every professional passes the go-live checks. If nobody shows, turn filters off or choose All.</span>
+              : <>
+                  <span className="small">Customers can only see professionals who pass every check. These are hidden right now:</span>
+                  {hidden.map((h) => (
+                    <div key={h.userId} className="card" style={{ gap: 6 }}>
+                      <div className="row between"><span className="b">{h.name}</span><Link className="link xs" href={`/admin/professionals/${h.userId}`}>Review account →</Link></div>
+                      {h.blockers.map((b) => <span key={b} className="xs">• {b}</span>)}
+                    </div>
+                  ))}
+                </>}
+          </div>
+        )}
         {pros.map((p) => <ProResult key={p.userId} p={p} fav={favSet.has(p.userId)} />)}
       </div>
       <Tabs kind="student" active="Explore" />

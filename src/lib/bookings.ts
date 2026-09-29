@@ -85,7 +85,10 @@ export async function cancelByStudent(bookingId: string, studentId: string) {
 
   if (forfeit > 0) {
     const pro = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, b.proId) });
-    if (pro?.stripeAccountId && pro.payoutsEnabled) {
+    if (!pro?.stripeAccountId || !pro.payoutsEnabled) {
+      // Pro hasn't connected payouts yet: Nearest holds the deposit and sends it once they do.
+      await db.update(bookings).set({ payoutOwedCents: forfeit }).where(eq(bookings.id, b.id));
+    } else {
       try {
         const t = await stripe().transfers.create(
           { amount: forfeit, currency: "usd", destination: pro.stripeAccountId, transfer_group: b.id, ...(b.stripeChargeId ? { source_transaction: b.stripeChargeId } : {}), metadata: { bookingId: b.id, kind: "forfeited_deposit" } },
@@ -122,13 +125,38 @@ export async function releasePayment(bookingId: string, studentId: string) {
   const amount = Math.max(0, total(b) - (b.stripeFeeCents ?? 0));
   let transferId: string | null = null;
   if (amount > 0) {
-    if (!pro?.stripeAccountId || !pro.payoutsEnabled) return { error: "Your professional hasn't finished payout setup yet. Your payment stays protected — try again later." };
-    const t = await stripe().transfers.create(
-      { amount, currency: "usd", destination: pro.stripeAccountId, transfer_group: b.id, ...(b.stripeChargeId && b.chargedCents === total(b) ? { source_transaction: b.stripeChargeId } : {}), metadata: { bookingId: b.id, kind: "service" } },
-      { idempotencyKey: `release-${b.id}` },
-    );
-    transferId = t.id;
+    if (pro?.stripeAccountId && pro.payoutsEnabled) {
+      const t = await stripe().transfers.create(
+        { amount, currency: "usd", destination: pro.stripeAccountId, transfer_group: b.id, ...(b.stripeChargeId && b.chargedCents === total(b) ? { source_transaction: b.stripeChargeId } : {}), metadata: { bookingId: b.id, kind: "service" } },
+        { idempotencyKey: `release-${b.id}` },
+      );
+      transferId = t.id;
+    }
   }
-  await db.update(bookings).set({ status: "completed", releasedAt: new Date(), transferId }).where(and(eq(bookings.id, b.id), eq(bookings.status, "confirmed")));
+  // No payouts connected yet → the booking still completes; Nearest holds the money until the pro connects (payOwedToPro).
+  const owed = amount > 0 && !transferId ? amount : 0;
+  await db.update(bookings).set({ status: "completed", releasedAt: new Date(), transferId, payoutOwedCents: owed }).where(and(eq(bookings.id, b.id), eq(bookings.status, "confirmed")));
   return { ok: "Payment released. Thank you!" };
+}
+
+
+/** Sends everything Nearest has been holding for a pro, once their payout account is ready. Safe to call repeatedly. */
+export async function payOwedToPro(proId: string) {
+  const pro = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, proId) });
+  if (!pro?.stripeAccountId || !pro.payoutsEnabled) return 0;
+  const owed = await db.select().from(bookings).where(and(eq(bookings.proId, proId), sql`${bookings.payoutOwedCents} > 0`, sql`${bookings.transferId} is null`));
+  let sent = 0;
+  for (const b of owed) {
+    try {
+      const t = await stripe().transfers.create(
+        { amount: b.payoutOwedCents, currency: "usd", destination: pro.stripeAccountId, transfer_group: b.id, ...(b.stripeChargeId ? { source_transaction: b.stripeChargeId } : {}), metadata: { bookingId: b.id, kind: b.status === "completed" ? "service" : "forfeited_deposit", held: "true" } },
+        { idempotencyKey: `owed-${b.id}` },
+      );
+      await db.update(bookings).set({ transferId: t.id, payoutOwedCents: 0 }).where(eq(bookings.id, b.id));
+      sent += b.payoutOwedCents;
+    } catch (e) {
+      console.error("Owed payout failed", b.id, e);
+    }
+  }
+  return sent;
 }

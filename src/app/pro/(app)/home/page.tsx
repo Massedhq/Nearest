@@ -28,7 +28,7 @@ export default async function ProHome() {
     db.select().from(proOpenings).where(and(eq(proOpenings.userId, user.id), eq(proOpenings.day, now.date))).orderBy(asc(proOpenings.startTime)),
     db.select().from(bookings).where(and(eq(bookings.proId, user.id), eq(bookings.status, "confirmed"), gte(bookings.endsAt, new Date()))).orderBy(asc(bookings.startsAt)).limit(4),
   ]);
-  const payReady = ["trialing", "active"].includes(profile.subscriptionStatus ?? "") && profile.identityStatus === "verified" && profile.payoutsEnabled;
+  const payReady = ["trialing", "active"].includes(profile.subscriptionStatus ?? "") && profile.identityStatus === "verified";
   const approved = profile.reviewStatus === "approved";
   const standing = await proStanding(user.id);
   const unread = await unreadCount(user.id);
@@ -78,7 +78,12 @@ export default async function ProHome() {
 
         {approved && !payReady && (
           <Link className="card warn" href="/pro/payments" style={{ textDecoration: "none" }}>
-            <div className="row"><Icon name="card" /><div className="grow"><div className="b">Finish membership, ID and payouts</div><div className="xs muted">Students can book you once these are done.</div></div><Icon name="right" size="s" /></div>
+            <div className="row"><Icon name="card" /><div className="grow"><div className="b">Finish membership and ID check</div><div className="xs muted">Students can book you once these are done.</div></div><Icon name="right" size="s" /></div>
+          </Link>
+        )}
+        {approved && payReady && !profile.payoutsEnabled && (
+          <Link className="card" href="/pro/payments" style={{ textDecoration: "none" }}>
+            <div className="row"><Icon name="card" /><div className="grow"><div className="b">Set up payouts to get paid</div><div className="xs muted">You&apos;re bookable now. Money you earn is held safely by Nearest and sent to you as soon as you connect your bank.</div></div><Icon name="right" size="s" /></div>
           </Link>
         )}
 

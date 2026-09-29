@@ -12,10 +12,9 @@ export function liveProWhere(area: Area, areaMode: string | undefined) {
     eq(professionalProfiles.reviewStatus, "approved"),
     eq(professionalProfiles.searchable, true),
     eq(professionalProfiles.vacationMode, false),
-    // Live only when membership is trialing/active, ID is verified and payouts are set up.
+    // Live when membership is trialing/active and ID is verified. Payouts can come later — Nearest holds their money until then.
     sql`(${professionalProfiles.subscriptionStatus} in ('trialing', 'active') or exists (select 1 from admin_members a where a.user_id = ${professionalProfiles.userId} and a.role = 'OWNER' and a.active))`, // owners never pay
     eq(professionalProfiles.identityStatus, "verified"),
-    eq(professionalProfiles.payoutsEnabled, true),
     // Not paused by Nearest, not suspended, and no fine past its due date.
     sql`${professionalProfiles.listingPausedAt} is null`,
     sql`${professionalProfiles.membershipPausedAt} is null`, // membership billing paused → not bookable

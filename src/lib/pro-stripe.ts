@@ -44,6 +44,7 @@ export async function syncPro(p: Profile): Promise<Profile> {
       patch.payoutsEnabled = Boolean(acct.payouts_enabled);
     }
     if (Object.keys(patch).length) await db.update(professionalProfiles).set(patch).where(eq(professionalProfiles.userId, p.userId));
+    if (patch.payoutsEnabled) await (await import("./bookings")).payOwedToPro(p.userId);
   } catch (e) {
     console.error("Stripe sync failed", e);
   }

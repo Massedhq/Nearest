@@ -27,13 +27,13 @@ export default async function Payments({ searchParams }: { searchParams: Promise
     return (<div className="scr"><TopBar title="Membership & payments" back="/pro/business" /><div className="body"><div className="card warn small"><span>Payments aren&apos;t set up yet.</span></div></div></div>);
   }
   const subState = p.subscriptionStatus ? SUB[p.subscriptionStatus] ?? [p.subscriptionStatus, ""] : ["Not started", "warn"];
-  const live = (owner || ["trialing", "active"].includes(p.subscriptionStatus ?? "")) && !p.membershipPausedAt && p.identityStatus === "verified" && p.payoutsEnabled;
+  const live = (owner || ["trialing", "active"].includes(p.subscriptionStatus ?? "")) && !p.membershipPausedAt && p.identityStatus === "verified";
   const rate = money(planCents(p.cohort));
   return (
     <div className="scr">
       <TopBar title="Membership & payments" back="/pro/business" />
       <div className="body">
-        <div className={`card ${live ? "ok" : "warn"} small`}><span className="b">{live ? "You're all set to take bookings." : "Finish these three to take bookings."}</span>{p.reviewStatus !== "approved" && <span className="muted">Your profile also needs Nearest&apos;s approval.</span>}</div>
+        <div className={`card ${live ? "ok" : "warn"} small`}><span className="b">{live ? "You're all set to take bookings." : "Finish your membership and ID check to take bookings."}</span>{live && !p.payoutsEnabled && <span className="muted">Set up payouts whenever you're ready — anything you earn before then is held for you and sent automatically once you connect.</span>}{p.reviewStatus !== "approved" && <span className="muted">Your profile also needs Nearest&apos;s approval.</span>}</div>
 
         {owner ? (
           <div className="card">
