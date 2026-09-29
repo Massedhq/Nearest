@@ -139,6 +139,7 @@ export async function saveLocation(_: FormState, form: FormData): Promise<FormSt
   const cityId = Number(form.get("cityId"));
   const zip = str(form, "zip", 10);
   const addressLine = str(form, "address", 160);
+  const addressUnit = str(form, "unit", 40) || null;
   const mode = str(form, "mode", 20) as "come_to_me" | "travel" | "both";
   const radius = Number(form.get("radius") || 0);
   if (!cityId) return { error: "Choose your city." };
@@ -155,7 +156,7 @@ export async function saveLocation(_: FormState, form: FormData): Promise<FormSt
   const point = addressLine ? await geocode(addressLine, city.name, zip, city.state) : null;
   await db
     .update(professionalProfiles)
-    .set({ cityId, countyId: link?.countyId ?? null, zip, addressLine: addressLine || null, lat: point?.lat ?? null, lng: point?.lng ?? null, serviceMode: mode, travelFeeCents: travelFee === null ? null : Math.round(travelFee * 100), travelRadiusMi: mode === "come_to_me" ? null : radius })
+    .set({ cityId, countyId: link?.countyId ?? null, zip, addressLine: addressLine || null, addressUnit, lat: point?.lat ?? null, lng: point?.lng ?? null, serviceMode: mode, travelFeeCents: travelFee === null ? null : Math.round(travelFee * 100), travelRadiusMi: mode === "come_to_me" ? null : radius })
     .where(eq(professionalProfiles.userId, user.id));
   if (addressLine && !point && isEdit(form)) return { ok: "Saved. We couldn't map this address — double-check the street and ZIP so check-in works." };
   return done(user.id, "location", form);

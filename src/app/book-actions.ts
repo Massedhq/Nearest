@@ -31,15 +31,16 @@ async function resolveLocation(pro: typeof professionalProfiles.$inferSelect, fo
       const pt = await geocode(pro.addressLine, city.name, pro.zip, city.state);
       if (pt) { lat = pt.lat; lng = pt.lng; await db.update(professionalProfiles).set({ lat, lng }).where(eq(professionalProfiles.userId, pro.userId)); }
     }
-    return { locationType: "pro", locationAddress: `${pro.addressLine}, ${city?.name ?? ""}, ${city?.state ?? "TX"} ${pro.zip ?? ""}`.trim(), lat, lng };
+    return { locationType: "pro", locationAddress: `${pro.addressLine}${pro.addressUnit ? `, ${pro.addressUnit}` : ""}, ${city?.name ?? ""}, ${city?.state ?? "TX"} ${pro.zip ?? ""}`.trim(), lat, lng };
   }
   const street = String(form.get("street") ?? "").trim().slice(0, 160);
+  const unit = String(form.get("unit") ?? "").trim().slice(0, 40);
   const sCity = String(form.get("city") ?? "").trim().slice(0, 60);
   const zip = String(form.get("zip") ?? "").trim();
   if (!street || !sCity || !/^\d{5}$/.test(zip)) return { error: "Enter the address where the professional should come (street, city and 5-digit ZIP)." };
   const st = city?.state ?? "TX"; // the student's address is in the professional's state
   const pt = await geocode(street, sCity, zip, st);
-  return { locationType: "student", locationAddress: `${street}, ${sCity}, ${st} ${zip}`, lat: pt?.lat ?? null, lng: pt?.lng ?? null };
+  return { locationType: "student", locationAddress: `${street}${unit ? `, ${unit}` : ""}, ${sCity}, ${st} ${zip}`, lat: pt?.lat ?? null, lng: pt?.lng ?? null };
 }
 
 async function livePro(proId: string) {

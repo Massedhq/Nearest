@@ -169,6 +169,7 @@ export const professionalProfiles = pgTable("professional_profiles", {
   lng: doublePrecision("lng"),
   serviceMode: serviceMode("service_mode"),
   travelRadiusMi: integer("travel_radius_mi"),
+  addressUnit: text("address_unit"), // Apt / Suite / Unit (private, with the address)
   travelFeeCents: integer("travel_fee_cents"), // flat fee when they travel to the customer: $35–$55
   // Phase 2: communication
   languages: text("languages").array(),

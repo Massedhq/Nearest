@@ -27,6 +27,9 @@ export function ProCard({ p, services, photos, city }: {
               </span>
               <span className="small b" aria-label={`Saved by ${p.favCount ?? 0} students`}>{(p.favCount ?? 0).toLocaleString()}</span>
             </span>
+            <span className="iconbtn" aria-hidden="true" title="Students can share you with their connections" style={{ width: 36, height: 36 }}>
+              <svg className="i s" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round"><path d="M12 15V3M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" /></svg>
+            </span>
           </div>
           <span className="badge"><Icon name="shield" size="s" /> Approved by Nearest</span>
           {p.aslLevel !== "none" && <span className="badge pearl"><Icon name="hand" size="s" /> ASL — {ASL_LABEL[p.aslLevel]}</span>}
