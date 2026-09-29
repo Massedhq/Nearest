@@ -13,6 +13,7 @@ import { instagramHandle, tiktokHandle } from "@/lib/social";
 import { slugify, validSlug } from "@/lib/connections";
 import { MAX_PRICE_DOLLARS } from "@/lib/pricing";
 import type { FormState } from "@/components/ActionForm";
+import { proReadiness } from "@/lib/live-check";
 
 const str = (f: FormData, k: string, max = 500) => String(f.get(k) ?? "").trim().slice(0, max);
 const isEdit = (f: FormData) => f.get("edit") === "1";
@@ -392,4 +393,15 @@ export async function deleteModelCall(form: FormData) {
   await db.update(bookings).set({ modelCallId: null }).where(eq(bookings.modelCallId, id));
   await db.delete(modelCalls).where(eq(modelCalls.id, id));
   revalidatePath("/pro", "layout");
+}
+
+// ---------- Go live ----------
+/** The professional's own switch: Go live (show in search) or Go offline. Payouts are never required. */
+export async function setGoLive(form: FormData) {
+  const { user, profile } = await requirePro();
+  const on = form.get("on") === "1";
+  if (on && (await proReadiness(profile)).length > 0) return; // the card lists what's left instead
+  await db.update(professionalProfiles).set({ searchable: on }).where(eq(professionalProfiles.userId, user.id));
+  revalidatePath("/pro", "layout");
+  revalidatePath("/home");
 }

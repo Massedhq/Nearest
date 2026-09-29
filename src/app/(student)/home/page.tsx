@@ -12,7 +12,7 @@ import { Icon } from "@/components/Icon";
 import { Tabs } from "@/components/Tabs";
 import { ProResult } from "@/components/ProResult";
 import { requireVerifiedStudent } from "@/lib/student";
-import { searchPros, type Filters } from "@/lib/search";
+import { searchPros, resolvePlace, ZIP_RADIUS_MI, type Filters } from "@/lib/search";
 import { studentSuspendedUntil, SUSPENSION_TEXT } from "@/lib/enforcement";
 import { fmtDate } from "@/lib/time";
 import { getViewer } from "@/lib/viewer";
@@ -44,10 +44,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
     );
   }
   const f = await searchParams;
+  const place = f.area === "place" ? await resolvePlace(f.loc) : null;
   const [cats, catalog, found, favRows, unread, here] = await Promise.all([
     db.select({ id: categories.id, name: categories.name }).from(categories).where(eq(categories.active, true)).orderBy(asc(categories.sort)),
     db.select({ id: catalogServices.id, categoryId: catalogServices.categoryId, name: catalogServices.name }).from(catalogServices).orderBy(asc(catalogServices.sort), asc(catalogServices.name)),
-    searchPros(f, area),
+    searchPros(f, area, place),
     db.select({ proId: favorites.proId }).from(favorites).where(eq(favorites.studentId, user.id)),
     unreadCount(user.id),
     nearPoint(),
@@ -56,9 +57,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
   // Owners browsing as a customer: when nobody shows, explain exactly which pros are hidden and why.
   const isOwner = found.length === 0 && (await getViewer())?.admin?.role === "OWNER";
   const hidden = isOwner ? await hiddenPros() : [];
-  const pros = found.map((p) => ({ ...p, miles: here ? miles(here, p) : null }));
-  if (f.sort === "near" && here) pros.sort((a, b) => (a.miles ?? 9999) - (b.miles ?? 9999));
-  if (f.q || f.cat || f.svc || f.today || f.after || f.under || f.asl) {
+  // Searching a ZIP: distances are measured from that ZIP and the closest come first.
+  const from = place?.kind === "zip" ? { lat: place.lat, lng: place.lng } : here;
+  const pros = found.map((p) => ({ ...p, miles: from ? miles(from, p) : null }));
+  if (place?.kind === "zip") pros.sort((a, b) => (a.miles ?? 9999) - (b.miles ?? 9999));
+  else if (f.sort === "near" && here) pros.sort((a, b) => (a.miles ?? 9999) - (b.miles ?? 9999));
+  if (f.q || f.cat || f.svc || f.loc || f.today || f.after || f.under || f.asl) {
     const { q, area: _a, ...rest } = f;
     void _a;
     db.insert(searchLog).values({ studentId: user.id, query: q?.slice(0, 80) ?? null, filters: JSON.stringify(rest), cityId: area?.cityId ?? null, results: pros.length }).catch(() => {});
@@ -68,9 +72,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
     const s = p.toString();
     return s ? `/home?${s}` : "/home";
   };
-  const areaOptions = area
-    ? [{ value: "county", label: `${area.city} area` }, { value: "city", label: `${area.city} only` }, { value: "all", label: `All ${marketName(area.market) || "areas"}` }]
-    : [];
+  const areaOptions = [
+    ...(area
+      ? [{ value: "county", label: `${area.city} area` }, { value: "city", label: `${area.city} only` }, { value: "all", label: `All ${marketName(area.market) || "areas"}` }]
+      : [{ value: "county", label: "Everywhere" }]),
+    { value: "place", label: "Another city or ZIP code…" },
+  ];
   // "Other" is typed in, so the stored "Other" category isn't listed separately.
   const listCats = cats.filter((c) => c.name.trim().toLowerCase() !== "other");
 
@@ -83,23 +90,19 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
       <div className="body">
         <p className="eyebrow p">Hi, {user.firstName}</p>
         <h1 className="disp h1">What do you need?</h1>
-        <form action="/home" className="search" role="search">
-          <Icon name="search" />
-          <input name="q" defaultValue={f.q ?? ""} placeholder="Search services" aria-label="Search services" />
-          {Object.entries(f).filter(([k, v]) => k !== "q" && v).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
-        </form>
         <Link className="card pearl" href={`/model-calls${f.area ? `?area=${f.area}` : ""}`} style={{ textDecoration: "none", padding: 22, gap: 6 }}>
           <div className="row between"><span className="disp h1">Model Calls</span><Icon name="right" /></div>
           <span className="small b">Model Calls near me</span>
         </Link>
         <ExploreFilters
-          key={`${f.cat ?? ""}|${f.svc ?? ""}|${f.q ?? ""}|${f.area ?? ""}`}
+          key={`${f.cat ?? ""}|${f.svc ?? ""}|${f.q ?? ""}|${f.area ?? ""}|${f.loc ?? ""}`}
           cats={listCats}
           services={catalog}
           cat={f.cat}
           svc={f.svc}
           q={f.q}
           area={f.area}
+          loc={f.loc}
           areaOptions={areaOptions}
           keep={{ today: f.today, after: f.after, under: f.under, asl: f.asl, sort: f.sort }}
         />
@@ -116,7 +119,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
           {f.asl && <span className="xs">Showing only professionals who communicate in ASL — tap to show everyone</span>}
         </Link>
         {(() => {
-          const on = [f.cat && f.cat !== "other" && [cats.find((c) => String(c.id) === f.cat)?.name, f.svc && catalog.find((c) => String(c.id) === f.svc)?.name].filter(Boolean).join(" › "), f.today && "Available Today", f.after && "After School", f.under && "Under $25", f.asl && "communicates in ASL", f.q && `“${f.q}”`].filter(Boolean) as string[];
+          const on = [f.cat && f.cat !== "other" && [cats.find((c) => String(c.id) === f.cat)?.name, f.svc && catalog.find((c) => String(c.id) === f.svc)?.name].filter(Boolean).join(" › "), place && (place.kind === "zip" ? `within ${ZIP_RADIUS_MI} mi of ${place.label}` : `in ${place.label}`), f.today && "Available Today", f.after && "After School", f.under && "Under $25", f.asl && "communicates in ASL", f.q && `“${f.q}”`].filter(Boolean) as string[];
           const title = pros.length ? (f.asl ? "ASL professionals near you" : "Near you") : on.length ? "No matches for these filters" : "No professionals here yet";
           return (
             <>
@@ -124,7 +127,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
               {on.length > 0 && <div className="row" style={{ gap: 8, flexWrap: "wrap" }}><span className="xs muted">Filters on: {on.join(" • ")}</span><Link className="link xs" href="/home">Clear all</Link></div>}
               {pros.length === 0 && (
                 <p className="small muted p">
-                  {f.asl && on.length === 1
+                  {place?.kind === "none"
+                    ? `We couldn't find "${place.label}". Check the spelling, or try a 5-digit ZIP code.`
+                    : place && on.length === 1
+                    ? `No professionals are live ${place.kind === "zip" ? `within ${ZIP_RADIUS_MI} miles of ${place.label}` : `in ${place.label}`} yet. Try a nearby city or ZIP.`
+                    : f.asl && on.length === 1
                     ? `No professionals who communicate in ASL are listed in ${marketName(area?.market) || "your area"} yet. They'll show up here as they join.`
                     : on.length
                       ? `Nobody matches all of these right now. Try turning a filter off, or choose All ${marketName(area?.market) || "areas"}.`

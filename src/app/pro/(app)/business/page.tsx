@@ -4,6 +4,7 @@ import { SignOutButton } from "@clerk/nextjs";
 import { Icon } from "@/components/Icon";
 import { Tabs } from "@/components/Tabs";
 import { DeleteMyAccount } from "@/components/DeleteMyAccount";
+import { GoLiveCard } from "@/components/GoLiveCard";
 import { requirePro } from "@/lib/pro";
 import { initials } from "@/lib/viewer";
 import { proStanding } from "@/lib/enforcement";
@@ -31,7 +32,7 @@ export default async function Business() {
   const { viewer, user, profile } = await requirePro();
   const [standing, blocked] = await Promise.all([proStanding(user.id), selfDeleteBlocker(user.id)]);
   const live = profile.reviewStatus === "approved" && profile.searchable && !profile.listingPausedAt && !profile.membershipPausedAt;
-  const status = live ? ["Active • Searchable", "ok"] : profile.reviewStatus === "submitted" ? ["In review", "warn"] : profile.reviewStatus === "rejected" ? ["Changes needed", "bad"] : profile.reviewStatus === "approved" ? ["Approved • Not searchable yet", "warn"] : ["Setting up", ""];
+  const status = live ? ["Active • Searchable", "ok"] : profile.reviewStatus === "submitted" ? ["In review", "warn"] : profile.reviewStatus === "rejected" ? ["Changes needed", "bad"] : profile.reviewStatus === "approved" ? ["Approved • Offline", "warn"] : ["Setting up", ""];
   const fineCount = standing.fines.length;
   return (
     <div className="scr">
@@ -41,6 +42,7 @@ export default async function Business() {
           {profile.photoUrl ? <Image src={profile.photoUrl} alt="" width={84} height={84} style={{ borderRadius: 42, objectFit: "cover" }} /> : <div className="avatar lg">{initials(user)}</div>}
           <div className="col g4"><span className="disp h2">{profile.businessName ?? `${user.firstName} ${user.lastName}`}</span><span className={`tag ${status[1]}`} style={{ alignSelf: "flex-start" }}>{status[0]}</span></div>
         </div>
+        <GoLiveCard profile={profile} />
         <div className="col" style={{ gap: 0 }}>
           {LINKS.map(([icon, text, href]) => (
             <Link key={href} className="item" href={href}><Icon name={icon} /><span className="grow">{text}</span><Icon name="right" size="s" /></Link>

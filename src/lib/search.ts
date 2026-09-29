@@ -3,7 +3,7 @@ import { and, asc, desc, eq, gt, inArray, sql, type SQL } from "drizzle-orm";
 import { db, catalogServices, professionalProfiles, proServices, proOpenings, portfolioItems, cities, modelCalls, reviews, fines, favorites } from "@/db";
 import { chicagoNow } from "./time";
 
-export type Filters = { q?: string; cat?: string; svc?: string; today?: string; after?: string; under?: string; asl?: string; area?: string; sort?: string };
+export type Filters = { q?: string; cat?: string; svc?: string; loc?: string; today?: string; after?: string; under?: string; asl?: string; area?: string; sort?: string };
 export type Area = { cityId: number; countyId: number | null; market?: string | null } | null;
 
 /** Only approved, searchable, not-on-vacation pros are ever returned to students. */
@@ -21,6 +21,7 @@ export function liveProWhere(area: Area, areaMode: string | undefined) {
     sql`(${professionalProfiles.suspendedUntil} is null or ${professionalProfiles.suspendedUntil} < now())`,
     sql`not exists (select 1 from ${fines} f where f.pro_id = ${professionalProfiles.userId} and f.status = 'outstanding' and f.due_at < now())`,
   ];
+  if (areaMode === "place") return w; // another city or ZIP — searchPros() applies the place filter
   if (area && areaMode === "city") w.push(eq(professionalProfiles.cityId, area.cityId));
   else if (area?.countyId && areaMode !== "all") w.push(eq(professionalProfiles.countyId, area.countyId));
   // "All" means everywhere in the student's own market (All DFW, All Austin…) — never another metro.
@@ -28,9 +29,45 @@ export function liveProWhere(area: Area, areaMode: string | undefined) {
   return w;
 }
 
-export async function searchPros(f: Filters, area: Area) {
+/** Radius for a ZIP search, in miles. */
+export const ZIP_RADIUS_MI = 25;
+
+export type Place =
+  | { kind: "zip"; label: string; lat: number; lng: number }
+  | { kind: "city"; label: string; cityIds: number[] }
+  | { kind: "none"; label: string };
+
+const zipCache = new Map<string, { lat: number; lng: number; city: string } | null>();
+
+/** "Another city or ZIP": a 5-digit ZIP becomes a point (pros within ZIP_RADIUS_MI); anything else is a city name. */
+export async function resolvePlace(loc: string | undefined): Promise<Place | null> {
+  const text = loc?.trim().slice(0, 60);
+  if (!text) return null;
+  if (/^\d{5}$/.test(text)) {
+    if (!zipCache.has(text)) {
+      const { lookupZip } = await import("./places");
+      const z = await lookupZip(text);
+      zipCache.set(text, "error" in z ? null : { lat: z.lat, lng: z.lng, city: z.city });
+    }
+    const z = zipCache.get(text);
+    return z ? { kind: "zip", label: `${text} (${z.city})`, lat: z.lat, lng: z.lng } : { kind: "none", label: text };
+  }
+  const name = text.split(",")[0].trim();
+  const found = await db.select({ id: cities.id, name: cities.name }).from(cities).where(sql`lower(${cities.name}) = lower(${name})`);
+  return found.length ? { kind: "city", label: found[0].name, cityIds: found.map((c) => c.id) } : { kind: "none", label: name };
+}
+
+const milesFrom = (lat: number, lng: number) =>
+  sql`(3958.8 * 2 * asin(sqrt(power(sin(radians(${professionalProfiles.lat} - ${lat}) / 2), 2) + cos(radians(${lat})) * cos(radians(${professionalProfiles.lat})) * power(sin(radians(${professionalProfiles.lng} - ${lng}) / 2), 2))))`;
+
+export async function searchPros(f: Filters, area: Area, place?: Place | null) {
   const today = chicagoNow().date;
   const where = liveProWhere(area, f.area);
+  if (f.area === "place" && place) {
+    if (place.kind === "zip") where.push(sql`${professionalProfiles.lat} is not null and ${professionalProfiles.lng} is not null`, sql`${milesFrom(place.lat, place.lng)} <= ${ZIP_RADIUS_MI}`);
+    else if (place.kind === "city") where.push(inArray(professionalProfiles.cityId, place.cityIds));
+    else where.push(sql`false`); // unknown city or ZIP: show nothing, the page explains
+  }
   const q = f.q?.trim().slice(0, 60);
   if (q) {
     const like = `%${q.replace(/[%_]/g, "")}%`;

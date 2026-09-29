@@ -11,6 +11,7 @@ import { requirePro, setupSteps, setupComplete } from "@/lib/pro";
 import { chicagoNow, fmtDate, fmtTime, label12, money } from "@/lib/time";
 import { proStanding } from "@/lib/enforcement";
 import { Bell } from "@/components/Inbox";
+import { GoLiveCard } from "@/components/GoLiveCard";
 import { unreadCount } from "@/lib/inbox";
 
 export const metadata = { title: "Today" };
@@ -28,7 +29,6 @@ export default async function ProHome() {
     db.select().from(proOpenings).where(and(eq(proOpenings.userId, user.id), eq(proOpenings.day, now.date))).orderBy(asc(proOpenings.startTime)),
     db.select().from(bookings).where(and(eq(bookings.proId, user.id), eq(bookings.status, "confirmed"), gte(bookings.endsAt, new Date()))).orderBy(asc(bookings.startsAt)).limit(4),
   ]);
-  const payReady = ["trialing", "active"].includes(profile.subscriptionStatus ?? "") && profile.identityStatus === "verified";
   const approved = profile.reviewStatus === "approved";
   const standing = await proStanding(user.id);
   const unread = await unreadCount(user.id);
@@ -76,16 +76,7 @@ export default async function ProHome() {
           <div className="card pearl"><span className="tag solid" style={{ background: "#0A0A0A", color: "#ECE8E1", alignSelf: "flex-start" }}>First In</span><span className="small">Your First In rate is locked to your account.</span></div>
         )}
 
-        {approved && !payReady && (
-          <Link className="card warn" href="/pro/payments" style={{ textDecoration: "none" }}>
-            <div className="row"><Icon name="card" /><div className="grow"><div className="b">Finish membership and ID check</div><div className="xs muted">Students can book you once these are done.</div></div><Icon name="right" size="s" /></div>
-          </Link>
-        )}
-        {approved && payReady && !profile.payoutsEnabled && (
-          <Link className="card" href="/pro/payments" style={{ textDecoration: "none" }}>
-            <div className="row"><Icon name="card" /><div className="grow"><div className="b">Set up payouts to get paid</div><div className="xs muted">You&apos;re bookable now. Money you earn is held safely by Nearest and sent to you as soon as you connect your bank.</div></div><Icon name="right" size="s" /></div>
-          </Link>
-        )}
+        {approved && <GoLiveCard profile={profile} />}
 
         {upcoming.filter((b) => b.checkedInAt && !b.startedAt).map((b) => (
           <Link key={`ci-${b.id}`} className="card ok" href={`/pro/appointments/${b.id}`} style={{ textDecoration: "none" }}>

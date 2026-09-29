@@ -22,7 +22,7 @@ export async function approvePro(form: FormData) {
     .set({ reviewStatus: "approved", approvedAt: new Date(), reviewNote: null, searchable: true })
     .where(and(eq(professionalProfiles.userId, id), eq(professionalProfiles.reviewStatus, "submitted")))
     .returning();
-  if (row) await inbox(id, { kind: "approved", title: "You're approved on Nearest", body: "Finish membership, ID and payouts so students can book you.", href: "/pro/payments" });
+  if (row) await inbox(id, { kind: "approved", title: "You're approved on Nearest", body: "You go live as soon as your membership and ID check are done — check the Go live card on Today. Payouts can come later.", href: "/pro/home" });
   if (row) await logActivity({ actorUserId: user.id, action: "pro.approved", targetType: "professional", targetId: row.businessName ?? id, before: "submitted", after: "approved" });
   revalidatePath("/admin", "layout");
 }

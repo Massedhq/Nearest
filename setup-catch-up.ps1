@@ -31,7 +31,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Explore: category + service dropdowns; How Nearest works guides"
+git commit -q -m "Explore: one Find a professional box with search, city/ZIP, category and service; pro Go live switch; guides"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""
