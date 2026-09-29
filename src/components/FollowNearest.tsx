@@ -16,7 +16,7 @@ export function FollowNearest() {
           <span className="b">Nearest</span>
           <span className="xs muted">@usenearest on Instagram</span>
         </div>
-        <span className="btn sm" style={{ background: "#0A0A0A", color: "#ECE8E1" }}>Follow</span>
+        <span className="btn sm dark">Follow</span>
       </div>
       <span className="small">Follow us so we can tag you and feature your work to students on Nearest&apos;s Instagram.</span>
     </a>

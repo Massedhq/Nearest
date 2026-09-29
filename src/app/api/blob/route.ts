@@ -13,7 +13,7 @@ export async function POST(request: Request) {
         const viewer = await getViewer();
         const u = viewer?.user;
         // Pros upload portfolio/profile photos; students upload their appointment result photo.
-        const ok = u && (((await proAccess(viewer)) && pathname.startsWith(`pros/${u.id}/`)) || (u.accountType === "student" && pathname.startsWith(`students/${u.id}/`)));
+        const ok = u && (((await proAccess(viewer)) && pathname.startsWith(`pros/${u.id}/`)) || ((u.accountType === "student" || viewer?.admin?.role === "OWNER") && pathname.startsWith(`students/${u.id}/`)));
         if (!ok) throw new Error("Invalid upload.");
         return {
           allowedContentTypes: ["image/jpeg", "image/png", "image/webp"],

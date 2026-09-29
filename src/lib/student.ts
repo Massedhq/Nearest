@@ -7,6 +7,15 @@ import { getViewer, destinationFor } from "./viewer";
 export async function requireStudent() {
   const viewer = await getViewer();
   if (!viewer) redirect("/sign-in");
+  // Owners can browse and book as customers: they get a customer profile without the school check.
+  if (viewer.user && viewer.admin?.role === "OWNER") {
+    let profile = await db.query.studentProfiles.findFirst({ where: eq(studentProfiles.userId, viewer.user.id) });
+    if (!profile) {
+      [profile] = await db.insert(studentProfiles).values({ userId: viewer.user.id, verificationStatus: "verified", verifiedAt: new Date(), onboardingCompletedAt: new Date() }).onConflictDoNothing().returning();
+      profile ??= (await db.query.studentProfiles.findFirst({ where: eq(studentProfiles.userId, viewer.user.id) }))!;
+    }
+    return { user: viewer.user, profile: { ...profile, verificationStatus: "verified" as const, reverifyBy: null } };
+  }
   if (viewer.user?.accountType !== "student") redirect(await destinationFor(viewer));
   const profile = (await db.query.studentProfiles.findFirst({ where: eq(studentProfiles.userId, viewer.user.id) }))!;
   return { user: viewer.user, profile };

@@ -66,9 +66,12 @@ async function checkout(b: typeof bookings.$inferSelect, email: string | null, p
 /** Creates a held booking, then sends the student to Stripe (or confirms right away when credit covers it). */
 async function createAndPay(opts: {
   studentId: string; email: string | null; proId: string; proName: string; serviceId?: string; modelCallId?: string;
-  serviceName: string; startsAt: Date; durationMin: number; priceCents: number; where: Where;
+  serviceName: string; startsAt: Date; durationMin: number; priceCents: number; where: Where; travelFeeCents?: number;
 }): Promise<FormState> {
   if (opts.priceCents > MAX_PRICE_CENTS) return { error: `This is priced above Nearest's $${MAX_PRICE_CENTS / 100} student limit, so it can't be booked.` };
+  // The $150 cap is on the service; a travel fee ($35–$55) is added only when the pro travels to the student.
+  const travelFee = opts.where.locationType === "student" ? Math.min(Math.max(opts.travelFeeCents ?? 0, 0), 5500) : 0;
+  opts = { ...opts, priceCents: opts.priceCents + travelFee };
   const s = await getSettings();
   if (s["status.bookings"] !== true) return { error: "Booking is paused right now. Please try again soon." };
   const deposit = Math.min(Number(s["appt.deposit_cents"]), opts.priceCents);
@@ -79,7 +82,7 @@ async function createAndPay(opts: {
 
   const [b] = await db.insert(bookings).values({
     studentId: opts.studentId, proId: opts.proId, serviceId: opts.serviceId ?? null, modelCallId: opts.modelCallId ?? null,
-    serviceName: opts.serviceName, startsAt: opts.startsAt, endsAt, priceCents: opts.priceCents, depositCents: deposit,
+    serviceName: opts.serviceName, startsAt: opts.startsAt, endsAt, priceCents: opts.priceCents, travelFeeCents: travelFee, depositCents: deposit,
     creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge,
     holdExpiresAt: new Date(Date.now() + HOLD_MIN * 60000),
     locationType: opts.where.locationType, locationAddress: opts.where.locationAddress, lat: opts.where.lat, lng: opts.where.lng,
@@ -120,7 +123,7 @@ export async function bookService(_: FormState, form: FormData): Promise<FormSta
   if (!(await openSlots(svc.userId, svc.durationMin, day)).includes(time)) return { error: "That time was just taken or is no longer available. Please pick another." };
   const where = await resolveLocation(pro, form);
   if ("error" in where) return { error: where.error };
-  return createAndPay({ where,
+  return createAndPay({ where, travelFeeCents: pro.travelFeeCents ?? 3500,
     studentId: user.id, email: user.email, proId: svc.userId, proName: pro.businessName ?? "your professional", serviceId: svc.id,
     serviceName: svc.name, startsAt: chicagoToUtc(day, time), durationMin: svc.durationMin, priceCents: svc.priceCents,
   });
@@ -137,11 +140,19 @@ export async function bookModelCall(_: FormState, form: FormData): Promise<FormS
   if (!pro) return { error: "This professional isn't taking bookings right now." };
   const mine = await db.query.bookings.findFirst({ where: and(eq(bookings.modelCallId, id), eq(bookings.studentId, user.id), inArray(bookings.status, ["confirmed", "pending_payment"])) });
   if (mine?.status === "confirmed") return { error: "You already have a spot in this model call." };
+  let startsAt = call.startsAt;
+  if (call.flexible) {
+    const day = String(form.get("day") ?? ""), time = String(form.get("time") ?? "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !/^\d{2}:\d{2}$/.test(time)) return { error: "Pick a day and time first." };
+    if (!(await openSlots(call.userId, call.durationMin, day)).includes(time)) return { error: "That time was just taken or isn't available. Please pick another." };
+    startsAt = chicagoToUtc(day, time);
+    if (startsAt.getTime() > call.startsAt.getTime()) return { error: "That time is after this model call closes. Please pick an earlier time." };
+  }
   const where = await resolveLocation(pro, form, Boolean(pro.addressLine));
   if ("error" in where) return { error: where.error };
-  return createAndPay({ where,
+  return createAndPay({ where, travelFeeCents: pro.travelFeeCents ?? 3500,
     studentId: user.id, email: user.email, proId: call.userId, proName: pro.businessName ?? "your professional", modelCallId: call.id,
-    serviceName: `${call.serviceName} (Model Call)`, startsAt: call.startsAt, durationMin: call.durationMin, priceCents: call.priceCents,
+    serviceName: `${call.serviceName} (Model Call)`, startsAt, durationMin: call.durationMin, priceCents: call.priceCents,
   });
 }
 

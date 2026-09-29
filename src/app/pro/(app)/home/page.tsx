@@ -113,7 +113,7 @@ export default async function ProHome() {
         {calls.length === 0 && <p className="small muted p">No upcoming model calls.</p>}
         {calls.map((c) => (
           <div key={c.id} className="item">
-            <div className="grow"><div className="b">{c.serviceName}</div><div className="xs muted">{fmtDate(c.startsAt)} • {fmtTime(c.startsAt)} • {money(c.priceCents)}</div></div>
+            <div className="grow"><div className="b">{c.serviceName}</div><div className="xs muted">{c.flexible ? `Open time • through ${fmtDate(c.startsAt, { month: "short", day: "numeric" })}` : `${fmtDate(c.startsAt)} • ${fmtTime(c.startsAt)}`} • {money(c.priceCents)}</div></div>
             <span className="tag">{c.spots - c.spotsTaken} spot{c.spots - c.spotsTaken === 1 ? "" : "s"} left</span>
           </div>
         ))}

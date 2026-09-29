@@ -81,7 +81,7 @@ export default async function ProLink({ params }: { params: Promise<{ handle: st
         <div className="card pearl" style={{ gap: 10 }}>
           <span className="b">Book {r.p.businessName} on Nearest</span>
           <span className="small">Nearest is for verified students. Create your free account and verify your school to book.</span>
-          <Link className="btn" href={`/sign-up?redirect_url=${next}`} style={{ background: "#0A0A0A", color: "#ECE8E1" }}>Create a student account</Link>
+          <Link className="btn dark" href={`/sign-up?redirect_url=${next}`}>Create a student account</Link>
           <Link className="link small" href={`/sign-in?redirect_url=${next}`} style={{ textAlign: "center" }}>Already on Nearest? Sign in</Link>
         </div>
       </div>

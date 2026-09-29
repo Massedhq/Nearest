@@ -97,9 +97,16 @@ export async function saveServices(_: FormState, form: FormData): Promise<FormSt
     if (!Number.isInteger(duration) || duration < 10 || duration > 600) return { error: `Enter ${name}'s length in minutes (10–600).` };
     values.push({ userId: user.id, categoryId: Number(r.categoryId), name, priceCents: Math.round(price * 100), durationMin: duration, sort: i, adultsOnly: Boolean(r.adultsOnly) });
   }
+  // Remember which service each portfolio photo was tagged with (by name) so editing the menu keeps "Book this look".
+  const tagged = await db.select({ photoId: portfolioItems.id, name: proServices.name }).from(portfolioItems)
+    .innerJoin(proServices, eq(proServices.id, portfolioItems.serviceId)).where(eq(portfolioItems.userId, user.id));
   // Replace the whole menu. (Later phases keep old rows once bookings reference them.)
   await db.delete(proServices).where(eq(proServices.userId, user.id));
-  await db.insert(proServices).values(values);
+  const inserted = await db.insert(proServices).values(values).returning();
+  for (const t of tagged) {
+    const same = inserted.find((x) => x.name.trim().toLowerCase() === t.name.trim().toLowerCase());
+    if (same) await db.update(portfolioItems).set({ serviceId: same.id }).where(eq(portfolioItems.id, t.photoId));
+  }
   return done(user.id, "services", form);
 }
 
@@ -139,13 +146,16 @@ export async function saveLocation(_: FormState, form: FormData): Promise<FormSt
   if (!["come_to_me", "travel", "both"].includes(mode)) return { error: "Choose how you provide services." };
   if (mode !== "travel" && !addressLine) return { error: "Add the address where customers come to you. It stays private." };
   if (mode !== "come_to_me" && !(radius > 0 && radius <= 50)) return { error: "Choose how far you'll travel." };
+  const feeRaw = str(form, "travelFee", 8).replace(/[$,\s]/g, "");
+  const travelFee = mode === "come_to_me" ? null : Number(feeRaw || "35");
+  if (travelFee !== null && (!Number.isFinite(travelFee) || travelFee < 35 || travelFee > 55)) return { error: "Travel fee must be between $35 and $55." };
   const link = await db.query.cityCounties.findFirst({ where: eq(cityCounties.cityId, cityId) });
   const city = await db.query.cities.findFirst({ where: eq(cities.id, cityId) });
   if (!city) return { error: "Choose your city." };
   const point = addressLine ? await geocode(addressLine, city.name, zip, city.state) : null;
   await db
     .update(professionalProfiles)
-    .set({ cityId, countyId: link?.countyId ?? null, zip, addressLine: addressLine || null, lat: point?.lat ?? null, lng: point?.lng ?? null, serviceMode: mode, travelRadiusMi: mode === "come_to_me" ? null : radius })
+    .set({ cityId, countyId: link?.countyId ?? null, zip, addressLine: addressLine || null, lat: point?.lat ?? null, lng: point?.lng ?? null, serviceMode: mode, travelFeeCents: travelFee === null ? null : Math.round(travelFee * 100), travelRadiusMi: mode === "come_to_me" ? null : radius })
     .where(eq(professionalProfiles.userId, user.id));
   if (addressLine && !point && isEdit(form)) return { ok: "Saved. We couldn't map this address — double-check the street and ZIP so check-in works." };
   return done(user.id, "location", form);
@@ -287,11 +297,23 @@ export async function createModelCall(_: FormState, form: FormData): Promise<For
   const serviceId = str(form, "serviceId", 40);
   const service = serviceId ? await db.query.proServices.findFirst({ where: and(eq(proServices.id, serviceId), eq(proServices.userId, user.id)) }) : null;
   if (!service) return { error: "Choose one of your services." };
-  const day = str(form, "day", 10);
-  const time = str(form, "time", 5);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !/^\d{2}:\d{2}$/.test(time)) return { error: "Choose a date and time." };
-  const startsAt = chicagoToUtc(day, time);
-  if (startsAt.getTime() < Date.now() + 60 * 60 * 1000) return { error: "Pick a time at least an hour from now." };
+  const flexible = form.get("flexible") === "on";
+  let startsAt: Date;
+  if (flexible) {
+    // Open time: models pick from your availability until this date (end of day); default 30 days.
+    const until = str(form, "openUntil", 10);
+    const end = /^\d{4}-\d{2}-\d{2}$/.test(until) ? until : new Date(Date.now() + 30 * 86400_000).toISOString().slice(0, 10);
+    startsAt = chicagoToUtc(end, "23:59");
+    if (startsAt.getTime() < Date.now()) return { error: "Choose an open-until date in the future." };
+  } else {
+    const day = str(form, "day", 10);
+    const time = str(form, "time", 5);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !/^\d{2}:\d{2}$/.test(time)) return { error: "Choose a date and time, or turn on Open time." };
+    startsAt = chicagoToUtc(day, time);
+    if (startsAt.getTime() < Date.now() + 60 * 60 * 1000) return { error: "Pick a time at least an hour from now." };
+  }
+  const photoRaw = str(form, "photoUrl", 500);
+  const photoUrl = photoRaw && blobUrlOk(photoRaw, user.id) ? photoRaw : null;
   const price = Number(str(form, "price", 10).replace(/[$,\s]/g, ""));
   if (!Number.isFinite(price) || price < 0) return { error: "Enter the model price (0 for free)." };
   if (price > MAX_PRICE_DOLLARS) return { error: `Student prices can't be more than $${MAX_PRICE_DOLLARS}.` };
@@ -310,7 +332,9 @@ export async function createModelCall(_: FormState, form: FormData): Promise<For
     priceCents: Math.round(price * 100),
     spots,
     requirements,
-    about: str(form, "about", 1000) || null,
+    about: str(form, "about", 2000) || null,
+    flexible,
+    photoUrl,
   });
   revalidatePath("/pro", "layout");
   redirect("/pro/model-calls");

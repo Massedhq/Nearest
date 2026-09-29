@@ -41,6 +41,11 @@ export default async function LocationStep({ searchParams }: { searchParams: Pro
             {[5, 10, 15, 20, 30].map((r) => <option key={r} value={r}>{r} miles</option>)}
           </select>
         </div>
+        <div className="field">
+          <label htmlFor="travelFee">Travel fee when you go to the customer ($35–$55)</label>
+          <input id="travelFee" name="travelFee" inputMode="decimal" defaultValue={String((p.travelFeeCents ?? 3500) / 100)} placeholder="35" />
+          <span className="xs muted">A flat fee added to the price only when you travel to them. Skip this if customers always come to you.</span>
+        </div>
         <div className="card small"><div className="row"><Icon name="eye" size="s" /><span className="grow">Customers only ever see how far away you are, like <span className="b">2.8 miles away</span>. A booked customer sees your address at 12:00 AM on the appointment day.</span></div></div>
       </ActionForm>
     </SetupShell>

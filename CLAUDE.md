@@ -54,6 +54,9 @@ Every admin write (invite, pause, refund, setting change, status switch) inserts
 - Phase 1 (foundation) is built. See `docs/PHASE-1.md`.
 - Phase 2 (professional side) is built. See `docs/PHASE-2.md`.
 - Phase 3A (student verification, search, model calls) is built. See `docs/PHASE-3A.md`.
+- Travel fee: pros who travel set a flat $35–$55 (`travelFeeCents`); added to the booking only when the pro goes to the student. The $150 cap is on the service price.
+- Model Calls can be Open time (`flexible`): startsAt = open-until; each model picks a time from openSlots. Optional photo + Additional information (`about`).
+- Owners can Browse & book as customers (requireStudent gives owners a customer profile without the school check).
 - Owners' own pro businesses are free: no Join payment, no membership (`isOwnerBusiness` in entry.ts; owner exception in requirePro, the pro layout, Join and liveProWhere). They still need ID + payouts.
 - Legal entity: Nearest, 5729 Lebanon Rd #144605, Frisco, Texas 75034 (Terms & Privacy).
 - DATABASE SAFETY: never add `.unique()` to a new column on a table that has rows — drizzle-kit push then asks to TRUNCATE the table. Use a `uniqueIndex(...)` in the table's extras instead (applies silently).

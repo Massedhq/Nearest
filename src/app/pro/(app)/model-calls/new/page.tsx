@@ -7,6 +7,8 @@ import { TopBar } from "@/components/TopBar";
 import { ActionForm } from "@/components/ActionForm";
 import { Icon } from "@/components/Icon";
 import { PriceInput } from "@/components/PriceInput";
+import { ModelCallWhen } from "@/components/ModelCallWhen";
+import { ModelCallPhoto } from "@/components/ModelCallPhoto";
 import { createModelCall } from "@/app/pro/actions";
 
 export const metadata = { title: "Create a model call" };
@@ -17,6 +19,7 @@ export default async function NewModelCall() {
   const { user, profile } = await requirePro();
   const services = await db.select().from(proServices).where(eq(proServices.userId, user.id)).orderBy(asc(proServices.sort));
   const today = chicagoNow().date;
+  const maxDay = new Date(Date.now() + 90 * 86400_000).toISOString().slice(0, 10);
   if (profile.reviewStatus !== "approved" || services.length === 0) {
     return (
       <div className="scr">
@@ -39,10 +42,8 @@ export default async function NewModelCall() {
               {services.map((s) => <option key={s.id} value={s.id}>{s.name} (regular {money(s.priceCents)})</option>)}
             </select>
           </div>
-          <div className="grid2">
-            <div className="field"><label htmlFor="day">Date</label><input id="day" name="day" type="date" min={today} required /></div>
-            <div className="field"><label htmlFor="time">Time</label><input id="time" name="time" type="time" required /></div>
-          </div>
+          <ModelCallWhen today={today} maxDay={maxDay} />
+          <ModelCallPhoto userId={user.id} />
           <div className="grid2">
             <PriceInput id="price" name="price" label="Model price ($)" placeholder="15" />
             <div className="field"><label htmlFor="spots">Spots</label><input id="spots" name="spots" inputMode="numeric" defaultValue="1" required /></div>
@@ -51,7 +52,7 @@ export default async function NewModelCall() {
           <span className="lbl">Requirements</span>
           {REQS.map((r) => <label key={r} className="check"><input type="checkbox" name="requirements" value={r} />{r}</label>)}
           <div className="field"><label htmlFor="otherRequirement">Other requirement (optional)</label><input id="otherRequirement" name="otherRequirement" /></div>
-          <div className="field"><label htmlFor="about">About this model call</label><textarea id="about" name="about" placeholder="What you're practicing and what the model should know." /></div>
+          <div className="field"><label htmlFor="about">Additional information</label><textarea id="about" name="about" rows={5} placeholder="Anything models should know — what you're practicing, how long it takes, what to bring, parking, how to prep." /></div>
           <div className="card small"><div className="row"><Icon name="eye" size="s" /><span className="grow">Shows under <span className="b">Model Calls near me</span> for students nearby.</span></div></div>
         </ActionForm>
       </div>

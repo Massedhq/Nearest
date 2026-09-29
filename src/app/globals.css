@@ -37,6 +37,7 @@ body{margin:0;background:#000}
 .btn.danger{background:transparent;color:#F2A38F!important;border:1px solid #6A2F26}
 .btn.gold{background:#E3C58A}
 .btn.dis{background:#1A1A1C;color:#6E6A63!important}
+.btn.dark{background:#0A0A0A;color:#ECE8E1!important}
 .link{color:#ECE8E1;font-weight:600;font-size:14px;text-decoration:underline;text-underline-offset:3px;background:none;border:0;padding:0;font-family:inherit;cursor:pointer}
 .center{text-align:center;align-self:center}
 .chip{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 14px;border-radius:19px;border:1px solid #2F2F33;background:#0E0E10;color:#ECE8E1;font:500 13px var(--font-body),system-ui,sans-serif;white-space:nowrap;flex:none;cursor:pointer}

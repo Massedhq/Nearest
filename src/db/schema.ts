@@ -169,6 +169,7 @@ export const professionalProfiles = pgTable("professional_profiles", {
   lng: doublePrecision("lng"),
   serviceMode: serviceMode("service_mode"),
   travelRadiusMi: integer("travel_radius_mi"),
+  travelFeeCents: integer("travel_fee_cents"), // flat fee when they travel to the customer: $35–$55
   // Phase 2: communication
   languages: text("languages").array(),
   aslLevel: aslLevel("asl_level").notNull().default("none"),
@@ -289,7 +290,9 @@ export const modelCalls = pgTable("model_calls", {
   spots: integer("spots").notNull().default(1),
   spotsTaken: integer("spots_taken").notNull().default(0),
   requirements: text("requirements").array(),
-  about: text("about"),
+  about: text("about"), // "Additional information"
+  flexible: boolean("flexible").notNull().default(false), // open time: each model picks a time from the pro's availability; startsAt = open-until
+  photoUrl: text("photo_url"), // the look they're practicing
   status: modelCallStatus("status").notNull().default("open"),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("model_calls_user_idx").on(t.userId), index("model_calls_starts_idx").on(t.startsAt)]);
@@ -357,6 +360,7 @@ export const bookings = pgTable("bookings", {
   startsAt: ts("starts_at").notNull(),
   endsAt: ts("ends_at").notNull(),
   priceCents: integer("price_cents").notNull(),
+  travelFeeCents: integer("travel_fee_cents").notNull().default(0), // included in priceCents when the pro travels
   depositCents: integer("deposit_cents").notNull(),
   creditProCents: integer("credit_pro_cents").notNull().default(0),
   creditGeneralCents: integer("credit_general_cents").notNull().default(0),

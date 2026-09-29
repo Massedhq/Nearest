@@ -24,6 +24,9 @@ export default async function Workspace() {
         <Link className="card" href="/admin" style={{ textDecoration: "none", padding: 22 }}>
           <div className="row"><span className="iconbtn"><Icon name="shield" /></span><div className="col g4 grow"><span className="h3">Nearest Administration</span><span className="muted small">Marketplace, people, bookings, money</span></div><Icon name="right" /></div>
         </Link>
+        <Link className="card" href="/home" style={{ textDecoration: "none", padding: 22 }}>
+          <div className="row"><span className="iconbtn"><Icon name="search" /></span><div className="col g4 grow"><span className="h3">Browse &amp; book</span><span className="small muted">Find professionals and book them as a customer</span></div><Icon name="right" /></div>
+        </Link>
         {pro ? (
           <Link className="card" href="/pro/home" style={{ textDecoration: "none", padding: 22 }}>
             <div className="row"><span className="iconbtn"><Icon name="store" /></span><div className="col g4 grow"><span className="h3">My Professional Business</span><span className="muted small">{pro.businessName ? `${pro.businessName} — calendar, clients, earnings` : "Calendar, clients, model calls, earnings"}</span></div><Icon name="right" /></div>

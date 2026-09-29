@@ -4,11 +4,13 @@ import { Icon } from "@/components/Icon";
 import { Tabs } from "@/components/Tabs";
 import { displayName, initials } from "@/lib/viewer";
 import { requireStudent, schoolArea } from "@/lib/student";
+import { getViewer } from "@/lib/viewer";
 
 export const metadata = { title: "Account" };
 
 export default async function Account() {
   const { user: u, profile } = await requireStudent();
+  const isOwner = (await getViewer())?.admin?.role === "OWNER";
   const area = profile.schoolId ? await schoolArea(profile.schoolId) : null;
   const verified = profile.verificationStatus === "verified";
   return (
@@ -28,6 +30,7 @@ export default async function Account() {
         </div>
         <div className="col" style={{ gap: 0 }}>
           <Link className="item" href="/bookings"><Icon name="cal" /><span className="grow">My appointments</span><Icon name="right" size="s" /></Link>
+          {isOwner && <Link className="item" href="/workspace"><Icon name="switch" /><span className="grow">Switch workspace</span><Icon name="right" size="s" /></Link>}
           <Link className="item" href="/connections"><Icon name="users" /><span className="grow">Connections</span><Icon name="right" size="s" /></Link>
           <Link className="item" href="/favorites"><Icon name="heart" /><span className="grow">Favorites</span><Icon name="right" size="s" /></Link>
           <Link className="item" href="/credits"><Icon name="wallet" /><span className="grow">My credits</span><Icon name="right" size="s" /></Link>

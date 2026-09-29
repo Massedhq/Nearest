@@ -7,7 +7,7 @@ import { liveProWhere } from "@/lib/search";
 import { openSlots } from "@/lib/availability";
 import { creditBalances, applyCredits } from "@/lib/credits";
 import { getSettings } from "@/lib/settings";
-import { chicagoToUtc, fmtDate, fmtTime } from "@/lib/time";
+import { chicagoToUtc, fmtDate, fmtTime, money } from "@/lib/time";
 import { TopBar } from "@/components/TopBar";
 import { ActionForm } from "@/components/ActionForm";
 import { PriceBox, Terms } from "@/components/BookingTerms";
@@ -54,13 +54,14 @@ export default async function Confirm({ params, searchParams }: { params: Promis
           <div className="row small"><Icon name="clock" size="s" /> {svc.durationMin} minutes</div>
           {!travels && <div className="row small top-a"><Icon name="pin" size="s" /><span>At the professional&apos;s place in {city?.name}. Address shared at 12:00 AM on your appointment day.</span></div>}
         </div>
+        {travels && <div className="card small"><span>{pro.serviceMode === "both" && pro.addressLine ? `If they come to you, a ${money(pro.travelFeeCents ?? 3500)} travel fee is added to this price.` : `Includes a ${money(pro.travelFeeCents ?? 3500)} travel fee at checkout — your professional comes to you.`}</span></div>}
         <PriceBox price={svc.priceCents} deposit={deposit} pro={use.pro} general={use.general} charge={use.charge} />
         <Terms deposit={deposit} cutoffHours={Number(s["cancel.cutoff_hours"])} graceMin={Number(s["appt.grace_minutes"])} />
         <ActionForm action={bookService} submitLabel={use.charge > 0 ? "Continue to payment" : "Book with credit"}>
           <input type="hidden" name="serviceId" value={svc.id} />
           <input type="hidden" name="day" value={day} />
           <input type="hidden" name="time" value={time} />
-          {travels && <WherePicker mode={pro.serviceMode === "both" && pro.addressLine ? "both" : "travel"} proCity={city?.name ?? ""} />}
+          {travels && <WherePicker mode={pro.serviceMode === "both" && pro.addressLine ? "both" : "travel"} proCity={city?.name ?? ""} travelFee={pro.travelFeeCents ?? 3500} />}
           <label className="check"><input type="checkbox" name="agree" required />I agree to the booking &amp; cancellation terms</label>
         </ActionForm>
       </div>
