@@ -104,3 +104,15 @@ export async function deleteAccount(userId: string): Promise<{ ok?: string; erro
   await removeLogin(user.clerkUserId);
   return { ok: `Deleted ${name}'s professional account.` };
 }
+
+/** Why someone can't delete their own account right now (null = they can). */
+export async function selfDeleteBlocker(userId: string): Promise<string | null> {
+  const { bookings, fines } = await import("@/db");
+  const { and, or, eq, inArray, gt, sql } = await import("drizzle-orm");
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(bookings)
+    .where(and(or(eq(bookings.studentId, userId), eq(bookings.proId, userId)), inArray(bookings.status, ["pending_payment", "confirmed"]), gt(bookings.endsAt, new Date(Date.now() - 48 * 3600_000))));
+  if (n) return `You have ${n} upcoming appointment${n === 1 ? "" : "s"} that must be completed or cancelled first.`;
+  const [{ f }] = await db.select({ f: sql<number>`count(*)::int` }).from(fines).where(and(eq(fines.proId, userId), eq(fines.status, "outstanding")));
+  if (f) return `You have ${f} unpaid fine${f === 1 ? "" : "s"} to settle first (see Account status).`;
+  return null;
+}

@@ -5,6 +5,8 @@ import { Tabs } from "@/components/Tabs";
 import { displayName, initials } from "@/lib/viewer";
 import { requireStudent, schoolArea } from "@/lib/student";
 import { getViewer } from "@/lib/viewer";
+import { DeleteMyAccount } from "@/components/DeleteMyAccount";
+import { selfDeleteBlocker } from "@/lib/accounts";
 
 export const metadata = { title: "Account" };
 
@@ -39,6 +41,7 @@ export default async function Account() {
           <Link className="item" href="/terms"><Icon name="file" /><span className="grow">Terms of Service</span><Icon name="right" size="s" /></Link>
           <Link className="item" href="/privacy"><Icon name="lock" /><span className="grow">Privacy Policy</span><Icon name="right" size="s" /></Link>
         </div>
+        {!isOwner && <DeleteMyAccount blocked={await selfDeleteBlocker(u.id)} />}
         <SignOutButton redirectUrl="/"><button className="btn ghost" type="button">Sign out</button></SignOutButton>
       </div>
       <Tabs kind="student" active="Account" />

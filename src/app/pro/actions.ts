@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import {
-  db, professionalProfiles, proServices, proHours, proBlocks, proOpenings, portfolioItems, proCredentials, categories, modelCalls, cities, cityCounties,
+  db, professionalProfiles, proServices, proHours, proBlocks, proOpenings, portfolioItems, proCredentials, categories, modelCalls, cities, cityCounties, bookings,
 } from "@/db";
 import { requirePro, setupSteps, nextStep, setupComplete } from "@/lib/pro";
 import { getSettings } from "@/lib/settings";
@@ -376,5 +376,20 @@ export async function toggleVacation() {
     // Going on vacation clears any openings still posted for today or later.
     await db.delete(proOpenings).where(and(eq(proOpenings.userId, user.id), gt(proOpenings.day, "1900-01-01")));
   }
+  revalidatePath("/pro", "layout");
+}
+
+/** Remove a cancelled or finished Model Call from your list. Past appointments made through it are kept. */
+export async function deleteModelCall(form: FormData) {
+  const { user } = await requirePro();
+  const id = String(form.get("id"));
+  const call = await db.query.modelCalls.findFirst({ where: and(eq(modelCalls.id, id), eq(modelCalls.userId, user.id)) });
+  if (!call) return;
+  const done = call.status === "cancelled" || call.startsAt.getTime() < Date.now();
+  if (!done) return; // open calls are cancelled first
+  const upcoming = await db.query.bookings.findFirst({ where: and(eq(bookings.modelCallId, id), inArray(bookings.status, ["confirmed", "pending_payment"]), gt(bookings.startsAt, new Date())) });
+  if (upcoming) return;
+  await db.update(bookings).set({ modelCallId: null }).where(eq(bookings.modelCallId, id));
+  await db.delete(modelCalls).where(eq(modelCalls.id, id));
   revalidatePath("/pro", "layout");
 }

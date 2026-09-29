@@ -8,6 +8,7 @@ import { Icon } from "@/components/Icon";
 import { startMembership, startPayouts, finishMembership } from "@/app/pro/pay-actions";
 import { submitProIdDocs } from "@/app/pro/id-actions";
 import { IdCapture } from "@/components/IdCapture";
+import { SubscriptionDetails } from "@/components/SubscriptionDetails";
 
 export const metadata = { title: "Membership & payments" };
 
@@ -58,6 +59,7 @@ export default async function Payments({ searchParams }: { searchParams: Promise
             <form action={startMembership}><button className="btn sm" type="submit" style={{ width: "100%" }}>{p.subscriptionId && p.subscriptionStatus !== "canceled" ? "Manage billing" : "Restart membership"}</button></form>
           </div>
           )}
+        {!owner && p.stripeCustomerId && <SubscriptionDetails customerId={p.stripeCustomerId} subscriptionId={p.subscriptionId} planLabel={p.entryType && p.entryType in ENTRY ? ENTRY[p.entryType as EntryType].label : "Standard"} standardCents={3000} />}
 
         <div className="card">
           <div className="row between"><span className="eyebrow">Identity</span><span className={`tag ${p.identityStatus === "verified" ? "ok" : p.identityStatus === "rejected" ? "bad" : "warn"}`}>{p.identityStatus === "verified" ? "Verified" : p.identityStatus === "pending" ? "Checking" : p.identityStatus === "rejected" ? "Try again" : "To do"}</span></div>

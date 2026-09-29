@@ -5,7 +5,7 @@ import { requirePro } from "@/lib/pro";
 import { fmtDate, fmtTime, money } from "@/lib/time";
 import { TopBar } from "@/components/TopBar";
 import { Icon } from "@/components/Icon";
-import { cancelModelCall } from "@/app/pro/actions";
+import { cancelModelCall, deleteModelCall } from "@/app/pro/actions";
 
 export const metadata = { title: "Model calls" };
 
@@ -38,6 +38,7 @@ export default async function ModelCalls() {
               {!past && (c.status === "open" || c.status === "full") && (
                 <form action={cancelModelCall}><input type="hidden" name="id" value={c.id} /><button className="btn danger sm" type="submit" style={{ width: "100%" }}>Cancel model call</button></form>
               )}
+              {(c.status === "cancelled" || past) && <form action={deleteModelCall}><input type="hidden" name="id" value={c.id} /><button className="btn ghost sm" type="submit" style={{ width: "100%" }}>Delete</button></form>}
             </div>
           );
         })}
