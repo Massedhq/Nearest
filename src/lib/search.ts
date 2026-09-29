@@ -1,9 +1,9 @@
 import "server-only";
 import { and, asc, desc, eq, gt, inArray, sql, type SQL } from "drizzle-orm";
-import { db, professionalProfiles, proServices, proOpenings, portfolioItems, cities, modelCalls, reviews, fines, favorites } from "@/db";
+import { db, catalogServices, professionalProfiles, proServices, proOpenings, portfolioItems, cities, modelCalls, reviews, fines, favorites } from "@/db";
 import { chicagoNow } from "./time";
 
-export type Filters = { q?: string; cat?: string; today?: string; after?: string; under?: string; asl?: string; area?: string; sort?: string };
+export type Filters = { q?: string; cat?: string; svc?: string; today?: string; after?: string; under?: string; asl?: string; area?: string; sort?: string };
 export type Area = { cityId: number; countyId: number | null; market?: string | null } | null;
 
 /** Only approved, searchable, not-on-vacation pros are ever returned to students. */
@@ -37,6 +37,17 @@ export async function searchPros(f: Filters, area: Area) {
     where.push(sql`(${professionalProfiles.businessName} ilike ${like} or exists (select 1 from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.price_cents <= 15000 and s.name ilike ${like}))`);
   }
   if (f.cat && /^\d+$/.test(f.cat)) where.push(sql`exists (select 1 from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.price_cents <= 15000 and s.category_id = ${Number(f.cat)})`);
+  if (f.cat && /^\d+$/.test(f.cat) && f.svc && /^\d+$/.test(f.svc)) {
+    // Second dropdown: a suggested service inside the category. Matches pros whose service name contains it.
+    const [c] = await db.select({ name: catalogServices.name }).from(catalogServices).where(and(eq(catalogServices.id, Number(f.svc)), eq(catalogServices.categoryId, Number(f.cat))));
+    if (c) {
+      // Pros word their services their own way ("Classic Full Set" for "Classic Set"), so match the key words.
+      const FILLER = new Set(["full", "set", "and", "&", "the", "a"]);
+      const words = c.name.toLowerCase().replace(/[%_]/g, "").split(/[^a-z0-9]+/).filter((w) => w.length > 1 && !FILLER.has(w));
+      const terms = (words.length ? words : [c.name.toLowerCase()]).map((w) => sql`s.name ilike ${`%${w}%`}`);
+      where.push(sql`exists (select 1 from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.price_cents <= 15000 and s.category_id = ${Number(f.cat)} and ${sql.join(terms, sql` and `)})`);
+    }
+  }
   if (f.today) where.push(sql`exists (select 1 from ${proOpenings} o where o.user_id = ${professionalProfiles.userId} and o.day = ${today})`);
   if (f.after) where.push(eq(professionalProfiles.acceptsAfterSchool, true));
   if (f.under) where.push(sql`exists (select 1 from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.price_cents <= 15000 and s.price_cents <= 2500)`);

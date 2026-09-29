@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { marketName } from "@/lib/markets";
 import { asc, eq } from "drizzle-orm";
-import { db, categories, searchLog, favorites } from "@/db";
+import { db, categories, catalogServices, searchLog, favorites } from "@/db";
 import { NearMe } from "@/components/NearMe";
 import { ExploreFilters } from "@/components/ExploreFilters";
 import { Bell } from "@/components/Inbox";
@@ -44,8 +44,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
     );
   }
   const f = await searchParams;
-  const [cats, found, favRows, unread, here] = await Promise.all([
+  const [cats, catalog, found, favRows, unread, here] = await Promise.all([
     db.select({ id: categories.id, name: categories.name }).from(categories).where(eq(categories.active, true)).orderBy(asc(categories.sort)),
+    db.select({ id: catalogServices.id, categoryId: catalogServices.categoryId, name: catalogServices.name }).from(catalogServices).orderBy(asc(catalogServices.sort), asc(catalogServices.name)),
     searchPros(f, area),
     db.select({ proId: favorites.proId }).from(favorites).where(eq(favorites.studentId, user.id)),
     unreadCount(user.id),
@@ -57,7 +58,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
   const hidden = isOwner ? await hiddenPros() : [];
   const pros = found.map((p) => ({ ...p, miles: here ? miles(here, p) : null }));
   if (f.sort === "near" && here) pros.sort((a, b) => (a.miles ?? 9999) - (b.miles ?? 9999));
-  if (f.q || f.cat || f.today || f.after || f.under || f.asl) {
+  if (f.q || f.cat || f.svc || f.today || f.after || f.under || f.asl) {
     const { q, area: _a, ...rest } = f;
     void _a;
     db.insert(searchLog).values({ studentId: user.id, query: q?.slice(0, 80) ?? null, filters: JSON.stringify(rest), cityId: area?.cityId ?? null, results: pros.length }).catch(() => {});
@@ -92,9 +93,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
           <span className="small b">Model Calls near me</span>
         </Link>
         <ExploreFilters
-          key={`${f.cat ?? ""}|${f.q ?? ""}|${f.area ?? ""}`}
+          key={`${f.cat ?? ""}|${f.svc ?? ""}|${f.q ?? ""}|${f.area ?? ""}`}
           cats={listCats}
+          services={catalog}
           cat={f.cat}
+          svc={f.svc}
           q={f.q}
           area={f.area}
           areaOptions={areaOptions}
@@ -113,7 +116,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
           {f.asl && <span className="xs">Showing only professionals who communicate in ASL — tap to show everyone</span>}
         </Link>
         {(() => {
-          const on = [f.cat && f.cat !== "other" && cats.find((c) => String(c.id) === f.cat)?.name, f.today && "Available Today", f.after && "After School", f.under && "Under $25", f.asl && "communicates in ASL", f.q && `“${f.q}”`].filter(Boolean) as string[];
+          const on = [f.cat && f.cat !== "other" && [cats.find((c) => String(c.id) === f.cat)?.name, f.svc && catalog.find((c) => String(c.id) === f.svc)?.name].filter(Boolean).join(" › "), f.today && "Available Today", f.after && "After School", f.under && "Under $25", f.asl && "communicates in ASL", f.q && `“${f.q}”`].filter(Boolean) as string[];
           const title = pros.length ? (f.asl ? "ASL professionals near you" : "Near you") : on.length ? "No matches for these filters" : "No professionals here yet";
           return (
             <>

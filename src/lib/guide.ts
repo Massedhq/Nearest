@@ -63,7 +63,7 @@ function student(r: R): GuideSection[] {
     },
     {
       id: "find", title: "Finding a professional", icon: "compass", topics: [
-        { q: "How do I search?", a: ["Explore shows verified pros in your area. Choose a category (or \"Other\" and type what you need), and change \"Where\" to search a different part of your area."], link: { label: "Go to Explore", href: "/home" } },
+        { q: "How do I search?", a: ["Explore shows verified pros in your area. Pick a category, then pick what you want inside it — for example Hair, then Silk Press — or leave it on \"All\" to see everyone in that category. Choose \"Other\" to type what you need, and change \"Where\" to search a different part of your area."], link: { label: "Go to Explore", href: "/home" } },
         { q: "What do Available Today, After School and Under $25 do?", a: ["Available Today shows pros who posted openings for today. After School shows pros with openings after class. Under $25 shows services that cost $25 or less. You can turn on more than one — tap \"Clear all\" to reset."] },
         { q: "What is Near Me?", a: ["Tap Near Me and allow location to sort pros by distance from where you are. Your location is only used to sort — it isn't shown to anyone."] },
         { q: "Can I find professionals who communicate in ASL?", a: ["Yes. Turn on the ASL option (set it in Communication preferences on your Account) and Explore shows only pros who communicate in ASL. Tap the banner to show everyone again."], link: { label: "Communication preferences", href: "/verify/access" } },
