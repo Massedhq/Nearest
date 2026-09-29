@@ -24,6 +24,7 @@ const LINKS: [string, string, string][] = [
   ["card", "Subscription", "/pro/payments"],
   ["sparkle", "Model calls", "/pro/model-calls"],
   ["cal", "Appointments", "/pro/appointments"],
+  ["file", "How Nearest works", "/pro/guide"],
 ];
 
 export default async function Business() {

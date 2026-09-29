@@ -31,7 +31,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Catch-up: Phase 7, Massed footer, birthday field, Terms/Privacy, favorite counts, owner access fix, owner restore, admin tools, labeled Sign out"
+git commit -q -m "How Nearest works guides: students, pros, admin and public how-it-works page"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

@@ -38,6 +38,7 @@ export default async function Account() {
           <Link className="item" href="/credits"><Icon name="wallet" /><span className="grow">My credits</span><Icon name="right" size="s" /></Link>
           <Link className="item" href="/notifications"><Icon name="bell" /><span className="grow">Notifications</span><Icon name="right" size="s" /></Link>
           <Link className="item" href="/verify/access"><Icon name="hand" /><span className="grow">Communication preferences</span><Icon name="right" size="s" /></Link>
+          <Link className="item" href="/guide"><Icon name="sparkle" /><span className="grow">How Nearest works</span><Icon name="right" size="s" /></Link>
           <Link className="item" href="/terms"><Icon name="file" /><span className="grow">Terms of Service</span><Icon name="right" size="s" /></Link>
           <Link className="item" href="/privacy"><Icon name="lock" /><span className="grow">Privacy Policy</span><Icon name="right" size="s" /></Link>
         </div>

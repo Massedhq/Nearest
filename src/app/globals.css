@@ -244,3 +244,17 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .setrow input{width:120px}
   .setsave{position:sticky;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:5;max-width:none !important;width:100%;box-shadow:0 6px 24px rgba(0,0,0,.6)}
 }
+
+/* How Nearest works guide */
+.guide-search{display:flex;align-items:center;gap:8px;height:46px;padding:0 14px;border-radius:14px;border:1px solid #2F2F33;background:#0E0E10;color:#9C978E}
+.guide-search input{flex:1;min-width:0;background:transparent;border:0;outline:0;color:#ECE8E1;font:400 15px var(--font-body),system-ui,sans-serif;height:100%;padding:0}
+.guide-x{background:none;border:0;color:#9C978E;cursor:pointer;display:grid;place-items:center;padding:4px}
+.guide-item{background:#111113;border:1px solid #242427;border-radius:14px}
+.guide-item summary{display:flex;align-items:center;gap:10px;padding:14px 16px;cursor:pointer;list-style:none;font:600 14.5px var(--font-body),system-ui,sans-serif;color:#ECE8E1}
+.guide-item summary::-webkit-details-marker{display:none}
+.guide-item summary svg{flex:none;transition:transform .15s ease;color:#9C978E}
+.guide-item[open] summary svg{transform:rotate(180deg)}
+.guide-body{display:flex;flex-direction:column;gap:10px;padding:0 16px 16px;color:#D8D2C6}
+.guide-steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;color:#D8D2C6}
+.guide-tabs{display:flex;gap:8px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}

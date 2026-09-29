@@ -54,6 +54,7 @@ Every admin write (invite, pause, refund, setting change, status switch) inserts
 - Phase 1 (foundation) is built. See `docs/PHASE-1.md`.
 - Phase 2 (professional side) is built. See `docs/PHASE-2.md`.
 - Phase 3A (student verification, search, model calls) is built. See `docs/PHASE-3A.md`.
+- How Nearest works guides: `/guide` (students), `/pro/guide` (pros), `/admin/guide` (admin), public `/how-it-works` (students & parents, `?for=pro` for pros). Content lives in `src/lib/guide.ts` and reads every number from the rules engine — when a feature or rule changes, update the matching guide topic in the same change.
 - Travel fee: pros who travel set a flat $35–$55 (`travelFeeCents`); added to the booking only when the pro goes to the student. The $150 cap is on the service price.
 - Model Calls can be Open time (`flexible`): startsAt = open-until; each model picks a time from openSlots. Optional photo + Additional information (`about`).
 - Owners can Browse & book as customers (requireStudent gives owners a customer profile without the school check).
