@@ -14,8 +14,15 @@ Step "1/4  Installing packages"
 npm ci
 Check "Installing packages"
 Step "2/4  Updating Neon (adds favorites, notifications, guardian consent and partner payout details - nothing is removed)"
-npx drizzle-kit push
-Check "Updating the database"
+# Neon can be slow to answer "Pulling schema" — retry up to 3 times before giving up.
+$ok = $false
+foreach ($try in 1..3) {
+  npx drizzle-kit push
+  if ($LASTEXITCODE -eq 0) { $ok = $true; break }
+  Write-Host "  Database didn't answer in time (try $try of 3) - retrying in 5 seconds..." -ForegroundColor Yellow
+  Start-Sleep -Seconds 5
+}
+if (-not $ok) { Write-Host "STOPPED: Updating the database failed 3 times. Run: npx drizzle-kit push   then run this installer again." -ForegroundColor Red; exit 1 }
 Step "3/4  Loading all 254 Texas counties (existing counties, cities and markets are left as they are)"
 npm run db:seed
 Check "Loading counties"
