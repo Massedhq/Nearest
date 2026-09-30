@@ -12,7 +12,7 @@ export default async function AdminGuide() {
     <>
       <AdminHead eyebrow="Every admin section, explained" title="How it works" />
       <div style={{ maxWidth: 760 }}>
-        <GuideView sections={sections} intro="What each part of the admin console does. Numbers come straight from Rules & Settings. Want the student or professional side? Open the public guide at usenearest.com/how-it-works." />
+        <GuideView sections={sections} intro="What each part of the admin console does. Numbers come straight from Rules & Settings. The student and professional guides are inside the app only: Account → How Nearest works (students) and Business → How Nearest works (pros)." />
       </div>
     </>
   );

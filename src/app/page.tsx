@@ -18,7 +18,6 @@ export default async function Welcome() {
       <div className="body" style={{ flex: "none", gap: 12 }}>
         <Link className="btn" href="/sign-up">Create account</Link>
         <Link className="btn ghost" href="/sign-in">Sign in</Link>
-        <Link className="link small" href="/how-it-works" style={{ textAlign: "center" }}>How Nearest works</Link>
         <p className="xs muted" style={{ textAlign: "center", margin: "6px 0 0" }}>By continuing you agree to the Nearest <Link className="link" href="/terms" style={{ fontSize: "inherit" }}>Terms</Link> and <Link className="link" href="/privacy" style={{ fontSize: "inherit" }}>Privacy Policy</Link>.</p>
       </div>
     </div>

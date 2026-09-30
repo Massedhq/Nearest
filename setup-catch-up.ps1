@@ -10,6 +10,10 @@ if (-not (Test-Path ".\src\app\fav-actions.ts") -or -not (Test-Path ".\.env.loca
 Write-Host "Owner emails in .env.local (should be ONLY your three owner emails):" -ForegroundColor Yellow
 Get-Content .\.env.local | Where-Object { $_ -match "^(OWNER_EMAILS|MAIN_OWNER_EMAIL)=" } | ForEach-Object { Write-Host "  $_" }
 
+# Files removed from Nearest (unzipping never deletes old files, so remove them here).
+$retired = @(".\src\app\how-it-works")
+foreach ($r in $retired) { if (Test-Path $r) { Remove-Item -Recurse -Force $r; Write-Host "Removed $r" -ForegroundColor DarkGray } }
+
 Step "1/4  Installing packages"
 npm ci
 Check "Installing packages"
@@ -31,7 +35,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Explore: Search button in the text box and under the dropdowns; no-results names what is missing and shows the closest pros; 252 services; service coverage"
+git commit -q -m "Remove public How Nearest works page and links (guides are in-app only); Explore search buttons"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

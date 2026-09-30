@@ -20,7 +20,6 @@ export default async function ProLanding() {
       <div className="body" style={{ flex: "none", gap: 12 }}>
         <Link className="btn" href="/pro/sign-in">Sign in</Link>
         {open && <Link className="btn ghost" href="/pro/sign-up">Register as a professional</Link>}
-        <Link className="link small" href="/how-it-works?for=pro" style={{ textAlign: "center" }}>How Nearest works for professionals</Link>
         <p className="xs muted" style={{ textAlign: "center", margin: "6px 0 0" }}>Have an invitation? Open the link your Nearest rep sent you.</p>
       </div>
     </div>

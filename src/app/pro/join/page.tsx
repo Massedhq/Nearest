@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { TopBar } from "@/components/TopBar";
 import { ActionForm } from "@/components/ActionForm";
@@ -82,7 +81,6 @@ export default async function Join({ searchParams }: { searchParams: Promise<{ s
             <p className="xs muted p">The first month is charged today. Your rate is locked to your account for your first 12 months. No commission on bookings.</p>
           </>
         )}
-        <Link className="link small" href="/how-it-works?for=pro" style={{ textAlign: "center" }}>How Nearest works for professionals</Link>
       </div>
     </div>
   );
