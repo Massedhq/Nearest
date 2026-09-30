@@ -31,7 +31,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Client photos: private gallery, pro approves photos for reviews/portfolio, download, remove; dropdown width fix; special invitations"
+git commit -q -m "Explore: Search button in the text box and under the dropdowns; no-results names what is missing and shows the closest pros; 252 services; service coverage"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

@@ -27,16 +27,34 @@ const CITIES: { name: string; abbr: string; counties: string[] }[] = [
 ];
 
 // License flags are starting defaults only. Confirm each with TDLR and adjust in Admin > Marketplace.
+// Categories group services by license (a category's license applies to every pro in it — see Admin → Marketplace).
+// Existing names are kept so live professionals aren't affected; new services are only ever added, never removed.
+// Source: "Nearest — Personal, Beauty & Wellness Service Categories" reference.
 const CATEGORIES: { name: string; license: string | null; services: string[] }[] = [
-  { name: "Hair", license: "Cosmetology Operator license (TDLR)", services: ["Silk Press", "Wash & Style", "Cut", "Color"] },
-  { name: "Braids", license: null, services: ["Knotless Braids", "Box Braids", "Cornrows", "Feed-in Braids"] },
-  { name: "Locs", license: null, services: ["Retwist", "Starter Locs", "Loc Styling"] },
-  { name: "Barber", license: "Barber license (TDLR)", services: ["Haircut", "Lineup", "Beard Trim"] },
-  { name: "Lashes", license: "Eyelash Extension Specialty license (TDLR)", services: ["Classic Set", "Hybrid Set", "Volume Set", "Lash Model Set", "Lash Fill"] },
-  { name: "Brows", license: null, services: ["Brow Lamination", "Brow Tint", "Brow Wax"] },
-  { name: "Nails", license: "Manicurist Specialty license (TDLR)", services: ["Gel Manicure", "Acrylic Full Set", "Pedicure"] },
-  { name: "Makeup", license: null, services: ["Soft Glam", "Full Glam", "Prom Makeup"] },
+  { name: "Hair", license: "Cosmetology Operator license (TDLR)", services: [
+    "Silk Press", "Wash & Style", "Cut", "Color", "Blowout", "Roller Set", "Trim", "Curls", "Updo", "Ponytail", "Quick Weave", "Sew-In",
+    "Wig Install", "Lace Install", "Wig Customization", "Wig Plucking", "Bleaching Knots", "Wig Styling", "Wig Maintenance", "Wig Reinstall",
+    "Extensions", "Microlinks", "Tape-Ins", "I-Tips", "K-Tips", "Clip-Ins", "Extension Removal", "Extension Maintenance",
+    "Wash & Go", "Twist-Out", "Braid-Out", "Two-Strand Twists", "Coil Styling", "Protective Style", "Natural Hair Treatment", "Detangling",
+    "Highlights", "Lowlights", "Balayage", "Root Touch-Up", "Fashion Color", "Toner", "Color Correction",
+    "Scalp Analysis", "Scalp Cleansing", "Scalp Treatment", "Buildup Removal", "Scalp Massage", "Scalp Hydration", "Head Spa Treatment",
+  ] },
+  { name: "Braids", license: null, services: ["Knotless Braids", "Box Braids", "Cornrows", "Feed-in Braids", "Stitch Braids", "Fulani Braids", "Lemonade Braids", "Tribal Braids", "Braided Ponytail", "Crochet Braids"] },
+  { name: "Locs", license: null, services: ["Retwist", "Starter Locs", "Loc Styling", "Interlocking", "Loc Repair", "Loc Extensions", "Instant Locs", "Loc Detox"] },
+  { name: "Barber", license: "Barber license (TDLR)", services: ["Haircut", "Lineup", "Beard Trim", "Fade", "Taper", "Beard Shaping", "Razor Shave", "Hair Design", "Hot-Towel Shave"] },
+  { name: "Lashes", license: "Eyelash Extension Specialty license (TDLR)", services: ["Classic Set", "Hybrid Set", "Volume Set", "Lash Model Set", "Lash Fill", "Mega Volume Set", "Lash Removal", "Lash Lift", "Lash Tint", "Cluster Lashes", "Individual Clusters", "Lash Maintenance"] },
+  { name: "Brows", license: null, services: ["Brow Lamination", "Brow Tint", "Brow Wax", "Brow Shaping", "Brow Threading", "Henna Brows", "Brow Mapping", "Upper Lip Threading", "Chin Threading", "Cheek Threading", "Sideburn Threading", "Full-Face Threading"] },
+  { name: "Nails", license: "Manicurist Specialty license (TDLR)", services: ["Gel Manicure", "Acrylic Full Set", "Pedicure", "Manicure", "Acrylic Fill", "Gel-X", "Builder Gel", "Dip Powder", "Nail Art", "Nail Repair", "Soak-Off", "Gel Pedicure", "Spa Pedicure", "French Pedicure", "Toe Acrylic", "Polish Change", "Callus Care"] },
+  { name: "Makeup", license: null, services: ["Soft Glam", "Full Glam", "Prom Makeup", "Natural Makeup", "Bridal Makeup", "Event Makeup", "Editorial Makeup", "Strip-Lash Application"] },
   { name: "Photography", license: null, services: ["Portrait Session", "Graduation Photos"] },
+  { name: "Skincare", license: "Esthetician license (TDLR)", services: ["Facial", "Deep Cleansing Facial", "Hydration Facial", "Acne Facial", "Extractions", "Exfoliation", "Mask Treatment", "Dermaplaning", "Chemical Peel", "Skin Consultation", "Skin Maintenance Treatment", "Facial Massage", "Gua Sha", "Facial Sculpting", "Lymphatic Facial Massage"] },
+  { name: "Hair Removal", license: "Esthetician license (TDLR)", services: ["Lip Wax", "Chin Wax", "Underarm Wax", "Arm Wax", "Leg Wax", "Bikini Wax", "Brazilian Wax", "Back/Chest Wax", "Brazilian Sugaring", "Bikini Sugaring", "Leg Sugaring", "Arm Sugaring", "Underarm Sugaring", "Face Sugaring", "Back/Chest Sugaring"] },
+  { name: "Massage", license: "Massage Therapist license (TDLR)", services: ["Swedish Massage", "Deep-Tissue Massage", "Sports Massage", "Chair Massage", "Prenatal Massage", "Hot-Stone Massage"] },
+  { name: "Body & Wellness", license: null, services: ["Full-Body Spray Tan", "Partial Spray Tan", "Contour Tan", "Express Tan", "Teeth Whitening", "Teeth Whitening Touch-Up", "Tooth Gems", "Tooth Gem Design", "Tooth Gem Removal", "Henna Tattoo", "Henna Hand Design", "Henna Feet Design", "Bridal Henna", "Custom Henna", "Cavitation", "Radiofrequency Treatment", "Vacuum Therapy", "Body Sculpting", "Wood Therapy", "Lymphatic Treatment"] },
+  { name: "Tattoos & Piercings", license: "Tattoo & body piercing license (Texas DSHS)", services: ["Fine-Line Tattoo", "Traditional Tattoo", "Lettering Tattoo", "Custom Tattoo", "Flash Tattoo", "Tattoo Touch-Up", "Microblading", "Powder Brows", "Ombre Brows", "Combo Brows", "Lip Blush", "Permanent Eyeliner", "Ear Piercing", "Nose Piercing", "Navel Piercing", "Facial/Body Piercing", "Jewelry Change"] },
+  { name: "Fitness", license: null, services: ["Strength Training", "Weight Training", "Conditioning", "Beginner Training", "One-on-One Fitness Session", "Private Yoga", "Beginner Yoga", "Restorative Yoga", "Flexibility Session", "Assisted Stretching", "Mobility Session", "Recovery Stretching", "Mat Pilates", "Reformer Pilates", "Private Pilates", "Beginner Pilates", "Guided Meditation", "Breathwork Session", "Relaxation Session"] },
+  { name: "Personal Styling", license: null, services: ["Outfit Styling", "Wardrobe Consultation", "Event Styling", "Closet Styling", "Personal Shopping", "Personal Style Consultation", "Color Analysis", "Wardrobe Planning", "Image Styling", "Alterations", "Hemming", "Resizing", "Zipper Repair", "Custom Fitting", "Sneaker Cleaning", "Sneaker Deep Clean", "Sneaker Whitening", "Stain Removal", "Sneaker Restoration", "Accessory Styling", "Jewelry Styling", "Ear Styling", "Beauty Consultation", "Product Selection", "Skincare Routine Guidance", "Makeup Product Guidance"] },
+  { name: "Grooming", license: "Barber or Cosmetology license (TDLR)", services: ["Men's Haircut", "Beard Grooming", "Facial Grooming", "Men's Brows", "Men's Waxing", "Basic Skincare"] },
   { name: "Other", license: null, services: [] },
 ];
 
@@ -91,6 +109,8 @@ async function main() {
     .insert(categories)
     .values(CATEGORIES.map((c, i) => ({ name: c.name, licenseRequired: !!c.license, licenseLabel: c.license, sort: i })))
     .onConflictDoNothing();
+  // "Other" always sorts last, after categories added later.
+  await db.update(categories).set({ sort: 999 }).where(sql`${categories.name} = 'Other'`);
   const catRows = await db.select().from(categories);
   const svc = CATEGORIES.flatMap((c) => {
     const cat = catRows.find((r) => r.name === c.name)!;

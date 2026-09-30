@@ -36,6 +36,8 @@ function rules(s: Settings) {
     unpaidDays: n("enforce.unpaid_fine_termination_days"),
     firstIn: n("growth.founding_capacity"),
     perCity: n("growth.target_per_city"),
+    perCategory: n("growth.target_per_category") || 5,
+    marketGoal: n("growth.market_goal") || 1500,
     inviteDays: n("growth.invite_expiry_days"),
     subDays: n("sub.termination_days"),
   };
@@ -63,8 +65,7 @@ function student(r: R): GuideSection[] {
     },
     {
       id: "find", title: "Finding a professional", icon: "compass", topics: [
-        { q: "How do I search?", a: ["Everything is in the Find a professional box on Explore. Type a service or a pro's name, or use the dropdowns: pick a category, then what you want inside it — for example Hair, then Silk Press — or leave it on \"All\" to see everyone in that category. Choose \"Other\" to type what you need."], link: { label: "Go to Explore", href: "/home" } },
-        { q: "Can I search another city or a ZIP code?", a: ["Yes. Set Where to \"Another city or ZIP code…\" and type a city (like Plano) or a 5-digit ZIP. A ZIP shows pros within 25 miles, closest first, with distances measured from that ZIP."] },
+        { q: "How do I search?", a: ["Everything is in the Find a professional box on Explore. Two ways to search: type a service or a pro's name and tap the Search button in that box, or choose from the dropdowns — Where, a category, then the service you want (or \"All\") — and tap Search under them. Your results show right below.", "If nobody matches, Nearest tells you what isn't available yet (for example, \"No lash artists in your area yet\") and shows the closest professionals it has."] },
         { q: "What do Available Today, After School and Under $25 do?", a: ["Available Today shows pros who posted openings for today. After School shows pros with openings after class. Under $25 shows services that cost $25 or less. You can turn on more than one — tap \"Clear all\" to reset."] },
         { q: "What is Near Me?", a: ["Tap Near Me and allow location to sort pros by distance from where you are. Your location is only used to sort — it isn't shown to anyone."] },
         { q: "Can I find professionals who communicate in ASL?", a: ["Yes. Turn on the ASL option (set it in Communication preferences on your Account) and Explore shows only pros who communicate in ASL. Tap the banner to show everyone again."], link: { label: "Communication preferences", href: "/verify/access" } },
@@ -207,6 +208,7 @@ function admin(r: R): GuideSection[] {
       id: "overview", title: "Overview", icon: "home", topics: [
         { q: "Command Center", a: ["Today at a glance: professionals, bookings today, professional MRR, and everything that needs attention — invitations waiting and students, pros and licenses to verify."], link: { label: "Open", href: "/admin" } },
         { q: "First In", a: [`Paid First In pros against the ${r.firstIn}-seat limit, invitation codes, and the enrollment phase (First In open, First In closed, or next entry open with Professional + Student and General). Only owners can change the phase. Invitations expire after ${r.inviteDays} days and don't need a city.`, "The main owner also sees Special invitation: Ambassador (a free account — they share the main owner's link, so pros they bring in are credited to the main owner) or Pay from bookings (starts at $15/month; each month Nearest keeps that amount from their released booking money, then the rest is theirs; a month with no bookings costs nothing). Only the main owner can create these, and they work even when First In is closed."], link: { label: "Open", href: "/admin/founding" } },
+        { q: "Service coverage", a: [`The recruiting map. For every city: how many professionals Nearest has in each category, how many are live, and how many more are needed to reach ${r.perCategory} per category. It also shows First In progress, progress toward the market goal of ${r.marketGoal.toLocaleString()} professionals, and a Recruit next list — the biggest gaps in the cities with the most verified students. Tap a city for its full breakdown.`], link: { label: "Open", href: "/admin/service-coverage" } },
         { q: "Coverage", a: [`Every market's counties and cities, which cities have a live pro, and verified students. The goal is ${r.perCity} pros per city. Add cities by State + ZIP.`], link: { label: "Open", href: "/admin/coverage" } },
       ],
     },

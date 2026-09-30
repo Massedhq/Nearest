@@ -13,6 +13,7 @@ import { Tabs } from "@/components/Tabs";
 import { ProResult } from "@/components/ProResult";
 import { requireVerifiedStudent } from "@/lib/student";
 import { searchPros, resolvePlace, ZIP_RADIUS_MI, type Filters } from "@/lib/search";
+import { proTitle } from "@/lib/pro-titles";
 import { studentSuspendedUntil, SUSPENSION_TEXT } from "@/lib/enforcement";
 import { fmtDate } from "@/lib/time";
 import { getViewer } from "@/lib/viewer";
@@ -62,6 +63,35 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
   const pros = found.map((p) => ({ ...p, miles: from ? miles(from, p) : null }));
   if (place?.kind === "zip") pros.sort((a, b) => (a.miles ?? 9999) - (b.miles ?? 9999));
   else if (f.sort === "near" && here) pros.sort((a, b) => (a.miles ?? 9999) - (b.miles ?? 9999));
+
+  // Nothing matched: name what's missing ("No lash artists in your area yet"), then offer the closest
+  // professionals Nearest has for that category or search anywhere — service first, then the whole category.
+  const catRow = f.cat && f.cat !== "other" ? cats.find((c) => String(c.id) === f.cat) : undefined;
+  const svcName = f.svc ? catalog.find((c) => String(c.id) === f.svc)?.name : undefined;
+  const lookingFor = catRow || f.q;
+  let closest: typeof pros = [];
+  let closestLabel = "";
+  if (pros.length === 0 && lookingFor) {
+    const tries: Filters[] = catRow
+      ? [...(f.svc ? [{ cat: f.cat, svc: f.svc } as Filters] : []), { cat: f.cat } as Filters]
+      : [{ q: f.q } as Filters];
+    for (const t of tries) {
+      const got = await searchPros(t, null, null); // no area limit: anywhere on Nearest
+      if (got.length) {
+        closest = got.map((p) => ({ ...p, miles: from ? miles(from, p) : null })).sort((a, b) => (a.miles ?? 9999) - (b.miles ?? 9999)).slice(0, 6);
+        closestLabel = catRow
+          ? t.svc && svcName ? `Closest ${proTitle(catRow.name)} offering ${svcName}` : `Closest ${proTitle(catRow.name)} on Nearest`
+          : `Closest matches for “${f.q}” on Nearest`;
+        break;
+      }
+    }
+  }
+  const whereText = place?.kind === "zip" ? `within ${ZIP_RADIUS_MI} miles of ${place.label}` : place?.kind === "city" ? `in ${place.label}` : f.area === "all" ? `in ${marketName(area?.market) || "your area"}` : "in your area";
+  const missingTitle = catRow
+    ? svcName ? `No one offering ${svcName} ${whereText} yet` : `No ${proTitle(catRow.name)} ${whereText} yet`
+    : f.q ? `No results for “${f.q}” ${whereText}` : null;
+  const extraFilters = Boolean(f.today || f.after || f.under || f.asl);
+
   if (f.q || f.cat || f.svc || f.loc || f.today || f.after || f.under || f.asl) {
     const { q, area: _a, ...rest } = f;
     void _a;
@@ -120,10 +150,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
         </Link>
         {(() => {
           const on = [f.cat && f.cat !== "other" && [cats.find((c) => String(c.id) === f.cat)?.name, f.svc && catalog.find((c) => String(c.id) === f.svc)?.name].filter(Boolean).join(" › "), place && (place.kind === "zip" ? `within ${ZIP_RADIUS_MI} mi of ${place.label}` : `in ${place.label}`), f.today && "Available Today", f.after && "After School", f.under && "Under $25", f.asl && "communicates in ASL", f.q && `“${f.q}”`].filter(Boolean) as string[];
-          const title = pros.length ? (f.asl ? "ASL professionals near you" : "Near you") : on.length ? "No matches for these filters" : "No professionals here yet";
+          const title = pros.length
+            ? (f.asl ? "ASL professionals near you" : "Near you")
+            : missingTitle && place?.kind !== "none" ? `${missingTitle}${extraFilters ? " with these filters" : ""}` : on.length ? "No matches for these filters" : "No professionals here yet";
           return (
             <>
-              <div className="row between"><h2 className="disp h2">{title}</h2><span className="xs muted">{pros.length} professional{pros.length === 1 ? "" : "s"}</span></div>
+              <div id="results" className="row between" style={{ scrollMarginTop: 16 }}><h2 className="disp h2">{title}</h2><span className="xs muted">{pros.length} professional{pros.length === 1 ? "" : "s"}</span></div>
               {on.length > 0 && <div className="row" style={{ gap: 8, flexWrap: "wrap" }}><span className="xs muted">Filters on: {on.join(" • ")}</span><Link className="link xs" href="/home">Clear all</Link></div>}
               {pros.length === 0 && (
                 <p className="small muted p">
@@ -133,6 +165,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
                     ? `No professionals are live ${place.kind === "zip" ? `within ${ZIP_RADIUS_MI} miles of ${place.label}` : `in ${place.label}`} yet. Try a nearby city or ZIP.`
                     : f.asl && on.length === 1
                     ? `No professionals who communicate in ASL are listed in ${marketName(area?.market) || "your area"} yet. They'll show up here as they join.`
+                    : missingTitle
+                      ? closest.length
+                        ? `New professionals join every week. Until then, here are the closest ones Nearest has${extraFilters ? " (without your other filters)" : ""}.`
+                        : `Nearest doesn't have any yet — new professionals join every week. Check back soon.`
                     : on.length
                       ? `Nobody matches all of these right now. Try turning a filter off, or choose All ${marketName(area?.market) || "areas"}.`
                       : `No professionals are live in ${marketName(area?.market) || "your area"} yet. New professionals join every week.`}
@@ -158,6 +194,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
           </div>
         )}
         {pros.map((p) => <ProResult key={p.userId} p={p} fav={favSet.has(p.userId)} />)}
+        {closest.length > 0 && (
+          <>
+            <h3 className="disp h3" style={{ marginTop: 6 }}>{closestLabel}</h3>
+            {closest.map((p) => <ProResult key={p.userId} p={p} fav={favSet.has(p.userId)} />)}
+          </>
+        )}
       </div>
       <Tabs kind="student" active="Explore" />
     </div>
