@@ -6,7 +6,7 @@ import { getFlag } from "@/lib/settings";
 import { notFound } from "next/navigation";
 import { and, asc, desc, eq, lte, sql } from "drizzle-orm";
 import { MAX_PRICE_CENTS } from "@/lib/pricing";
-import { db, professionalProfiles, proServices, portfolioItems, proHours, proOpenings, cities, reviews, favorites } from "@/db";
+import { db, bookings, professionalProfiles, proServices, portfolioItems, proHours, proOpenings, cities, reviews, favorites } from "@/db";
 import { FavButton } from "@/components/FavButton";
 import { ShareProButton } from "@/components/ShareProButton";
 import { ensureProSlug, proLink } from "@/lib/connections";
@@ -24,8 +24,9 @@ export const metadata = { title: "Professional" };
 const ASL: Record<string, string> = { basic: "Basic", conversational: "Conversational", fluent: "Fluent" };
 const MODE: Record<string, string> = { come_to_me: "Customers come to me", travel: "Travels to you", both: "Come to me or I travel" };
 
-export default async function ProProfile({ params }: { params: Promise<{ id: string }> }) {
+export default async function ProProfile({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ notbooked?: string }> }) {
   const { user } = await requireVerifiedStudent();
+  const notBooked = (await searchParams).notbooked === "1";
   const adult = isAdult(user.dateOfBirth);
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
@@ -52,7 +53,12 @@ export default async function ProProfile({ params }: { params: Promise<{ id: str
     ig && { icon: "insta", label: "Instagram", text: `@${ig}`, href: instagramUrl(ig) },
     tt && { icon: "tiktok", label: "TikTok", text: `@${tt}`, href: tiktokUrl(tt) },
   ].filter(Boolean) as { icon: string; label: string; text: string; href: string }[];
-  const revs = await db.select().from(reviews).where(and(eq(reviews.proId, id), eq(reviews.hidden, false))).orderBy(desc(reviews.createdAt)).limit(20);
+  const revs = await db
+    .select({ id: reviews.id, rating: reviews.rating, body: reviews.body, createdAt: reviews.createdAt,
+      // a client photo shows only if the client allowed sharing AND the pro chose to show it with this review
+      photo: sql<string | null>`case when ${bookings.photoStatus} = 'shown' and ${bookings.photoForPortfolio} then ${bookings.photoUrl} end` })
+    .from(reviews).innerJoin(bookings, eq(bookings.id, reviews.bookingId))
+    .where(and(eq(reviews.proId, id), eq(reviews.hidden, false))).orderBy(desc(reviews.createdAt)).limit(20);
   const avg = revs.length ? Math.round((revs.reduce((a, r) => a + r.rating, 0) / revs.length) * 10) / 10 : null;
   const initials = (p.businessName ?? "N").split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
   const langs = (p.languages ?? []).filter((l) => l !== "ASL");
@@ -61,6 +67,7 @@ export default async function ProProfile({ params }: { params: Promise<{ id: str
     <div className="scr">
       <TopBar back="/home" />
       <div className="body" style={{ paddingTop: 0 }}>
+        {notBooked && <div className="card small" role="status"><span>Not booked — you backed out before paying, so you weren&apos;t charged. Pick a time again whenever you&apos;re ready.</span></div>}
         <div className="row">
           {p.photoUrl ? <Image src={p.photoUrl} alt="" width={84} height={84} style={{ borderRadius: 42, objectFit: "cover" }} /> : <div className="avatar lg">{initials}</div>}
           <div className="col g4 grow"><h1 className="disp h2">{p.businessName}</h1><span className="badge"><Icon name="shield" size="s" /> Approved by Nearest</span></div>
@@ -127,6 +134,10 @@ export default async function ProProfile({ params }: { params: Promise<{ id: str
               <div key={r.id} className="card">
                 <div className="row between"><span className="stars" aria-label={`${r.rating} out of 5`}>{"★".repeat(r.rating)}<span style={{ opacity: 0.3 }}>{"★".repeat(5 - r.rating)}</span></span><span className="xs muted">{r.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Chicago" })}</span></div>
                 {r.body && <p className="p small">{r.body}</p>}
+                {r.photo && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={r.photo} alt="The client's finished look" style={{ width: "100%", maxHeight: 320, objectFit: "cover", borderRadius: 12 }} />
+                )}
                 <span className="badge xs"><Icon name="check" size="s" /> Verified Booking</span>
               </div>
             ))}

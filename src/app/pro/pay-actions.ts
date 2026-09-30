@@ -13,6 +13,7 @@ import type { FormState } from "@/components/ActionForm";
 
 export async function startMembership() {
   const { user, profile } = await requirePro();
+  if (profile.entryType === "AMBASSADOR" || profile.entryType === "BOOKING_PAID") redirect("/pro/payments"); // Nearest-managed: no card, no Stripe subscription
   const base = await origin();
   if (profile.stripeCustomerId && profile.subscriptionStatus && !["canceled", "incomplete_expired"].includes(profile.subscriptionStatus)) {
     const portal = await stripe().billingPortal.sessions.create({ customer: profile.stripeCustomerId, return_url: `${base}/pro/payments` });

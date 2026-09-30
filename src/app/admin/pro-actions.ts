@@ -113,6 +113,8 @@ export async function emailInvite(form: FormData) {
     city: hit.city,
     code: hit.i.code,
     link: `${origin}/pro/invite/${hit.i.code}`,
+    kind: hit.i.kind,
+    rateCents: hit.i.rateCents,
     expires: hit.i.expiresAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Chicago" }),
   });
   await logActivity({ actorUserId: user.id, action: res.sent ? "invite.emailed" : "invite.email_failed", targetType: "invitation", targetId: hit.i.code, after: res.sent ? hit.i.contact : res.reason });

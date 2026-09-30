@@ -35,12 +35,18 @@ export async function sendEmail(opts: { to: string | null | undefined; subject: 
   }
 }
 
-export async function sendInviteEmail(opts: { to: string; name: string; city?: string | null; code: string; link: string; expires: string }) {
+export async function sendInviteEmail(opts: { to: string; name: string; city?: string | null; code: string; link: string; expires: string; kind?: string; rateCents?: number | null }) {
   if (!emailEnabled()) return { sent: false as const, reason: "Email isn't set up yet (no RESEND_API_KEY)." };
+  const rate = `$${((opts.rateCents ?? 1500) / 100).toFixed(0)}`;
+  const offer = opts.kind === "AMBASSADOR"
+    ? { subject: "You're invited to join Nearest as an Ambassador", eyebrow: "Ambassador Invitation", heading: `${opts.name}, you're invited to join Nearest as an Ambassador.`, line: "Your professional account is free — no sign-up fee and no monthly membership. Share Nearest with other professionals and help them get on board." }
+    : opts.kind === "BOOKING_PAID"
+      ? { subject: "You're invited to join Nearest", eyebrow: "Special Invitation", heading: `${opts.name}, you're invited to join Nearest.`, line: `Nothing to pay up front. Your membership is ${rate}/month, collected from your bookings — once ${rate} is covered for the month, the rest of that month's earnings are all yours. A month with no bookings costs nothing.` }
+      : { subject: "You're invited to join Nearest First In", eyebrow: "First In Invitation", heading: `${opts.name}, you're invited to join Nearest First In.`, line: "$11/month for your first 12 months. Your First In rate is locked to your account." };
   const r = await sendEmail({
-    to: opts.to, subject: "You're invited to join Nearest First In", eyebrow: "First In Invitation",
-    heading: `${opts.name}, you're invited to join Nearest First In.`,
-    lines: [`Invitation code: ${opts.code}`, ...(opts.city ? [`City: ${opts.city}`] : []), `Expires: ${opts.expires}`, "$11/month for your first 12 months. Your First In rate is locked to your account."],
+    to: opts.to, subject: offer.subject, eyebrow: offer.eyebrow,
+    heading: offer.heading,
+    lines: [`Invitation code: ${opts.code}`, ...(opts.city ? [`City: ${opts.city}`] : []), `Expires: ${opts.expires}`, offer.line],
     button: { label: "Accept invitation", url: opts.link },
   });
   return r.sent ? { sent: true as const } : { sent: false as const, reason: "reason" in r ? r.reason ?? "Email failed" : "Email failed" };

@@ -1,6 +1,7 @@
 import "server-only";
+import { collectDues } from "./dues";
 import { and, eq, sql } from "drizzle-orm";
-import { db, bookings, credits, studentProfiles, professionalProfiles, reviews, portfolioItems, incidents } from "@/db";
+import { db, bookings, credits, studentProfiles, professionalProfiles, reviews, incidents } from "@/db";
 import { getSettings } from "./settings";
 import { chicagoNow, TZ } from "./time";
 import { distanceFt, withinRadius } from "./geo";
@@ -68,10 +69,13 @@ export async function markNoShow(b: Booking) {
   await db.update(studentProfiles).set({ noShowCount: sql`${studentProfiles.noShowCount} + 1` }).where(eq(studentProfiles.userId, b.studentId));
   await checkNoShowLimit(b.studentId);
   const pro = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, b.proId) });
-  if (forfeit > 0 && pro?.stripeAccountId && pro.payoutsEnabled) {
+  const toPro = forfeit - (await collectDues(pro, b.id, forfeit)); // pay-from-bookings membership comes out first
+  // No payouts connected yet: Nearest holds the deposit and sends it once they connect.
+  if (toPro > 0 && (!pro?.stripeAccountId || !pro.payoutsEnabled)) await db.update(bookings).set({ payoutOwedCents: toPro }).where(eq(bookings.id, b.id));
+  if (toPro > 0 && pro?.stripeAccountId && pro.payoutsEnabled) {
     try {
       const t = await stripe().transfers.create(
-        { amount: forfeit, currency: "usd", destination: pro.stripeAccountId, transfer_group: b.id, ...(b.stripeChargeId ? { source_transaction: b.stripeChargeId } : {}), metadata: { bookingId: b.id, kind: "no_show_deposit" } },
+        { amount: toPro, currency: "usd", destination: pro.stripeAccountId, transfer_group: b.id, ...(b.stripeChargeId ? { source_transaction: b.stripeChargeId } : {}), metadata: { bookingId: b.id, kind: "no_show_deposit" } },
         { idempotencyKey: `noshow-${b.id}` },
       );
       await db.update(bookings).set({ transferId: t.id }).where(eq(bookings.id, b.id));
@@ -88,10 +92,17 @@ export async function confirmService(b: Booking) {
   await db.update(bookings).set({ serviceConfirmedAt: b.serviceConfirmedAt ?? new Date() }).where(eq(bookings.id, b.id));
 }
 
+/**
+ * The client's finished-look photo. It goes to the pro's private Client photos — never straight into their
+ * portfolio. The pro decides whether it shows with the review or moves into the portfolio (only if the client allowed sharing).
+ */
 export async function savePhoto(b: Booking, url: string | null, allowPortfolio: boolean) {
-  await db.update(bookings).set({ photoUrl: url, photoForPortfolio: url ? allowPortfolio : null }).where(eq(bookings.id, b.id));
-  if (url && allowPortfolio) {
-    await db.insert(portfolioItems).values({ userId: b.proId, url, source: "nearest", sort: Date.now() % 1_000_000 });
+  await db.update(bookings).set({ photoUrl: url, photoForPortfolio: url ? allowPortfolio : null, photoStatus: null }).where(eq(bookings.id, b.id));
+  if (url) {
+    try {
+      const { inbox } = await import("./inbox");
+      await inbox(b.proId, { kind: "client_photo", title: "New client photo", body: `${b.serviceName} — it's private until you choose what to do with it.`, href: "/pro/client-photos", refId: b.id });
+    } catch (e) { console.error(e); }
   }
 }
 

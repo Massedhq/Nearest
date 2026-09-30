@@ -4,6 +4,7 @@ import { and, eq, inArray, lt, sql } from "drizzle-orm";
 import { db, bookings, credits, modelCalls, professionalProfiles } from "@/db";
 import { stripe } from "./stripe";
 import { getSettings } from "./settings";
+import { collectDues } from "./dues";
 
 export const bookingCode = (n: number) => `NEA-${10000 + n}`;
 
@@ -47,6 +48,34 @@ export async function confirmBooking(bookingId: string, charge?: { chargeId: str
   return b;
 }
 
+/**
+ * The student backed out of paying: give the time back and close the Stripe page.
+ * Safe if they actually paid in the meantime — then the booking is confirmed instead. Returns what happened.
+ */
+export async function releaseHold(bookingId: string, studentId: string): Promise<"released" | "paid" | "none"> {
+  const b = await db.query.bookings.findFirst({ where: and(eq(bookings.id, bookingId), eq(bookings.studentId, studentId), eq(bookings.status, "pending_payment")) });
+  if (!b) return "none";
+  if (b.stripeCheckoutId) {
+    try {
+      await stripe().checkout.sessions.expire(b.stripeCheckoutId);
+    } catch {
+      // Already finished or expired. If it was paid, keep the booking.
+      try {
+        const s = await stripe().checkout.sessions.retrieve(b.stripeCheckoutId);
+        if (s.payment_status === "paid") { await confirmFromCheckout(s.id); return "paid"; }
+      } catch (e) { console.error(e); }
+    }
+  }
+  await db.update(bookings).set({ status: "expired", holdExpiresAt: null }).where(and(eq(bookings.id, b.id), eq(bookings.status, "pending_payment")));
+  return "released";
+}
+
+/** A student has one unfinished payment at a time: starting a new booking releases their older holds. */
+export async function releaseMyHolds(studentId: string) {
+  const mine = await db.select({ id: bookings.id }).from(bookings).where(and(eq(bookings.studentId, studentId), eq(bookings.status, "pending_payment")));
+  for (const m of mine) await releaseHold(m.id, studentId);
+}
+
 /** Reads a finished Checkout session and confirms its booking. */
 export async function confirmFromCheckout(sessionId: string) {
   const session = await stripe().checkout.sessions.retrieve(sessionId, { expand: ["payment_intent.latest_charge.balance_transaction"] });
@@ -83,15 +112,17 @@ export async function cancelByStudent(bookingId: string, studentId: string) {
   if (back.length) await db.insert(credits).values(back);
   await freeSpot(b);
 
-  if (forfeit > 0) {
-    const pro = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, b.proId) });
+  const proRow = forfeit > 0 ? await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, b.proId) }) : null;
+  const toPro = forfeit - (await collectDues(proRow, b.id, forfeit)); // pay-from-bookings membership comes out first
+  if (toPro > 0) {
+    const pro = proRow;
     if (!pro?.stripeAccountId || !pro.payoutsEnabled) {
       // Pro hasn't connected payouts yet: Nearest holds the deposit and sends it once they do.
-      await db.update(bookings).set({ payoutOwedCents: forfeit }).where(eq(bookings.id, b.id));
+      await db.update(bookings).set({ payoutOwedCents: toPro }).where(eq(bookings.id, b.id));
     } else {
       try {
         const t = await stripe().transfers.create(
-          { amount: forfeit, currency: "usd", destination: pro.stripeAccountId, transfer_group: b.id, ...(b.stripeChargeId ? { source_transaction: b.stripeChargeId } : {}), metadata: { bookingId: b.id, kind: "forfeited_deposit" } },
+          { amount: toPro, currency: "usd", destination: pro.stripeAccountId, transfer_group: b.id, ...(b.stripeChargeId ? { source_transaction: b.stripeChargeId } : {}), metadata: { bookingId: b.id, kind: "forfeited_deposit" } },
           { idempotencyKey: `deposit-${b.id}` },
         );
         await db.update(bookings).set({ transferId: t.id }).where(eq(bookings.id, b.id));
@@ -122,7 +153,8 @@ export async function releasePayment(bookingId: string, studentId: string) {
   // Release once the pro has finished (even if they started early) or the start time has passed.
   if (!b.finishedAt && b.startsAt.getTime() > Date.now()) return { error: "You can release payment once your appointment has started." };
   const pro = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, b.proId) });
-  const amount = Math.max(0, total(b) - (b.stripeFeeCents ?? 0));
+  const gross = Math.max(0, total(b) - (b.stripeFeeCents ?? 0));
+  const amount = gross - (await collectDues(pro, b.id, gross)); // pay-from-bookings membership comes out first
   let transferId: string | null = null;
   if (amount > 0) {
     if (pro?.stripeAccountId && pro.payoutsEnabled) {

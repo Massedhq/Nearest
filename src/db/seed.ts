@@ -105,6 +105,10 @@ async function main() {
   });
   await db.insert(schools).values(schoolValues).onConflictDoNothing();
 
+  // Client photos used to be copied into portfolios automatically. Take those back out (they stay in the pro's
+  // private Client photos). Photos a pro chose to add later have from_booking_id set and are never touched.
+  await db.execute(sql`delete from portfolio_items where source = 'nearest' and from_booking_id is null`);
+
   // Never overwrite a value the owner already changed.
   await db
     .insert(platformSettings)

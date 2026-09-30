@@ -11,7 +11,7 @@ import { requireVerifiedStudent } from "@/lib/student";
 import { liveProWhere } from "@/lib/search";
 import { openSlots } from "@/lib/availability";
 import { creditBalances, applyCredits } from "@/lib/credits";
-import { confirmBooking, cancelByStudent, releasePayment, bookingCode } from "@/lib/bookings";
+import { confirmBooking, cancelByStudent, releasePayment, bookingCode, releaseHold, releaseMyHolds } from "@/lib/bookings";
 import { getSettings } from "@/lib/settings";
 import { stripe, stripeEnabled, origin } from "@/lib/stripe";
 import { chicagoToUtc } from "@/lib/time";
@@ -58,7 +58,7 @@ async function checkout(b: typeof bookings.$inferSelect, email: string | null, p
     metadata: { bookingId: b.id },
     expires_at: Math.floor(Date.now() / 1000) + HOLD_MIN * 60,
     success_url: `${base}/bookings/${b.id}?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${base}/bookings/${b.id}?cancelled=1`,
+    cancel_url: `${base}/api/book/abandon?id=${b.id}`, // Stripe's back arrow: give the time back, return to where they were
   });
   await db.update(bookings).set({ stripeCheckoutId: session.id }).where(eq(bookings.id, b.id));
   return session.url!;
@@ -80,6 +80,7 @@ async function createAndPay(opts: {
   const use = applyCredits(opts.priceCents, bal);
   if (use.charge > 0 && !stripeEnabled()) return { error: "Payments aren't set up yet." };
   const endsAt = new Date(opts.startsAt.getTime() + opts.durationMin * 60000);
+  await releaseMyHolds(opts.studentId); // an old unfinished payment never blocks a new booking
 
   const [b] = await db.insert(bookings).values({
     studentId: opts.studentId, proId: opts.proId, serviceId: opts.serviceId ?? null, modelCallId: opts.modelCallId ?? null,
@@ -182,4 +183,15 @@ export async function releaseMyPayment(_: FormState, form: FormData): Promise<Fo
     console.error(e);
     return { error: "Something went wrong releasing payment. Your payment is still protected — try again in a minute." };
   }
+}
+
+/** "Cancel — don't book" on an unfinished payment: give the time back, go back to Explore. */
+export async function abandonBooking(form: FormData) {
+  const { user } = await requireVerifiedStudent();
+  const id = String(form.get("id") ?? "");
+  const b = await db.query.bookings.findFirst({ where: and(eq(bookings.id, id), eq(bookings.studentId, user.id)) });
+  const r = await releaseHold(id, user.id);
+  revalidatePath("/bookings");
+  if (r === "paid") redirect(`/bookings/${id}?booked=1`);
+  redirect(b ? `${b.modelCallId ? `/book/call/${b.modelCallId}` : `/p/${b.proId}`}?notbooked=1` : "/home");
 }

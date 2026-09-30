@@ -66,8 +66,8 @@ export default async function Finish({ params, searchParams }: { params: Promise
               <input type="hidden" name="id" value={b.id} /><input type="hidden" name="step" value="2" />
               <RequiredPhoto userId={user.id} folder="results" name="photoUrl" label="Result photo" hint="Your finished service, in good light." />
               <div className="card">
-                <span className="b">Allow {pro} to show this photo on their Nearest portfolio?</span>
-                <span className="small muted">Sharing publicly is a separate choice from taking the photo.</span>
+                <span className="b">Allow {pro} to share this photo?</span>
+                <span className="small muted">If you say yes, {pro} can choose to show it with your review or in their portfolio. Either way, it stays private until they choose to share it.</span>
                 <div className="grid2">
                   <label className="check"><input type="radio" name="allow" value="yes" />Yes</label>
                   <label className="check"><input type="radio" name="allow" value="no" defaultChecked />No</label>

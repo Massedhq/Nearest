@@ -5,11 +5,15 @@ export function PriceBox({ price, deposit, pro, general, charge }: { price: numb
   return (
     <div className="card">
       <div className="row between"><span>Service</span><span className="num">{money(price)}</span></div>
-      <div className="row between small muted"><span>Includes {money(deposit)} protected deposit</span><span /></div>
       {pro > 0 && <div className="row between muted"><span>Credit with this professional</span><span className="num">−{money(pro)}</span></div>}
       {general > 0 && <div className="row between muted"><span>Nearest credit</span><span className="num">−{money(general)}</span></div>}
       <hr className="hr" />
-      <div className="row between b"><span>Due today — paid in full</span><span className="num">{money(charge)}</span></div>
+      <div className="row between b"><span>Total due today</span><span className="num">{money(charge)}</span></div>
+      <span className="xs muted">
+        {deposit >= price
+          ? `Nothing extra is added. At this price, your whole ${money(price)} counts as the protected deposit — it only goes to the professional if you cancel within the cancellation window or don't show.`
+          : `Nothing extra is added. ${money(deposit)} of the ${money(price)} is the protected deposit — it only goes to the professional if you cancel within the cancellation window or don't show.`}
+      </span>
     </div>
   );
 }

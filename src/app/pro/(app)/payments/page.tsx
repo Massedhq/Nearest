@@ -1,4 +1,5 @@
-import { ENTRY, type EntryType } from "@/lib/entry";
+import { ENTRY, isManagedEntry, type EntryType } from "@/lib/entry";
+import { duesStatus } from "@/lib/dues";
 import { requirePro } from "@/lib/pro";
 import { syncPro } from "@/lib/pro-stripe";
 import { stripeEnabled, planCents } from "@/lib/stripe";
@@ -29,6 +30,8 @@ export default async function Payments({ searchParams }: { searchParams: Promise
   const subState = p.subscriptionStatus ? SUB[p.subscriptionStatus] ?? [p.subscriptionStatus, ""] : ["Not started", "warn"];
   const live = (owner || ["trialing", "active"].includes(p.subscriptionStatus ?? "")) && !p.membershipPausedAt && p.identityStatus === "verified";
   const rate = money(planCents(p.cohort));
+  const managed = !owner && isManagedEntry(p.entryType); // Ambassador (free) or pay-from-bookings — no card, no Stripe subscription
+  const dues = managed && p.entryType === "BOOKING_PAID" ? await duesStatus(p) : null;
   return (
     <div className="scr">
       <TopBar title="Membership & payments" back="/pro/business" />
@@ -41,6 +44,26 @@ export default async function Payments({ searchParams }: { searchParams: Promise
             <span className="disp h2">Nearest owner business</span>
             <span className="small">As a Nearest owner, your business has no entry fee and no monthly membership. Just finish your ID check and payouts below.</span>
             <span className="xs muted">Card-processing fees still come out of each student payment.</span>
+          </div>
+        ) : managed ? (
+          <div className="card">
+            <div className="row between"><span className="eyebrow">Membership</span><span className="tag ok">{p.entryType === "AMBASSADOR" ? "Free" : "Active"}</span></div>
+            {p.entryType === "AMBASSADOR" ? (
+              <>
+                <span className="disp h2">Ambassador — free</span>
+                <span className="small">Your account is free: no sign-up fee and no monthly membership. Thank you for bringing other professionals to Nearest.</span>
+              </>
+            ) : (
+              <>
+                <span className="disp h2">{money(dues!.rate)}/month, from your bookings</span>
+                <span className="small">Nothing is charged to a card. Each month, Nearest keeps {money(dues!.rate)} from your booking earnings, then the rest of the month is all yours. A month with no bookings costs nothing.</span>
+                <div className="bar"><i style={{ width: `${Math.round((dues!.collected / dues!.rate) * 100)}%` }} /></div>
+                <span className="small b">{dues!.left === 0 ? `This month is covered — ${money(dues!.rate)} collected.` : `This month: ${money(dues!.collected)} of ${money(dues!.rate)} collected so far.`}</span>
+              </>
+            )}
+            {p.entryPaidAt && <span className="xs muted">Joined {fmtDate(p.entryPaidAt, { month: "short", day: "numeric", year: "numeric" })}</span>}
+            {p.membershipPausedAt && <span className="small b">Paused by Nearest — students can&apos;t book you while it&apos;s paused. Questions? hello@usenearest.com</span>}
+            <span className="xs muted">No commission on bookings. Card-processing fees come out of each payment.</span>
           </div>
         ) : (
         <div className="card">
@@ -59,7 +82,7 @@ export default async function Payments({ searchParams }: { searchParams: Promise
             <form action={startMembership}><button className="btn sm" type="submit" style={{ width: "100%" }}>{p.subscriptionId && p.subscriptionStatus !== "canceled" ? "Manage billing" : "Restart membership"}</button></form>
           </div>
           )}
-        {!owner && p.stripeCustomerId && <SubscriptionDetails customerId={p.stripeCustomerId} subscriptionId={p.subscriptionId} planLabel={p.entryType && p.entryType in ENTRY ? ENTRY[p.entryType as EntryType].label : "Standard"} standardCents={3000} />}
+        {!owner && !managed && p.stripeCustomerId && <SubscriptionDetails customerId={p.stripeCustomerId} subscriptionId={p.subscriptionId} planLabel={p.entryType && p.entryType in ENTRY ? ENTRY[p.entryType as EntryType].label : "Standard"} standardCents={3000} />}
 
         <div className="card">
           <div className="row between"><span className="eyebrow">Identity</span><span className={`tag ${p.identityStatus === "verified" ? "ok" : p.identityStatus === "rejected" ? "bad" : "warn"}`}>{p.identityStatus === "verified" ? "Verified" : p.identityStatus === "pending" ? "Checking" : p.identityStatus === "rejected" ? "Try again" : "To do"}</span></div>

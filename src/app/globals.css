@@ -258,3 +258,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .guide-steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;color:#D8D2C6}
 .guide-tabs{display:flex;gap:8px}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* Dropdowns never push the page wider than the screen (a long option like a service name used to) */
+.field,.card{min-width:0}
+.field select{min-width:0;max-width:100%;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}

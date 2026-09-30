@@ -26,7 +26,7 @@ export default async function MyBookings({ searchParams }: { searchParams: Promi
     .limit(100);
   const now = Date.now();
   const list = rows.filter(({ b }) =>
-    tab === "upcoming" ? (b.status === "confirmed" || b.status === "pending_payment") && b.endsAt.getTime() > now - 12 * 3600000
+    tab === "upcoming" ? b.status === "confirmed" && b.endsAt.getTime() > now - 12 * 3600000
     : tab === "past" ? b.status === "completed" || (b.status === "confirmed" && b.endsAt.getTime() <= now - 12 * 3600000)
     : b.status.startsWith("cancelled"));
   return (

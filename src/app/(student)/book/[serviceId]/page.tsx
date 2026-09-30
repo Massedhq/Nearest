@@ -43,7 +43,7 @@ export default async function ChooseTime({ params, searchParams }: { params: Pro
         {!open && <div className="card warn small"><span>Booking is paused right now. Please check back soon.</span></div>}
         <div className="scrollx" style={{ marginRight: 0, overflowX: "auto" }}>
           {days.map((x) => (
-            <Link key={x} href={`/book/${svc.id}?day=${x}`} className={`slot${x === day ? " on" : ""}`} style={{ flexDirection: "column", height: 64, gap: 0, minWidth: 58, textDecoration: "none" }}>
+            <Link key={x} scroll={false} href={`/book/${svc.id}?day=${x}`} className={`slot${x === day ? " on" : ""}`} style={{ flexDirection: "column", height: 64, gap: 0, minWidth: 58, textDecoration: "none" }}>
               <span className="xs">{d(x).toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" })}</span>
               <span style={{ fontSize: 18 }}>{d(x).getUTCDate()}</span>
             </Link>

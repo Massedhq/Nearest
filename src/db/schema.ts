@@ -128,6 +128,9 @@ export const invitations = pgTable("invitations", {
   cityId: integer("city_id").references(() => cities.id), // optional — invitations no longer ask for a city
   category: text("category").notNull(),
   cohort: cohort("cohort").notNull().default("FOUNDING"),
+  // FIRST_IN (pays $11 at sign-up) | AMBASSADOR (free, main owner only) | BOOKING_PAID (membership collected from bookings, main owner only)
+  kind: text("kind").notNull().default("FIRST_IN"),
+  rateCents: integer("rate_cents"), // BOOKING_PAID monthly rate (starts at $15)
   status: inviteStatus("status").notNull().default("invited"),
   expiresAt: ts("expires_at").notNull(),
   createdBy: uuid("created_by").notNull().references(() => users.id),
@@ -264,6 +267,8 @@ export const portfolioItems = pgTable("portfolio_items", {
   sort: integer("sort").notNull().default(0),
   // The service this photo shows — powers "Book this look" on the profile. Optional.
   serviceId: uuid("service_id").references(() => proServices.id, { onDelete: "set null" }),
+  // Set when the pro chose to move a client's photo into their portfolio (client photos are never added automatically).
+  fromBookingId: uuid("from_booking_id"),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("portfolio_user_idx").on(t.userId)]);
 
@@ -385,7 +390,9 @@ export const bookings = pgTable("bookings", {
   finishedAt: ts("finished_at"),
   serviceConfirmedAt: ts("service_confirmed_at"),
   photoUrl: text("photo_url"),
-  photoForPortfolio: boolean("photo_for_portfolio"),
+  photoForPortfolio: boolean("photo_for_portfolio"), // the client allowed the pro to share it (with the review or in the portfolio)
+  // The pro's choice for this client photo. null = private (only the pro sees it); "shown" = with the review; "removed".
+  photoStatus: text("photo_status"),
   noShowAt: ts("no_show_at"),
   // Phase 6: emails sent
   remind24At: ts("remind_24_at"),
@@ -579,3 +586,14 @@ export const proShares = pgTable("pro_shares", {
   proId: uuid("pro_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("pro_shares_to_idx").on(t.toId)]);
+
+// Pay-from-bookings memberships: what Nearest kept from each released booking toward that month's rate.
+// One row per booking (never collected twice); month is Chicago time, "YYYY-MM".
+export const membershipDues = pgTable("membership_dues", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  proId: uuid("pro_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  month: text("month").notNull(),
+  bookingId: uuid("booking_id").notNull().references(() => bookings.id, { onDelete: "cascade" }),
+  amountCents: integer("amount_cents").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("membership_dues_pro_month_idx").on(t.proId, t.month), uniqueIndex("membership_dues_booking_idx").on(t.bookingId)]);

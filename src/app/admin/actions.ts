@@ -9,6 +9,7 @@ import { getSettings } from "@/lib/settings";
 import { SETTINGS, STATUS_KEYS } from "@/lib/settings-defaults";
 import { foundingOpen } from "@/lib/invites";
 import { sendInviteEmail } from "@/lib/email";
+import { mainOwnerId } from "@/lib/partner";
 import { headers } from "next/headers";
 
 export type FormState = { error?: string; ok?: string };
@@ -139,4 +140,51 @@ export async function clearTestStripeLinks() {
   const cleared = await clearStaleStripeRefs();
   await logActivity({ actorUserId: user.id, action: "stripe.test_links_cleared", targetType: "setting", targetId: "stripe", after: cleared.map((c) => `${c.name}: ${[c.customer && "customer", c.account && "payout account", c.subscription && "membership"].filter(Boolean).join(", ")}`).join("; ") || "none" });
   revalidatePath("/admin", "layout");
+}
+
+/**
+ * Free Ambassador and pay-from-bookings invitations. Only the main owner can create them —
+ * Kisses, Kee and partners can't, and this is checked here on the server, not just hidden in the page.
+ * They work even when First In is closed.
+ */
+export async function createSpecialInvite(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireAdmin();
+  if ((await mainOwnerId()) !== user.id) return { error: "Only the main owner can give out free or pay-from-bookings accounts." };
+  const kind = String(form.get("kind") ?? "");
+  if (kind !== "AMBASSADOR" && kind !== "BOOKING_PAID") return { error: "Choose the type of account." };
+  const name = String(form.get("name") ?? "").trim().slice(0, 80);
+  const contact = String(form.get("contact") ?? "").trim().slice(0, 120);
+  const category = String(form.get("category") ?? "").trim().slice(0, 60) || "Any";
+  if (!name || !contact) return { error: "Fill in their name and email or phone." };
+  let rateCents: number | null = null;
+  if (kind === "BOOKING_PAID") {
+    const dollars = Number(String(form.get("rate") ?? "15").replace(/[^0-9.]/g, ""));
+    if (!Number.isFinite(dollars) || dollars < 1 || dollars > 30) return { error: "Monthly rate must be between $1 and $30." };
+    rateCents = Math.round(dollars * 100);
+  }
+  const s = await getSettings();
+  const expiresAt = new Date(Date.now() + Number(s["growth.invite_expiry_days"]) * 86400000);
+  const prefix = kind === "AMBASSADOR" ? "AMB" : "PB";
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(invitations).where(eq(invitations.kind, kind));
+    const code = `${prefix}-${String(n + 1 + attempt).padStart(4, "0")}`;
+    const [row] = await db.insert(invitations)
+      .values({ code, name, contact, category, cohort: "FOUNDING", kind, rateCents, expiresAt, createdBy: user.id })
+      .onConflictDoNothing().returning();
+    if (!row) continue;
+    await logActivity({ actorUserId: user.id, action: "invite.created", targetType: "invitation", targetId: code, after: { name, contact, kind, rateCents } });
+    let emailed = "0";
+    if (contact.includes("@")) {
+      const h = await headers();
+      const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
+      const res = await sendInviteEmail({
+        to: contact, name, code, link: `${origin}/pro/invite/${code}`, kind, rateCents,
+        expires: expiresAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Chicago" }),
+      });
+      if (res.sent) { emailed = "1"; await logActivity({ actorUserId: user.id, action: "invite.emailed", targetType: "invitation", targetId: code, after: contact }); }
+    }
+    revalidatePath("/admin/founding");
+    redirect(`/admin/founding?new=${encodeURIComponent(code)}&emailed=${emailed}`);
+  }
+  return { error: "Couldn't generate a unique code. Try again." };
 }

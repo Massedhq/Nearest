@@ -12,7 +12,15 @@ export const ENTRY = {
   FIRST_IN: { cents: 1100, label: "First In", short: "First In" },
   PRO_STUDENT: { cents: 1600, label: "Professional + Student", short: "Pro + Student" },
   GENERAL: { cents: 2100, label: "General Entry", short: "General" },
+  // Owner-granted (invitation only, main owner): no Stripe subscription — Nearest manages these memberships.
+  AMBASSADOR: { cents: 0, label: "Ambassador — free", short: "Ambassador" },
+  BOOKING_PAID: { cents: 1500, label: "Pay from bookings", short: "Pay from bookings" },
 } as const;
+
+/** Memberships Nearest runs itself (no card, no Stripe subscription). */
+export const MANAGED_ENTRIES = ["AMBASSADOR", "BOOKING_PAID"] as const;
+export type ManagedEntryType = (typeof MANAGED_ENTRIES)[number];
+export const isManagedEntry = (t: string | null | undefined): t is ManagedEntryType => (MANAGED_ENTRIES as readonly string[]).includes(t ?? "");
 export type EntryType = keyof typeof ENTRY;
 export const isEntryType = (v: unknown): v is EntryType => typeof v === "string" && v in ENTRY;
 
@@ -74,7 +82,9 @@ export async function releaseExpiredHolds() {
   return expired.length;
 }
 
-export type EntryChoice = { type: EntryType; student?: { firstName: string; lastName: string; email: string; school?: string | null } };
+/** Entries paid by card through Stripe checkout (managed entries never go through checkout). */
+export type PaidEntryType = Exclude<EntryType, (typeof MANAGED_ENTRIES)[number]>;
+export type EntryChoice = { type: PaidEntryType; student?: { firstName: string; lastName: string; email: string; school?: string | null } };
 
 /** Starts payment for an entry. Returns the Stripe checkout URL, or an error to show. */
 export async function startEntryCheckout(user: typeof users.$inferSelect, choice: EntryChoice, base: string): Promise<{ url: string } | { error: string }> {
@@ -82,7 +92,7 @@ export async function startEntryCheckout(user: typeof users.$inferSelect, choice
   if (!profile) return { error: "Finish creating your account first." };
   if (profile.entryPaidAt) return { error: "You've already joined Nearest." };
   const state = await getEntryState();
-  const allowed: EntryType[] = state === "FIRST_IN_OPEN" ? ["FIRST_IN"] : state === "NEXT_ENTRY_OPEN" ? ["PRO_STUDENT", "GENERAL"] : [];
+  const allowed: PaidEntryType[] = state === "FIRST_IN_OPEN" ? ["FIRST_IN"] : state === "NEXT_ENTRY_OPEN" ? ["PRO_STUDENT", "GENERAL"] : [];
   if (!allowed.includes(choice.type)) return { error: state === "FIRST_IN_CLOSED" ? "New professional enrollment is paused right now." : "That option isn't available right now." };
 
   // First In: hold a seat (reuse an unexpired hold if they come back)

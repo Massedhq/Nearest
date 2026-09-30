@@ -43,8 +43,10 @@ export async function checkInvite(code: string | null | undefined): Promise<Invi
   if (st === "expired") return { ok: false, reason: "expired" };
   if (st === "registered") return { ok: false, reason: "used" };
   if (st === "revoked" || st === "declined") return { ok: false, reason: "revoked" };
-  const f = await foundingOpen();
-  if (!f.open) return { ok: false, reason: "closed" };
+  if (hit.invite.kind === "FIRST_IN") {
+    const f = await foundingOpen();
+    if (!f.open) return { ok: false, reason: "closed" };
+  }
   return { ok: true, invite: hit.invite, city: hit.city };
 }
 

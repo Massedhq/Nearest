@@ -10,7 +10,7 @@ import { ensureProSlug, proLink } from "@/lib/connections";
 import { TopBar } from "@/components/TopBar";
 import { ActionForm } from "@/components/ActionForm";
 import { Icon } from "@/components/Icon";
-import { cancelMyBooking, resumePayment } from "@/app/book-actions";
+import { cancelMyBooking, resumePayment, abandonBooking } from "@/app/book-actions";
 import Link from "next/link";
 import { addressUnlocked, checkinOpen, finishOpen } from "@/lib/appointment";
 import { studentCheckIn } from "@/app/day-actions";
@@ -52,7 +52,8 @@ export default async function Booking({ params, searchParams }: { params: Promis
             <Icon name="check" size="xl" /><span className="disp h2">You&apos;re Booked</span><span className="small muted">Your payment is held until you release it.</span>
           </div>
         )}
-        {sp.cancelled && b.status === "pending_payment" && <div className="card warn small"><span>Payment wasn&apos;t finished. Your time is held for a few more minutes.</span></div>}
+        {b.status === "pending_payment" && <div className="card warn small"><span>Payment isn&apos;t finished, so this isn&apos;t booked yet and you haven&apos;t been charged. Finish paying to keep this time, or cancel to let it go.</span></div>}
+        {b.status === "expired" && <div className="card small"><span>This wasn&apos;t booked — payment was never finished, and you weren&apos;t charged.</span><Link className="btn sm" href="/home" style={{ alignSelf: "flex-start" }}>Back to Explore</Link></div>}
         <div className="row"><span className={`tag ${b.status === "confirmed" ? "ok" : b.status.startsWith("cancelled") ? "bad" : ""}`}>{b.status.replace("_", " ")}</span><span className="xs muted">Booking #{bookingCode(b.number)}</span></div>
         <div className="row between" style={{ gap: 10 }}>
           <h1 className="disp h2">{b.serviceName} with {pro}</h1>
@@ -76,7 +77,11 @@ export default async function Booking({ params, searchParams }: { params: Promis
         </div>
 
         {b.status === "pending_payment" && (
-          <form action={resumePayment}><input type="hidden" name="id" value={b.id} /><button className="btn" type="submit">Finish payment</button></form>
+          <div className="col" style={{ gap: 10 }}>
+            <form action={resumePayment}><input type="hidden" name="id" value={b.id} /><button className="btn" type="submit" style={{ width: "100%" }}>Finish payment</button></form>
+            <form action={abandonBooking}><input type="hidden" name="id" value={b.id} /><button className="btn ghost" type="submit" style={{ width: "100%" }}>Cancel — don&apos;t book</button></form>
+            <Link className="link small" href="/home" style={{ textAlign: "center" }}>Back to Explore</Link>
+          </div>
         )}
 
         {b.status === "confirmed" && (

@@ -79,6 +79,15 @@ export async function completePro(_: FormState, form: FormData): Promise<FormSta
   }
   referredBy ??= await partnerByCode(c.ref);
   referredBy ??= await partnerByCode((await cookies()).get("nearest_ref")?.value); // opened a partner link within 30 days
-  await db.insert(professionalProfiles).values({ userId: user.id, cohort, invitationId, referredBy }).onConflictDoNothing();
-  redirect("/pro/join"); // pay the entry rate, then straight into onboarding
+  // Main owner's Ambassador (free) and pay-from-bookings invitations: joined right away, no card, no Stripe subscription.
+  const inv = invitationId ? await db.query.invitations.findFirst({ where: eq(invitations.id, invitationId) }) : null;
+  const managed = inv && (inv.kind === "AMBASSADOR" || inv.kind === "BOOKING_PAID") ? inv.kind : null;
+  await db.insert(professionalProfiles).values({
+    userId: user.id, cohort, invitationId, referredBy,
+    ...(managed ? {
+      entryType: managed, entryPaidAt: new Date(), subscriptionStatus: "active",
+      monthlyRateCents: managed === "AMBASSADOR" ? 0 : inv!.rateCents ?? 1500,
+    } : {}),
+  }).onConflictDoNothing();
+  redirect("/pro/join"); // pay the entry rate (managed accounts skip straight to setup), then onboarding
 }

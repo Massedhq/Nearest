@@ -2,13 +2,14 @@
 import { redirect } from "next/navigation";
 import { requirePro } from "@/lib/pro";
 import { origin } from "@/lib/stripe";
-import { startEntryCheckout, isEntryType } from "@/lib/entry";
+import { startEntryCheckout, isEntryType, isManagedEntry } from "@/lib/entry";
 import type { FormState } from "@/components/ActionForm";
 
 export async function payEntry(_: FormState, form: FormData): Promise<FormState> {
   const { user } = await requirePro({ allowUnpaid: true });
   const type = String(form.get("type"));
-  if (!isEntryType(type)) return { error: "Choose an option." };
+  // Free and pay-from-bookings accounts come only from the main owner's invitations — never from this page.
+  if (!isEntryType(type) || isManagedEntry(type)) return { error: "Choose an option." };
   let student;
   if (type === "PRO_STUDENT") {
     const firstName = String(form.get("studentFirst") ?? "").trim().slice(0, 60);

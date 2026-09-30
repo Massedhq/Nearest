@@ -17,7 +17,7 @@ import { openSlots, nextDays } from "@/lib/availability";
 
 export const metadata = { title: "Book a model call" };
 
-export default async function BookCall({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ day?: string; time?: string }> }) {
+export default async function BookCall({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ day?: string; time?: string; notbooked?: string }> }) {
   const { user } = await requireVerifiedStudent();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
@@ -36,10 +36,12 @@ export default async function BookCall({ params, searchParams }: { params: Promi
   const day = call.flexible ? (sp.day && days.includes(sp.day) ? sp.day : days[0]) : null;
   const slots = call.flexible && day ? await openSlots(call.userId, call.durationMin, day) : [];
   const time = call.flexible && sp.time && slots.includes(sp.time) ? sp.time : null;
+  const notBooked = sp.notbooked === "1";
   return (
     <div className="scr">
       <TopBar title="Book a Model Call" back="/model-calls" />
       <div className="body">
+        {notBooked && <div className="card small" role="status"><span>Not booked — you backed out before paying, so you weren&apos;t charged. Pick a time again whenever you&apos;re ready.</span></div>}
         <div className="card">
           <div className="b">{call.serviceName} (Model Call)</div><div className="small muted">{pro.businessName}</div>
           <hr className="hr" />
@@ -58,11 +60,11 @@ export default async function BookCall({ params, searchParams }: { params: Promi
           <div className="card" style={{ gap: 10 }}>
             <span className="eyebrow">Pick your time</span>
             <div className="row" style={{ gap: 6, overflowX: "auto" }}>
-              {days.map((d) => <Link key={d} href={`/book/call/${call.id}?day=${d}`} className={`slot${d === day ? " on" : ""}`} style={{ flexDirection: "column", height: 60, minWidth: 64, gap: 0, textDecoration: "none" }}><span className="xs">{fmtDate(new Date(`${d}T12:00:00Z`), { weekday: "short" })}</span><span className="b">{Number(d.slice(8))}</span></Link>)}
+              {days.map((d) => <Link key={d} scroll={false} href={`/book/call/${call.id}?day=${d}`} className={`slot${d === day ? " on" : ""}`} style={{ flexDirection: "column", height: 60, minWidth: 64, gap: 0, textDecoration: "none" }}><span className="xs">{fmtDate(new Date(`${d}T12:00:00Z`), { weekday: "short" })}</span><span className="b">{Number(d.slice(8))}</span></Link>)}
             </div>
             {slots.length === 0 ? <span className="small muted">No open times this day — try another.</span> : (
               <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
-                {slots.map((t) => <Link key={t} href={`/book/call/${call.id}?day=${day}&time=${t}`} className={`slot${t === time ? " on" : ""}`} style={{ textDecoration: "none" }}>{fmtTime(chicagoToUtc(day!, t))}</Link>)}
+                {slots.map((t) => <Link key={t} scroll={false} href={`/book/call/${call.id}?day=${day}&time=${t}`} className={`slot${t === time ? " on" : ""}`} style={{ textDecoration: "none" }}>{fmtTime(chicagoToUtc(day!, t))}</Link>)}
               </div>
             )}
           </div>
