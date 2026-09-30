@@ -37,7 +37,7 @@ export default async function ProProfile({ params, searchParams }: { params: Pro
   const today = chicagoNow().date;
   const [services, photos, hours, openings, city, calls] = await Promise.all([
     db.select().from(proServices).where(and(eq(proServices.userId, id), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS))).orderBy(asc(proServices.sort)),
-    db.select().from(portfolioItems).where(eq(portfolioItems.userId, id)).orderBy(desc(portfolioItems.featured), asc(portfolioItems.sort)).limit(10),
+    db.select().from(portfolioItems).where(eq(portfolioItems.userId, id)).orderBy(desc(portfolioItems.featured), asc(portfolioItems.sort)).limit(15), // 10 photos + 5 videos
     db.select().from(proHours).where(eq(proHours.userId, id)),
     p.vacationMode ? [] : db.select().from(proOpenings).where(and(eq(proOpenings.userId, id), eq(proOpenings.day, today))).orderBy(asc(proOpenings.startTime)),
     p.cityId ? db.query.cities.findFirst({ where: eq(cities.id, p.cityId) }) : null,
@@ -104,7 +104,7 @@ export default async function ProProfile({ params, searchParams }: { params: Pro
             <PortfolioViewer bookingOpen={bookingOpen} photos={photos.map((ph) => {
               const svc = ph.serviceId ? services.find((x) => x.id === ph.serviceId) : undefined;
               const blocked = svc?.adultsOnly && !adult;
-              return { id: ph.id, url: ph.url, serviceName: svc ? `${svc.name}${svc.adultsOnly ? " (18+)" : ""}` : null, price: svc ? money(svc.priceCents) : null, bookHref: svc && !blocked ? `/book/${svc.id}` : null };
+              return { id: ph.id, url: ph.url, kind: ph.kind, durationSec: ph.durationSec, serviceName: svc ? `${svc.name}${svc.adultsOnly ? " (18+)" : ""}` : null, price: svc ? money(svc.priceCents) : null, bookHref: svc && !blocked ? `/book/${svc.id}` : null };
             })} />
           </>
         )}

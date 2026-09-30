@@ -50,7 +50,7 @@ export async function addClientPhotoToPortfolio(_: FormState, form: FormData): P
   if (!m.b.photoForPortfolio) return { error: "This client didn't allow their photo to be shared, so it can't go in your portfolio." };
   const already = await db.query.portfolioItems.findFirst({ where: and(eq(portfolioItems.userId, m.user.id), eq(portfolioItems.fromBookingId, m.b.id)) });
   if (already) return { ok: "It's already in your portfolio." };
-  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(portfolioItems).where(eq(portfolioItems.userId, m.user.id));
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(portfolioItems).where(and(eq(portfolioItems.userId, m.user.id), eq(portfolioItems.kind, "image")));
   if (n >= MAX_PORTFOLIO) return { error: `Your portfolio already has ${MAX_PORTFOLIO} photos. Remove one first, then add this.` };
   await db.insert(portfolioItems).values({ userId: m.user.id, url: m.b.photoUrl!, source: "nearest", fromBookingId: m.b.id, serviceId: m.b.serviceId, sort: Date.now() % 1_000_000 });
   refresh(m.user.id);

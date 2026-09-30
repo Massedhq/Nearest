@@ -51,7 +51,7 @@ export default async function ProLink({ params }: { params: Promise<{ handle: st
   const id = r.p.userId;
   const [services, photos, [rating], owner] = await Promise.all([
     db.select().from(proServices).where(and(eq(proServices.userId, id), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS))).orderBy(asc(proServices.sort)).limit(8),
-    db.select({ url: portfolioItems.url }).from(portfolioItems).where(eq(portfolioItems.userId, id)).orderBy(desc(portfolioItems.featured), asc(portfolioItems.sort)).limit(6),
+    db.select({ url: portfolioItems.url }).from(portfolioItems).where(and(eq(portfolioItems.userId, id), eq(portfolioItems.kind, "image"))).orderBy(desc(portfolioItems.featured), asc(portfolioItems.sort)).limit(6),
     db.select({ avg: sql<number | null>`avg(${reviews.rating})::float`, n: sql<number>`count(*)::int` }).from(reviews).where(eq(reviews.proId, id)),
     db.query.users.findFirst({ where: eq(users.id, id) }),
   ]);

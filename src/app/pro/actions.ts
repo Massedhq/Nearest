@@ -13,6 +13,7 @@ import { instagramHandle, tiktokHandle } from "@/lib/social";
 import { slugify, validSlug } from "@/lib/connections";
 import { MAX_PRICE_DOLLARS } from "@/lib/pricing";
 import type { FormState } from "@/components/ActionForm";
+import { MAX_PHOTOS, MAX_VIDEOS, MAX_VIDEO_SECONDS } from "@/lib/portfolio-limits";
 import { proReadiness } from "@/lib/live-check";
 
 const str = (f: FormData, k: string, max = 500) => String(f.get(k) ?? "").trim().slice(0, max);
@@ -204,11 +205,11 @@ export async function saveCommunication(_: FormState, form: FormData): Promise<F
 }
 
 // ---------- Portfolio ----------
-const MAX_PORTFOLIO = 10; // also shown on the Portfolio screen
+const MAX_PORTFOLIO = MAX_PHOTOS; // also shown on the Portfolio screen
 
 export async function addPortfolio(urls: string[]): Promise<{ error?: string }> {
   const { user } = await requirePro();
-  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(portfolioItems).where(eq(portfolioItems.userId, user.id));
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(portfolioItems).where(and(eq(portfolioItems.userId, user.id), eq(portfolioItems.kind, "image")));
   const room = MAX_PORTFOLIO - n;
   if (room <= 0) return { error: `You can show up to ${MAX_PORTFOLIO} photos. Remove one to add another.` };
   const valid = urls.filter((u) => blobUrlOk(u, user.id));
@@ -218,6 +219,23 @@ export async function addPortfolio(urls: string[]): Promise<{ error?: string }> 
   revalidatePath("/pro", "layout");
   revalidatePath(`/p/${user.id}`);
   if (valid.length > room) return { error: `Added ${ok.length}. You can show up to ${MAX_PORTFOLIO} photos, so ${valid.length - room} weren't added.` };
+  return {};
+}
+
+/** Add a portfolio video. Its length is read from the file itself on the server — over 15 seconds is deleted and refused. */
+export async function addPortfolioVideo(url: string): Promise<{ error?: string }> {
+  const { user } = await requirePro();
+  if (!url || !blobUrlOk(url, user.id) || !new URL(url).pathname.startsWith(`/pros/${user.id}/portfolio-video/`)) return { error: "Upload didn't complete. Try again." };
+  const discard = async () => { try { const { del } = await import("@vercel/blob"); await del(url); } catch (e) { console.error(e); } };
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(portfolioItems).where(and(eq(portfolioItems.userId, user.id), eq(portfolioItems.kind, "video")));
+  if (n >= MAX_VIDEOS) { await discard(); return { error: `You can show up to ${MAX_VIDEOS} videos. Remove one to add another.` }; }
+  const { videoSeconds } = await import("@/lib/video-length");
+  const secs = await videoSeconds(url);
+  if (secs === null) { await discard(); return { error: "We couldn't read this video. Try an MP4 or a video straight from your phone's camera." }; }
+  if (secs > MAX_VIDEO_SECONDS + 0.5) { await discard(); return { error: `This video is ${Math.round(secs)} seconds. Videos can be up to ${MAX_VIDEO_SECONDS} seconds — trim it and try again.` }; }
+  await db.insert(portfolioItems).values({ userId: user.id, url, kind: "video", durationSec: Math.round(secs * 10) / 10, sort: Date.now() % 1_000_000 });
+  revalidatePath("/pro", "layout");
+  revalidatePath(`/p/${user.id}`);
   return {};
 }
 
@@ -237,8 +255,11 @@ export async function setPortfolioService(form: FormData) {
 
 export async function removePortfolio(form: FormData) {
   const { user } = await requirePro();
-  await db.delete(portfolioItems).where(and(eq(portfolioItems.id, String(form.get("id"))), eq(portfolioItems.userId, user.id)));
+  const [gone] = await db.delete(portfolioItems).where(and(eq(portfolioItems.id, String(form.get("id"))), eq(portfolioItems.userId, user.id))).returning();
+  // Videos are large: delete the file too (photos can be shared with client photos, so they stay).
+  if (gone?.kind === "video") { try { const { del } = await import("@vercel/blob"); await del(gone.url); } catch (e) { console.error(e); } }
   revalidatePath("/pro", "layout");
+  revalidatePath(`/p/${user.id}`);
 }
 
 export async function toggleFeatured(form: FormData) {

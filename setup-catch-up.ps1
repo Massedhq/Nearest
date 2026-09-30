@@ -31,11 +31,13 @@ Step "3/4  Loading all 254 Texas counties (existing counties, cities and markets
 npm run db:seed
 Check "Loading counties"
 Step "3/4  Production build"
+# Clear leftovers from earlier builds or "Start the app" runs — they can point at removed pages and break the build.
+if (Test-Path ".\.next") { Remove-Item -Recurse -Force ".\.next" -ErrorAction SilentlyContinue }
 npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Remove public How Nearest works page and links (guides are in-app only); Explore search buttons"
+git commit -q -m "Portfolio videos (15 seconds max, checked on phone and server), shown on profiles with Book this look"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

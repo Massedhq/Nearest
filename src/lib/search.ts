@@ -117,7 +117,7 @@ export async function searchPros(f: Filters, area: Area, place?: Place | null) {
     ? await db
         .select({ userId: portfolioItems.userId, url: portfolioItems.url })
         .from(portfolioItems)
-        .where(inArray(portfolioItems.userId, rows.map((r) => r.userId)))
+        .where(and(inArray(portfolioItems.userId, rows.map((r) => r.userId)), eq(portfolioItems.kind, "image")))
         .orderBy(desc(portfolioItems.featured), asc(portfolioItems.sort))
     : [];
   return rows.map((r) => ({ ...r, photos: photos.filter((p) => p.userId === r.userId).slice(0, 3).map((p) => p.url) }));

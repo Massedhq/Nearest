@@ -49,7 +49,7 @@ export default async function Verification() {
   const details = await Promise.all(
     pending.map(async ({ p }) => ({
       services: await db.select().from(proServices).where(eq(proServices.userId, p.userId)).orderBy(asc(proServices.sort)),
-      photos: await db.select({ url: portfolioItems.url }).from(portfolioItems).where(eq(portfolioItems.userId, p.userId)).limit(6),
+      photos: await db.select({ url: portfolioItems.url }).from(portfolioItems).where(and(eq(portfolioItems.userId, p.userId), eq(portfolioItems.kind, "image"))).limit(6),
     })),
   );
 

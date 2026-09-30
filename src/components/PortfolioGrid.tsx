@@ -3,7 +3,7 @@ import { Icon } from "./Icon";
 import { PhotoServiceSelect } from "./PhotoServiceSelect";
 import { removePortfolio, toggleFeatured } from "@/app/pro/actions";
 
-type Item = { id: string; url: string; featured: boolean; source: string; serviceId?: string | null };
+type Item = { id: string; url: string; featured: boolean; source: string; serviceId?: string | null; kind?: string; durationSec?: number | null };
 
 export function PortfolioGrid({ items, services = [] }: { items: Item[]; services?: { id: string; name: string }[] }) {
   if (!items.length) return <p className="small muted p">No work added yet.</p>;
@@ -12,7 +12,14 @@ export function PortfolioGrid({ items, services = [] }: { items: Item[]; service
       {items.map((it) => (
         <div key={it.id} className="col" style={{ gap: 6 }}>
           <div className="ph" style={{ height: 120, padding: 0 }}>
-            <Image src={it.url} alt="Portfolio work" fill sizes="140px" style={{ objectFit: "cover" }} />
+            {it.kind === "video" ? (
+              <>
+                <video src={`${it.url}#t=0.1`} muted playsInline preload="metadata" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                <span className="vid-badge" aria-label="Video"><span className="vid-play" />{it.durationSec ? `${Math.round(it.durationSec)}s` : ""}</span>
+              </>
+            ) : (
+              <Image src={it.url} alt="Portfolio work" fill sizes="140px" style={{ objectFit: "cover" }} />
+            )}
             <div className="row between" style={{ position: "absolute", left: 6, right: 6, top: 6 }}>
               <form action={toggleFeatured}><input type="hidden" name="id" value={it.id} />
                 <button className="iconbtn" type="submit" aria-label={it.featured ? "Unfeature" : "Feature"} style={{ width: 30, height: 30, color: it.featured ? "#E3C58A" : "#ECE8E1" }}><Icon name="star" size="s" /></button>

@@ -263,6 +263,8 @@ export const portfolioItems = pgTable("portfolio_items", {
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   url: text("url").notNull(),
   source: portfolioSource("source").notNull().default("upload"),
+  kind: text("kind").notNull().default("image"), // "image" | "video" (videos are 15 seconds max)
+  durationSec: doublePrecision("duration_sec"), // videos only, read from the file itself
   featured: boolean("featured").notNull().default(false),
   sort: integer("sort").notNull().default(0),
   // The service this photo shows — powers "Book this look" on the profile. Optional.

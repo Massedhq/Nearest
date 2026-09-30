@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db, proServices, portfolioItems, cities, favorites } from "@/db";
 import { requirePro, setupSteps, setupComplete } from "@/lib/pro";
 import { TopBar } from "@/components/TopBar";
@@ -15,7 +15,7 @@ export default async function ReviewStep() {
   const [steps, services, photos, city] = await Promise.all([
     setupSteps(user.id),
     db.select().from(proServices).where(eq(proServices.userId, user.id)).orderBy(asc(proServices.sort)),
-    db.select({ url: portfolioItems.url }).from(portfolioItems).where(eq(portfolioItems.userId, user.id)).orderBy(desc(portfolioItems.featured), asc(portfolioItems.sort)).limit(3),
+    db.select({ url: portfolioItems.url }).from(portfolioItems).where(and(eq(portfolioItems.userId, user.id), eq(portfolioItems.kind, "image"))).orderBy(desc(portfolioItems.featured), asc(portfolioItems.sort)).limit(3),
     p.cityId ? db.query.cities.findFirst({ where: eq(cities.id, p.cityId) }) : null,
   ]);
   const ready = setupComplete(steps);
