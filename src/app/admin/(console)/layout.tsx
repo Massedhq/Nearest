@@ -6,11 +6,13 @@ import { AdminMobileBar } from "@/components/AdminMobileBar";
 import { Icon } from "@/components/Icon";
 import { requireAdmin } from "@/lib/admin";
 import { displayName, initials } from "@/lib/viewer";
+import { mainOwnerId } from "@/lib/partner";
 
 export const metadata = { title: { default: "Admin", template: "%s · Nearest Admin" } };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, role } = await requireAdmin();
+  const isMain = (await mainOwnerId()) === user.id;
   return (
     <div className="adm">
       <AdminMobileBar />
@@ -19,7 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Image src="/brand/nearest-monogram.png" alt="" width={44} height={44} />
           <div className="col g4"><span className="disp" style={{ fontSize: 20 }}>Nearest</span><span className="xs muted">Administration</span></div>
         </div>
-        <AdminNav />
+        <AdminNav isMain={isMain} />
         <div style={{ flex: 1 }} />
         <div style={{ position: "sticky", bottom: -22, background: "#050506", paddingBottom: 8, display: "flex", flexDirection: "column", gap: 6 }}>
           <Link className="nav" href="/workspace"><Icon name="switch" />Switch workspace</Link>

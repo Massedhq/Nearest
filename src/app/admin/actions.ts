@@ -65,8 +65,8 @@ export async function createInvite(_: FormState, form: FormData): Promise<FormSt
   const { user } = await requireAdmin();
   const name = String(form.get("name") ?? "").trim();
   const contact = String(form.get("contact") ?? "").trim();
-  const category = String(form.get("category") ?? "").trim();
-  if (!name || !contact || !category) return { error: "Fill in name, contact and category." };
+  const category = "Any"; // invitations aren't tied to a category
+  if (!name || !contact) return { error: "Fill in their name and email or phone." };
 
   const f = await foundingOpen();
   if (!f.open) return { error: "First In is closed, so First In invitations can't be sent." };
@@ -154,7 +154,7 @@ export async function createSpecialInvite(_: FormState, form: FormData): Promise
   if (kind !== "AMBASSADOR" && kind !== "BOOKING_PAID") return { error: "Choose the type of account." };
   const name = String(form.get("name") ?? "").trim().slice(0, 80);
   const contact = String(form.get("contact") ?? "").trim().slice(0, 120);
-  const category = String(form.get("category") ?? "").trim().slice(0, 60) || "Any";
+  const category = "Any"; // invitations aren't tied to a category
   if (!name || !contact) return { error: "Fill in their name and email or phone." };
   let rateCents: number | null = null;
   if (kind === "BOOKING_PAID") {

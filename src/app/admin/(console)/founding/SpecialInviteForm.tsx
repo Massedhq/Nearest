@@ -27,7 +27,6 @@ export function SpecialInviteForm() {
         {kind === "BOOKING_PAID" && (
           <div className="field"><label htmlFor="sp-rate">Monthly rate ($)</label><input id="sp-rate" name="rate" type="number" min={1} max={30} step={1} defaultValue={15} required /></div>
         )}
-        <div className="field"><label htmlFor="sp-cat">Category (optional)</label><input id="sp-cat" name="category" placeholder="e.g. Lashes" /></div>
       </div>
       {state.error && <p className="err" role="alert">{state.error}</p>}
       <div className="row between small">

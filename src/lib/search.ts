@@ -123,6 +123,15 @@ export async function searchPros(f: Filters, area: Area, place?: Place | null) {
   return rows.map((r) => ({ ...r, photos: photos.filter((p) => p.userId === r.userId).slice(0, 3).map((p) => p.url) }));
 }
 
+/** How many Model Calls are open right now — "all" = every area the student can see (owners: everywhere). */
+export async function countOpenModelCalls(area: Area) {
+  const where = [...liveProWhere(area, "all"), sql`${modelCalls.priceCents} <= 15000`, eq(modelCalls.status, "open"), gt(modelCalls.startsAt, new Date()), sql`${modelCalls.spotsTaken} < ${modelCalls.spots}`];
+  const [r] = await db.select({ n: sql<number>`count(*)::int` }).from(modelCalls)
+    .innerJoin(professionalProfiles, eq(professionalProfiles.userId, modelCalls.userId))
+    .where(and(...where));
+  return r?.n ?? 0;
+}
+
 export async function openModelCalls(area: Area, areaMode: string | undefined, userId?: string) {
   const where = [...liveProWhere(area, areaMode), sql`${modelCalls.priceCents} <= 15000`, inArray(modelCalls.status, ["open"]), gt(modelCalls.startsAt, new Date()), sql`${modelCalls.spotsTaken} < ${modelCalls.spots}`];
   if (userId) where.push(eq(modelCalls.userId, userId));

@@ -14,7 +14,7 @@ type Stage = "password" | "code" | "device" | "reset";
  * Nearest's own sign-in (no Clerk branding). Email + password, or a one-time email code instead.
  * Handles Clerk's new-device check (an emailed code) and "Forgot password".
  */
-export function NearestSignIn({ signUpHref, signUpLabel = "Create an account" }: { signUpHref?: string; signUpLabel?: string }) {
+export function NearestSignIn({ signUpHref, signUpLabel = "Create an account", afterSignIn = "/go" }: { signUpHref?: string; signUpLabel?: string; afterSignIn?: string }) {
   const { signIn, fetchStatus } = useSignIn();
   const router = useRouter();
   const alreadySignedIn = useAlreadySignedIn();
@@ -35,7 +35,7 @@ export function NearestSignIn({ signUpHref, signUpLabel = "Create an account" }:
   async function finish() {
     const res = await signIn.finalize({
       navigate: ({ decorateUrl }) => {
-        const url = decorateUrl("/go");
+        const url = decorateUrl(afterSignIn);
         if (url.startsWith("http")) window.location.href = url;
         else router.push(url);
       },

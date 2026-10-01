@@ -40,6 +40,7 @@ export const users = pgTable("users", {
   email: text("email"),
   emailVerifiedAt: ts("email_verified_at"),
   status: userStatus("status").notNull().default("active"),
+  repId: uuid("rep_id"), // sales rep whose link brought them (Sales Board) — never changes after sign-up
   createdAt: ts("created_at").notNull().defaultNow(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
 }, (t) => [uniqueIndex("users_username_idx").on(t.username)]);
@@ -599,3 +600,19 @@ export const membershipDues = pgTable("membership_dues", {
   amountCents: integer("amount_cents").notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("membership_dues_pro_month_idx").on(t.proId, t.month), uniqueIndex("membership_dues_booking_idx").on(t.bookingId)]);
+
+// Sales Board (main owner only): sales reps who bring people to Nearest with their own link.
+// Kept separate from partners (admin_members) and from pro invitations.
+export const salesReps = pgTable("sales_reps", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  email: text("email").notNull(), // lowercase — the rep's login must use this exact email
+  code: text("code").notNull(), // their link code: usenearest.com/pro?rep=CODE
+  token: text("token").notNull(), // invitation link token
+  status: text("status").notNull().default("invited"), // invited | active | removed
+  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+  invitedBy: uuid("invited_by").references(() => users.id, { onDelete: "set null" }),
+  inviteExpiresAt: ts("invite_expires_at").notNull(),
+  acceptedAt: ts("accepted_at"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [uniqueIndex("sales_reps_code_idx").on(t.code), uniqueIndex("sales_reps_token_idx").on(t.token), index("sales_reps_email_idx").on(t.email)]);

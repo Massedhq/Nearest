@@ -50,7 +50,7 @@ export async function completePro(_: FormState, form: FormData): Promise<FormSta
   };
   const [user] = viewer.user
     ? await db.update(users).set(values).where(eq(users.id, viewer.user.id)).returning()
-    : await db.insert(users).values({ clerkUserId: viewer.clerkUserId, ...values }).returning();
+    : await db.insert(users).values({ clerkUserId: viewer.clerkUserId, ...values, repId: await (await import("@/lib/reps")).repIdFromCookie() }).returning();
 
   let cohort: "FOUNDING" | "SECOND" | "STANDARD";
   let invitationId: string | null = null;

@@ -51,3 +51,21 @@ export async function sendInviteEmail(opts: { to: string; name: string; city?: s
   });
   return r.sent ? { sent: true as const } : { sent: false as const, reason: "reason" in r ? r.reason ?? "Email failed" : "Email failed" };
 }
+
+/** Sales Board: invitation for a new sales rep. */
+export async function sendRepInviteEmail(opts: { to: string; name: string; link: string; expires: string }) {
+  if (!emailEnabled()) return { sent: false as const, reason: "Email isn't set up yet (no RESEND_API_KEY)." };
+  const r = await sendEmail({
+    to: opts.to,
+    subject: "You're invited to join the Nearest sales team",
+    eyebrow: "Sales Team Invitation",
+    heading: `${opts.name}, you're invited to join the Nearest sales team.`,
+    lines: [
+      `Create your account with this email address (${opts.to}). Your sales dashboard opens right after.`,
+      "Your dashboard has your own links to share and shows everyone who signs up through them.",
+      `This invitation expires ${opts.expires}.`,
+    ],
+    button: { label: "Accept invitation", url: opts.link },
+  });
+  return r.sent ? { sent: true as const } : { sent: false as const, reason: "reason" in r ? r.reason ?? "Email failed" : "Email failed" };
+}

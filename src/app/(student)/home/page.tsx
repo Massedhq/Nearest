@@ -12,7 +12,7 @@ import { Icon } from "@/components/Icon";
 import { Tabs } from "@/components/Tabs";
 import { ProResult } from "@/components/ProResult";
 import { requireVerifiedStudent } from "@/lib/student";
-import { searchPros, resolvePlace, ZIP_RADIUS_MI, type Filters } from "@/lib/search";
+import { searchPros, resolvePlace, countOpenModelCalls, ZIP_RADIUS_MI, type Filters } from "@/lib/search";
 import { proTitle } from "@/lib/pro-titles";
 import { studentSuspendedUntil, SUSPENSION_TEXT } from "@/lib/enforcement";
 import { fmtDate } from "@/lib/time";
@@ -46,13 +46,14 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
   }
   const f = await searchParams;
   const place = f.area === "place" ? await resolvePlace(f.loc) : null;
-  const [cats, catalog, found, favRows, unread, here] = await Promise.all([
+  const [cats, catalog, found, favRows, unread, here, callCount] = await Promise.all([
     db.select({ id: categories.id, name: categories.name }).from(categories).where(eq(categories.active, true)).orderBy(asc(categories.sort)),
     db.select({ id: catalogServices.id, categoryId: catalogServices.categoryId, name: catalogServices.name }).from(catalogServices).orderBy(asc(catalogServices.sort), asc(catalogServices.name)),
     searchPros(f, area, place),
     db.select({ proId: favorites.proId }).from(favorites).where(eq(favorites.studentId, user.id)),
     unreadCount(user.id),
     nearPoint(),
+    countOpenModelCalls(area),
   ]);
   const favSet = new Set(favRows.map((r) => r.proId));
   // Owners browsing as a customer: when nobody shows, explain exactly which pros are hidden and why.
@@ -120,9 +121,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
       <div className="body">
         <p className="eyebrow p">Hi, {user.firstName}</p>
         <h1 className="disp h1">What do you need?</h1>
-        <Link className="card pearl" href={`/model-calls${f.area ? `?area=${f.area}` : ""}`} style={{ textDecoration: "none", padding: 22, gap: 6 }}>
+        <Link className="card pearl" href="/model-calls?area=all" style={{ textDecoration: "none", padding: 22, gap: 6 }}>
           <div className="row between"><span className="disp h1">Model Calls</span><Icon name="right" /></div>
-          <span className="small b">Model Calls near me</span>
+          <span className="small b">{callCount > 0 ? `${callCount} Model Call${callCount === 1 ? "" : "s"} open in all areas` : "No open Model Calls right now — check back soon"}</span>
         </Link>
         <ExploreFilters
           key={`${f.cat ?? ""}|${f.svc ?? ""}|${f.q ?? ""}|${f.area ?? ""}|${f.loc ?? ""}`}
@@ -177,20 +178,16 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
             </>
           );
         })()}
-        {isOwner && (
+        {isOwner && hidden.length > 0 && (
           <div className="card warn" style={{ gap: 10 }}>
             <span className="eyebrow">Owner view — only you see this</span>
-            {hidden.length === 0
-              ? <span className="small">Every professional passes the go-live checks. If nobody shows, turn filters off or choose All.</span>
-              : <>
-                  <span className="small">Customers can only see professionals who pass every check. These are hidden right now:</span>
-                  {hidden.map((h) => (
-                    <div key={h.userId} className="card" style={{ gap: 6 }}>
-                      <div className="row between"><span className="b">{h.name}</span><Link className="link xs" href={`/admin/professionals/${h.userId}`}>Review account →</Link></div>
-                      {h.blockers.map((b) => <span key={b} className="xs">• {b}</span>)}
-                    </div>
-                  ))}
-                </>}
+            <span className="small">These professionals can&apos;t be booked yet because something still needs to be finished:</span>
+            {hidden.map((h) => (
+              <div key={h.userId} className="card" style={{ gap: 6 }}>
+                <div className="row between"><span className="b">{h.name}</span><Link className="link xs" href={`/admin/professionals/${h.userId}`}>Review account →</Link></div>
+                {h.blockers.map((b) => <span key={b} className="xs">• {b}</span>)}
+              </div>
+            ))}
           </div>
         )}
         {pros.map((p) => <ProResult key={p.userId} p={p} fav={favSet.has(p.userId)} />)}

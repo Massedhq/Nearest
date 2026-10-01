@@ -12,11 +12,13 @@ const NAV: [string, [string, string, string][]][] = [
   ["Help", [["How it works", "file", "/admin/guide"]]],
 ];
 
-export function AdminNav() {
+export function AdminNav({ isMain = false }: { isMain?: boolean }) {
   const path = usePathname();
+  // Sales Board is the main owner's alone (also enforced on the server).
+  const nav = isMain ? NAV.map(([h, items]) => [h, h === "Business" ? [...items, ["Sales Board", "users", "/admin/sales-board"]] : items] as (typeof NAV)[number]) : NAV;
   return (
     <>
-      {NAV.map(([head, items]) => (
+      {nav.map(([head, items]) => (
         <div key={head}>
           <div className="navh">{head}</div>
           {items.map(([label, icon, href]) => {

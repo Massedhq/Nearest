@@ -1,4 +1,5 @@
 "use server";
+import { repIdFromCookie } from "@/lib/reps";
 import { redirect } from "next/navigation";
 import { db, users, studentProfiles } from "@/db";
 import { getViewer, clerkContact } from "@/lib/viewer";
@@ -36,6 +37,7 @@ export async function completeStudent(_: FormState, form: FormData): Promise<For
       phoneVerifiedAt: c.phoneVerifiedAt,
       email: c.email,
       emailVerifiedAt: c.emailVerifiedAt,
+      repId: await repIdFromCookie(),
     })
     .onConflictDoNothing()
     .returning();
@@ -59,6 +61,7 @@ export async function createStudentFromSignUp(): Promise<boolean> {
     .values({
       clerkUserId: viewer.clerkUserId, accountType: "student", firstName, lastName, dateOfBirth: c.dob,
       phone: c.phone ?? c.typedPhone, phoneVerifiedAt: c.phoneVerifiedAt, email: c.email, emailVerifiedAt: c.emailVerifiedAt,
+      repId: await repIdFromCookie(),
     })
     .onConflictDoNothing()
     .returning();

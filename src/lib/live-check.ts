@@ -75,7 +75,8 @@ export async function hiddenPros() {
     rows.map(async ({ p, first, last }) => ({
       userId: p.userId,
       name: p.businessName || `${first ?? ""} ${last ?? ""}`.trim() || "Unnamed professional",
-      blockers: await proBlockers(p),
+      // Going offline is the pro's own choice, not something to fix — leave it out of this list.
+      blockers: (await proBlockers(p)).filter((b) => !b.startsWith("Went offline")),
     })),
   );
   return out.filter((r) => r.blockers.length > 0);

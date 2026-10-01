@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 
 // Pages anyone can open. Everything else needs a signed-in user; role checks
 // happen again in each layout, page and server action (never only here).
-const PUBLIC_EXACT = new Set(["/", "/pro", "/manifest.webmanifest", "/pro/manifest.webmanifest", "/sw.js", "/api/stripe/webhook", "/api/cron/sweep", "/terms", "/privacy"]);
-const PUBLIC_PREFIX = ["/sign-in", "/sign-up", "/pro/sign-in", "/pro/sign-up", "/pro/invite/", "/admin/sign-in", "/admin/sign-up"];
+const PUBLIC_EXACT = new Set(["/", "/pro", "/manifest.webmanifest", "/pro/manifest.webmanifest", "/sw.js", "/api/stripe/webhook", "/api/cron/sweep", "/terms", "/privacy", "/api/rep/accept"]); // rep accept checks sign-in itself and sends signed-out people to sign in
+const PUBLIC_PREFIX = ["/sign-in", "/sign-up", "/pro/sign-in", "/pro/sign-up", "/pro/invite/", "/admin/sign-in", "/admin/sign-up", "/rep/join/"];
 
 function isPublic(path: string) {
   if (/^\/pro-[a-z0-9-]{2,40}$/i.test(path)) return true; // shareable pro links: usenearest.com/pro-<name>
@@ -15,6 +15,9 @@ function isPublic(path: string) {
 function withRef(req: Request & { nextUrl: URL }, res: NextResponse) {
   const ref = req.nextUrl.searchParams.get("ref");
   if (ref && /^[A-Za-z0-9]{3,12}$/.test(ref)) res.cookies.set("nearest_ref", ref.toUpperCase(), { maxAge: 60 * 60 * 24 * 30, path: "/", sameSite: "lax", secure: true, httpOnly: true });
+  // Sales rep links (?rep=RXXXXXX): same 30-day memory, kept separate from partner links.
+  const rep = req.nextUrl.searchParams.get("rep");
+  if (rep && /^[A-Za-z0-9]{3,12}$/.test(rep)) res.cookies.set("nearest_rep", rep.toUpperCase(), { maxAge: 60 * 60 * 24 * 30, path: "/", sameSite: "lax", secure: true, httpOnly: true });
   return res;
 }
 

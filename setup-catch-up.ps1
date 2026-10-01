@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Portfolio videos (15 seconds max, checked on phone and server), shown on profiles with Book this look"
+git commit -q -m "Sales Board: owner-only sales reps with invitations, rep sign-up, rep dashboard and link tracking; invitations without category"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

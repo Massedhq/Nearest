@@ -80,14 +80,14 @@ export default async function Founding({ searchParams }: { searchParams: Promise
       <div className="card" style={{ gap: 12, overflowX: "auto" }}>
         <span className="eyebrow">Invitations</span>
         <table className="tbl">
-          <thead><tr><th>Name</th><th>Contact</th><th>Type</th><th>Category</th><th>Code</th><th>Sent by</th><th>Created</th><th>Status</th><th>Expires</th><th /></tr></thead>
+          <thead><tr><th>Name</th><th>Contact</th><th>Type</th><th>Code</th><th>Sent by</th><th>Created</th><th>Status</th><th>Expires</th><th /></tr></thead>
           <tbody>
-            {rows.length === 0 && <tr><td className="empty" colSpan={10}>No invitations yet. Generate the first one above.</td></tr>}
+            {rows.length === 0 && <tr><td className="empty" colSpan={9}>No invitations yet. Generate the first one above.</td></tr>}
             {rows.map(({ i, city, byFirst, byLast, byEmail }) => (
               <tr key={i.id}>
                 <td>{i.name}</td><td>{i.contact}</td>
                 <td><span className={`tag ${i.kind === "FIRST_IN" ? "" : "warn"}`}>{i.kind === "AMBASSADOR" ? "Ambassador — free" : i.kind === "BOOKING_PAID" ? `Pay from bookings $${((i.rateCents ?? 1500) / 100).toFixed(0)}/mo` : "First In"}</span></td>
-                <td>{i.category}</td><td className="num">{i.code}</td>
+                <td className="num">{i.code}</td>
                 <td>{[byFirst, byLast].filter(Boolean).join(" ") || byEmail || "—"}</td>
                 <td>{fmt(i.createdAt)}</td>
                 <td><span className={`tag ${TAG[i.status]}`}>{i.status}</span></td>
