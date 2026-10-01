@@ -5,6 +5,10 @@ import { getViewer } from "@/lib/viewer";
 import { repForUser, repLinks, repRecent, repStats } from "@/lib/reps";
 import { fmtDate } from "@/lib/time";
 import { CopyText } from "@/components/CopyText";
+import { desc, eq } from "drizzle-orm";
+import { db, repPayouts } from "@/db";
+import { syncRepStripe } from "@/lib/rep-stripe";
+import { startRepPayouts } from "@/app/rep/actions";
 
 export const metadata = { title: "Sales dashboard" };
 
@@ -16,10 +20,11 @@ const PROBLEMS: Record<string, string> = {
 };
 
 /** A sales rep's own dashboard: their links and everyone who signed up through them. Nothing else in Nearest. */
-export default async function RepDashboard({ searchParams }: { searchParams: Promise<{ e?: string }> }) {
-  const { e } = await searchParams;
+export default async function RepDashboard({ searchParams }: { searchParams: Promise<{ e?: string; stripe?: string; payout?: string }> }) {
+  const { e, stripe: back, payout } = await searchParams;
   const viewer = await getViewer();
-  const rep = await repForUser(viewer?.user?.id);
+  let rep = await repForUser(viewer?.user?.id);
+  if (rep?.stripeAccountId && (back === "return" || !rep.payoutsEnabled)) { await syncRepStripe(rep.id); rep = await repForUser(viewer?.user?.id); }
 
   if (!rep) {
     return (
@@ -39,7 +44,11 @@ export default async function RepDashboard({ searchParams }: { searchParams: Pro
   const h = await headers();
   const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
   const links = repLinks(origin, rep.code);
-  const [stats, recent] = await Promise.all([repStats([rep.id]), repRecent(rep.id)]);
+  const [stats, recent, payments] = await Promise.all([
+    repStats([rep.id]), repRecent(rep.id),
+    db.select().from(repPayouts).where(eq(repPayouts.repId, rep.id)).orderBy(desc(repPayouts.createdAt)).limit(24),
+  ]);
+  const paidTotal = payments.reduce((t, p) => t + p.amountCents, 0);
   const s = stats.get(rep.id)!;
 
   return (
@@ -72,6 +81,25 @@ export default async function RepDashboard({ searchParams }: { searchParams: Pro
           </div>
         </div>
 
+        <div className="card" style={{ gap: 12 }}>
+          <div className="row between"><span className="eyebrow">Payouts</span>{rep.payoutsEnabled ? <span className="tag ok">Connected</span> : <span className="tag warn">Not set up</span>}</div>
+          {rep.payoutsEnabled
+            ? <span className="small">Payments go to <span className="b">{rep.payoutDestination ?? "your Stripe account"}</span>.</span>
+            : <span className="small">Set up payouts so Nearest can pay you. It takes a few minutes on Stripe, our payment provider — you&apos;ll add your bank account or debit card and confirm your identity.</span>}
+          {payout === "error" && <span className="err">Stripe didn&apos;t open. Try again in a minute.</span>}
+          <form action={startRepPayouts}><button className={rep.payoutsEnabled ? "btn ghost sm" : "btn"} type="submit" style={{ width: rep.payoutsEnabled ? undefined : "100%" }}>{rep.payoutsEnabled ? "Manage payout account" : rep.stripeAccountId ? "Finish payout setup" : "Set up payouts"}</button></form>
+          <div className="row between"><span className="small b">Paid to you</span><span className="small b">${(paidTotal / 100).toFixed(2)}</span></div>
+          {payments.length === 0
+            ? <span className="xs muted">No payments yet.</span>
+            : payments.map((p) => (
+                <div key={p.id} className="row between small" style={{ gap: 8 }}>
+                  <span>{fmtDate(p.createdAt, { month: "short", day: "numeric", year: "numeric" })}{p.note ? ` • ${p.note}` : ""}</span>
+                  <span className="b">${(p.amountCents / 100).toFixed(2)}</span>
+                </div>
+              ))}
+          <span className="xs muted">You&apos;re responsible for your own taxes. Nearest doesn&apos;t withhold taxes from payments.</span>
+        </div>
+
         <div className="card" style={{ gap: 10 }}>
           <span className="eyebrow">Recent sign-ups</span>
           {recent.length === 0 && <span className="small muted">No sign-ups yet. Share your links to get started.</span>}
@@ -83,6 +111,11 @@ export default async function RepDashboard({ searchParams }: { searchParams: Pro
           ))}
           <span className="xs muted">Students are shown without names to protect their privacy.</span>
         </div>
+
+        <span className="xs muted" style={{ textAlign: "center" }}>
+          You signed the <a className="link xs" href="/rep/agreement" target="_blank" rel="noreferrer">Sales Ambassador Agreement</a>
+          {rep.agreedAt ? ` on ${fmtDate(rep.agreedAt, { month: "short", day: "numeric", year: "numeric" })} as ${rep.agreedName}` : ""}.
+        </span>
       </div>
     </div>
   );

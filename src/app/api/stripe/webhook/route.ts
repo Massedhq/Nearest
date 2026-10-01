@@ -61,6 +61,7 @@ export async function POST(req: Request) {
           if (pro) await (await import("@/lib/bookings")).payOwedToPro(pro.userId);
         }
         await savePartnerAccount(a); // partner payout accounts (bank or debit card)
+        await (await import("@/lib/rep-stripe")).saveRepAccount(a); // sales rep payout accounts
         break;
       }
     }

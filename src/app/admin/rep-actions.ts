@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { and, eq, ne } from "drizzle-orm";
-import { db, salesReps } from "@/db";
+import { db, salesReps, repPayouts } from "@/db";
 import { requireAdmin } from "@/lib/admin";
 import { mainOwnerId } from "@/lib/partner";
 import { logActivity } from "@/lib/log";
@@ -76,4 +76,33 @@ export async function setRepStatus(_: FormState, form: FormData): Promise<FormSt
   await logActivity({ actorUserId: user.id, action: to === "removed" ? "rep.removed" : "rep.restored", targetType: "sales_rep", targetId: id, before: rep.status, after: status });
   revalidatePath("/admin/sales-board");
   return { ok: to === "removed" ? `${rep.name} was removed.` : `${rep.name} is back on the team.` };
+}
+
+/** Pay a sales rep through Stripe (from Nearest's Stripe balance to their connected bank or debit card). */
+export async function payRep(_: FormState, form: FormData): Promise<FormState> {
+  let user;
+  try { user = await requireMain(); } catch (e) { return { error: (e as Error).message }; }
+  const id = String(form.get("id") ?? "");
+  const dollars = Number(String(form.get("amount") ?? "").replace(/[^0-9.]/g, ""));
+  const note = String(form.get("note") ?? "").trim().slice(0, 140) || null;
+  if (!Number.isFinite(dollars) || dollars < 1 || dollars > 10000) return { error: "Enter an amount between $1 and $10,000." };
+  const cents = Math.round(dollars * 100);
+  const rep = await db.query.salesReps.findFirst({ where: eq(salesReps.id, id) });
+  if (!rep || rep.status !== "active") return { error: "Only active reps can be paid." };
+  if (!rep.stripeAccountId || !rep.payoutsEnabled) return { error: `${rep.name} hasn't finished payout setup yet. They can do it from their dashboard.` };
+  try {
+    const { stripe } = await import("@/lib/stripe");
+    const t = await stripe().transfers.create({
+      amount: cents, currency: "usd", destination: rep.stripeAccountId,
+      description: `Nearest sales ambassador payment${note ? ` — ${note}` : ""}`,
+      metadata: { repId: rep.id, kind: "rep_payout" },
+    });
+    await db.insert(repPayouts).values({ repId: rep.id, amountCents: cents, note, stripeTransferId: t.id, createdBy: user.id });
+    await logActivity({ actorUserId: user.id, action: "rep.paid", targetType: "sales_rep", targetId: rep.id, after: { cents, note, transfer: t.id } });
+  } catch (e) {
+    const m = (e as Error).message ?? "";
+    return { error: /insufficient/i.test(m) ? "Nearest's Stripe balance doesn't have enough available funds for this payment yet." : `Stripe didn't send the payment: ${m}` };
+  }
+  revalidatePath("/admin/sales-board");
+  return { ok: `Sent $${dollars.toFixed(2)} to ${rep.name}.` };
 }

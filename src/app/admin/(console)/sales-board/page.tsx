@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { desc } from "drizzle-orm";
-import { db, salesReps } from "@/db";
+import { desc, sql } from "drizzle-orm";
+import { db, salesReps, repPayouts } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
 import { ActionForm } from "@/components/ActionForm";
 import { CopyText } from "@/components/CopyText";
@@ -9,7 +9,7 @@ import { requireAdmin } from "@/lib/admin";
 import { mainOwnerId } from "@/lib/partner";
 import { repLinks, repStats } from "@/lib/reps";
 import { fmtDate } from "@/lib/time";
-import { inviteRep, resendRepInvite, setRepStatus } from "@/app/admin/rep-actions";
+import { inviteRep, resendRepInvite, setRepStatus, payRep } from "@/app/admin/rep-actions";
 
 export const metadata = { title: "Sales Board" };
 
@@ -21,6 +21,8 @@ export default async function SalesBoard() {
   const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
   const reps = await db.select().from(salesReps).orderBy(desc(salesReps.createdAt));
   const stats = await repStats(reps.map((r) => r.id));
+  const paidRows = await db.select({ repId: repPayouts.repId, cents: sql<number>`coalesce(sum(${repPayouts.amountCents}),0)::int` }).from(repPayouts).groupBy(repPayouts.repId);
+  const paid = (id: string) => paidRows.find((p) => p.repId === id)?.cents ?? 0;
   const live = reps.filter((r) => r.status !== "removed");
   const sum = (k: "total" | "pros" | "prosJoined" | "students" | "thisMonth") => live.reduce((t, r) => t + (stats.get(r.id)?.[k] ?? 0), 0);
   const now = Date.now();
@@ -54,9 +56,9 @@ export default async function SalesBoard() {
         <span className="eyebrow">Your sales team</span>
         <div style={{ overflowX: "auto" }}>
           <table className="tbl">
-            <thead><tr><th>Rep</th><th>Status</th><th>Sign-ups</th><th>Pros (joined)</th><th>Students</th><th>This month</th><th>Their links</th><th /></tr></thead>
+            <thead><tr><th>Rep</th><th>Status</th><th>Agreement</th><th>Sign-ups</th><th>Pros (joined)</th><th>Students</th><th>This month</th><th>Payouts</th><th>Their links</th><th /></tr></thead>
             <tbody>
-              {reps.length === 0 && <tr><td className="empty" colSpan={8}>No sales reps yet. Invite your first one above.</td></tr>}
+              {reps.length === 0 && <tr><td className="empty" colSpan={10}>No sales reps yet. Invite your first one above.</td></tr>}
               {reps.map((r) => {
                 const s = stats.get(r.id)!;
                 const links = repLinks(origin, r.code);
@@ -70,10 +72,26 @@ export default async function SalesBoard() {
                       </span>
                       <div className="xs muted">{r.acceptedAt ? `Since ${fmtDate(r.acceptedAt, { month: "short", day: "numeric" })}` : `Invited ${fmtDate(r.createdAt, { month: "short", day: "numeric" })}`}</div>
                     </td>
+                    <td>
+                      {r.agreedAt
+                        ? <><span className="tag ok">Signed</span><div className="xs muted">{r.agreedName} • {fmtDate(r.agreedAt, { month: "short", day: "numeric", year: "numeric" })}</div><div className="xs muted">Version {r.agreementVersion}</div></>
+                        : <span className="tag">Not yet</span>}
+                    </td>
                     <td className="num b">{s.total}</td>
                     <td className="num">{s.pros} ({s.prosJoined})</td>
                     <td className="num">{s.students}</td>
                     <td className="num">{s.thisMonth}</td>
+                    <td>
+                      {r.payoutsEnabled ? <span className="tag ok">{r.payoutDestination ?? "Connected"}</span> : <span className="tag">Not set up</span>}
+                      <div className="xs muted">Paid ${(paid(r.id) / 100).toFixed(2)}</div>
+                      {r.status === "active" && r.payoutsEnabled && (
+                        <ActionForm action={payRep} submitLabel="Pay" buttonClass="btn sm" className="col g4">
+                          <input type="hidden" name="id" value={r.id} />
+                          <input name="amount" inputMode="decimal" placeholder="$ amount" aria-label={`Amount to pay ${r.name}`} required style={{ height: 36, borderRadius: 10, border: "1px solid #2A2A2D", background: "#0E0E10", color: "#ECE8E1", padding: "0 10px", width: 110 }} />
+                          <input name="note" placeholder="Note (optional)" aria-label="Payment note" maxLength={140} style={{ height: 36, borderRadius: 10, border: "1px solid #2A2A2D", background: "#0E0E10", color: "#ECE8E1", padding: "0 10px", width: 140 }} />
+                        </ActionForm>
+                      )}
+                    </td>
                     <td>
                       <div className="col" style={{ gap: 6 }}>
                         <div className="row" style={{ gap: 6 }}><span className="xs muted">Pros</span><CopyText text={links.pro} label="Copy" /></div>

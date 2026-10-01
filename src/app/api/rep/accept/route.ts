@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db, salesReps, users } from "@/db";
 import { getViewer, clerkContact } from "@/lib/viewer";
 import { logActivity } from "@/lib/log";
+import { REP_AGREEMENT_VERSION } from "@/lib/rep-agreement";
 
 // Links a sales rep's new (or existing) login to their invitation, then opens their dashboard.
 // The login's verified email must be the exact email the invitation was sent to.
@@ -18,6 +19,8 @@ export async function GET(req: NextRequest) {
   if (rep.status === "removed") return to("/rep?e=removed");
   if (rep.status === "active") return to("/rep");
   if (rep.inviteExpiresAt.getTime() < Date.now()) return to("/rep?e=expired");
+  // The agreement must be signed before the account is linked.
+  if (!rep.agreedAt || rep.agreementVersion !== REP_AGREEMENT_VERSION) return to(`/rep/join/${token}`);
 
   let user = viewer.user;
   if (!user) {

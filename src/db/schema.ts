@@ -614,5 +614,26 @@ export const salesReps = pgTable("sales_reps", {
   invitedBy: uuid("invited_by").references(() => users.id, { onDelete: "set null" }),
   inviteExpiresAt: ts("invite_expires_at").notNull(),
   acceptedAt: ts("accepted_at"),
+  // Sales Ambassador Agreement — signed (checkbox + typed full name) before the account can be created.
+  agreementVersion: text("agreement_version"),
+  agreedAt: ts("agreed_at"),
+  agreedName: text("agreed_name"),
+  agreedIp: text("agreed_ip"),
+  agreedUserAgent: text("agreed_user_agent"),
+  // Payouts (Stripe connected account — bank or debit card). Nearest stores only a label like "Chase ••••4417".
+  stripeAccountId: text("stripe_account_id"),
+  payoutsEnabled: boolean("payouts_enabled").notNull().default(false),
+  payoutDestination: text("payout_destination"),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [uniqueIndex("sales_reps_code_idx").on(t.code), uniqueIndex("sales_reps_token_idx").on(t.token), index("sales_reps_email_idx").on(t.email)]);
+
+// Payments the main owner sent to sales reps through Stripe.
+export const repPayouts = pgTable("rep_payouts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  repId: uuid("rep_id").notNull().references(() => salesReps.id, { onDelete: "cascade" }),
+  amountCents: integer("amount_cents").notNull(),
+  note: text("note"),
+  stripeTransferId: text("stripe_transfer_id"),
+  createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("rep_payouts_rep_idx").on(t.repId)]);

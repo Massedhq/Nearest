@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Sales Board: owner-only sales reps with invitations, rep sign-up, rep dashboard and link tracking; invitations without category"
+git commit -q -m "Sales reps: signed Sales Ambassador Agreement before sign-up, Stripe payouts, pay reps from Sales Board"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""
