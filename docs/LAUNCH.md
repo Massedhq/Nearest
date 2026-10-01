@@ -40,6 +40,10 @@ Do these in order. Everything before step 8 can be done while you're still testi
   - **Events:** `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `identity.verification_session.verified`, `identity.verification_session.requires_input`, `account.updated`.
   - Turn on **Listen to events on Connected accounts** (for `account.updated`).
   - Copy the signing secret → Vercel `STRIPE_WEBHOOK_SECRET`.
+  - IMPORTANT: use **https://www.usenearest.com/api/stripe/webhook** (the plain domain 308-redirects to www and Stripe never follows redirects).
+  - You need TWO event destinations, because Stripe sends each source separately:
+    1. **Your account**: checkout.session.completed, customer.subscription.updated, customer.subscription.deleted, invoice.paid → its secret in `STRIPE_WEBHOOK_SECRET`.
+    2. **Connected accounts**: account.updated → its secret in `STRIPE_CONNECT_WEBHOOK_SECRET`.
 - Put the **live** secret key (`sk_live_…`) in Vercel as `STRIPE_SECRET_KEY`.
 
 ## 6. Vercel environment variables (Production)

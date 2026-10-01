@@ -12,14 +12,21 @@ import { finalizeEntry } from "@/lib/entry";
 // Stripe calls this in the background so payments, memberships, ID checks and payouts stay current
 // even if someone closes the browser before returning to Nearest.
 export async function POST(req: Request) {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!secret) return new Response("Webhook secret not set", { status: 500 });
-  let event: Stripe.Event;
-  try {
-    event = stripe().webhooks.constructEvent(await req.text(), req.headers.get("stripe-signature") ?? "", secret);
-  } catch {
-    return new Response("Bad signature", { status: 400 });
+  // Stripe gives every event destination its own signing secret. Nearest has two destinations —
+  // "Your account" (payments, memberships, invoices) and "Connected accounts" (payout setups) — so accept either.
+  // STRIPE_WEBHOOK_SECRET may also hold several secrets separated by commas.
+  const secrets = [process.env.STRIPE_WEBHOOK_SECRET, process.env.STRIPE_CONNECT_WEBHOOK_SECRET]
+    .flatMap((v) => (v ?? "").split(","))
+    .map((v) => v.trim())
+    .filter(Boolean);
+  if (!secrets.length) return new Response("Webhook secret not set", { status: 500 });
+  const body = await req.text();
+  const signature = req.headers.get("stripe-signature") ?? "";
+  let event: Stripe.Event | null = null;
+  for (const secret of secrets) {
+    try { event = stripe().webhooks.constructEvent(body, signature, secret); break; } catch { /* try the next secret */ }
   }
+  if (!event) return new Response("Bad signature", { status: 400 });
   try {
     switch (event.type) {
       case "checkout.session.completed": {
