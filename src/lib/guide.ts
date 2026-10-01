@@ -87,6 +87,15 @@ function student(r: R): GuideSection[] {
       ],
     },
     {
+      id: "bundle", title: "Bundle my booking", icon: "grid", topics: [
+        { q: "What is Bundle my booking?", a: ["Need several things done the same week — like hair, lashes, nails and makeup for an event? Bundle my booking finds professionals near you with openings that week whose prices fit your total budget."], link: { label: "Bundle my booking", href: "/bundle" } },
+        { q: "How do I build a bundle?", a: [], steps: ["Tap Bundle my booking on Explore and pick at least two categories.", "Enter your total budget and the week you need it done (7 days starting the day you pick).", "For each category, Nearest shows one recommended professional at a time — tap View their work, then Save to bundle or Next person.", "Saved someone you changed your mind about? Remove them and pick another.", "When every category is saved, tap Book it and book each professional on a day during your week."] },
+        { q: "How does the budget work?", a: ["Nearest only recommends professionals whose price fits what's left of your budget — and it keeps enough room for the categories you haven't filled yet, so your first pick can't use up everything."] },
+        { q: "Can I finish later?", a: ["Yes. Your bundle is saved for 2 weeks. If it isn't booked by then, it's cleared automatically and you can start a new one anytime."] },
+        { q: "Can I use credits on a bundle?", a: ["No. Credits and invite rewards only work on single bookings, so they stay in your account for those."] },
+      ],
+    },
+    {
       id: "modelcalls", title: "Model Calls", icon: "sparkle", topics: [
         { q: "What is a Model Call?", a: ["Pros post Model Calls when they're practicing a new technique or building their portfolio — often at a lower price. You get the look, they get the practice."], link: { label: "Model Calls near me", href: "/model-calls" } },
         { q: "How do I sign up for one?", a: ["Open the Model Call, read the requirements and extra information, and book. Some have a set date and time. \"Open time\" calls let you pick a day and time that works for you until the call closes."] },
@@ -179,6 +188,7 @@ function pro(r: R): GuideSection[] {
         { q: "What if they leave without finishing?", a: [`Nearest applies the completion policy: if they don't finish within ${r.completionHours} hours of you tapping Finish, you're paid automatically.`] },
         { q: "What if I have to cancel?", a: ["The student gets the full amount back as Nearest credit, and it counts toward your cancellation rate. Cancel only when you truly have to."] },
         { q: "How do I message clients?", a: [`Each appointment has its own chat, open for ${r.msgDays} days after the appointment. Phone numbers and emails are never shared.`], link: { label: "Messages", href: "/pro/messages" } },
+        { q: "What's a Bundle Me booking?", a: ["Students can bundle several services for the same week (for example hair, lashes, nails and makeup) within a budget. When one of those bookings is with you, you get a notification and the appointment is marked \"Part of a Bundle Me booking.\" It's a normal paid booking — the student pays your full price, and credits and invite rewards can't be used on it."] },
         { q: "What's the $5 student invite reward?", a: ["Students who invite friends to Nearest earn $5 off. When a student uses it on their first booking with you, they pay $5 less and your payout for that booking is $5 less. You agreed to this when you joined — it's how Nearest rewards students for sharing the platform, and it keeps you booked. It never applies twice for the same student with you, and never to Model Calls. You'll see it on the appointment."] },
         { q: "How do reviews work?", a: ["Only students who completed an appointment with you can review you, so every review is real. Ratings help you rank in search."] },
         { q: "Where do my clients' photos go?", a: ["Every client takes a photo of their finished look. It goes to your private Client photos — never straight into your portfolio. From there you choose: show it with that client's review, add it to your portfolio, download it to your phone, or remove it. Showing or adding only works if the client allowed sharing."], link: { label: "Client photos", href: "/pro/client-photos" } },
@@ -237,6 +247,7 @@ function admin(r: R): GuideSection[] {
         { q: "Money", a: ["Nearest's revenue (memberships) kept separate from professionals' money (card payments, released funds, and card-processing fees paid by pros)."], link: { label: "Open", href: "/admin/money" } },
         { q: "Sales Track", a: ["Partner progress, membership payments, what Nearest keeps, and the professionals each partner brought in. Partner links (?ref=CODE) are remembered for 30 days, so partners get credit even if the pro signs up later."], link: { label: "Open", href: "/admin/sales" } },
         { q: "Marketing", a: ["Where to push next: sign-ups by city, verified students, cities below target, and demand without supply (or supply without demand)."], link: { label: "Open", href: "/admin/marketing" } },
+        { q: "Bundle Me", a: ["How students use Bundle my booking: bundles started, fully booked, in progress and expired; bundle bookings and what they paid; the most bundled categories; the students using it most; and every recent bundle."], link: { label: "Open", href: "/admin/bundles" } },
         { q: "Leaderboard", a: ["Top pros (overall score, bookings, highest rated, most reviewed, favorited, shared) and top students, for 30 days, 90 days or all time."], link: { label: "Open", href: "/admin/leaderboard" } },
         { q: "Profile examples", a: ["Sample pro and student profiles showing what a fully built-out account looks like. Sample data only — nobody real."], link: { label: "Open", href: "/admin/examples" } },
         { q: "Marketplace", a: ["Change the catalog without a developer: categories, suggested services, and whether a license is required."], link: { label: "Open", href: "/admin/marketplace" } },

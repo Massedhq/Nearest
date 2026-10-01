@@ -384,6 +384,7 @@ export const bookings = pgTable("bookings", {
   // Student invite reward used on this booking: $5 off, funded by the professional (first booking with them only).
   inviteDiscountCents: integer("invite_discount_cents").notNull().default(0),
   inviteRewardId: uuid("invite_reward_id"),
+  bundleId: uuid("bundle_id"), // booked through Bundle Me (no credits or invite rewards)
   chargedCents: integer("charged_cents").notNull().default(0),
   status: bookingStatus("status").notNull().default("pending_payment"),
   holdExpiresAt: ts("hold_expires_at"),
@@ -676,3 +677,31 @@ export const inviteRewards = pgTable("invite_rewards", {
   bookingId: uuid("booking_id"),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [uniqueIndex("invite_rewards_pair_idx").on(t.userId, t.fromUserId, t.reason), index("invite_rewards_user_idx").on(t.userId, t.status)]);
+
+// Bundle Me: a student picks several categories, a total budget and a week; Nearest suggests professionals with
+// openings that week whose prices fit the budget. She saves one per category, then books each one inside that week.
+// building → ready (every category saved) → booked (every saved pro booked). Unbooked bundles expire after 14 days:
+// their saved pros are cleared, but the bundle row stays (status "expired") so Nearest can count usage.
+export const bundles = pgTable("bundles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  studentId: uuid("student_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  categoryIds: jsonb("category_ids").$type<number[]>().notNull(),
+  budgetCents: integer("budget_cents").notNull(),
+  startDate: text("start_date").notNull(), // "YYYY-MM-DD" (Chicago) — the week she needs it done
+  endDate: text("end_date").notNull(),
+  status: text("status").notNull().default("building"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  expiresAt: ts("expires_at").notNull(),
+  completedAt: ts("completed_at"),
+}, (t) => [index("bundles_student_idx").on(t.studentId), index("bundles_status_idx").on(t.status)]);
+
+export const bundleItems = pgTable("bundle_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  bundleId: uuid("bundle_id").notNull().references(() => bundles.id, { onDelete: "cascade" }),
+  categoryId: integer("category_id").notNull(),
+  proId: uuid("pro_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  serviceId: uuid("service_id").notNull().references(() => proServices.id, { onDelete: "cascade" }),
+  priceCents: integer("price_cents").notNull(),
+  bookingId: uuid("booking_id"),
+  savedAt: ts("saved_at").notNull().defaultNow(),
+}, (t) => [uniqueIndex("bundle_items_cat_idx").on(t.bundleId, t.categoryId)]);

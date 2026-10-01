@@ -28,6 +28,7 @@ export async function confirmBooking(bookingId: string, charge?: { chargeId: str
     .returning();
   if (!b) return null; // already confirmed
   await useInviteReward(b.id, b.inviteRewardId);
+  if (b.bundleId) { try { await (await import("./bundles")).onBundleBookingConfirmed(b); } catch (e) { console.error("bundle", e); } }
 
   const used = [];
   if (b.creditProCents) used.push({ studentId: b.studentId, proId: b.proId, amountCents: -b.creditProCents, reason: `Used on ${bookingCode(b.number)}`, bookingId: b.id });

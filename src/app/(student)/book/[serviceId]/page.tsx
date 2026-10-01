@@ -13,7 +13,7 @@ import { Icon } from "@/components/Icon";
 
 export const metadata = { title: "Choose a time" };
 
-export default async function ChooseTime({ params, searchParams }: { params: Promise<{ serviceId: string }>; searchParams: Promise<{ day?: string }> }) {
+export default async function ChooseTime({ params, searchParams }: { params: Promise<{ serviceId: string }>; searchParams: Promise<{ day?: string; bundle?: string }> }) {
   const { user: me } = await requireVerifiedStudent();
   const { serviceId } = await params;
   if (!/^[0-9a-f-]{36}$/.test(serviceId)) notFound();
@@ -31,9 +31,13 @@ export default async function ChooseTime({ params, searchParams }: { params: Pro
   const [pro] = await db.select().from(professionalProfiles).where(and(eq(professionalProfiles.userId, svc.userId), ...liveProWhere(null, "all"))).limit(1);
   if (!pro) notFound();
   const open = await getFlag("status.bookings");
-  const days = nextDays(14);
+  // Booking from a bundle: only the days in the bundle's week.
+  const bundleItemId = (await searchParams).bundle;
+  const bundleItem = bundleItemId ? await (await import("@/lib/bundles")).bundleItemFor(bundleItemId, me.id, svc.id) : null;
+  const days = bundleItem ? bundleItem.days : nextDays(14);
+  const q = bundleItem ? `&bundle=${bundleItemId}` : "";
   const day = days.includes((await searchParams).day ?? "") ? (await searchParams).day! : days[0];
-  const slots = open ? await openSlots(svc.userId, svc.durationMin, day) : [];
+  const slots = open && day ? await openSlots(svc.userId, svc.durationMin, day) : [];
   const d = (s: string) => new Date(`${s}T12:00:00Z`);
   return (
     <div className="scr">
@@ -41,18 +45,19 @@ export default async function ChooseTime({ params, searchParams }: { params: Pro
       <div className="body">
         <div className="card"><div className="row between"><div><div className="b">{svc.name}</div><div className="small muted">{pro.businessName} • {svc.durationMin} min</div></div><span className="b">{money(svc.priceCents)}</span></div></div>
         {!open && <div className="card warn small"><span>Booking is paused right now. Please check back soon.</span></div>}
+        {bundleItem && <div className="card small"><span><span className="b">Bundle booking</span> — choose a day during your bundle week.</span></div>}
         <div className="scrollx" style={{ marginRight: 0, overflowX: "auto" }}>
           {days.map((x) => (
-            <Link key={x} scroll={false} href={`/book/${svc.id}?day=${x}`} className={`slot${x === day ? " on" : ""}`} style={{ flexDirection: "column", height: 64, gap: 0, minWidth: 58, textDecoration: "none" }}>
+            <Link key={x} scroll={false} href={`/book/${svc.id}?day=${x}${q}`} className={`slot${x === day ? " on" : ""}`} style={{ flexDirection: "column", height: 64, gap: 0, minWidth: 58, textDecoration: "none" }}>
               <span className="xs">{d(x).toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" })}</span>
               <span style={{ fontSize: 18 }}>{d(x).getUTCDate()}</span>
             </Link>
           ))}
         </div>
-        <p className="disp" style={{ fontSize: 20, margin: 0 }}>{d(day).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" })}</p>
+        {day && <p className="disp" style={{ fontSize: 20, margin: 0 }}>{d(day).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" })}</p>}
         {slots.length ? (
           <div className="grid3">
-            {slots.map((t) => <Link key={t} className="slot" href={`/book/${svc.id}/confirm?day=${day}&time=${t}`} style={{ textDecoration: "none" }}>{label12(t)}</Link>)}
+            {slots.map((t) => <Link key={t} className="slot" href={`/book/${svc.id}/confirm?day=${day}&time=${t}${q}`} style={{ textDecoration: "none" }}>{label12(t)}</Link>)}
           </div>
         ) : (
           open && <p className="small muted p">No open times this day. Try another date.</p>

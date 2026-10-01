@@ -69,6 +69,7 @@ async function checkout(b: typeof bookings.$inferSelect, email: string | null, p
 async function createAndPay(opts: {
   studentId: string; email: string | null; proId: string; proName: string; serviceId?: string; modelCallId?: string;
   serviceName: string; startsAt: Date; durationMin: number; priceCents: number; where: Where; travelFeeCents?: number;
+  bundleId?: string;
 }): Promise<FormState> {
   if (opts.priceCents > MAX_PRICE_CENTS) return { error: `This is priced above Nearest's $${MAX_PRICE_CENTS / 100} student limit, so it can't be booked.` };
   // The $150 cap is on the service; a travel fee ($35–$55) is added only when the pro travels to the student.
@@ -77,9 +78,10 @@ async function createAndPay(opts: {
   const s = await getSettings();
   if (s["status.bookings"] !== true) return { error: "Booking is paused right now. Please try again soon." };
   const deposit = Math.min(Number(s["appt.deposit_cents"]), opts.priceCents);
-  const bal = await creditBalances(opts.studentId, opts.proId);
+  // Bundle bookings never use credits or invite rewards — those are for single bookings only.
+  const bal = opts.bundleId ? { pro: 0, general: 0 } : await creditBalances(opts.studentId, opts.proId);
   // Invite reward: $5 off a student's first booking with this pro (services only, one per booking). The pro funds it.
-  const inv = opts.serviceId ? await inviteRewardFor(opts.studentId, opts.proId, opts.priceCents) : null;
+  const inv = opts.serviceId && !opts.bundleId ? await inviteRewardFor(opts.studentId, opts.proId, opts.priceCents) : null;
   let use = applyCredits(opts.priceCents - (inv?.cents ?? 0), bal);
   if (use.charge > 0 && !stripeEnabled()) return { error: "Payments aren't set up yet." };
   const endsAt = new Date(opts.startsAt.getTime() + opts.durationMin * 60000);
@@ -88,7 +90,7 @@ async function createAndPay(opts: {
   const [b] = await db.insert(bookings).values({
     studentId: opts.studentId, proId: opts.proId, serviceId: opts.serviceId ?? null, modelCallId: opts.modelCallId ?? null,
     serviceName: opts.serviceName, startsAt: opts.startsAt, endsAt, priceCents: opts.priceCents, travelFeeCents: travelFee, depositCents: deposit,
-    creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge, inviteDiscountCents: inv?.cents ?? 0,
+    creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge, inviteDiscountCents: inv?.cents ?? 0, bundleId: opts.bundleId ?? null,
     holdExpiresAt: new Date(Date.now() + HOLD_MIN * 60000),
     locationType: opts.where.locationType, locationAddress: opts.where.locationAddress, lat: opts.where.lat, lng: opts.where.lng,
   }).returning();
@@ -138,7 +140,16 @@ export async function bookService(_: FormState, form: FormData): Promise<FormSta
   if (!(await openSlots(svc.userId, svc.durationMin, day)).includes(time)) return { error: "That time was just taken or is no longer available. Please pick another." };
   const where = await resolveLocation(pro, form);
   if ("error" in where) return { error: where.error };
-  return createAndPay({ where, travelFeeCents: pro.travelFeeCents ?? 3500,
+  // From a bundle: the day must be inside the bundle's week.
+  const bundleItemId = String(form.get("bundleItem") ?? "");
+  let bundleId: string | undefined;
+  if (bundleItemId) {
+    const bi = await (await import("@/lib/bundles")).bundleItemFor(bundleItemId, user.id, svc.id);
+    if (!bi) return { error: "This bundle isn't available anymore." };
+    if (!bi.days.includes(day)) return { error: "Pick a day during your bundle week." };
+    bundleId = bi.bundle.id;
+  }
+  return createAndPay({ where, travelFeeCents: pro.travelFeeCents ?? 3500, bundleId,
     studentId: user.id, email: user.email, proId: svc.userId, proName: pro.businessName ?? "your professional", serviceId: svc.id,
     serviceName: svc.name, startsAt: chicagoToUtc(day, time), durationMin: svc.durationMin, priceCents: svc.priceCents,
   });

@@ -125,6 +125,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
           <div className="row between"><span className="disp h1">Model Calls</span><Icon name="right" /></div>
           <span className="small b">{callCount > 0 ? `${callCount} Model Call${callCount === 1 ? "" : "s"} open in all areas` : "No open Model Calls right now — check back soon"}</span>
         </Link>
+        <Link className="card" href="/bundle" style={{ textDecoration: "none", color: "inherit", gap: 4 }}>
+          <div className="row between"><span className="b">Bundle my booking</span><Icon name="right" /></div>
+          <span className="small muted">Hair, lashes, nails, makeup and more for the same week — matched to your budget.</span>
+        </Link>
         <ExploreFilters
           key={`${f.cat ?? ""}|${f.svc ?? ""}|${f.q ?? ""}|${f.area ?? ""}|${f.loc ?? ""}`}
           cats={listCats}

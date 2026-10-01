@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Invite friends: $5 for both students, one per booking on a first booking with a pro (pro-funded, shown to the pro); pros agree on Join"
+git commit -q -m "Bundle my booking: pick categories, budget and week; save recommended pros; book each in the week (no credits); pro notified; Bundle Me admin stats"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

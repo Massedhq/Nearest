@@ -57,6 +57,12 @@ export default async function ProAppointment({ params }: { params: Promise<{ id:
           {b.inviteDiscountCents > 0 && <div className="row between"><span>Student invite reward</span><span className="b">−{money(b.inviteDiscountCents)}</span></div>}
           <span className="xs muted">{b.status === "completed" ? "Released to you" : "Paid in full • held until the student releases it"}</span>
         </div>
+        {b.bundleId && (
+          <div className="card small" style={{ gap: 4 }}>
+            <span className="b">Part of a Bundle Me booking</span>
+            <span>This student booked several services for the same week through Nearest&apos;s Bundle Me — you&apos;re one of their picks.</span>
+          </div>
+        )}
         {b.inviteDiscountCents > 0 && (
           <div className="card ok small" style={{ gap: 4 }}>
             <span className="b">This student is using a {money(b.inviteDiscountCents)} invite reward</span>
