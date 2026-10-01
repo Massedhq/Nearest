@@ -9,7 +9,7 @@ import { requireAdmin } from "@/lib/admin";
 import { mainOwnerId } from "@/lib/partner";
 import { repLinks, repStats } from "@/lib/reps";
 import { fmtDate } from "@/lib/time";
-import { inviteRep, resendRepInvite, setRepStatus, payRep } from "@/app/admin/rep-actions";
+import { inviteRep, resendRepInvite, setRepStatus, payRep, reviewRepVerification } from "@/app/admin/rep-actions";
 
 export const metadata = { title: "Sales Board" };
 
@@ -35,7 +35,7 @@ export default async function SalesBoard() {
       </p>
 
       <div className="kpis k4">
-        <div className="card" style={{ gap: 4 }}><span className="xs muted">Active reps</span><span className="stat">{reps.filter((r) => r.status === "active").length}</span></div>
+        <div className="card" style={{ gap: 4 }}><span className="xs muted">Verified reps</span><span className="stat">{reps.filter((r) => r.status === "active" && r.verificationStatus === "approved").length}</span>{reps.some((r) => r.status === "active" && r.verificationStatus === "pending") && <span className="xs" style={{ color: "#E3C58A" }}>{reps.filter((r) => r.status === "active" && r.verificationStatus === "pending").length} waiting for your review</span>}</div>
         <div className="card" style={{ gap: 4 }}><span className="xs muted">Sign-ups from reps</span><span className="stat">{sum("total")}</span><span className="xs muted">{sum("thisMonth")} this month</span></div>
         <div className="card" style={{ gap: 4 }}><span className="xs muted">Professionals</span><span className="stat">{sum("pros")}</span><span className="xs muted">{sum("prosJoined")} joined</span></div>
         <div className="card" style={{ gap: 4 }}><span className="xs muted">Students</span><span className="stat">{sum("students")}</span></div>
@@ -56,9 +56,9 @@ export default async function SalesBoard() {
         <span className="eyebrow">Your sales team</span>
         <div style={{ overflowX: "auto" }}>
           <table className="tbl">
-            <thead><tr><th>Rep</th><th>Status</th><th>Agreement</th><th>Sign-ups</th><th>Pros (joined)</th><th>Students</th><th>This month</th><th>Payouts</th><th>Their links</th><th /></tr></thead>
+            <thead><tr><th>Rep</th><th>Status</th><th>Agreement</th><th>Verification</th><th>Sign-ups</th><th>Pros (joined)</th><th>Students</th><th>This month</th><th>Payouts</th><th>Their links</th><th /></tr></thead>
             <tbody>
-              {reps.length === 0 && <tr><td className="empty" colSpan={10}>No sales reps yet. Invite your first one above.</td></tr>}
+              {reps.length === 0 && <tr><td className="empty" colSpan={11}>No sales reps yet. Invite your first one above.</td></tr>}
               {reps.map((r) => {
                 const s = stats.get(r.id)!;
                 const links = repLinks(origin, r.code);
@@ -77,6 +77,30 @@ export default async function SalesBoard() {
                         ? <><span className="tag ok">Signed</span><div className="xs muted">{r.agreedName} • {fmtDate(r.agreedAt, { month: "short", day: "numeric", year: "numeric" })}</div><div className="xs muted">Version {r.agreementVersion}</div></>
                         : <span className="tag">Not yet</span>}
                     </td>
+                    <td style={{ minWidth: r.verificationStatus === "pending" ? 300 : undefined }}>
+                      {r.verificationStatus === "approved" && <><span className="tag ok">Verified</span>{r.verifiedAt && <div className="xs muted">{fmtDate(r.verifiedAt, { month: "short", day: "numeric", year: "numeric" })}</div>}</>}
+                      {r.verificationStatus === "not_started" && <span className="tag">{r.userId ? "Not sent yet" : "After sign-up"}</span>}
+                      {r.verificationStatus === "rejected" && <><span className="tag bad">Sent back</span><div className="xs muted">{r.verificationNote}</div></>}
+                      {r.verificationStatus === "pending" && r.userId && (
+                        <div className="col" style={{ gap: 8 }}>
+                          <span className="tag warn">Needs your review</span>
+                          <div className="grid2" style={{ gap: 6 }}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <a href={`/api/admin/id-doc/${r.userId}/gov_id`} target="_blank" rel="noreferrer"><img src={`/api/admin/id-doc/${r.userId}/gov_id`} alt={`${r.name}'s ID`} style={{ width: "100%", borderRadius: 8, border: "1px solid #2A2A2D" }} /></a>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <a href={`/api/admin/id-doc/${r.userId}/selfie`} target="_blank" rel="noreferrer"><img src={`/api/admin/id-doc/${r.userId}/selfie`} alt={`${r.name}'s selfie`} style={{ width: "100%", borderRadius: 8, border: "1px solid #2A2A2D" }} /></a>
+                          </div>
+                          <span className="xs muted">Check the name matches {r.agreedName ?? r.name}, the ID is current, and the selfie matches. Photos are deleted when you decide.</span>
+                          <ActionForm action={reviewRepVerification} submitLabel="Approve" buttonClass="btn sm" className="col g4">
+                            <input type="hidden" name="id" value={r.id} /><input type="hidden" name="decision" value="approve" />
+                          </ActionForm>
+                          <ActionForm action={reviewRepVerification} submitLabel="Send back" buttonClass="btn ghost sm" className="col g4">
+                            <input type="hidden" name="id" value={r.id} /><input type="hidden" name="decision" value="reject" />
+                            <input name="reason" placeholder="Reason (e.g. ID is blurry)" aria-label="Reason" maxLength={200} required style={{ height: 36, borderRadius: 10, border: "1px solid #2A2A2D", background: "#0E0E10", color: "#ECE8E1", padding: "0 10px" }} />
+                          </ActionForm>
+                        </div>
+                      )}
+                    </td>
                     <td className="num b">{s.total}</td>
                     <td className="num">{s.pros} ({s.prosJoined})</td>
                     <td className="num">{s.students}</td>
@@ -84,7 +108,7 @@ export default async function SalesBoard() {
                     <td>
                       {r.payoutsEnabled ? <span className="tag ok">{r.payoutDestination ?? "Connected"}</span> : <span className="tag">Not set up</span>}
                       <div className="xs muted">Paid ${(paid(r.id) / 100).toFixed(2)}</div>
-                      {r.status === "active" && r.payoutsEnabled && (
+                      {r.status === "active" && r.verificationStatus === "approved" && r.payoutsEnabled && (
                         <ActionForm action={payRep} submitLabel="Pay" buttonClass="btn sm" className="col g4">
                           <input type="hidden" name="id" value={r.id} />
                           <input name="amount" inputMode="decimal" placeholder="$ amount" aria-label={`Amount to pay ${r.name}`} required style={{ height: 36, borderRadius: 10, border: "1px solid #2A2A2D", background: "#0E0E10", color: "#ECE8E1", padding: "0 10px", width: 110 }} />

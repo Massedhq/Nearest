@@ -69,3 +69,18 @@ export async function sendRepInviteEmail(opts: { to: string; name: string; link:
   });
   return r.sent ? { sent: true as const } : { sent: false as const, reason: "reason" in r ? r.reason ?? "Email failed" : "Email failed" };
 }
+
+/** Sales Board: the result of a sales rep's identity check. */
+export async function sendRepVerificationEmail(opts: { to: string; name: string; approved: boolean; reason?: string | null; link: string }) {
+  if (!emailEnabled()) return { sent: false as const };
+  const r = await sendEmail(opts.approved
+    ? { to: opts.to, subject: "You're verified — your Nearest sales links are live", eyebrow: "Sales Team",
+        heading: `${opts.name}, you're verified.`,
+        lines: ["Your sales links are live now — sign-ups through them count for you.", "If you haven't yet, set up payouts on your dashboard so Nearest can pay you."],
+        button: { label: "Open my dashboard", url: opts.link } }
+    : { to: opts.to, subject: "Your Nearest sales verification needs another look", eyebrow: "Sales Team",
+        heading: `${opts.name}, we couldn't verify your ID yet.`,
+        lines: [opts.reason ? `Reason: ${opts.reason}` : "The photos didn't let us confirm your identity.", "Open your dashboard and send new photos — make sure your name and photo are clear and the selfie is well lit."],
+        button: { label: "Send new photos", url: opts.link } });
+  return { sent: r.sent };
+}

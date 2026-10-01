@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
-import { db, studentIdDocs, users } from "@/db";
+import { db, studentIdDocs, users, salesReps } from "@/db";
+import { mainOwnerId } from "@/lib/partner";
 import { getViewer } from "@/lib/viewer";
 import { logActivity } from "@/lib/log";
 
@@ -9,10 +10,13 @@ export async function GET(_: Request, { params }: { params: Promise<{ userId: st
   if (!viewer?.admin || !viewer.user) return new Response("Not allowed", { status: 403 });
   const { userId, kind } = await params;
   if (!["school_id", "gov_id", "selfie"].includes(kind) || !/^[0-9a-f-]{36}$/.test(userId)) return new Response("Not found", { status: 404 });
+  // Sales reps belong to the main owner alone — their ID photos open only for the main owner.
+  const rep = await db.query.salesReps.findFirst({ where: eq(salesReps.userId, userId) });
+  if (rep && (await mainOwnerId()) !== viewer.user.id) return new Response("Not allowed", { status: 403 });
   const doc = await db.query.studentIdDocs.findFirst({ where: and(eq(studentIdDocs.userId, userId), eq(studentIdDocs.kind, kind)) });
   if (!doc) return new Response("Already deleted", { status: 404 });
   const student = await db.query.users.findFirst({ where: eq(users.id, userId) });
-  await logActivity({ actorUserId: viewer.user.id, action: kind === "gov_id" ? "pro.id_viewed" : "student.id_viewed", targetType: kind === "gov_id" ? "professional" : "student", targetId: student ? `${student.firstName} ${student.lastName}` : userId, after: kind });
+  await logActivity({ actorUserId: viewer.user.id, action: rep ? "rep.id_viewed" : kind === "gov_id" ? "pro.id_viewed" : "student.id_viewed", targetType: rep ? "sales_rep" : kind === "gov_id" ? "professional" : "student", targetId: student ? `${student.firstName} ${student.lastName}` : userId, after: kind });
   return new Response(Buffer.from(doc.dataB64, "base64"), {
     headers: { "Content-Type": doc.mime, "Cache-Control": "no-store, private", "X-Content-Type-Options": "nosniff" },
   });

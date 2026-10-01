@@ -36,7 +36,8 @@ function rules(s: Settings) {
     unpaidDays: n("enforce.unpaid_fine_termination_days"),
     firstIn: n("growth.founding_capacity"),
     perCity: n("growth.target_per_city"),
-    perCategory: n("growth.target_per_category") || 5,
+    perCategory: Math.max(n("growth.target_per_category") || 5, n("growth.cap_per_category") || 10),
+    firstInPerCategory: n("growth.target_per_category") || 5,
     marketGoal: n("growth.market_goal") || 1500,
     inviteDays: n("growth.invite_expiry_days"),
     subDays: n("sub.termination_days"),
@@ -140,7 +141,7 @@ function pro(r: R): GuideSection[] {
   return [
     {
       id: "join", title: "Joining Nearest", icon: "sparkle", topics: [
-        { q: "What does it cost?", a: [`You pay when you register — there's no free trial. First In is $11/month for your first 12 months and is limited to ${r.firstIn} pros. After First In fills, Nearest opens Professional + Student ($16/month, register one student to join with you) or General Entry ($21/month). After 12 months, memberships move to $30/month.`, "Your rate is locked to your account. Nearest takes no commission on your bookings — card-processing fees come out of each payment.", "Joined with a special invitation? Ambassador accounts are free. Pay-from-bookings accounts have nothing to pay up front — each month Nearest keeps your monthly rate from your booking earnings, then the rest is yours. Business → Subscription shows how much is collected this month."], link: { label: "Subscription", href: "/pro/payments" } },
+        { q: "What does it cost?", a: [`You pay when you register — there's no free trial. First In is $11/month for your first 12 months and is limited to ${r.firstIn} pros. After First In fills, Nearest opens Professional + Student ($16/month, register one student to join with you) or General Entry ($21/month). After 12 months, memberships move to $30/month.`, "Your rate is locked to your account. Nearest takes no commission on your bookings — card-processing fees come out of each payment.", `Spots are limited in each city, for each category: the first ${r.firstInPerCategory} professionals get First In, the next ones (up to ${r.perCategory}) join at the next entry rate, and after that new professionals join a waitlist. On the Join page, enter your ZIP code and main category to see your spot.`, "Joined with a special invitation? Ambassador accounts are free. Pay-from-bookings accounts have nothing to pay up front — each month Nearest keeps your monthly rate from your booking earnings, then the rest is yours. Business → Subscription shows how much is collected this month."], link: { label: "Subscription", href: "/pro/payments" } },
         { q: "How do I go live?", a: ["Use the Go live card on Today (also in Business). It lists anything still left; once everything's done, tap Go live and you show up in search, Near Me and All professionals. Tap Go offline anytime to hide.", "Payouts are never required to go live — anything you earn is held for you and sent once you connect your bank."], steps: ["Finish your profile setup and submit it.", "Nearest approves your profile.", "Your ID check is approved.", "Your membership is active (owners skip this)."], link: { label: "Today", href: "/pro/home" } },
         { q: "What is the ID check?", a: ["Upload a photo of your driver's license or state ID and take a live selfie. A Nearest team member reviews it, usually within a day. If something's unclear, you'll be asked to send new photos."], link: { label: "ID & payments", href: "/pro/payments" } },
         { q: "Do I need a license?", a: ["For licensed services, yes. Add your license during setup and Nearest checks it before you go live."], link: { label: "Licenses", href: "/pro/setup/credentials?edit=1" } },

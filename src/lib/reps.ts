@@ -20,11 +20,11 @@ export const repLinks = (origin: string, code: string) => ({
   student: `${origin}/?rep=${code}`,
 });
 
-/** The rep whose link this person came through (remembered for 30 days) — only active reps get credit. */
+/** The rep whose link this person came through (remembered for 30 days) — only active, verified reps get credit. */
 export async function repIdFromCookie(): Promise<string | null> {
   const code = (await cookies()).get(REP_COOKIE)?.value?.toUpperCase();
   if (!code || !/^[A-Z0-9]{3,12}$/.test(code)) return null;
-  const r = await db.query.salesReps.findFirst({ where: and(eq(salesReps.code, code), eq(salesReps.status, "active")) });
+  const r = await db.query.salesReps.findFirst({ where: and(eq(salesReps.code, code), eq(salesReps.status, "active"), eq(salesReps.verificationStatus, "approved")) });
   return r?.id ?? null;
 }
 

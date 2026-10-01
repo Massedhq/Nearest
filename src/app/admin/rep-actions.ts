@@ -89,6 +89,7 @@ export async function payRep(_: FormState, form: FormData): Promise<FormState> {
   const cents = Math.round(dollars * 100);
   const rep = await db.query.salesReps.findFirst({ where: eq(salesReps.id, id) });
   if (!rep || rep.status !== "active") return { error: "Only active reps can be paid." };
+  if (rep.verificationStatus !== "approved") return { error: `${rep.name} isn't verified yet. Approve their ID first.` };
   if (!rep.stripeAccountId || !rep.payoutsEnabled) return { error: `${rep.name} hasn't finished payout setup yet. They can do it from their dashboard.` };
   try {
     const { stripe } = await import("@/lib/stripe");
@@ -105,4 +106,27 @@ export async function payRep(_: FormState, form: FormData): Promise<FormState> {
   }
   revalidatePath("/admin/sales-board");
   return { ok: `Sent $${dollars.toFixed(2)} to ${rep.name}.` };
+}
+
+/** Approve or reject a rep's ID + selfie. The photos are deleted on every decision. */
+export async function reviewRepVerification(_: FormState, form: FormData): Promise<FormState> {
+  let user;
+  try { user = await requireMain(); } catch (e) { return { error: (e as Error).message }; }
+  const id = String(form.get("id") ?? "");
+  const approve = form.get("decision") === "approve";
+  const reason = String(form.get("reason") ?? "").trim().slice(0, 200) || null;
+  if (!approve && !reason) return { error: "Add a short reason so they know what to fix." };
+  const rep = await db.query.salesReps.findFirst({ where: eq(salesReps.id, id) });
+  if (!rep?.userId || rep.verificationStatus !== "pending") return { error: "This rep isn't waiting for review." };
+  await db.update(salesReps).set(approve
+    ? { verificationStatus: "approved", verifiedAt: new Date(), verificationNote: null }
+    : { verificationStatus: "rejected", verificationNote: reason }).where(eq(salesReps.id, id));
+  const { studentIdDocs } = await import("@/db");
+  const { inArray, and: both } = await import("drizzle-orm");
+  await db.delete(studentIdDocs).where(both(eq(studentIdDocs.userId, rep.userId), inArray(studentIdDocs.kind, ["gov_id", "selfie"])));
+  await logActivity({ actorUserId: user.id, action: approve ? "rep.verification_approved" : "rep.verification_rejected", targetType: "sales_rep", targetId: id, after: reason });
+  const { sendRepVerificationEmail } = await import("@/lib/email");
+  await sendRepVerificationEmail({ to: rep.email, name: rep.name.split(" ")[0], approved: approve, reason, link: `${await origin()}/rep` });
+  revalidatePath("/admin/sales-board");
+  return { ok: approve ? `${rep.name} is verified — their links are live.` : `${rep.name} was asked to send new photos.` };
 }

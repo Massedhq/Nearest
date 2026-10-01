@@ -20,29 +20,35 @@ export default async function ServiceCoverage({ searchParams }: { searchParams: 
   await requireAdmin();
   const sp = await searchParams;
   const s = await getSettings();
-  const target = Number(s["growth.target_per_category"] ?? 5);
+  const firstInSpots = Number(s["growth.target_per_category"] ?? 5); // First In spots per category, per city
+  const target = Math.max(firstInSpots, Number(s["growth.cap_per_category"] ?? 10)); // total spots, then waitlist
   const goal = Number(s["growth.market_goal"] ?? 1500);
 
   const joined = sql`(${professionalProfiles.entryPaidAt} is not null or ${professionalProfiles.subscriptionStatus} in ('active','trialing','past_due') or exists (select 1 from admin_members a where a.user_id = ${professionalProfiles.userId} and a.role = 'OWNER' and a.active))`;
   const live = sql.join(liveProWhere(null, "all"), sql` and `);
 
-  const [cats, countyList, cityList, links, counts, prosByCity, students, fi] = await Promise.all([
+  const [cats, countyList, cityList, links, counts, prosByCity, students, fi, waitlist] = await Promise.all([
     db.select({ id: categories.id, name: categories.name }).from(categories).where(and(eq(categories.active, true), ne(categories.name, "Other"))).orderBy(asc(categories.sort), asc(categories.name)),
     db.select().from(counties),
     db.select().from(cities).orderBy(asc(cities.name)),
     db.select().from(cityCounties),
     // pros per city × category (a pro with services in 3 categories counts once in each)
     db.execute<{ city_id: number | null; category_id: number; signed: number; live: number }>(sql`
-      select ${professionalProfiles.cityId} as city_id, ps.category_id,
+      select x.city_id, x.category_id,
              count(distinct ${professionalProfiles.userId})::int as signed,
              count(distinct ${professionalProfiles.userId}) filter (where ${live})::int as live
-      from ${professionalProfiles}
-      join pro_services ps on ps.user_id = ${professionalProfiles.userId} and ps.active
+      from (
+        select ps.user_id, pp.city_id, ps.category_id from pro_services ps join professional_profiles pp on pp.user_id = ps.user_id where ps.active
+        union
+        select pp.user_id, pp.slot_city_id, pp.slot_category_id from professional_profiles pp where pp.slot_city_id is not null and pp.slot_category_id is not null
+      ) x
+      join ${professionalProfiles} on ${professionalProfiles.userId} = x.user_id
       where ${joined}
       group by 1, 2`).then((r) => r.rows),
     db.execute<{ city_id: number | null; n: number }>(sql`select ${professionalProfiles.cityId} as city_id, count(*)::int as n from ${professionalProfiles} where ${joined} group by 1`).then((r) => r.rows),
     db.select({ cityId: schools.cityId, n: sql<number>`count(*)::int` }).from(studentProfiles).innerJoin(schools, eq(schools.id, studentProfiles.schoolId)).where(eq(studentProfiles.verificationStatus, "verified")).groupBy(schools.cityId),
     firstInStats(),
+    db.execute<{ city_id: number; category_id: number; n: number; first_at: string }>(sql`select city_id, category_id, count(*)::int as n, min(created_at)::text as first_at from pro_waitlist group by 1, 2 order by 3 desc`).then((r) => r.rows),
   ]);
 
   // Market + its cities
@@ -83,7 +89,7 @@ export default async function ServiceCoverage({ searchParams }: { searchParams: 
     <>
       <AdminHead eyebrow="Recruiting" title="Service coverage" />
       <p className="small muted" style={{ maxWidth: 820 }}>
-        How many professionals Nearest has in each category, city by city. The goal is <b>{target} per category in every city</b> (change it in Rules &amp; Settings → Growth).
+        How many professionals Nearest has in each category, city by city. Each city has <b>{target} spots per category</b>: the first {firstInSpots} are First In ($11), spots {firstInSpots + 1}–{target} pay the next entry rate, and after {target} new professionals join a waitlist (change both numbers in Rules &amp; Settings → Growth).
         Counts include everyone who has joined; <b>live</b> means students can book them right now. A pro who offers services in more than one category counts in each.
       </p>
 
@@ -129,7 +135,7 @@ export default async function ServiceCoverage({ searchParams }: { searchParams: 
                       <td className="num">{c.signed} / {target}</td>
                       <td className="num">{c.live}</td>
                       <td className="num b">{need || "—"}</td>
-                      <td><span className={`tag ${tone(c.signed)}`}>{c.signed >= target ? "Covered" : c.signed === 0 ? "None yet" : "Needs more"}</span></td>
+                      <td><span className={`tag ${tone(c.signed)}`}>{c.signed >= target ? "Full — waitlist" : c.signed >= firstInSpots ? "First In taken" : c.signed === 0 ? "None yet" : "First In open"}</span></td>
                     </tr>
                   );
                 })}
@@ -178,6 +184,27 @@ export default async function ServiceCoverage({ searchParams }: { searchParams: 
                 <tr key={`${x.city.id}-${x.cat.id}`}>
                   <td><Link className="link" href={`/admin/service-coverage${qs({ city: String(x.city.id) })}`}>{x.city.name}</Link></td>
                   <td>{x.cat.name}</td><td className="num">{x.have}</td><td className="num b">{x.need}</td><td className="num">{x.students}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="card" style={{ gap: 10 }}>
+        <span className="eyebrow">Waitlist</span>
+        <span className="xs muted">Professionals waiting because their city and category is full. Raise the total spots in Rules &amp; Settings, or invite them with a First In invitation (invitations always get in).</span>
+        <div style={{ overflowX: "auto" }}>
+          <table className="tbl">
+            <thead><tr><th>City</th><th>Category</th><th>Waiting</th><th>Waiting since</th></tr></thead>
+            <tbody>
+              {waitlist.length === 0 && <tr><td className="empty" colSpan={4}>Nobody is waiting.</td></tr>}
+              {waitlist.map((w) => (
+                <tr key={`${w.city_id}-${w.category_id}`}>
+                  <td>{cityList.find((c) => c.id === w.city_id)?.name ?? "—"}</td>
+                  <td>{cats.find((k) => k.id === w.category_id)?.name ?? "—"}</td>
+                  <td className="num b">{w.n}</td>
+                  <td>{new Date(w.first_at).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Chicago" })}</td>
                 </tr>
               ))}
             </tbody>

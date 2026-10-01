@@ -166,6 +166,10 @@ export const professionalProfiles = pgTable("professional_profiles", {
   showInstagram: boolean("show_instagram").notNull().default(false),
   // Phase 2: location (street address is private; never sent to students before appointment day)
   countyId: integer("county_id").references(() => counties.id),
+  // The city + main category this pro joined under (picked on Join, before paying). Counts toward the
+  // per-city, per-category spots: First In for the first spots, next entry after that, then a waitlist.
+  slotCityId: integer("slot_city_id"),
+  slotCategoryId: integer("slot_category_id"),
   cityId: integer("city_id").references(() => cities.id),
   zip: text("zip"),
   addressLine: text("address_line"),
@@ -620,6 +624,11 @@ export const salesReps = pgTable("sales_reps", {
   agreedName: text("agreed_name"),
   agreedIp: text("agreed_ip"),
   agreedUserAgent: text("agreed_user_agent"),
+  // Identity check after the account is created: ID photo + live selfie, approved by the main owner.
+  // not_started | pending | approved | rejected. Links only give credit, and payouts only open, once approved.
+  verificationStatus: text("verification_status").notNull().default("not_started"),
+  verifiedAt: ts("verified_at"),
+  verificationNote: text("verification_note"), // reason shown to the rep if rejected
   // Payouts (Stripe connected account — bank or debit card). Nearest stores only a label like "Chase ••••4417".
   stripeAccountId: text("stripe_account_id"),
   payoutsEnabled: boolean("payouts_enabled").notNull().default(false),
@@ -637,3 +646,12 @@ export const repPayouts = pgTable("rep_payouts", {
   createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("rep_payouts_rep_idx").on(t.repId)]);
+
+// Professionals waiting for a spot when their city + category is full.
+export const proWaitlist = pgTable("pro_waitlist", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  cityId: integer("city_id").notNull(),
+  categoryId: integer("category_id").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [uniqueIndex("pro_waitlist_unique_idx").on(t.userId, t.cityId, t.categoryId), index("pro_waitlist_slot_idx").on(t.cityId, t.categoryId)]);

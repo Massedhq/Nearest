@@ -38,7 +38,7 @@ export default async function RepJoin({ params }: { params: Promise<{ token: str
           </div>
         ) : (
           <div className="lightbox" style={{ width: "100%", maxWidth: signed ? 420 : 640 }}>
-            <div className="steps" aria-label={signed ? "Step 2 of 2" : "Step 1 of 2"} style={{ marginBottom: 12 }}><span className="on" /><span className={signed ? "on" : ""} /></div>
+            <div className="steps" aria-label={signed ? "Step 2 of 3" : "Step 1 of 3"} style={{ marginBottom: 12 }}><span className="on" /><span className={signed ? "on" : ""} /><span /></div>
             {signed
               ? <RepSignUpForm email={rep!.email} token={token} firstName={first ?? ""} lastName={rest.join(" ")} />
               : <RepAgreementForm token={token}><RepAgreementText /></RepAgreementForm>}

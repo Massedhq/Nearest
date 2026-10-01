@@ -87,13 +87,36 @@ export type PaidEntryType = Exclude<EntryType, (typeof MANAGED_ENTRIES)[number]>
 export type EntryChoice = { type: PaidEntryType; student?: { firstName: string; lastName: string; email: string; school?: string | null } };
 
 /** Starts payment for an entry. Returns the Stripe checkout URL, or an error to show. */
+/**
+ * Which entry rates this professional can pay right now.
+ * Enrollment state (Admin → First In) comes first; then their city + category spot decides the rate:
+ * the first spots are First In, the next spots are next entry, and a full city + category has none (waitlist).
+ * Invited, Nearest-managed and owner accounts follow the enrollment state only.
+ */
+export async function allowedEntries(profile: typeof professionalProfiles.$inferSelect): Promise<{ allowed: PaidEntryType[]; reason?: "paused" | "slot" | "full" }> {
+  const state = await getEntryState();
+  if (state === "FIRST_IN_CLOSED") return { allowed: [], reason: "paused" };
+  const next: PaidEntryType[] = ["PRO_STUDENT", "GENERAL"];
+  const { isCapExempt, slotStatus } = await import("./slots");
+  if (await isCapExempt(profile)) return { allowed: state === "FIRST_IN_OPEN" ? ["FIRST_IN"] : next };
+  const slot = await slotStatus(profile);
+  if (!slot) return { allowed: [], reason: "slot" };
+  if (slot.tier === "full") return { allowed: [], reason: "full" };
+  if (slot.tier === "first_in" && state === "FIRST_IN_OPEN" && (await firstInStats()).open) return { allowed: ["FIRST_IN"] };
+  return { allowed: next };
+}
+
 export async function startEntryCheckout(user: typeof users.$inferSelect, choice: EntryChoice, base: string): Promise<{ url: string } | { error: string }> {
   const profile = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, user.id) });
   if (!profile) return { error: "Finish creating your account first." };
   if (profile.entryPaidAt) return { error: "You've already joined Nearest." };
-  const state = await getEntryState();
-  const allowed: PaidEntryType[] = state === "FIRST_IN_OPEN" ? ["FIRST_IN"] : state === "NEXT_ENTRY_OPEN" ? ["PRO_STUDENT", "GENERAL"] : [];
-  if (!allowed.includes(choice.type)) return { error: state === "FIRST_IN_CLOSED" ? "New professional enrollment is paused right now." : "That option isn't available right now." };
+  const { allowed, reason } = await allowedEntries(profile);
+  if (!allowed.includes(choice.type)) {
+    return { error: reason === "paused" ? "New professional enrollment is paused right now."
+      : reason === "slot" ? "Choose your city and main category first."
+      : reason === "full" ? "Your city and category is full right now. Join the waitlist and we'll invite you when a spot opens."
+      : "That option isn't available right now." };
+  }
 
   // First In: hold a seat (reuse an unexpired hold if they come back)
   const heldAlready = profile.entryType === "FIRST_IN" && profile.entryHoldUntil && profile.entryHoldUntil > new Date();

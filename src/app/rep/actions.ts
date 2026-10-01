@@ -39,6 +39,7 @@ export async function startRepPayouts() {
   const viewer = await getViewer();
   const rep = await repForUser(viewer?.user?.id);
   if (!viewer?.user || !rep) redirect("/rep");
+  if (rep.verificationStatus !== "approved") redirect("/rep"); // payouts open after the identity check is approved
   const h = await headers();
   const base = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
   let url = "/rep?payout=error";
@@ -68,4 +69,31 @@ export async function startRepPayouts() {
     console.error("Rep Stripe connect failed", e);
   }
   redirect(url);
+}
+
+const DATA_URL = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/;
+
+/** Rep identity check: photo of a driver's license or state ID + live selfie, reviewed by the main owner. */
+export async function submitRepIdDocs(_: FormState, form: FormData): Promise<FormState> {
+  const viewer = await getViewer();
+  const rep = await repForUser(viewer?.user?.id);
+  if (!viewer?.user || !rep) return { error: "Sign in to your sales account first." };
+  if (rep.verificationStatus === "approved") return { ok: "You're already verified." };
+  const docs: { kind: string; b64: string }[] = [];
+  for (const kind of ["gov_id", "selfie"]) {
+    const m = DATA_URL.exec(String(form.get(kind) ?? ""));
+    if (!m) return { error: kind === "gov_id" ? "Take a photo of your driver's license or state ID." : "Take a selfie." };
+    if (m[1].length > 1_400_000) return { error: "That photo is too large. Try again." };
+    docs.push({ kind, b64: m[1] });
+  }
+  const { studentIdDocs } = await import("@/db");
+  for (const d of docs) {
+    await db.insert(studentIdDocs).values({ userId: viewer.user.id, kind: d.kind, mime: "image/jpeg", dataB64: d.b64 })
+      .onConflictDoUpdate({ target: [studentIdDocs.userId, studentIdDocs.kind], set: { dataB64: d.b64, createdAt: new Date() } });
+  }
+  await db.update(salesReps).set({ verificationStatus: "pending", verificationNote: null }).where(eq(salesReps.id, rep.id));
+  await logActivity({ actorUserId: viewer.user.id, action: "rep.verification_submitted", targetType: "sales_rep", targetId: rep.id });
+  revalidatePath("/rep");
+  revalidatePath("/admin/sales-board");
+  return { ok: "Sent. Nearest is reviewing your ID — you'll get an email when it's done." };
 }

@@ -8,7 +8,8 @@ import { CopyText } from "@/components/CopyText";
 import { desc, eq } from "drizzle-orm";
 import { db, repPayouts } from "@/db";
 import { syncRepStripe } from "@/lib/rep-stripe";
-import { startRepPayouts } from "@/app/rep/actions";
+import { startRepPayouts, submitRepIdDocs } from "@/app/rep/actions";
+import { IdCapture } from "@/components/IdCapture";
 
 export const metadata = { title: "Sales dashboard" };
 
@@ -49,6 +50,7 @@ export default async function RepDashboard({ searchParams }: { searchParams: Pro
     db.select().from(repPayouts).where(eq(repPayouts.repId, rep.id)).orderBy(desc(repPayouts.createdAt)).limit(24),
   ]);
   const paidTotal = payments.reduce((t, p) => t + p.amountCents, 0);
+  const verified = rep.verificationStatus === "approved";
   const s = stats.get(rep.id)!;
 
   return (
@@ -61,6 +63,25 @@ export default async function RepDashboard({ searchParams }: { searchParams: Pro
         <p className="eyebrow p">Nearest sales team</p>
         <h1 className="disp h1">Hi, {rep.name.split(" ")[0]}</h1>
 
+        {!verified && (
+          <div className={`card ${rep.verificationStatus === "rejected" ? "bad" : "warn"}`} style={{ gap: 12 }}>
+            <span className="eyebrow">Step 3 of 3 — verify your identity</span>
+            {rep.verificationStatus === "pending" ? (
+              <>
+                <span className="b">We&apos;re reviewing your ID</span>
+                <span className="small">You&apos;ll get an email as soon as it&apos;s done — usually within a day. Your links and payouts open once you&apos;re verified.</span>
+              </>
+            ) : (
+              <>
+                {rep.verificationStatus === "rejected"
+                  ? <span className="small"><span className="b">We couldn&apos;t verify your ID yet.</span> {rep.verificationNote ? `Reason: ${rep.verificationNote}. ` : ""}Please send new photos.</span>
+                  : <span className="small">Before your links go live, take a photo of your driver&apos;s license or state ID and a quick selfie. Nearest checks it and deletes the photos as soon as you&apos;re reviewed.</span>}
+                <IdCapture action={submitRepIdDocs} idName="gov_id" idLabel="Photo of your driver's license or state ID" idHint="Your name and photo clearly visible" submitLabel="Send for review" />
+              </>
+            )}
+          </div>
+        )}
+
         <div className="kpis k4">
           <div className="card" style={{ gap: 4 }}><span className="xs muted">Total sign-ups</span><span className="stat">{s.total}</span><span className="xs muted">{s.thisMonth} this month</span></div>
           <div className="card" style={{ gap: 4 }}><span className="xs muted">Professionals</span><span className="stat">{s.pros}</span></div>
@@ -68,6 +89,7 @@ export default async function RepDashboard({ searchParams }: { searchParams: Pro
           <div className="card" style={{ gap: 4 }}><span className="xs muted">Students</span><span className="stat">{s.students}</span><span className="xs muted">{s.studentsVerified} verified</span></div>
         </div>
 
+        {verified && (<>
         <div className="card" style={{ gap: 12 }}>
           <span className="eyebrow">Your links</span>
           <span className="xs muted">Share these. Anyone who signs up within 30 days of tapping your link counts for you.</span>
@@ -99,6 +121,7 @@ export default async function RepDashboard({ searchParams }: { searchParams: Pro
               ))}
           <span className="xs muted">You&apos;re responsible for your own taxes. Nearest doesn&apos;t withhold taxes from payments.</span>
         </div>
+        </>)}
 
         <div className="card" style={{ gap: 10 }}>
           <span className="eyebrow">Recent sign-ups</span>

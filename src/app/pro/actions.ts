@@ -77,7 +77,7 @@ export async function saveAvatar(urls: string[]): Promise<{ error?: string }> {
 type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean };
 
 export async function saveServices(_: FormState, form: FormData): Promise<FormState> {
-  const { user } = await requirePro();
+  const { user, profile } = await requirePro();
   let rows: Row[];
   try {
     rows = JSON.parse(String(form.get("payload") ?? "[]"));
@@ -99,6 +99,9 @@ export async function saveServices(_: FormState, form: FormData): Promise<FormSt
     if (!Number.isInteger(duration) || duration < 10 || duration > 600) return { error: `Enter ${name}'s length in minutes (10–600).` };
     values.push({ userId: user.id, categoryId: Number(r.categoryId), name, priceCents: Math.round(price * 100), durationMin: duration, sort: i, adultsOnly: Boolean(r.adultsOnly) });
   }
+  // Spots are limited per city, per category — nobody can add a category that's full where they work.
+  const full = await (await import("@/lib/slots")).wouldOverfill(profile, profile.cityId ?? profile.slotCityId, values.map((v) => v.categoryId));
+  if (full) return { error: full };
   // Remember which service each portfolio photo was tagged with (by name) so editing the menu keeps "Book this look".
   const tagged = await db.select({ photoId: portfolioItems.id, name: proServices.name }).from(portfolioItems)
     .innerJoin(proServices, eq(proServices.id, portfolioItems.serviceId)).where(eq(portfolioItems.userId, user.id));
@@ -137,7 +140,7 @@ export async function saveCredentials(_: FormState, form: FormData): Promise<For
 
 // ---------- Location ----------
 export async function saveLocation(_: FormState, form: FormData): Promise<FormState> {
-  const { user } = await requirePro();
+  const { user, profile } = await requirePro();
   const cityId = Number(form.get("cityId"));
   const zip = str(form, "zip", 10);
   const addressLine = str(form, "address", 160);
@@ -155,10 +158,17 @@ export async function saveLocation(_: FormState, form: FormData): Promise<FormSt
   const link = await db.query.cityCounties.findFirst({ where: eq(cityCounties.cityId, cityId) });
   const city = await db.query.cities.findFirst({ where: eq(cities.id, cityId) });
   if (!city) return { error: "Choose your city." };
+  // Moving to a different city: every category they offer (and the one they joined under) must have room there.
+  if (cityId !== profile.cityId) {
+    const mine = await db.select({ c: proServices.categoryId }).from(proServices).where(and(eq(proServices.userId, user.id), eq(proServices.active, true)));
+    const cats = [...mine.map((m) => m.c), ...(profile.slotCategoryId ? [profile.slotCategoryId] : [])];
+    const full = await (await import("@/lib/slots")).wouldOverfill({ ...profile, cityId: null, slotCityId: null }, cityId, cats);
+    if (full) return { error: full };
+  }
   const point = addressLine ? await geocode(addressLine, city.name, zip, city.state) : null;
   await db
     .update(professionalProfiles)
-    .set({ cityId, countyId: link?.countyId ?? null, zip, addressLine: addressLine || null, addressUnit, lat: point?.lat ?? null, lng: point?.lng ?? null, serviceMode: mode, travelFeeCents: travelFee === null ? null : Math.round(travelFee * 100), travelRadiusMi: mode === "come_to_me" ? null : radius })
+    .set({ cityId, ...(profile.slotCityId ? { slotCityId: cityId } : {}), countyId: link?.countyId ?? null, zip, addressLine: addressLine || null, addressUnit, lat: point?.lat ?? null, lng: point?.lng ?? null, serviceMode: mode, travelFeeCents: travelFee === null ? null : Math.round(travelFee * 100), travelRadiusMi: mode === "come_to_me" ? null : radius })
     .where(eq(professionalProfiles.userId, user.id));
   if (addressLine && !point && isEdit(form)) return { ok: "Saved. We couldn't map this address — double-check the street and ZIP so check-in works." };
   return done(user.id, "location", form);
