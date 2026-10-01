@@ -4,7 +4,7 @@ import { TopBar } from "@/components/TopBar";
 import { ActionForm } from "@/components/ActionForm";
 import { requirePro } from "@/lib/pro";
 import { stripeEnabled } from "@/lib/stripe";
-import { finalizeEntry, getEntryState, hasPaidEntry, allowedEntries } from "@/lib/entry";
+import { finalizeEntry, getEntryState, hasPaidEntry, allowedEntries, nextEntryStats } from "@/lib/entry";
 import { slotStatus, onWaitlist, isCapExempt } from "@/lib/slots";
 import { db, categories } from "@/db";
 import { payEntry, saveSlot, clearSlot, joinSlotWaitlist } from "./actions";
@@ -26,7 +26,7 @@ export default async function Join({ searchParams }: { searchParams: Promise<{ s
   if (hasPaidEntry(profile)) redirect("/pro/home");
 
   const state = await getEntryState();
-  const [{ allowed, reason }, slot, exempt] = await Promise.all([allowedEntries(profile), slotStatus(profile), isCapExempt(profile)]);
+  const [{ allowed, reason, bypass }, slot, exempt, next750] = await Promise.all([allowedEntries(profile), slotStatus(profile), isCapExempt(profile), nextEntryStats()]);
   const waiting = slot ? await onWaitlist(profile.userId, slot.cityId, slot.categoryId) : false;
   const cats = reason === "slot"
     ? await db.select({ id: categories.id, name: categories.name }).from(categories).where(and(eq(categories.active, true), ne(categories.name, "Other"))).orderBy(asc(categories.sort), asc(categories.name))
@@ -66,15 +66,18 @@ export default async function Join({ searchParams }: { searchParams: Promise<{ s
         {slot && !exempt && state !== "FIRST_IN_CLOSED" && (
           <div className={`card ${slot.tier === "full" ? "warn" : "ok"}`} style={{ gap: 6 }}>
             <span className="eyebrow">{slot.category} in {slot.city}</span>
-            {slot.tier === "first_in" && <span className="small"><span className="b">First In spot #{slot.spotNumber} of {slot.firstIn}</span> is open for you.</span>}
+            {slot.tier === "first_in" && allowed.includes("FIRST_IN") && <span className="small"><span className="b">First In spot #{slot.spotNumber} of {slot.firstIn}</span> is open for you.</span>}
+            {slot.tier === "first_in" && !allowed.includes("FIRST_IN") && <span className="small">First In is closed. <span className="b">Spot #{slot.spotNumber} of {slot.cap}</span> is open for you.</span>}
             {slot.tier === "next" && <span className="small">The {slot.firstIn} First In spots here are taken. <span className="b">Spot #{slot.spotNumber} of {slot.cap}</span> is open for you.</span>}
             {slot.tier === "full" && <span className="small"><span className="b">All {slot.cap} spots are taken right now.</span></span>}
-            <form action={clearSlot}><button className="link xs" type="submit">Change city or category</button></form>
+            {slot.tier === "full"
+              ? <span className="xs muted">Entered the wrong ZIP code or category? Email support@usenearest.com and we&apos;ll fix it.</span>
+              : <form action={clearSlot}><button className="link xs" type="submit">Change city or category</button></form>}
           </div>
         )}
 
-        {/* Full: waitlist */}
-        {reason === "full" && slot && (
+        {/* Full: waitlist (and, while the next 750 has room, the option to skip it below) */}
+        {(reason === "full" || reason === "next_full") && slot && (
           waiting ? (
             <div className="card small" style={{ gap: 6 }}>
               <span className="b">You&apos;re on the waitlist.</span>
@@ -82,11 +85,12 @@ export default async function Join({ searchParams }: { searchParams: Promise<{ s
             </div>
           ) : (
             <form action={joinSlotWaitlist} className="col" style={{ gap: 8 }}>
-              <button className="btn" type="submit">Join the waitlist</button>
+              <button className={bypass ? "btn ghost" : "btn"} type="submit">Join the waitlist — free</button>
               <span className="xs muted p">No charge. We&apos;ll invite you when a spot opens.</span>
             </form>
           )
         )}
+        {reason === "next_full" && <div className="card small"><span>The next {next750.capacity} spots are taken right now, so new spots open from the waitlist.</span></div>}
 
         {allowed.includes("FIRST_IN") && (
           <>
@@ -104,7 +108,17 @@ export default async function Join({ searchParams }: { searchParams: Promise<{ s
 
         {allowed.includes("GENERAL") && (
           <>
-            <h1 className="disp h1">Choose your entry.</h1>
+            {bypass
+              ? <>
+                  <span className="tag warn" style={{ alignSelf: "flex-start" }}>Or skip the waitlist</span>
+                  <h1 className="disp h1">Join the next {next750.capacity} now.</h1>
+                  <p className="small muted p">Pay today, finish setting up your profile, and go live in {slot?.city} right away.</p>
+                </>
+              : <h1 className="disp h1">Choose your entry.</h1>}
+            <div className="card" style={{ gap: 6 }}>
+              <div className="row between"><span className="small b">The next {next750.capacity}</span><span className="small b">{next750.left.toLocaleString()} of {next750.capacity.toLocaleString()} left</span></div>
+              <div className="bar"><i style={{ width: `${next750.capacity ? Math.round((next750.registered / next750.capacity) * 100) : 0}%` }} /></div>
+            </div>
             <div className="acols even">
               <div className="card" style={{ gap: 12 }}>
                 <span className="eyebrow">Professional + Student</span>

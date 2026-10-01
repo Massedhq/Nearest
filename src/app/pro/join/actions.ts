@@ -30,6 +30,11 @@ export async function payEntry(_: FormState, form: FormData): Promise<FormState>
 export async function saveSlot(_: FormState, form: FormData): Promise<FormState> {
   const { user, profile } = await requirePro({ allowUnpaid: true });
   if (profile.entryPaidAt) return { error: "You've already joined Nearest." };
+  // Once a full city + category is shown, it can't be swapped for another one — the waitlist is the only path.
+  if (profile.slotCityId && profile.slotCategoryId) {
+    const { slotStatus } = await import("@/lib/slots");
+    if ((await slotStatus(profile))?.tier === "full") return { error: "Your city and category is full. Join the waitlist and we'll invite you when a spot opens." };
+  }
   const zip = String(form.get("zip") ?? "").trim();
   const categoryId = Number(form.get("categoryId"));
   if (!/^\d{5}$/.test(zip)) return { error: "Enter your 5-digit ZIP code." };
@@ -52,6 +57,9 @@ export async function saveSlot(_: FormState, form: FormData): Promise<FormState>
 export async function clearSlot() {
   const { user, profile } = await requirePro({ allowUnpaid: true });
   if (profile.entryPaidAt) return;
+  // A full city + category is final — no switching to a different ZIP or category to get around it.
+  const { slotStatus } = await import("@/lib/slots");
+  if ((await slotStatus(profile))?.tier === "full") redirect("/pro/join");
   const { db, professionalProfiles } = await import("@/db");
   const { eq } = await import("drizzle-orm");
   await db.update(professionalProfiles).set({ slotCityId: null, slotCategoryId: null }).where(eq(professionalProfiles.userId, user.id));

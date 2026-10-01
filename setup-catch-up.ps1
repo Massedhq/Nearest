@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Stripe webhook accepts both event destinations (your account + connected accounts)"
+git commit -q -m "Full city: join the waitlist or skip it by joining the next 750 (counted, shown on Join and Service coverage)"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

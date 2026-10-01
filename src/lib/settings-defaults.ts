@@ -33,6 +33,7 @@ export const SETTINGS: Record<string, SettingDef> = {
   "partner.nearest_block": { label: "Pool pros whose payments go to Nearest", group: "Growth", type: "number", value: 500 },
   "growth.target_per_city": { label: "Target per city", group: "Growth", type: "number", value: 5 },
   "growth.target_per_category": { label: "First In spots per category, per city", group: "Growth", type: "number", value: 5 },
+  "growth.next_entry_capacity": { label: "Next 750 — spots at the next entry rate", group: "Growth", type: "number", value: 750 },
   "growth.cap_per_category": { label: "Total spots per category, per city (then waitlist)", group: "Growth", type: "number", value: 10 },
   "growth.market_goal": { label: "Market goal (signed-up professionals)", group: "Growth", type: "number", value: 1500 },
   "growth.invite_expiry_days": { label: "Invitation expiry", group: "Growth", type: "number", unit: "days", value: 7 },

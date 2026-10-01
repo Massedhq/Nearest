@@ -5,7 +5,7 @@ import { AdminHead } from "@/components/AdminHead";
 import { requireAdmin } from "@/lib/admin";
 import { getSettings } from "@/lib/settings";
 import { liveProWhere } from "@/lib/search";
-import { firstInStats } from "@/lib/entry";
+import { firstInStats, nextEntryStats } from "@/lib/entry";
 import { marketName, sortMarkets } from "@/lib/markets";
 
 export const metadata = { title: "Service coverage" };
@@ -27,6 +27,7 @@ export default async function ServiceCoverage({ searchParams }: { searchParams: 
   const joined = sql`(${professionalProfiles.entryPaidAt} is not null or ${professionalProfiles.subscriptionStatus} in ('active','trialing','past_due') or exists (select 1 from admin_members a where a.user_id = ${professionalProfiles.userId} and a.role = 'OWNER' and a.active))`;
   const live = sql.join(liveProWhere(null, "all"), sql` and `);
 
+  const next750 = await nextEntryStats();
   const [cats, countyList, cityList, links, counts, prosByCity, students, fi, waitlist] = await Promise.all([
     db.select({ id: categories.id, name: categories.name }).from(categories).where(and(eq(categories.active, true), ne(categories.name, "Other"))).orderBy(asc(categories.sort), asc(categories.name)),
     db.select().from(counties),
@@ -97,7 +98,7 @@ export default async function ServiceCoverage({ searchParams }: { searchParams: 
         <div className="card" style={{ gap: 6 }}><span className="xs muted">First In (paid)</span><span className="stat">{fi.registered} / {fi.capacity}</span><div className="bar"><i style={{ width: `${pct(fi.registered, fi.capacity)}%` }} /></div></div>
         <div className="card" style={{ gap: 6 }}><span className="xs muted">{marketName(market)} professionals</span><span className="stat">{marketPros} / {goal.toLocaleString()}</span><div className="bar"><i style={{ width: `${pct(marketPros, goal)}%` }} /></div></div>
         <div className="card" style={{ gap: 6 }}><span className="xs muted">Category spots filled</span><span className="stat">{seatsFilled.toLocaleString()} / {seatsTotal.toLocaleString()}</span><span className="xs muted">{working.length} cities × {cats.length} categories × {target}</span></div>
-        <div className="card" style={{ gap: 6 }}><span className="xs muted">Categories</span><span className="stat">{cats.length}</span><span className="xs muted">Edit in Marketplace</span></div>
+        <div className="card" style={{ gap: 6 }}><span className="xs muted">The next {next750.capacity} ($16 / $21)</span><span className="stat">{next750.registered} / {next750.capacity}</span><div className="bar"><i style={{ width: `${next750.capacity ? Math.min(100, Math.round((next750.registered / next750.capacity) * 100)) : 0}%` }} /></div></div>
       </div>
 
       <form className="card row" style={{ gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>

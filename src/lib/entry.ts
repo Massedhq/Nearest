@@ -1,6 +1,6 @@
 import "server-only";
 import type Stripe from "stripe";
-import { and, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { db, platformSettings, entryCounters, professionalProfiles, proStudentLinks, users } from "@/db";
 import { getSettings } from "./settings";
 import { stripe, priceFor } from "./stripe";
@@ -93,7 +93,17 @@ export type EntryChoice = { type: PaidEntryType; student?: { firstName: string; 
  * the first spots are First In, the next spots are next entry, and a full city + category has none (waitlist).
  * Invited, Nearest-managed and owner accounts follow the enrollment state only.
  */
-export async function allowedEntries(profile: typeof professionalProfiles.$inferSelect): Promise<{ allowed: PaidEntryType[]; reason?: "paused" | "slot" | "full" }> {
+/** "The next 750": spots at the next entry rate ($16 with a student / $21), counted across every city. */
+export async function nextEntryStats() {
+  const s = await getSettings();
+  const capacity = Math.max(0, Number(s["growth.next_entry_capacity"] ?? 750));
+  const [r] = await db.select({ n: sql<number>`count(*)::int` }).from(professionalProfiles)
+    .where(and(inArray(professionalProfiles.entryType, ["PRO_STUDENT", "GENERAL"]), isNotNull(professionalProfiles.entryPaidAt)));
+  const registered = r?.n ?? 0;
+  return { capacity, registered, left: Math.max(0, capacity - registered), open: registered < capacity };
+}
+
+export async function allowedEntries(profile: typeof professionalProfiles.$inferSelect): Promise<{ allowed: PaidEntryType[]; reason?: "paused" | "slot" | "full" | "next_full"; bypass?: boolean }> {
   const state = await getEntryState();
   if (state === "FIRST_IN_CLOSED") return { allowed: [], reason: "paused" };
   const next: PaidEntryType[] = ["PRO_STUDENT", "GENERAL"];
@@ -101,8 +111,10 @@ export async function allowedEntries(profile: typeof professionalProfiles.$infer
   if (await isCapExempt(profile)) return { allowed: state === "FIRST_IN_OPEN" ? ["FIRST_IN"] : next };
   const slot = await slotStatus(profile);
   if (!slot) return { allowed: [], reason: "slot" };
-  if (slot.tier === "full") return { allowed: [], reason: "full" };
   if (slot.tier === "first_in" && state === "FIRST_IN_OPEN" && (await firstInStats()).open) return { allowed: ["FIRST_IN"] };
+  // Next entry (spots after First In, or skipping the waitlist in a full city) — only while the next 750 has room.
+  if (!(await nextEntryStats()).open) return { allowed: [], reason: slot.tier === "full" ? "full" : "next_full" };
+  if (slot.tier === "full") return { allowed: next, reason: "full", bypass: true };
   return { allowed: next };
 }
 
@@ -110,13 +122,16 @@ export async function startEntryCheckout(user: typeof users.$inferSelect, choice
   const profile = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, user.id) });
   if (!profile) return { error: "Finish creating your account first." };
   if (profile.entryPaidAt) return { error: "You've already joined Nearest." };
-  const { allowed, reason } = await allowedEntries(profile);
+  const { allowed, reason, bypass } = await allowedEntries(profile);
   if (!allowed.includes(choice.type)) {
     return { error: reason === "paused" ? "New professional enrollment is paused right now."
       : reason === "slot" ? "Choose your city and main category first."
       : reason === "full" ? "Your city and category is full right now. Join the waitlist and we'll invite you when a spot opens."
+      : reason === "next_full" ? "The next 750 spots are taken right now. Join the waitlist and we'll invite you when spots open."
       : "That option isn't available right now." };
   }
+  // Skipping the waitlist in a full city: remember it so setup lets them list there.
+  if (bypass && !profile.slotBypass) await db.update(professionalProfiles).set({ slotBypass: true }).where(eq(professionalProfiles.userId, user.id));
 
   // First In: hold a seat (reuse an unexpired hold if they come back)
   const heldAlready = profile.entryType === "FIRST_IN" && profile.entryHoldUntil && profile.entryHoldUntil > new Date();

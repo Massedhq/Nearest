@@ -61,6 +61,8 @@ export async function slotStatus(p: Profile) {
  */
 export async function wouldOverfill(p: Profile, cityId: number | null, categoryIds: number[]) {
   if (!cityId || (await isCapExempt(p))) return null;
+  // Skipped the waitlist (joined the next 750): their own full city + category is theirs to list in.
+  if (p.slotBypass && p.slotCityId === cityId && p.slotCategoryId) categoryIds = categoryIds.filter((c) => c !== p.slotCategoryId);
   const { cap } = await slotLimits();
   const mine = new Set(
     (await db.execute<{ c: number }>(sql`select distinct category_id as c from pro_services where user_id = ${p.userId} and active`)).rows.map((r) => r.c),

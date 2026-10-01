@@ -170,6 +170,8 @@ export const professionalProfiles = pgTable("professional_profiles", {
   // per-city, per-category spots: First In for the first spots, next entry after that, then a waitlist.
   slotCityId: integer("slot_city_id"),
   slotCategoryId: integer("slot_category_id"),
+  // Chose "skip the waitlist" for a full city + category: joins the next 750 and can go live there anyway.
+  slotBypass: boolean("slot_bypass").notNull().default(false),
   cityId: integer("city_id").references(() => cities.id),
   zip: text("zip"),
   addressLine: text("address_line"),
