@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Full city: join the waitlist or skip it by joining the next 750 (counted, shown on Join and Service coverage)"
+git commit -q -m "Invite friends: $5 for both students, one per booking on a first booking with a pro (pro-funded, shown to the pro); pros agree on Join"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

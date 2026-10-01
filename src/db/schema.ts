@@ -41,9 +41,11 @@ export const users = pgTable("users", {
   emailVerifiedAt: ts("email_verified_at"),
   status: userStatus("status").notNull().default("active"),
   repId: uuid("rep_id"), // sales rep whose link brought them (Sales Board) — never changes after sign-up
+  inviteCode: text("invite_code"), // students: their "Invite friends" link code (usenearest.com/?friend=CODE)
+  invitedBy: uuid("invited_by"), // students: the student whose invite link they signed up through
   createdAt: ts("created_at").notNull().defaultNow(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
-}, (t) => [uniqueIndex("users_username_idx").on(t.username)]);
+}, (t) => [uniqueIndex("users_username_idx").on(t.username), uniqueIndex("users_invite_code_idx").on(t.inviteCode)]);
 
 // County names repeat across states (Washington County…), so uniqueness is state + name — enforced in code
 // (no DB constraint, so upgrades never prompt).
@@ -379,6 +381,9 @@ export const bookings = pgTable("bookings", {
   depositCents: integer("deposit_cents").notNull(),
   creditProCents: integer("credit_pro_cents").notNull().default(0),
   creditGeneralCents: integer("credit_general_cents").notNull().default(0),
+  // Student invite reward used on this booking: $5 off, funded by the professional (first booking with them only).
+  inviteDiscountCents: integer("invite_discount_cents").notNull().default(0),
+  inviteRewardId: uuid("invite_reward_id"),
   chargedCents: integer("charged_cents").notNull().default(0),
   status: bookingStatus("status").notNull().default("pending_payment"),
   holdExpiresAt: ts("hold_expires_at"),
@@ -657,3 +662,17 @@ export const proWaitlist = pgTable("pro_waitlist", {
   categoryId: integer("category_id").notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [uniqueIndex("pro_waitlist_unique_idx").on(t.userId, t.cityId, t.categoryId), index("pro_waitlist_slot_idx").on(t.cityId, t.categoryId)]);
+
+// "Invite a friend": when an invited student is verified, the inviter and the new student each get a $5 reward.
+// One reward per booking (no stacking), on a student's first booking with a professional; the pro funds the $5.
+// available → reserved (booking awaiting payment) → used; cancelled / expired bookings put it back to available.
+export const inviteRewards = pgTable("invite_rewards", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), // who can use it
+  fromUserId: uuid("from_user_id").notNull().references(() => users.id, { onDelete: "cascade" }), // the other student in the pair
+  reason: text("reason").notNull(), // "inviter" | "invitee"
+  amountCents: integer("amount_cents").notNull().default(500),
+  status: text("status").notNull().default("available"),
+  bookingId: uuid("booking_id"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [uniqueIndex("invite_rewards_pair_idx").on(t.userId, t.fromUserId, t.reason), index("invite_rewards_user_idx").on(t.userId, t.status)]);

@@ -18,6 +18,9 @@ function withRef(req: Request & { nextUrl: URL }, res: NextResponse) {
   // Sales rep links (?rep=RXXXXXX): same 30-day memory, kept separate from partner links.
   const rep = req.nextUrl.searchParams.get("rep");
   if (rep && /^[A-Za-z0-9]{3,12}$/.test(rep)) res.cookies.set("nearest_rep", rep.toUpperCase(), { maxAge: 60 * 60 * 24 * 30, path: "/", sameSite: "lax", secure: true, httpOnly: true });
+  // Student "Invite friends" links (?friend=FXXXXXX): both students get $5 once the friend is verified.
+  const friend = req.nextUrl.searchParams.get("friend");
+  if (friend && /^[A-Za-z0-9]{3,12}$/.test(friend)) res.cookies.set("nearest_friend", friend.toUpperCase(), { maxAge: 60 * 60 * 24 * 30, path: "/", sameSite: "lax", secure: true, httpOnly: true });
   return res;
 }
 

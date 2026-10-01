@@ -27,7 +27,7 @@ export default async function Appointments() {
           <div key={b.id} className="card">
             <div className="row between"><span className="b">{b.serviceName}</span><span className="xs muted">#{bookingCode(b.number)}</span></div>
             <div className="small">{fmtDate(b.startsAt, { weekday: "long", month: "short", day: "numeric" })} • {fmtTime(b.startsAt)} – {fmtTime(b.endsAt)}</div>
-            <div className="row between small"><span>{first} {last?.[0]}. • Verified Student</span><span className="b">{money(b.priceCents)}</span></div>
+            <div className="row between small"><span>{first} {last?.[0]}. • Verified Student</span><span className="b">{money(b.priceCents - b.inviteDiscountCents)}{b.inviteDiscountCents > 0 && <span className="tag ok" style={{ marginLeft: 6 }}>Invite reward −{money(b.inviteDiscountCents)}</span>}</span></div>
             <span className="xs muted">Paid in full • held until the student releases it</span>
             <Link className="btn ghost sm" href={`/pro/appointments/${b.id}`} style={{ width: "100%" }}>{b.checkedInAt ? <><Icon name="check" size="s" /> Client checked in — open</> : "Open appointment"}</Link>
           </div>

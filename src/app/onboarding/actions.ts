@@ -1,5 +1,6 @@
 "use server";
 import { repIdFromCookie } from "@/lib/reps";
+import { invitedByFromCookie } from "@/lib/student-invites";
 import { redirect } from "next/navigation";
 import { db, users, studentProfiles } from "@/db";
 import { getViewer, clerkContact } from "@/lib/viewer";
@@ -38,6 +39,7 @@ export async function completeStudent(_: FormState, form: FormData): Promise<For
       email: c.email,
       emailVerifiedAt: c.emailVerifiedAt,
       repId: await repIdFromCookie(),
+      invitedBy: await invitedByFromCookie(),
     })
     .onConflictDoNothing()
     .returning();
@@ -62,6 +64,7 @@ export async function createStudentFromSignUp(): Promise<boolean> {
       clerkUserId: viewer.clerkUserId, accountType: "student", firstName, lastName, dateOfBirth: c.dob,
       phone: c.phone ?? c.typedPhone, phoneVerifiedAt: c.phoneVerifiedAt, email: c.email, emailVerifiedAt: c.emailVerifiedAt,
       repId: await repIdFromCookie(),
+      invitedBy: await invitedByFromCookie(),
     })
     .onConflictDoNothing()
     .returning();

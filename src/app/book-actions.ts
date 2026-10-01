@@ -11,6 +11,7 @@ import { requireVerifiedStudent } from "@/lib/student";
 import { liveProWhere } from "@/lib/search";
 import { openSlots } from "@/lib/availability";
 import { creditBalances, applyCredits } from "@/lib/credits";
+import { inviteRewardFor, reserveInviteReward, restoreInviteRewards } from "@/lib/student-invites";
 import { confirmBooking, cancelByStudent, releasePayment, bookingCode, releaseHold, releaseMyHolds } from "@/lib/bookings";
 import { getSettings } from "@/lib/settings";
 import { stripe, stripeEnabled, origin } from "@/lib/stripe";
@@ -77,7 +78,9 @@ async function createAndPay(opts: {
   if (s["status.bookings"] !== true) return { error: "Booking is paused right now. Please try again soon." };
   const deposit = Math.min(Number(s["appt.deposit_cents"]), opts.priceCents);
   const bal = await creditBalances(opts.studentId, opts.proId);
-  const use = applyCredits(opts.priceCents, bal);
+  // Invite reward: $5 off a student's first booking with this pro (services only, one per booking). The pro funds it.
+  const inv = opts.serviceId ? await inviteRewardFor(opts.studentId, opts.proId, opts.priceCents) : null;
+  let use = applyCredits(opts.priceCents - (inv?.cents ?? 0), bal);
   if (use.charge > 0 && !stripeEnabled()) return { error: "Payments aren't set up yet." };
   const endsAt = new Date(opts.startsAt.getTime() + opts.durationMin * 60000);
   await releaseMyHolds(opts.studentId); // an old unfinished payment never blocks a new booking
@@ -85,10 +88,19 @@ async function createAndPay(opts: {
   const [b] = await db.insert(bookings).values({
     studentId: opts.studentId, proId: opts.proId, serviceId: opts.serviceId ?? null, modelCallId: opts.modelCallId ?? null,
     serviceName: opts.serviceName, startsAt: opts.startsAt, endsAt, priceCents: opts.priceCents, travelFeeCents: travelFee, depositCents: deposit,
-    creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge,
+    creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge, inviteDiscountCents: inv?.cents ?? 0,
     holdExpiresAt: new Date(Date.now() + HOLD_MIN * 60000),
     locationType: opts.where.locationType, locationAddress: opts.where.locationAddress, lat: opts.where.lat, lng: opts.where.lng,
   }).returning();
+  if (inv) {
+    if (await reserveInviteReward(inv.id, b.id)) await db.update(bookings).set({ inviteRewardId: inv.id }).where(eq(bookings.id, b.id));
+    else {
+      // The reward was just used elsewhere: book at the full price instead.
+      use = applyCredits(opts.priceCents, bal);
+      await db.update(bookings).set({ inviteDiscountCents: 0, creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge }).where(eq(bookings.id, b.id));
+      b.chargedCents = use.charge; b.creditProCents = use.pro; b.creditGeneralCents = use.general; b.inviteDiscountCents = 0;
+    }
+  }
 
   // Double-booking guard: if an earlier active booking overlaps this time, give up this one.
   if (!opts.modelCallId) {
@@ -99,6 +111,7 @@ async function createAndPay(opts: {
     )).limit(1);
     if (clash.length) {
       await db.update(bookings).set({ status: "expired" }).where(eq(bookings.id, b.id));
+      await restoreInviteRewards();
       return { error: "Someone just booked that time. Please pick another." };
     }
   }

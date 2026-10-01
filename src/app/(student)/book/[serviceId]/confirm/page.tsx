@@ -11,6 +11,7 @@ import { chicagoToUtc, fmtDate, fmtTime, money } from "@/lib/time";
 import { TopBar } from "@/components/TopBar";
 import { ActionForm } from "@/components/ActionForm";
 import { PriceBox, Terms } from "@/components/BookingTerms";
+import { inviteRewardFor } from "@/lib/student-invites";
 import { Icon } from "@/components/Icon";
 import { bookService } from "@/app/book-actions";
 import { WherePicker } from "@/components/WherePicker";
@@ -39,7 +40,8 @@ export default async function Confirm({ params, searchParams }: { params: Promis
   if (!(await openSlots(svc.userId, svc.durationMin, day)).includes(time)) redirect(`/book/${svc.id}?day=${day}`);
   const s = await getSettings();
   const deposit = Math.min(Number(s["appt.deposit_cents"]), svc.priceCents);
-  const use = applyCredits(svc.priceCents, await creditBalances(user.id, svc.userId));
+  const inv = await inviteRewardFor(user.id, svc.userId, svc.priceCents); // $5 off a first booking with this pro
+  const use = applyCredits(svc.priceCents - (inv?.cents ?? 0), await creditBalances(user.id, svc.userId));
   const starts = chicagoToUtc(day, time);
   const city = pro.cityId ? await db.query.cities.findFirst({ where: eq(cities.id, pro.cityId) }) : null;
   const travels = pro.serviceMode === "travel" || pro.serviceMode === "both" || !pro.addressLine;
@@ -55,7 +57,7 @@ export default async function Confirm({ params, searchParams }: { params: Promis
           {!travels && <div className="row small top-a"><Icon name="pin" size="s" /><span>At the professional&apos;s place in {city?.name}. Address shared at 12:00 AM on your appointment day.</span></div>}
         </div>
         {travels && <div className="card small"><span>{pro.serviceMode === "both" && pro.addressLine ? `If they come to you, a ${money(pro.travelFeeCents ?? 3500)} travel fee is added to this price.` : `Includes a ${money(pro.travelFeeCents ?? 3500)} travel fee at checkout — your professional comes to you.`}</span></div>}
-        <PriceBox price={svc.priceCents} deposit={deposit} pro={use.pro} general={use.general} charge={use.charge} />
+        <PriceBox price={svc.priceCents} deposit={deposit} pro={use.pro} general={use.general} charge={use.charge} invite={inv?.cents ?? 0} />
         <Terms deposit={deposit} cutoffHours={Number(s["cancel.cutoff_hours"])} graceMin={Number(s["appt.grace_minutes"])} />
         <ActionForm action={bookService} submitLabel={use.charge > 0 ? "Continue to payment" : "Book with credit"}>
           <input type="hidden" name="serviceId" value={svc.id} />

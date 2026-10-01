@@ -101,7 +101,7 @@ export default async function Join({ searchParams }: { searchParams: Promise<{ s
               <span className="small">For your first 12 months.</span>
               <span className="xs muted">Your First In rate is locked to your account.</span>
             </div>
-            <ActionForm action={payEntry} submitLabel="Pay $11 and continue"><input type="hidden" name="type" value="FIRST_IN" /></ActionForm>
+            <ActionForm action={payEntry} submitLabel="Pay $11 and continue"><input type="hidden" name="type" value="FIRST_IN" /><label className="check xs" style={{ alignItems: "flex-start" }}><input type="checkbox" name="inviteReward" required /><span>I agree to honor Nearest&apos;s $5 student invite reward: a student who earned it by inviting a friend gets $5 off their first booking with me, taken from that booking&apos;s payout.</span></label></ActionForm>
             <p className="xs muted p">$11 is charged today, then $11 each month for your first 12 months. No commission on bookings.</p>
           </>
         )}
@@ -125,7 +125,7 @@ export default async function Join({ searchParams }: { searchParams: Promise<{ s
                 <span className="disp h2">$16/month</span>
                 <span className="small">For your first 12 months. Register one student to join with you.</span>
                 <ActionForm action={payEntry} submitLabel="Pay $16 and continue">
-                  <input type="hidden" name="type" value="PRO_STUDENT" />
+                  <input type="hidden" name="type" value="PRO_STUDENT" /><label className="check xs" style={{ alignItems: "flex-start" }}><input type="checkbox" name="inviteReward" required /><span>I agree to honor Nearest&apos;s $5 student invite reward: a student who earned it by inviting a friend gets $5 off their first booking with me, taken from that booking&apos;s payout.</span></label>
                   <div className="grid2">
                     <div className="field"><label htmlFor="sf">Student first name</label><input id="sf" name="studentFirst" required /></div>
                     <div className="field"><label htmlFor="sl">Student last name</label><input id="sl" name="studentLast" required /></div>
@@ -138,7 +138,7 @@ export default async function Join({ searchParams }: { searchParams: Promise<{ s
                 <span className="eyebrow">General Entry</span>
                 <span className="disp h2">$21/month</span>
                 <span className="small">For your first 12 months. No student registration required.</span>
-                <ActionForm action={payEntry} submitLabel="Pay $21 and continue"><input type="hidden" name="type" value="GENERAL" /></ActionForm>
+                <ActionForm action={payEntry} submitLabel="Pay $21 and continue"><input type="hidden" name="type" value="GENERAL" /><label className="check xs" style={{ alignItems: "flex-start" }}><input type="checkbox" name="inviteReward" required /><span>I agree to honor Nearest&apos;s $5 student invite reward: a student who earned it by inviting a friend gets $5 off their first booking with me, taken from that booking&apos;s payout.</span></label></ActionForm>
               </div>
             </div>
             <p className="xs muted p">The first month is charged today. Your rate is locked to your account for your first 12 months. No commission on bookings.</p>

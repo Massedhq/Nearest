@@ -5,11 +5,13 @@ import { db, bookings, credits, modelCalls, professionalProfiles } from "@/db";
 import { stripe } from "./stripe";
 import { getSettings } from "./settings";
 import { collectDues } from "./dues";
+import { useInviteReward, restoreInviteRewards } from "./student-invites";
 
 export const bookingCode = (n: number) => `NEA-${10000 + n}`;
 
 export async function expireStaleHolds() {
   await db.update(bookings).set({ status: "expired" }).where(and(eq(bookings.status, "pending_payment"), lt(bookings.holdExpiresAt, new Date())));
+  await restoreInviteRewards();
 }
 
 /** Confirms a booking once. Records the charge, uses up the credits, and takes a model-call spot. Safe to call repeatedly. */
@@ -25,6 +27,7 @@ export async function confirmBooking(bookingId: string, charge?: { chargeId: str
     .where(and(eq(bookings.id, bookingId), inArray(bookings.status, ["pending_payment", "expired"])))
     .returning();
   if (!b) return null; // already confirmed
+  await useInviteReward(b.id, b.inviteRewardId);
 
   const used = [];
   if (b.creditProCents) used.push({ studentId: b.studentId, proId: b.proId, amountCents: -b.creditProCents, reason: `Used on ${bookingCode(b.number)}`, bookingId: b.id });
@@ -67,6 +70,7 @@ export async function releaseHold(bookingId: string, studentId: string): Promise
     }
   }
   await db.update(bookings).set({ status: "expired", holdExpiresAt: null }).where(and(eq(bookings.id, b.id), eq(bookings.status, "pending_payment")));
+  await restoreInviteRewards();
   return "released";
 }
 
@@ -103,6 +107,7 @@ export async function cancelByStudent(bookingId: string, studentId: string) {
   const early = b.startsAt.getTime() - Date.now() >= Number(s["cancel.cutoff_hours"]) * 3600000;
   const forfeit = early ? 0 : Math.min(b.depositCents, b.chargedCents + b.creditProCents);
   const [done] = await db.update(bookings).set({ status: "cancelled_student", cancelledAt: new Date() }).where(and(eq(bookings.id, b.id), eq(bookings.status, "confirmed"))).returning();
+  if (done) await restoreInviteRewards();
   if (!done) return { error: "This appointment was already changed." };
 
   const back = [];
@@ -139,6 +144,7 @@ export async function cancelByStudent(bookingId: string, studentId: string) {
 export async function cancelAsProFault(bookingId: string, reason: string, proId?: string, heldSpot = true) {
   const where = proId ? and(eq(bookings.id, bookingId), eq(bookings.proId, proId), eq(bookings.status, "confirmed")) : and(eq(bookings.id, bookingId), eq(bookings.status, "confirmed"));
   const [b] = await db.update(bookings).set({ status: "cancelled_pro", cancelledAt: new Date() }).where(where).returning();
+  if (b) await restoreInviteRewards();
   if (!b) return { error: "This appointment can't be cancelled." };
   if (total(b) > 0) await db.insert(credits).values({ studentId: b.studentId, proId: null, amountCents: total(b), reason: `${reason} (${bookingCode(b.number)})`, bookingId: b.id });
   if (heldSpot) await freeSpot(b); // a booking that never got a spot must not give one back

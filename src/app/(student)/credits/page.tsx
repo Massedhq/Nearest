@@ -24,11 +24,18 @@ export default async function Credits() {
   }
   const live = [...buckets.values()].filter((x) => x.total > 0);
   const sum = live.reduce((a, x) => a + x.total, 0);
+  const invites = await (await import("@/lib/student-invites")).inviteSummary(user.id);
   return (
     <div className="scr">
       <div className="top"><span className="sp" /><div className="t">My Credits</div><span className="sp" /></div>
       <div className="body">
         <div className="card pearl" style={{ padding: 22 }}><span className="eyebrow" style={{ color: "#55514B" }}>Total available</span><span className="stat" style={{ fontSize: 48 }}>{money(sum)}</span><span className="small muted">Applied automatically at checkout</span></div>
+        {invites.available > 0 && (
+          <Link className="card ok" href="/account#invite" style={{ textDecoration: "none", color: "inherit", gap: 4 }}>
+            <span className="b">{invites.available} invite reward{invites.available === 1 ? "" : "s"} — $5 off each</span>
+            <span className="small">One $5 per booking, used automatically on your first booking with a professional. Invite more friends to earn more.</span>
+          </Link>
+        )}
         {live.map((x) => (
           <div key={x.proId ?? "g"} className="card">
             <div className="row between"><span className="tag">{x.proId ? `${x.pro} only` : "Any professional"}</span><span className="xs muted">Never expires</span></div>

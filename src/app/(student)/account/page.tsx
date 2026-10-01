@@ -4,6 +4,9 @@ import { Icon } from "@/components/Icon";
 import { Tabs } from "@/components/Tabs";
 import { displayName, initials } from "@/lib/viewer";
 import { requireStudent, schoolArea } from "@/lib/student";
+import { headers } from "next/headers";
+import { InviteFriends } from "@/components/InviteFriends";
+import { ensureInviteCode, inviteSummary } from "@/lib/student-invites";
 import { getViewer } from "@/lib/viewer";
 import { DeleteMyAccount } from "@/components/DeleteMyAccount";
 import { selfDeleteBlocker } from "@/lib/accounts";
@@ -15,6 +18,11 @@ export default async function Account() {
   const isOwner = (await getViewer())?.admin?.role === "OWNER";
   const area = profile.schoolId ? await schoolArea(profile.schoolId) : null;
   const verified = profile.verificationStatus === "verified";
+  // Invite friends: verified students get their own link; both students get $5 when the friend is verified.
+  const inviteCode = verified && u.accountType === "student" ? await ensureInviteCode(u.id) : null;
+  const h = await headers();
+  const inviteLink = inviteCode ? `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}/?friend=${inviteCode}` : null;
+  const invites = inviteCode ? await inviteSummary(u.id) : null;
   return (
     <div className="scr">
       <div className="top"><span className="sp" /><div className="t">Account</div><span className="sp" /></div>
@@ -27,6 +35,7 @@ export default async function Account() {
             {area && <span className="xs muted">{area.school}{profile.reverifyBy ? ` • Reverify by ${profile.reverifyBy}` : ""}</span>}
           </div>
         </div>
+        {inviteLink && invites && <InviteFriends link={inviteLink} joined={invites.joined} verified={invites.verified} available={invites.available} />}
         <div className="card small">
           <div className="row between"><span className="muted">Email</span><span>{u?.email ?? "—"}</span></div>
         </div>

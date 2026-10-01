@@ -28,6 +28,8 @@ export async function approveStudent(form: FormData) {
     .where(eq(studentProfiles.userId, id));
   await db.delete(studentIdDocs).where(eq(studentIdDocs.userId, id));
   await inbox(id, { kind: "verified", title: "You're a Verified Student", body: "Find who's available near you.", href: "/home" });
+  // Joined through a friend's invite link? Now that they're verified, both students get $5.
+  try { await (await import("@/lib/student-invites")).grantInviteRewards(id); } catch (e) { console.error("invite rewards", e); }
   await logActivity({ actorUserId: user.id, action: "student.verified", targetType: "student", targetId: await studentName(id), before: "pending", after: "verified" });
   revalidatePath("/admin", "layout");
 }

@@ -54,8 +54,15 @@ export default async function ProAppointment({ params }: { params: Promise<{ id:
           )}
           <hr className="hr" />
           <div className="row between"><span>Price</span><span className="b">{money(b.priceCents)}</span></div>
+          {b.inviteDiscountCents > 0 && <div className="row between"><span>Student invite reward</span><span className="b">−{money(b.inviteDiscountCents)}</span></div>}
           <span className="xs muted">{b.status === "completed" ? "Released to you" : "Paid in full • held until the student releases it"}</span>
         </div>
+        {b.inviteDiscountCents > 0 && (
+          <div className="card ok small" style={{ gap: 4 }}>
+            <span className="b">This student is using a {money(b.inviteDiscountCents)} invite reward</span>
+            <span>This is how Nearest rewards students for sharing the platform — and it keeps you booked. It applies only to a student&apos;s first booking with you.</span>
+          </div>
+        )}
 
         {live && !b.startedAt && <form action={proStart}><input type="hidden" name="id" value={b.id} /><button className="btn" type="submit">Start service</button></form>}
         {live && b.startedAt && !b.finishedAt && (
@@ -88,7 +95,7 @@ export default async function ProAppointment({ params }: { params: Promise<{ id:
                 );
               })}
             </div>
-            <div className="card"><div className="row between"><span>When released</span><span className="b">{money(Math.max(0, b.priceCents - (b.stripeFeeCents ?? 0)))} → Available</span></div></div>
+            <div className="card"><div className="row between"><span>When released</span><span className="b">{money(Math.max(0, b.priceCents - b.inviteDiscountCents - (b.stripeFeeCents ?? 0)))} → Available</span></div></div>
             <p className="xs muted p" style={{ margin: 0 }}>If the customer leaves without finishing, Nearest applies its completion policy automatically.</p>
           </>
         )}

@@ -10,6 +10,7 @@ export async function payEntry(_: FormState, form: FormData): Promise<FormState>
   const type = String(form.get("type"));
   // Free and pay-from-bookings accounts come only from the main owner's invitations — never from this page.
   if (!isEntryType(type) || isManagedEntry(type)) return { error: "Choose an option." };
+  if (form.get("inviteReward") !== "on") return { error: "Please agree to honor the $5 student invite reward." };
   let student;
   if (type === "PRO_STUDENT") {
     const firstName = String(form.get("studentFirst") ?? "").trim().slice(0, 60);
