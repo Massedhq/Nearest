@@ -83,7 +83,14 @@ export const studentProfiles = pgTable("student_profiles", {
   onboardingCompletedAt: ts("onboarding_completed_at"),
   noShowCount: integer("no_show_count").notNull().default(0),
   guardianEmail: text("guardian_email"),
-  guardianConsentAt: ts("guardian_consent_at"), // required at sign-up for students 13–17
+  guardianConsentAt: ts("guardian_consent_at"), // required at sign-up for students 13–17 (the student's checkbox)
+  // The parent or guardian's own approval, by email link. Students 13–17 can't book until it's "approved".
+  guardianStatus: text("guardian_status"), // null | "pending" | "approved" | "declined"
+  guardianToken: text("guardian_token"),
+  guardianEmailSentAt: ts("guardian_email_sent_at"),
+  guardianApprovedAt: ts("guardian_approved_at"),
+  guardianName: text("guardian_name"), // the name the parent typed to sign
+  guardianIp: text("guardian_ip"),
   bookingSuspendedUntil: ts("booking_suspended_until"),
   suspensionReason: text("suspension_reason"), // "no_shows" | "incomplete_completion" | "admin"
   // Phase 3A: manual verification

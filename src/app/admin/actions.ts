@@ -10,6 +10,7 @@ import { SETTINGS, STATUS_KEYS } from "@/lib/settings-defaults";
 import { foundingOpen } from "@/lib/invites";
 import { sendInviteEmail } from "@/lib/email";
 import { mainOwnerId } from "@/lib/partner";
+import { parseExpiry, expiryLabel } from "@/lib/invite-expiry";
 import { headers } from "next/headers";
 
 export type FormState = { error?: string; ok?: string };
@@ -71,8 +72,9 @@ export async function createInvite(_: FormState, form: FormData): Promise<FormSt
   const f = await foundingOpen();
   if (!f.open) return { error: "First In is closed, so First In invitations can't be sent." };
 
-  const s = await getSettings();
-  const expiresAt = new Date(Date.now() + Number(s["growth.invite_expiry_days"]) * 86400000);
+  const exp = parseExpiry(form);
+  if ("error" in exp) return { error: exp.error };
+  const expiresAt = exp.at;
 
   for (let attempt = 0; attempt < 5; attempt++) {
     const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(invitations);
@@ -90,7 +92,7 @@ export async function createInvite(_: FormState, form: FormData): Promise<FormSt
         const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
         const res = await sendInviteEmail({
           to: contact, name, code, link: `${origin}/pro/invite/${code}`,
-          expires: expiresAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Chicago" }),
+          expires: expiryLabel(expiresAt),
         });
         if (res.sent) {
           emailed = "1";
@@ -162,8 +164,9 @@ export async function createSpecialInvite(_: FormState, form: FormData): Promise
     if (!Number.isFinite(dollars) || dollars < 1 || dollars > 30) return { error: "Monthly rate must be between $1 and $30." };
     rateCents = Math.round(dollars * 100);
   }
-  const s = await getSettings();
-  const expiresAt = new Date(Date.now() + Number(s["growth.invite_expiry_days"]) * 86400000);
+  const exp = parseExpiry(form);
+  if ("error" in exp) return { error: exp.error };
+  const expiresAt = exp.at;
   const prefix = kind === "AMBASSADOR" ? "AMB" : "PB";
   for (let attempt = 0; attempt < 5; attempt++) {
     const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(invitations).where(eq(invitations.kind, kind));
@@ -179,7 +182,7 @@ export async function createSpecialInvite(_: FormState, form: FormData): Promise
       const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
       const res = await sendInviteEmail({
         to: contact, name, code, link: `${origin}/pro/invite/${code}`, kind, rateCents,
-        expires: expiresAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Chicago" }),
+        expires: expiryLabel(expiresAt),
       });
       if (res.sent) { emailed = "1"; await logActivity({ actorUserId: user.id, action: "invite.emailed", targetType: "invitation", targetId: code, after: contact }); }
     }

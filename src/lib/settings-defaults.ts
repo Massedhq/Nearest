@@ -36,7 +36,6 @@ export const SETTINGS: Record<string, SettingDef> = {
   "growth.next_entry_capacity": { label: "Next 750 — spots at the next entry rate", group: "Growth", type: "number", value: 750 },
   "growth.cap_per_category": { label: "Total spots per category, per city (then waitlist)", group: "Growth", type: "number", value: 10 },
   "growth.market_goal": { label: "Market goal (signed-up professionals)", group: "Growth", type: "number", value: 1500 },
-  "growth.invite_expiry_days": { label: "Invitation expiry", group: "Growth", type: "number", unit: "days", value: 7 },
   "sub.termination_days": { label: "Subscription termination", group: "Growth", type: "number", unit: "days", value: 90 },
   "status.pro_registration": { label: "Professional Registration", group: "Status", type: "bool", value: true },
   "status.founding_invitations": { label: "Invitations", group: "Status", type: "bool", value: true },

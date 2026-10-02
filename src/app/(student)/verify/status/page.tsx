@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SignOutButton } from "@clerk/nextjs";
 import { requireStudent } from "@/lib/student";
@@ -7,7 +8,8 @@ import { Icon } from "@/components/Icon";
 export const metadata = { title: "Verification" };
 
 export default async function VerifyStatus() {
-  const { profile } = await requireStudent();
+  const { profile, user } = await requireStudent();
+  const minor = (await import("@/lib/guardian")).needsGuardian(user);
   if (profile.verificationStatus === "verified") redirect("/home");
   if (profile.verificationStatus === "unverified") redirect("/verify");
   const rejected = profile.verificationStatus === "rejected";
@@ -15,6 +17,12 @@ export default async function VerifyStatus() {
     <div className="scr">
       <div className="top"><span className="sp" /><div className="t">Verification</div><span className="sp" /></div>
       <div className="body" style={{ alignItems: "center", textAlign: "center" }}>
+        {minor && profile.guardianStatus !== "approved" && (
+          <Link className="card warn small" href="/verify/parent" style={{ textDecoration: "none", color: "inherit", width: "100%" }}>
+            <span className="b">{profile.guardianStatus === "declined" ? "Your parent declined" : "Waiting for your parent to approve"}</span>
+            <span className="muted">Because you&apos;re under 18, your parent or guardian also has to approve by email. Tap to resend or change their email.</span>
+          </Link>
+        )}
         <div style={{ width: 104, height: 104, borderRadius: 52, border: "2px solid #ECE8E1", display: "flex", alignItems: "center", justifyContent: "center", marginTop: 40 }}>
           <Icon name={rejected ? "alert" : "clock"} size="xl" />
         </div>

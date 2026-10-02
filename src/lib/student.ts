@@ -40,6 +40,9 @@ export async function requireVerifiedStudent() {
   }
   const step = await verifyStep(s.user.id, s.profile);
   if (step) redirect(step);
+  // Students 13–17: their parent or guardian must approve by email before they can use Nearest.
+  const { needsGuardian } = await import("./guardian");
+  if (needsGuardian(s.user) && s.profile.guardianStatus !== "approved") redirect("/verify/parent");
   const area = s.profile.schoolId ? await schoolArea(s.profile.schoolId) : null;
   return { ...s, area };
 }

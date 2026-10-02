@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 // Pages anyone can open. Everything else needs a signed-in user; role checks
 // happen again in each layout, page and server action (never only here).
 const PUBLIC_EXACT = new Set(["/", "/pro", "/manifest.webmanifest", "/pro/manifest.webmanifest", "/sw.js", "/api/stripe/webhook", "/api/cron/sweep", "/terms", "/privacy", "/api/rep/accept"]); // rep accept checks sign-in itself and sends signed-out people to sign in
-const PUBLIC_PREFIX = ["/sign-in", "/sign-up", "/pro/sign-in", "/pro/sign-up", "/pro/invite/", "/admin/sign-in", "/admin/sign-up", "/rep/join/", "/rep/agreement"];
+const PUBLIC_PREFIX = ["/sign-in", "/sign-up", "/pro/sign-in", "/pro/sign-up", "/pro/invite/", "/admin/sign-in", "/admin/sign-up", "/rep/join/", "/rep/agreement", "/guardian/"];
 
 function isPublic(path: string) {
   if (/^\/pro-[a-z0-9-]{2,40}$/i.test(path)) return true; // shareable pro links: usenearest.com/pro-<name>

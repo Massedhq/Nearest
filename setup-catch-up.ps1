@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Bundle my booking: pick categories, budget and week; save recommended pros; book each in the week (no credits); pro notified; Bundle Me admin stats"
+git commit -q -m "Parent approval email for students 13-17: parent approves or declines by link; minors cannot book until approved"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

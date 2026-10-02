@@ -1,4 +1,5 @@
 "use client";
+import { ExpiryField } from "@/components/ExpiryField";
 import { useActionState, useState } from "react";
 import { createSpecialInvite, type FormState } from "@/app/admin/actions";
 
@@ -24,6 +25,7 @@ export function SpecialInviteForm() {
       <div className="grid2">
         <div className="field"><label htmlFor="sp-name">Name</label><input id="sp-name" name="name" required /></div>
         <div className="field"><label htmlFor="sp-contact">Email or phone</label><input id="sp-contact" name="contact" required /></div>
+        <ExpiryField id="sp-exp" />
         {kind === "BOOKING_PAID" && (
           <div className="field"><label htmlFor="sp-rate">Monthly rate ($)</label><input id="sp-rate" name="rate" type="number" min={1} max={30} step={1} defaultValue={15} required /></div>
         )}

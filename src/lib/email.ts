@@ -84,3 +84,21 @@ export async function sendRepVerificationEmail(opts: { to: string; name: string;
         button: { label: "Send new photos", url: opts.link } });
   return { sent: r.sent };
 }
+
+/** Parent / guardian approval for a student aged 13–17. */
+export async function sendGuardianEmail(opts: { to: string; studentFirst: string; age: number | null; link: string }) {
+  if (!emailEnabled()) return { sent: false as const };
+  const r = await sendEmail({
+    to: opts.to,
+    subject: `${opts.studentFirst} signed up for Nearest — your approval is needed`,
+    eyebrow: "Parent or guardian approval",
+    heading: `${opts.studentFirst} needs your approval to use Nearest.`,
+    lines: [
+      `${opts.studentFirst}${opts.age ? ` (age ${opts.age})` : ""} created a Nearest account and listed you as their parent or legal guardian.`,
+      "Nearest is a booking platform where verified students book services with licensed, ID-checked professionals. Payments are held until each appointment is finished, and phone numbers and emails are never shared.",
+      `${opts.studentFirst} can't book anything until you review and approve. If this wasn't you, or you don't approve, you can decline from the same page.`,
+    ],
+    button: { label: "Review and approve", url: opts.link },
+  });
+  return { sent: r.sent };
+}

@@ -68,7 +68,11 @@ export async function createStudentFromSignUp(): Promise<boolean> {
     })
     .onConflictDoNothing()
     .returning();
-  if (user) await db.insert(studentProfiles).values({ userId: user.id, ...(years < 18 ? { guardianEmail: c.guardianEmail, guardianConsentAt: new Date() } : {}) }).onConflictDoNothing();
+  if (user) {
+    const [p] = await db.insert(studentProfiles).values({ userId: user.id, ...(years < 18 ? { guardianEmail: c.guardianEmail, guardianConsentAt: new Date(), guardianStatus: "pending" } : {}) }).onConflictDoNothing().returning();
+    // 13–17: email the parent or guardian right away for their approval.
+    if (p && years < 18) { try { await (await import("@/lib/guardian")).sendGuardianInvite(user, p); } catch (e) { console.error("guardian email", e); } }
+  }
   if (user) await (await import("@/lib/entry")).linkRegisteredStudent(user.id, c.email);
   return true;
 }

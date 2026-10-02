@@ -12,6 +12,7 @@ import { CopyButton } from "@/components/CopyButton";
 import { emailEnabled } from "@/lib/email";
 import { InviteForm } from "./InviteForm";
 import { SpecialInviteForm } from "./SpecialInviteForm";
+import { expiryLabel } from "@/lib/invite-expiry";
 import { mainOwnerId } from "@/lib/partner";
 import { CopyLink } from "./CopyLink";
 
@@ -91,7 +92,7 @@ export default async function Founding({ searchParams }: { searchParams: Promise
                 <td>{[byFirst, byLast].filter(Boolean).join(" ") || byEmail || "—"}</td>
                 <td>{fmt(i.createdAt)}</td>
                 <td><span className={`tag ${TAG[i.status]}`}>{i.status}</span></td>
-                <td>{i.status === "invited" ? fmt(i.expiresAt) : "—"}</td>
+                <td>{i.status === "invited" ? expiryLabel(i.expiresAt) : "—"}</td>
                 <td>
                   <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
                     {i.status === "invited" && i.contact.includes("@") && (

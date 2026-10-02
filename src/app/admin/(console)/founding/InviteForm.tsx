@@ -1,4 +1,5 @@
 "use client";
+import { ExpiryField } from "@/components/ExpiryField";
 import { useActionState } from "react";
 import { createInvite, type FormState } from "@/app/admin/actions";
 
@@ -10,6 +11,7 @@ export function InviteForm({ disabled }: { disabled: boolean }) {
       <div className="grid2">
         <div className="field"><label htmlFor="name">Name</label><input id="name" name="name" required /></div>
         <div className="field"><label htmlFor="contact">Email or phone</label><input id="contact" name="contact" required /></div>
+        <ExpiryField id="fi-exp" />
       </div>
       {state.error && <p className="err" role="alert">{state.error}</p>}
       <div className="row between small">

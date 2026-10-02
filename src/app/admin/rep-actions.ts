@@ -7,7 +7,8 @@ import { requireAdmin } from "@/lib/admin";
 import { mainOwnerId } from "@/lib/partner";
 import { logActivity } from "@/lib/log";
 import { sendRepInviteEmail } from "@/lib/email";
-import { newRepCode, newRepToken, REP_INVITE_DAYS } from "@/lib/reps";
+import { newRepCode, newRepToken } from "@/lib/reps";
+import { parseExpiry, expiryLabel } from "@/lib/invite-expiry";
 import type { FormState } from "@/app/admin/actions";
 
 /** Sales Board actions — main owner only, checked here on the server (not just hidden in the page). */
@@ -22,7 +23,7 @@ async function origin() {
   return `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
 }
 
-const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Chicago" });
+const fmt = (d: Date) => expiryLabel(d);
 
 async function emailInvite(rep: typeof salesReps.$inferSelect) {
   const link = `${await origin()}/rep/join/${rep.token}`;
@@ -40,7 +41,9 @@ export async function inviteRep(_: FormState, form: FormData): Promise<FormState
   const existing = await db.query.salesReps.findFirst({ where: and(eq(salesReps.email, email), ne(salesReps.status, "removed")) });
   if (existing) return { error: existing.status === "active" ? "This person is already on your sales team." : "This person already has an invitation. Use Resend below." };
 
-  const expires = new Date(Date.now() + REP_INVITE_DAYS * 86400000);
+  const exp = parseExpiry(form);
+  if ("error" in exp) return { error: exp.error };
+  const expires = exp.at;
   let rep: typeof salesReps.$inferSelect | undefined;
   for (let i = 0; i < 5 && !rep; i++) {
     [rep] = await db.insert(salesReps).values({ name, email, code: newRepCode(), token: newRepToken(), invitedBy: user.id, inviteExpiresAt: expires }).onConflictDoNothing().returning();
@@ -56,8 +59,10 @@ export async function resendRepInvite(_: FormState, form: FormData): Promise<For
   try { await requireMain(); } catch (e) { return { error: (e as Error).message }; }
   const rep = await db.query.salesReps.findFirst({ where: eq(salesReps.id, String(form.get("id") ?? "")) });
   if (!rep || rep.status !== "invited") return { error: "This invitation can't be resent." };
-  // Fresh link and a fresh 14 days.
-  const [fresh] = await db.update(salesReps).set({ token: newRepToken(), inviteExpiresAt: new Date(Date.now() + REP_INVITE_DAYS * 86400000) }).where(eq(salesReps.id, rep.id)).returning();
+  // Fresh link, with the new expiration you choose.
+  const exp = parseExpiry(form);
+  if ("error" in exp) return { error: exp.error };
+  const [fresh] = await db.update(salesReps).set({ token: newRepToken(), inviteExpiresAt: exp.at }).where(eq(salesReps.id, rep.id)).returning();
   const { link, sent } = await emailInvite(fresh);
   revalidatePath("/admin/sales-board");
   return { ok: sent ? `Sent again to ${rep.email}.` : `The email didn't send. Copy this link and send it to them: ${link}` };

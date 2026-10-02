@@ -4,6 +4,8 @@ import { desc, sql } from "drizzle-orm";
 import { db, salesReps, repPayouts } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
 import { ActionForm } from "@/components/ActionForm";
+import { ExpiryField } from "@/components/ExpiryField";
+import { expiryLabel } from "@/lib/invite-expiry";
 import { CopyText } from "@/components/CopyText";
 import { requireAdmin } from "@/lib/admin";
 import { mainOwnerId } from "@/lib/partner";
@@ -48,6 +50,7 @@ export default async function SalesBoard() {
           <div className="grid2">
             <div className="field"><label htmlFor="rep-name">Name</label><input id="rep-name" name="name" required maxLength={80} /></div>
             <div className="field"><label htmlFor="rep-email">Email</label><input id="rep-email" name="email" type="email" required maxLength={120} /></div>
+            <ExpiryField id="rep-exp" label="Invitation expires" />
           </div>
         </ActionForm>
       </div>
@@ -70,7 +73,7 @@ export default async function SalesBoard() {
                       <span className={`tag ${r.status === "active" ? "ok" : r.status === "removed" ? "bad" : "warn"}`}>
                         {r.status === "active" ? "Active" : r.status === "removed" ? "Removed" : expired ? "Invite expired" : "Invited"}
                       </span>
-                      <div className="xs muted">{r.acceptedAt ? `Since ${fmtDate(r.acceptedAt, { month: "short", day: "numeric" })}` : `Invited ${fmtDate(r.createdAt, { month: "short", day: "numeric" })}`}</div>
+                      <div className="xs muted">{r.acceptedAt ? `Since ${fmtDate(r.acceptedAt, { month: "short", day: "numeric" })}` : `Expires ${expiryLabel(r.inviteExpiresAt)}`}</div>
                     </td>
                     <td>
                       {r.agreedAt
@@ -125,7 +128,7 @@ export default async function SalesBoard() {
                     <td>
                       <div className="col" style={{ gap: 6, minWidth: 130 }}>
                         {r.status === "invited" && (
-                          <ActionForm action={resendRepInvite} submitLabel="Resend invite" buttonClass="btn ghost sm" className="col g4"><input type="hidden" name="id" value={r.id} /></ActionForm>
+                          <ActionForm action={resendRepInvite} submitLabel="Resend invite" buttonClass="btn ghost sm" className="col g4"><input type="hidden" name="id" value={r.id} /><input name="expiresAt" type="datetime-local" required aria-label="New expiration" style={{ height: 36, borderRadius: 10, border: "1px solid #2A2A2D", background: "#0E0E10", color: "#ECE8E1", padding: "0 8px" }} /></ActionForm>
                         )}
                         {r.status !== "removed"
                           ? <ActionForm action={setRepStatus} submitLabel="Remove" buttonClass="link small" className="col g4"><input type="hidden" name="id" value={r.id} /><input type="hidden" name="to" value="removed" /></ActionForm>

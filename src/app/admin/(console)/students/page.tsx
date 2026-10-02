@@ -28,7 +28,13 @@ export default async function Students() {
             {rows.length === 0 && <tr><td className="empty" colSpan={10}>No students yet.</td></tr>}
             {rows.map(({ s, u, school }) => (
               <tr key={s.userId}>
-                <td>{u.firstName} {u.lastName}</td><td>{u.email}</td><td>{age(u.dateOfBirth)}</td><td>{s.guardianConsentAt ? <span className="tag ok" title={s.guardianEmail ?? ""}>Agreed</span> : "—"}</td><td>{school ?? "—"}</td><td>{s.graduationYear ?? "—"}</td>
+                <td>{u.firstName} {u.lastName}</td><td>{u.email}</td><td>{age(u.dateOfBirth)}</td><td>{s.guardianStatus === "approved"
+                  ? <><span className="tag ok">Parent approved</span><div className="xs muted">{s.guardianName} • {s.guardianEmail}</div></>
+                  : s.guardianStatus === "declined"
+                    ? <><span className="tag bad">Parent declined</span><div className="xs muted">{s.guardianEmail}</div></>
+                    : s.guardianConsentAt || s.guardianStatus === "pending"
+                      ? <><span className="tag warn">Waiting for parent</span><div className="xs muted">{s.guardianEmail}</div></>
+                      : "—"}</td><td>{school ?? "—"}</td><td>{s.graduationYear ?? "—"}</td>
                 <td><span className={`tag ${TAG[s.verificationStatus]}`}>{s.verificationStatus.replace("_", " ")}</span></td>
                 <td>{s.reverifyBy ?? "—"}</td>
                 <td>{s.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Chicago" })}</td>

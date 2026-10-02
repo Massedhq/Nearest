@@ -48,7 +48,7 @@ export default async function InvitePage({ params }: { params: Promise<{ code: s
         <div className="card">
           <div className="row between small"><span className="muted">Invitation code</span><span className="b num">{invite.code}</span></div>
           {city && <div className="row between small"><span className="muted">City</span><span className="b">{city}</span></div>}
-          <div className="row between small"><span className="muted">Expires</span><span className="b">{fmt(invite.expiresAt)} — {days} {days === 1 ? "day" : "days"}</span></div>
+          <div className="row between small"><span className="muted">Expires</span><span className="b">{(await import("@/lib/invite-expiry")).expiryLabel(invite.expiresAt)}{days > 1 ? ` — ${days} days` : ""}</span></div>
         </div>
         <div className="card pearl">
           <span className="disp h2">{offer.price}</span>
