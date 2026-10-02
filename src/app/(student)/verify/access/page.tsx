@@ -9,7 +9,7 @@ export const metadata = { title: "Communication preferences" };
 
 export default async function Access() {
   const { profile } = await requireStudent();
-  if (profile.verificationStatus === "unverified") redirect("/verify");
+  if (profile.verificationStatus === "unverified" && !profile.selfieOnlyAt) redirect("/verify");
   return (
     <div className="scr">
       <div className="top"><span className="sp" /><div className="t" /><form action={skipAccess}><button className="link small" type="submit">Skip</button></form></div>

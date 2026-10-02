@@ -7,5 +7,6 @@ export async function GET(req: Request) {
   if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) return new Response("Unauthorized", { status: 401 });
   const [result, reminders, steppedUp, seatsReleased] = [await sweep(), await sendReminders(), await stepUpPrices(), await releaseExpiredHolds()];
   const bundlesExpired = await (await import("@/lib/bundles")).expireBundles(); // unbooked bundles clear after 14 days
-  return Response.json({ ...result, reminders, steppedUp, seatsReleased, bundlesExpired });
+  const verifyReminders = await (await import("@/lib/verify-reminders")).remindUnfinishedVerification(); // 1, 3, 7 days
+  return Response.json({ ...result, reminders, steppedUp, seatsReleased, bundlesExpired, verifyReminders });
 }

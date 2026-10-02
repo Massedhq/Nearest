@@ -3,12 +3,13 @@ import { redirect } from "next/navigation";
 import { requireStudent, verifyStep } from "@/lib/student";
 import { TopBar } from "@/components/TopBar";
 import { ActionForm } from "@/components/ActionForm";
-import { sendSchoolCode, confirmSchoolCode } from "@/app/verify-actions";
+import { sendSchoolCode, confirmSchoolCode, finishVerifyLater } from "@/app/verify-actions";
 
 export const metadata = { title: "Finish verifying" };
 
 /** Account created with a selfie: finish with the school ID, or a school email + 6-digit code (temporary access right away). */
-export default async function FinishVerifying() {
+export default async function FinishVerifying({ searchParams }: { searchParams: Promise<{ later?: string }> }) {
+  const later = (await searchParams).later === "1";
   const { user, profile } = await requireStudent();
   const step = await verifyStep(user.id, profile);
   if (step !== "/verify/finish") redirect(step ?? "/home");
@@ -18,7 +19,9 @@ export default async function FinishVerifying() {
       <TopBar title="Finish verifying" />
       <div className="body">
         <h1 className="disp h1">Finish verifying</h1>
-        <p className="small muted p">Your account is created. Finish one of these to start browsing and booking.</p>
+        {profile.verifyLaterAt
+          ? <div className={`card ${later ? "ok" : ""} small`}><span><span className="b">Your account is set up.</span> Finish one of these whenever you&apos;re ready to start browsing and booking — we&apos;ll remind you.</span></div>
+          : <p className="small muted p">Your account is created. Finish one of these to start browsing and booking.</p>}
 
         <div className="card" style={{ gap: 10 }}>
           <span className="eyebrow">Fastest — your school email</span>
@@ -36,9 +39,16 @@ export default async function FinishVerifying() {
 
         <div className="card" style={{ gap: 8 }}>
           <span className="eyebrow">Or — your school ID</span>
-          <span className="small">Have your school ID now? Upload a photo of it with a new selfie.</span>
+          <span className="small">Have your school ID now? Take or upload a photo of it — your selfie is already saved.</span>
           <Link className="btn ghost" href="/verify/id">Upload my school ID</Link>
         </div>
+
+        {!profile.verifyLaterAt && (
+          <form action={finishVerifyLater} className="col" style={{ gap: 6 }}>
+            <button className="btn ghost" type="submit">I&apos;ll finish verifying later</button>
+            <span className="xs muted" style={{ textAlign: "center" }}>No school email or ID right now? Finish setting up your account, and come back to verify anytime.</span>
+          </form>
+        )}
       </div>
     </div>
   );

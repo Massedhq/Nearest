@@ -93,6 +93,8 @@ export const studentProfiles = pgTable("student_profiles", {
   guardianIp: text("guardian_ip"),
   // "I don't have my school ID with me": selfie now, then finish with the school ID or a school email code.
   selfieOnlyAt: ts("selfie_only_at"),
+  verifyLaterAt: ts("verify_later_at"), // chose "finish verifying later"
+  verifyReminders: integer("verify_reminders").notNull().default(0), // reminders sent to come back and finish (max 3)
   schoolEmail: text("school_email"),
   schoolEmailVerifiedAt: ts("school_email_verified_at"), // code confirmed → temporary access until the owner approves
   schoolEmailCodeHash: text("school_email_code_hash"),

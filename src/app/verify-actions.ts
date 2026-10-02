@@ -87,13 +87,13 @@ export async function saveAccess(_: FormState, form: FormData): Promise<FormStat
       onboardingCompletedAt: profile.onboardingCompletedAt ?? new Date(),
     })
     .where(eq(studentProfiles.userId, user.id));
-  redirect(profile.verificationStatus === "verified" ? "/home" : "/verify/status");
+  redirect(profile.verificationStatus === "verified" ? "/home" : profile.verificationStatus === "unverified" && profile.selfieOnlyAt ? "/verify/finish" : "/verify/status");
 }
 
 export async function skipAccess() {
   const { user, profile } = await requireStudent();
   await db.update(studentProfiles).set({ onboardingCompletedAt: profile.onboardingCompletedAt ?? new Date() }).where(eq(studentProfiles.userId, user.id));
-  redirect(profile.verificationStatus === "verified" ? "/home" : "/verify/status");
+  redirect(profile.verificationStatus === "verified" ? "/home" : profile.verificationStatus === "unverified" && profile.selfieOnlyAt ? "/verify/finish" : "/verify/status");
 }
 
 /** "I don't have my school ID with me": save just the selfie and finish later. */
@@ -151,4 +151,27 @@ export async function confirmSchoolCode(_: FormState, form: FormData): Promise<F
   }).where(eq(studentProfiles.userId, user.id));
   revalidatePath("/verify/status");
   redirect("/home");
+}
+
+/** "I'll finish verifying later": keep setting up the account; Nearest reminds them to come back. */
+export async function finishVerifyLater() {
+  const { user, profile } = await requireStudent();
+  if (profile.verificationStatus === "verified") redirect("/home");
+  await db.update(studentProfiles).set({ verifyLaterAt: profile.verifyLaterAt ?? new Date() }).where(eq(studentProfiles.userId, user.id));
+  redirect(profile.onboardingCompletedAt ? "/verify/finish?later=1" : "/verify/interests");
+}
+
+/** Finishing with the school ID after the selfie was already saved: just the ID photo. */
+export async function submitSchoolIdOnly(_: FormState, form: FormData): Promise<FormState> {
+  const { user, profile } = await requireStudent();
+  if (profile.verificationStatus === "verified") redirect("/home");
+  if (!profile.selfieOnlyAt) return { error: "Take your selfie first." };
+  const m = DATA_URL.exec(String(form.get("school_id") ?? ""));
+  if (!m) return { error: "Take or upload a photo of your school ID." };
+  if (m[1].length > 1_400_000) return { error: "That photo is too large. Try again." };
+  await db.insert(studentIdDocs).values({ userId: user.id, kind: "school_id", mime: "image/jpeg", dataB64: m[1] })
+    .onConflictDoUpdate({ target: [studentIdDocs.userId, studentIdDocs.kind], set: { dataB64: m[1], createdAt: new Date() } });
+  await db.update(studentProfiles).set({ verificationStatus: "pending", idSubmittedAt: new Date(), reviewNote: null }).where(eq(studentProfiles.userId, user.id));
+  revalidatePath("/verify/status");
+  redirect(profile.onboardingCompletedAt ? "/verify/status" : "/verify/interests");
 }

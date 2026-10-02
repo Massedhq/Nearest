@@ -11,7 +11,7 @@ export const metadata = { title: "Your interests" };
 
 export default async function Interests() {
   const { profile } = await requireStudent();
-  if (profile.verificationStatus === "unverified") redirect("/verify");
+  if (profile.verificationStatus === "unverified" && !profile.selfieOnlyAt) redirect("/verify");
   const cats = await db.select({ id: categories.id, name: categories.name }).from(categories).where(eq(categories.active, true)).orderBy(asc(categories.sort));
   const mine = new Set(profile.interests ?? []);
   return (

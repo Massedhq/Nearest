@@ -113,3 +113,15 @@ export async function sendSchoolEmailCode(opts: { to: string; code: string }) {
   });
   return { sent: r.sent };
 }
+
+/** Reminder for students who still need to verify (school email or school ID). */
+export async function sendFinishVerifyEmail(opts: { to: string; first: string; link: string; last: boolean }) {
+  if (!emailEnabled()) return { sent: false as const };
+  const r = await sendEmail({
+    to: opts.to, subject: opts.last ? "Last reminder: finish verifying your Nearest account" : "Finish verifying your Nearest account",
+    eyebrow: "Almost there", heading: `${opts.first}, you're one step away.`,
+    lines: ["Your Nearest account is set up. Verify with your school email (it takes a minute) or a photo of your school ID, and you can start browsing and booking."],
+    button: { label: "Finish verifying", url: opts.link },
+  });
+  return { sent: r.sent };
+}
