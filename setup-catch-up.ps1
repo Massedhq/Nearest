@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Sent back to pros: email + notification with your reason for profile, ID and license; reason box for licenses; fix-it items"
+git commit -q -m "Student view: Filling market instead of Opens soon; sent-back emails; city-by-city launch"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""
