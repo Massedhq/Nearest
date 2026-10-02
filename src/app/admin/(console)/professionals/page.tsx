@@ -3,6 +3,8 @@ import { desc, eq, sql } from "drizzle-orm";
 import { db, users, professionalProfiles, proServices, categories, cities, adminMembers, bookings, reviews, fines, incidents, proStudentLinks } from "@/db";
 import { ENTRY, type EntryType } from "@/lib/entry";
 import { AdminHead } from "@/components/AdminHead";
+import { ActionForm } from "@/components/ActionForm";
+import { remindAllProSetup } from "@/app/admin/reminder-actions";
 import { DeleteAccount } from "@/components/DeleteAccount";
 import { Icon } from "@/components/Icon";
 import { requireAdmin } from "@/lib/admin";
@@ -95,6 +97,11 @@ export default async function Professionals({ searchParams }: { searchParams: Pr
   return (
     <>
       <AdminHead eyebrow="People" title="Professionals" />
+      <div className="card" style={{ gap: 6, maxWidth: 560 }}>
+        <span className="small b">Haven&apos;t finished setting up?</span>
+        <span className="xs muted">Sends every professional who paid but hasn&apos;t submitted their profile an email and notification with how many steps they have left. Anyone reminded in the last 12 hours is skipped.</span>
+        <ActionForm action={remindAllProSetup} submitLabel="Remind everyone who hasn't finished" buttonClass="btn sm" className="col g4"><span /></ActionForm>
+      </div>
       <div className="row" style={{ flexWrap: "wrap", gap: 10 }}>
         <form action="/admin/professionals" className="search" style={{ flex: "1 1 280px", maxWidth: 420, height: 44 }}>
           <Icon name="search" />

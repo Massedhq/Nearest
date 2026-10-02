@@ -35,3 +35,27 @@ export async function remindUnfinishedSetup() {
   }
   return sent;
 }
+
+const MIN_GAP_HOURS = 12;
+
+/** Owner/admin "send a reminder now": same email + notification. Skips pros already reminded in the last 12 hours. */
+export async function sendSetupReminderNow(userId: string): Promise<"sent" | "recent" | "not_needed"> {
+  const row = await db.select({ p: professionalProfiles, u: users }).from(professionalProfiles).innerJoin(users, eq(users.id, professionalProfiles.userId)).where(eq(professionalProfiles.userId, userId));
+  const hit = row[0];
+  if (!hit || !hit.p.entryPaidAt || !["draft", "rejected"].includes(hit.p.reviewStatus)) return "not_needed";
+  if (hit.p.setupRemindedAt && Date.now() - hit.p.setupRemindedAt.getTime() < MIN_GAP_HOURS * 3600000) return "recent";
+  const base = process.env.APP_URL || "https://www.usenearest.com";
+  const left = (await setupSteps(userId)).filter((s) => !s.done && !s.optional).length || 1;
+  const { inbox } = await import("./inbox");
+  await inbox(userId, { kind: "setup_reminder", title: "Finish setting up your profile", body: `You're ${left} step${left === 1 ? "" : "s"} away — everything so far is saved.`, href: "/pro/home" });
+  if (hit.u.email) await sendFinishSetupEmail({ to: hit.u.email, first: hit.u.firstName ?? "Hi", left, link: `${base}/pro/home`, last: false });
+  await db.update(professionalProfiles).set({ setupRemindedAt: new Date() }).where(eq(professionalProfiles.userId, userId));
+  return "sent";
+}
+
+/** Everyone who paid but hasn't submitted their profile (and wasn't reminded in the last 12 hours). */
+export async function unfinishedSetupIds() {
+  const rows = await db.select({ id: professionalProfiles.userId }).from(professionalProfiles)
+    .where(and(isNotNull(professionalProfiles.entryPaidAt), inArray(professionalProfiles.reviewStatus, ["draft", "rejected"])));
+  return rows.map((r) => r.id);
+}

@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db, users, professionalProfiles, proServices, proCredentials, categories, cities, bookings, reviews, favorites, appeals } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
+import { ActionForm } from "@/components/ActionForm";
+import { remindProSetup } from "@/app/admin/reminder-actions";
 import { requireAdmin } from "@/lib/admin";
 import { setupSteps } from "@/lib/pro";
 import { isOwnerBusiness, ENTRY, type EntryType } from "@/lib/entry";
@@ -67,6 +69,12 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
           {openAppeals.length > 0 && <Link className="btn ghost sm" href="/admin/appeals">Open Appeals ({openAppeals.length})</Link>}
           {p.reviewStatus === "approved" && <Link className="btn ghost sm" href={proLink(p.slug ?? id)} target="_blank">View public profile ↗</Link>}
         </div>
+        {p.entryPaidAt && (p.reviewStatus === "draft" || p.reviewStatus === "rejected") && (
+          <ActionForm action={remindProSetup} submitLabel="Send setup reminder" buttonClass="btn ghost sm" className="col g4">
+            <input type="hidden" name="userId" value={id} />
+            <span className="xs muted">{p.setupRemindedAt ? `Last reminded ${p.setupRemindedAt.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Chicago" })}.` : "Not reminded yet."} Sends an email and a notification with how many steps they have left.</span>
+          </ActionForm>
+        )}
       </div>
 
       <div className="acols even">

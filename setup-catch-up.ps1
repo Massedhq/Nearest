@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Verification screens: My account, How Nearest works and Sign out so students are never stuck"
+git commit -q -m "Admin: send setup reminders manually (one pro or everyone unfinished)"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""
