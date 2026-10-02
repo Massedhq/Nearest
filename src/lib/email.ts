@@ -102,3 +102,14 @@ export async function sendGuardianEmail(opts: { to: string; studentFirst: string
   });
   return { sent: r.sent };
 }
+
+/** 6-digit code to confirm a student's school email. */
+export async function sendSchoolEmailCode(opts: { to: string; code: string }) {
+  if (!emailEnabled()) return { sent: false as const };
+  const r = await sendEmail({
+    to: opts.to, subject: `Your Nearest code: ${opts.code}`, eyebrow: "School email",
+    heading: `Your code is ${opts.code}`,
+    lines: ["Enter this code in Nearest to confirm your school email. It expires in 15 minutes.", "If you didn't ask for this, you can ignore this email."],
+  });
+  return { sent: r.sent };
+}

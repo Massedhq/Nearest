@@ -1,6 +1,6 @@
 "use client";
 import { useActionState, useEffect, useRef, useState } from "react";
-import { submitIdDocs } from "@/app/verify-actions";
+import { submitIdDocs, submitSelfieOnly } from "@/app/verify-actions";
 import type { FormState } from "./ActionForm";
 import { Icon } from "./Icon";
 
@@ -136,6 +136,19 @@ export function IdCapture({ action = submitIdDocs as IdAction, idName = "school_
       {state.error && <p className="err" role="alert">{state.error}</p>}
       {state.ok && <p className="small" role="status">{state.ok}</p>}
       <button className="btn" type="submit" disabled={pending || !idPhoto || !selfie}>{pending ? "Sending…" : submitLabel}</button>
+    </form>
+  );
+}
+
+/** "I don't have my school ID with me": just the live selfie now; finish with the ID or a school email later. */
+export function SelfieOnlyCapture() {
+  const [state, run, pending] = useActionState<FormState, FormData>(submitSelfieOnly, {});
+  const [selfie, setSelfie] = useState("");
+  return (
+    <form action={run} className="col g16">
+      <Shot name="selfie" label="Selfie" hint="Opens your camera — face it in good light" facing="user" value={selfie} onPick={setSelfie} icon="face" allowUpload={false} />
+      {state.error && <p className="err" role="alert">{state.error}</p>}
+      <button className="btn" type="submit" disabled={pending || !selfie}>{pending ? "Saving…" : "Save selfie and continue"}</button>
     </form>
   );
 }

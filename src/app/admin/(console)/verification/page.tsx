@@ -95,13 +95,23 @@ export default async function Verification() {
             )}
           </div>
           <div className="row small"><span className="muted">School:</span> {school ?? <span className="tag warn">Requested: {reqName} ({reqCity})</span>}</div>
+          {s.schoolEmailVerifiedAt && (
+            <div className="card ok small" style={{ gap: 2 }}>
+              <span><span className="b">School email verified:</span> {s.schoolEmail}</span>
+              <span className="muted">They confirmed a code sent to this email and have temporary access now. Approve to make it permanent, or reject to remove access.</span>
+            </div>
+          )}
           <div className="acols even">
             <div className="grid2">
-              <figure style={{ margin: 0 }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`/api/admin/id-doc/${s.userId}/school_id`} alt="School ID" style={{ width: "100%", borderRadius: 10, border: "1px solid #2A2A2D" }} />
-                <figcaption className="xs muted">School ID (view logged)</figcaption>
-              </figure>
+              {s.idSubmittedAt ? (
+                <figure style={{ margin: 0 }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/api/admin/id-doc/${s.userId}/school_id`} alt="School ID" style={{ width: "100%", borderRadius: 10, border: "1px solid #2A2A2D" }} />
+                  <figcaption className="xs muted">School ID (view logged)</figcaption>
+                </figure>
+              ) : (
+                <div className="card small"><span className="muted">No school ID — verified by school email.</span></div>
+              )}
               <figure style={{ margin: 0 }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={`/api/admin/id-doc/${s.userId}/selfie`} alt="Selfie" style={{ width: "100%", borderRadius: 10, border: "1px solid #2A2A2D" }} />

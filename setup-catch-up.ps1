@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Parent approval email for students 13-17: parent approves or declines by link; minors cannot book until approved"
+git commit -q -m "Student verification: no ID with me (selfie only), finish with school ID or school email code for temporary access until approved"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

@@ -39,7 +39,7 @@ export async function rejectStudent(_: FormState, form: FormData): Promise<FormS
   const id = str(form, "userId", 40);
   const note = str(form, "note");
   if (!note) return { error: "Tell the student what to fix." };
-  await db.update(studentProfiles).set({ verificationStatus: "rejected", reviewNote: note }).where(and(eq(studentProfiles.userId, id), eq(studentProfiles.verificationStatus, "pending")));
+  await db.update(studentProfiles).set({ verificationStatus: "rejected", reviewNote: note, schoolEmailVerifiedAt: null }).where(and(eq(studentProfiles.userId, id), eq(studentProfiles.verificationStatus, "pending")));
   await db.delete(studentIdDocs).where(eq(studentIdDocs.userId, id));
   await inbox(id, { kind: "verification", title: "We couldn't verify you yet", body: note, href: "/verify/status" });
   await logActivity({ actorUserId: user.id, action: "student.rejected", targetType: "student", targetId: await studentName(id), before: "pending", after: note });

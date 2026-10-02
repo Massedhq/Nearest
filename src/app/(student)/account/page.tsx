@@ -31,7 +31,7 @@ export default async function Account() {
           <div className="avatar lg">{initials(u)}</div>
           <div className="col g4">
             <span className="disp h2">{displayName(u)}</span>
-            <span className={`badge${verified ? "" : " mute"}`}><Icon name="shield" size="s" /> {verified ? "Verified Student" : "Verification in progress"}</span>
+            <span className={`badge${verified ? "" : " mute"}`}><Icon name="shield" size="s" /> {verified ? "Verified Student" : profile.schoolEmailVerifiedAt ? "Temporary access — verification pending" : "Verification in progress"}</span>
             {area && <span className="xs muted">{area.school}{profile.reverifyBy ? ` • Reverify by ${profile.reverifyBy}` : ""}</span>}
           </div>
         </div>

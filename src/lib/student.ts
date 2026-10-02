@@ -24,8 +24,11 @@ export async function requireStudent() {
 /** Where an unverified student should be in the verification flow. */
 export async function verifyStep(userId: string, profile: typeof studentProfiles.$inferSelect) {
   if (profile.verificationStatus === "verified") return null;
+  // Verified their school email with a code: temporary access while the owner reviews.
+  if ((profile.verificationStatus === "pending" || profile.verificationStatus === "manual_review") && profile.schoolEmailVerifiedAt) return null;
   if (profile.verificationStatus === "pending" || profile.verificationStatus === "manual_review") return profile.onboardingCompletedAt ? "/verify/status" : "/verify/interests";
   if (profile.verificationStatus === "rejected") return "/verify/status";
+  if (profile.selfieOnlyAt) return "/verify/finish"; // took the selfie, still needs the school ID or school email
   if (profile.schoolId) return "/verify/id";
   const req = await db.query.schoolRequests.findFirst({ where: and(eq(schoolRequests.userId, userId), eq(schoolRequests.status, "pending")) });
   return req ? "/verify/id" : "/verify";

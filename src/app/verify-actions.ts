@@ -95,3 +95,60 @@ export async function skipAccess() {
   await db.update(studentProfiles).set({ onboardingCompletedAt: profile.onboardingCompletedAt ?? new Date() }).where(eq(studentProfiles.userId, user.id));
   redirect(profile.verificationStatus === "verified" ? "/home" : "/verify/status");
 }
+
+/** "I don't have my school ID with me": save just the selfie and finish later. */
+export async function submitSelfieOnly(_: FormState, form: FormData): Promise<FormState> {
+  const { user, profile } = await requireStudent();
+  if (profile.verificationStatus === "verified") redirect("/home");
+  const m = DATA_URL.exec(String(form.get("selfie") ?? ""));
+  if (!m) return { error: "Take a selfie." };
+  if (m[1].length > 1_400_000) return { error: "That photo is too large. Try again." };
+  await db.insert(studentIdDocs).values({ userId: user.id, kind: "selfie", mime: "image/jpeg", dataB64: m[1] })
+    .onConflictDoUpdate({ target: [studentIdDocs.userId, studentIdDocs.kind], set: { dataB64: m[1], createdAt: new Date() } });
+  await db.update(studentProfiles).set({ selfieOnlyAt: new Date(), verificationStatus: "unverified", reviewNote: null }).where(eq(studentProfiles.userId, user.id));
+  redirect("/verify/finish");
+}
+
+/** Send a 6-digit code to the student's school email (personal emails are refused). */
+export async function sendSchoolCode(_: FormState, form: FormData): Promise<FormState> {
+  const { user, profile } = await requireStudent();
+  if (profile.verificationStatus === "verified") redirect("/home");
+  const email = String(form.get("email") ?? "").trim().toLowerCase().slice(0, 120);
+  const { schoolEmailProblem } = await import("@/lib/school-email");
+  const problem = schoolEmailProblem(email);
+  if (problem) return { error: problem };
+  if (email === (user.email ?? "").toLowerCase() && !/\.(edu|net|org|us)$/.test(email)) return { error: "Use your school email." };
+  if (profile.schoolEmailCodeExpires && profile.schoolEmail === email && profile.schoolEmailCodeExpires.getTime() - 14 * 60000 > Date.now()) return { error: "We just sent a code — wait a minute before asking for another." };
+  const { randomInt, createHash } = await import("crypto");
+  const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+  await db.update(studentProfiles).set({
+    schoolEmail: email, schoolEmailCodeHash: createHash("sha256").update(`${user.id}:${code}`).digest("hex"),
+    schoolEmailCodeExpires: new Date(Date.now() + 15 * 60000), schoolEmailCodeTries: 0,
+  }).where(eq(studentProfiles.userId, user.id));
+  const { sendSchoolEmailCode } = await import("@/lib/email");
+  const r = await sendSchoolEmailCode({ to: email, code });
+  if (!r.sent) return { error: "We couldn't send the code right now. Try again in a minute." };
+  revalidatePath("/verify/finish");
+  return { ok: `Code sent to ${email}.` };
+}
+
+/** Check the code. Right code → temporary access now, and the student goes to the owner's review queue. */
+export async function confirmSchoolCode(_: FormState, form: FormData): Promise<FormState> {
+  const { user, profile } = await requireStudent();
+  if (profile.verificationStatus === "verified") redirect("/home");
+  const code = String(form.get("code") ?? "").replace(/\D/g, "");
+  if (code.length !== 6) return { error: "Enter the 6-digit code." };
+  if (!profile.schoolEmailCodeHash || !profile.schoolEmailCodeExpires || profile.schoolEmailCodeExpires.getTime() < Date.now()) return { error: "That code expired. Send a new one." };
+  if (profile.schoolEmailCodeTries >= 5) return { error: "Too many tries. Send a new code." };
+  const { createHash } = await import("crypto");
+  if (createHash("sha256").update(`${user.id}:${code}`).digest("hex") !== profile.schoolEmailCodeHash) {
+    await db.update(studentProfiles).set({ schoolEmailCodeTries: profile.schoolEmailCodeTries + 1 }).where(eq(studentProfiles.userId, user.id));
+    return { error: "That code isn't right. Check the email and try again." };
+  }
+  await db.update(studentProfiles).set({
+    schoolEmailVerifiedAt: new Date(), schoolEmailCodeHash: null, schoolEmailCodeExpires: null, schoolEmailCodeTries: 0,
+    verificationStatus: "pending", idSubmittedAt: profile.idSubmittedAt ?? null, reviewNote: null,
+  }).where(eq(studentProfiles.userId, user.id));
+  revalidatePath("/verify/status");
+  redirect("/home");
+}

@@ -34,7 +34,7 @@ export default function Terms() {
             "Students. To book on Nearest you must:",
             [
               "be at least 13 years old;",
-              "be currently enrolled at a participating high school, college or trade school; and",
+              "be currently enrolled at a participating high school, college or trade school (you may verify with a school ID and selfie, or with a selfie and a code sent to your school email — school-email verification gives temporary access until Nearest completes its review, and Nearest may remove access if it can't confirm you're a student); and",
               "complete Nearest's student verification (school, school ID photo and selfie) and re-verify when asked, at least once each school year.",
             ],
             "Students under 18. If you are 13 to 17, you may use Nearest only with the permission of your parent or legal guardian, who must review and agree to these Terms on your behalf. When you sign up, Nearest emails your parent or guardian, and you can't book until they approve from that email by checking the approval box and typing their name. Your parent or guardian is responsible for your use of Nearest and for any payments made on your account, and should be comfortable with the services you book, where appointments take place, and the fact that Professionals are independent adults. Some services may require parental consent under the Professional's own policies or Texas licensing rules; Professionals may decline to serve a minor without it.",

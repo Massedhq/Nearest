@@ -91,6 +91,13 @@ export const studentProfiles = pgTable("student_profiles", {
   guardianApprovedAt: ts("guardian_approved_at"),
   guardianName: text("guardian_name"), // the name the parent typed to sign
   guardianIp: text("guardian_ip"),
+  // "I don't have my school ID with me": selfie now, then finish with the school ID or a school email code.
+  selfieOnlyAt: ts("selfie_only_at"),
+  schoolEmail: text("school_email"),
+  schoolEmailVerifiedAt: ts("school_email_verified_at"), // code confirmed → temporary access until the owner approves
+  schoolEmailCodeHash: text("school_email_code_hash"),
+  schoolEmailCodeExpires: ts("school_email_code_expires"),
+  schoolEmailCodeTries: integer("school_email_code_tries").notNull().default(0),
   bookingSuspendedUntil: ts("booking_suspended_until"),
   suspensionReason: text("suspension_reason"), // "no_shows" | "incomplete_completion" | "admin"
   // Phase 3A: manual verification
