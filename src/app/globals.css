@@ -120,6 +120,7 @@ body{margin:0;background:#000}
 .k6{grid-template-columns:repeat(6,minmax(0,1fr))}
 .acols{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:18px}
 .acols.even{grid-template-columns:repeat(2,minmax(0,1fr))}
+.acols.narrowleft{grid-template-columns:240px minmax(0,1fr)}
 table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 .tbl th{text-align:left;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#8F8A81;font-weight:700;padding:10px 12px;border-bottom:1px solid #242427}
 .tbl td{padding:11px 12px;border-bottom:1px solid #19191C;vertical-align:middle}
@@ -152,7 +153,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   body.admnav-open .side{display:flex}
   body.admnav-open .admscrim{display:block;position:fixed;inset:0;z-index:55;background:rgba(0,0,0,.6)}
   .main{padding:16px}
-  .acols,.acols.even{grid-template-columns:1fr}
+  .acols,.acols.even,.acols.narrowleft{grid-template-columns:1fr}
   .kpis,.k4,.k3{grid-template-columns:1fr 1fr}
   .main .tbl{display:block;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
   .main .card{min-width:0}

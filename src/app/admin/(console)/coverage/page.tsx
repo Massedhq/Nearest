@@ -54,7 +54,7 @@ export default async function Coverage({ searchParams }: { searchParams: Promise
         <div className="card" style={{ gap: 6 }}><span className="xs muted">Cities at {target} / {target}</span><span className="stat">{met}</span></div>
         <div className="card" style={{ gap: 6 }}><span className="xs muted">Counties in this market</span><span className="stat">{inMarket.length}</span></div>
       </div>
-      <div className="acols" style={{ gridTemplateColumns: "240px minmax(0,1fr)" }}>
+      <div className="acols narrowleft">
         <div className="card" style={{ gap: 2, maxHeight: 560, overflowY: "auto" }}>
           <span className="eyebrow" style={{ paddingBottom: 6 }}>Counties with cities</span>
           <Link className={`nav${!countyId ? " on" : ""}`} href={`/admin/coverage${qs({ county: undefined })}`}>All of {marketName(market)}</Link>

@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { PortfolioViewer } from "@/components/PortfolioViewer";
+import { FillingMarketBook } from "@/components/FillingMarketBook";
 import { instagramHandle, tiktokHandle, instagramUrl, tiktokUrl } from "@/lib/social";
 import Link from "next/link";
 import { getFlag } from "@/lib/settings";
@@ -125,11 +126,10 @@ export default async function ProProfile({ params, searchParams }: { params: Pro
         {pendingLicenseCats.size > 0 && <p className="xs muted p">Services tagged &quot;Recent graduate&quot; are from a professional who finished their program and whose state license is pending.</p>}
         <div className="col" style={{ gap: 0 }}>
           {services.map((s) => (
-            <div key={s.id} className="item"><div className="grow"><div className="b">{s.name}{s.adultsOnly && <span className="tag warn" style={{ marginLeft: 8 }}>18+</span>}{s.categoryId && pendingLicenseCats.has(s.categoryId) && <span className="tag" style={{ marginLeft: 8 }}>Recent graduate — license pending</span>}</div><div className="small muted">{money(s.priceCents)} • {s.durationMin} min</div></div>{s.adultsOnly && !adult ? <button className="btn dis sm" type="button" disabled title="You must be 18 or older to book this service">18+ only</button> : bookingOpen ? <Link className="btn sm" href={`/book/${s.id}`}>Book</Link> : <button className="btn dis sm" type="button" disabled>{opensSoon ? "Filling market" : "Book"}</button>}</div>
+            <div key={s.id} className="item"><div className="grow"><div className="b">{s.name}{s.adultsOnly && <span className="tag warn" style={{ marginLeft: 8 }}>18+</span>}{s.categoryId && pendingLicenseCats.has(s.categoryId) && <span className="tag" style={{ marginLeft: 8 }}>Recent graduate — license pending</span>}</div><div className="small muted">{money(s.priceCents)} • {s.durationMin} min</div></div>{s.adultsOnly && !adult ? <button className="btn dis sm" type="button" disabled title="You must be 18 or older to book this service">18+ only</button> : bookingOpen ? <Link className="btn sm" href={`/book/${s.id}`}>Book</Link> : opensSoon ? <FillingMarketBook /> : <button className="btn dis sm" type="button" disabled>Book</button>}</div>
           ))}
         </div>
-        {opensSoon ? <div className="card small"><span><span className="b">We&apos;re currently filling the {city?.name ?? "local"} market.</span> This professional is getting ready — booking opens as soon as {city?.name ?? "their city"} is ready on Nearest.</span></div>
-          : !bookingOpen && <p className="xs muted p">Booking is paused right now.</p>}
+        {!opensSoon && !bookingOpen && <p className="xs muted p">Booking is paused right now.</p>}
 
         {calls.length > 0 && (
           <>
