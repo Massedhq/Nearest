@@ -17,7 +17,7 @@ export function CredentialCard({ id, name, label, cur, hasDiplomaPhoto }: { id: 
       {cur?.status === "rejected" && cur.reviewNote && <p className="err">{cur.reviewNote}</p>}
       <div className="grid2" role="radiogroup" aria-label={`${name} credential`} style={{ gap: 6 }}>
         <button type="button" role="radio" aria-checked={mode === "license"} className={`chip${mode === "license" ? " on" : ""}`} onClick={() => setMode("license")}>I have my license</button>
-        <button type="button" role="radio" aria-checked={mode === "diploma"} className={`chip${mode === "diploma" ? " on" : ""}`} onClick={() => setMode("diploma")}>Just graduated — license pending</button>
+        <button type="button" role="radio" aria-checked={mode === "diploma"} className={`chip${mode === "diploma" ? " on" : ""}`} onClick={() => setMode("diploma")}>Graduated — license pending</button>
       </div>
       {mode === "license" ? (
         <>
