@@ -15,6 +15,7 @@ export async function saveSubscription(userId: string, sub: Stripe.Subscription)
   await db.update(professionalProfiles).set({
     subscriptionId: sub.id,
     subscriptionStatus: sub.status,
+    ...(["active", "trialing"].includes(sub.status) ? { placementReleasedAt: null } : {}),
     stripeCustomerId: typeof sub.customer === "string" ? sub.customer : sub.customer.id,
     trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000) : null,
     currentPeriodEnd: end ? new Date(end * 1000) : null,

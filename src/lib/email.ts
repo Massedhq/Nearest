@@ -137,3 +137,28 @@ export async function sendFinishSetupEmail(opts: { to: string; first: string; le
   });
   return { sent: r.sent };
 }
+
+/** City opened for booking — membership news for a professional. */
+export async function sendCityOpenEmail(opts: { to: string; first: string; city: string; kind: "started" | "card_failed" | "released" | "extended"; amount?: string; link: string }) {
+  if (!emailEnabled()) return { sent: false as const };
+  const m = {
+    started: { subject: `Bookings are open in ${opts.city}`, heading: `${opts.first}, students in ${opts.city} can book you now.`, lines: [`Your Nearest membership started today at ${opts.amount}/month on the card you saved. Your rate is locked for 12 months from today.`] },
+    extended: { subject: `Bookings are open in ${opts.city}`, heading: `${opts.first}, students in ${opts.city} can book you now.`, lines: ["Because you paid before bookings opened, your next membership charge moved to 30 days from today — you didn't pay for time when bookings weren't open."] },
+    card_failed: { subject: `Action needed: your card didn't go through`, heading: `${opts.first}, bookings opened in ${opts.city} — but your card was declined.`, lines: ["Update your card within 7 days to keep your spot. After that, your spot opens up for another professional."] },
+    released: { subject: `Your Nearest spot in ${opts.city} was released`, heading: `${opts.first}, bookings opened in ${opts.city}.`, lines: ["Your profile wasn't submitted yet, so your spot was released for another professional. You weren't charged. Finish your profile and start your membership to claim a spot again if one is open."] },
+  }[opts.kind];
+  const r = await sendEmail({ to: opts.to, subject: m.subject, eyebrow: "Nearest", heading: m.heading, lines: m.lines, button: { label: "Open Nearest", url: opts.link } });
+  return { sent: r.sent };
+}
+
+/** Something a professional submitted was sent back: what, why, and where to fix it. */
+export async function sendSentBackEmail(opts: { to: string; first: string; what: string; reason: string; fixLabel: string; link: string }) {
+  if (!emailEnabled()) return { sent: false as const };
+  const r = await sendEmail({
+    to: opts.to, subject: `Action needed: your ${opts.what}`, eyebrow: "Quick fix needed",
+    heading: `${opts.first}, we couldn't approve your ${opts.what} yet.`,
+    lines: [`Here's what to fix: ${opts.reason}`, "Make the change and send it again — everything else you've done is saved."],
+    button: { label: opts.fixLabel, url: opts.link },
+  });
+  return { sent: r.sent };
+}

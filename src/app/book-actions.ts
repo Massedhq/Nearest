@@ -71,6 +71,14 @@ async function createAndPay(opts: {
   serviceName: string; startsAt: Date; durationMin: number; priceCents: number; where: Where; travelFeeCents?: number;
   bundleId?: string;
 }): Promise<FormState> {
+  // Booking opens city by city: no bookings with a pro whose city hasn't opened yet (owners' businesses excepted).
+  {
+    const pp = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, opts.proId) });
+    const { cityBookingOpen } = await import("@/lib/city-booking");
+    if (pp && !(await cityBookingOpen(pp.cityId ?? pp.slotCityId)) && !(await (await import("@/lib/entry")).isOwnerBusiness(pp.userId))) {
+      return { error: "Booking isn't open in this professional's city yet — it opens soon." };
+    }
+  }
   if (opts.priceCents > MAX_PRICE_CENTS) return { error: `This is priced above Nearest's $${MAX_PRICE_CENTS / 100} student limit, so it can't be booked.` };
   // The $150 cap is on the service; a travel fee ($35–$55) is added only when the pro travels to the student.
   const travelFee = opts.where.locationType === "student" ? Math.min(Math.max(opts.travelFeeCents ?? 0, 0), 5500) : 0;

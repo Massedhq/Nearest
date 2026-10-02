@@ -22,6 +22,20 @@ function greeting(minutes: number) {
 
 export default async function ProHome({ searchParams }: { searchParams: Promise<{ setup?: string }> }) {
   const justSaved = (await searchParams).setup === "saved";
+  // Joined with a saved card before their city opened (or their spot was released when it opened).
+  const placement = await (async () => {
+    const pr = await (await import("@/lib/pro")).requirePro();
+    const p = pr.profile;
+    if (!p.cardSavedAt && !p.placementReleasedAt) return null;
+    const cid = p.cityId ?? p.slotCityId;
+    const { cityBookingOpen } = await import("@/lib/city-booking");
+    const open = await cityBookingOpen(cid);
+    if (open && !p.placementReleasedAt) return null;
+    const { db, cities } = await import("@/db");
+    const { eq } = await import("drizzle-orm");
+    const c = cid ? await db.query.cities.findFirst({ where: eq(cities.id, cid) }) : null;
+    return { city: c?.name ?? "your city", released: Boolean(p.placementReleasedAt), rate: `$${((p.monthlyRateCents ?? 1100) / 100).toFixed(0)}` };
+  })();
   const { viewer, user, profile } = await requirePro();
   const now = chicagoNow();
   const [steps, calls, openings, upcoming] = await Promise.all([
@@ -55,6 +69,19 @@ export default async function ProHome({ searchParams }: { searchParams: Promise<
           </Link>
         )}
 
+        {placement && (
+          placement.released ? (
+            <Link className="card warn" href="/pro/payments" style={{ textDecoration: "none", color: "inherit", gap: 4 }}>
+              <span className="b">Your spot in {placement.city} was released</span>
+              <span className="small">Bookings opened before your profile was ready, or your card didn&apos;t go through. You weren&apos;t charged. Start your membership to claim a spot again if one is open.</span>
+            </Link>
+          ) : (
+            <div className="card ok" style={{ gap: 4 }}>
+              <span className="b">Placement secured in {placement.city}</span>
+              <span className="small">Bookings open when Nearest opens {placement.city}. Your {placement.rate}/month membership starts that day — nothing is charged until then. Finish your profile so students see you when it opens.</span>
+            </div>
+          )
+        )}
         {justSaved && !approved && <div className="card ok small"><span><span className="b">Saved.</span> Pick up right where you left off anytime — tap Continue setup below.</span></div>}
         {!approved && (
           <div className="card" style={{ gap: 12 }}>

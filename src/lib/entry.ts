@@ -12,6 +12,9 @@ export const ENTRY = {
   FIRST_IN: { cents: 1100, label: "First In", short: "First In" },
   PRO_STUDENT: { cents: 1600, label: "Professional + Student", short: "Pro + Student" },
   GENERAL: { cents: 2100, label: "General Entry", short: "General" },
+  // DFW after the 750 First In spots, and every market after DFW (Houston, other cities and states).
+  DFW_NEXT: { cents: 1700, label: "DFW entry", short: "DFW" },
+  MARKET: { cents: 2000, label: "Market rate", short: "Market" },
   // Owner-granted (invitation only, main owner): no Stripe subscription — Nearest manages these memberships.
   AMBASSADOR: { cents: 0, label: "Ambassador — free", short: "Ambassador" },
   BOOKING_PAID: { cents: 1500, label: "Pay from bookings", short: "Pay from bookings" },
@@ -93,12 +96,12 @@ export type EntryChoice = { type: PaidEntryType; student?: { firstName: string; 
  * the first spots are First In, the next spots are next entry, and a full city + category has none (waitlist).
  * Invited, Nearest-managed and owner accounts follow the enrollment state only.
  */
-/** "The next 750": spots at the next entry rate ($16 with a student / $21), counted across every city. */
+/** "The next 750": DFW spots at the $17 rate after First In (earlier $16 / $21 members count too). */
 export async function nextEntryStats() {
   const s = await getSettings();
   const capacity = Math.max(0, Number(s["growth.next_entry_capacity"] ?? 750));
   const [r] = await db.select({ n: sql<number>`count(*)::int` }).from(professionalProfiles)
-    .where(and(inArray(professionalProfiles.entryType, ["PRO_STUDENT", "GENERAL"]), isNotNull(professionalProfiles.entryPaidAt)));
+    .where(and(inArray(professionalProfiles.entryType, ["DFW_NEXT", "PRO_STUDENT", "GENERAL"]), isNotNull(professionalProfiles.entryPaidAt)));
   const registered = r?.n ?? 0;
   return { capacity, registered, left: Math.max(0, capacity - registered), open: registered < capacity };
 }
@@ -106,13 +109,16 @@ export async function nextEntryStats() {
 export async function allowedEntries(profile: typeof professionalProfiles.$inferSelect): Promise<{ allowed: PaidEntryType[]; reason?: "paused" | "slot" | "full" | "next_full"; bypass?: boolean }> {
   const state = await getEntryState();
   if (state === "FIRST_IN_CLOSED") return { allowed: [], reason: "paused" };
-  const next: PaidEntryType[] = ["PRO_STUDENT", "GENERAL"];
+  const next: PaidEntryType[] = ["DFW_NEXT"]; // DFW after First In: $17
   const { isCapExempt, slotStatus } = await import("./slots");
   if (await isCapExempt(profile)) return { allowed: state === "FIRST_IN_OPEN" ? ["FIRST_IN"] : next };
   const slot = await slotStatus(profile);
   if (!slot) return { allowed: [], reason: "slot" };
+  // Houston and every market after DFW: one rate, $20 — the 10 spots per city and category still apply.
+  const { marketOfCity } = await import("./city-booking");
+  if ((await marketOfCity(slot.cityId)) !== "DFW") return slot.tier === "full" ? { allowed: [], reason: "full" } : { allowed: ["MARKET"] };
   if (slot.tier === "first_in" && state === "FIRST_IN_OPEN" && (await firstInStats()).open) return { allowed: ["FIRST_IN"] };
-  // Next entry (spots after First In, or skipping the waitlist in a full city) — only while the next 750 has room.
+  // DFW after First In ($17), or skipping the waitlist in a full city — only while the next 750 has room.
   if (!(await nextEntryStats()).open) return { allowed: [], reason: slot.tier === "full" ? "full" : "next_full" };
   if (slot.tier === "full") return { allowed: next, reason: "full", bypass: true };
   return { allowed: next };
@@ -150,6 +156,31 @@ export async function startEntryCheckout(user: typeof users.$inferSelect, choice
   }
 
   try {
+    // City not open for booking yet: save the card now (no charge) — the membership starts the day the city opens.
+    const { cityBookingOpen, proCityId } = await import("./city-booking");
+    if (!(await cityBookingOpen(proCityId(profile)))) {
+      let customer = profile.stripeCustomerId;
+      if (!customer) {
+        const c = await stripe().customers.create({ email: user.email ?? undefined, name: [user.firstName, user.lastName].filter(Boolean).join(" ") || undefined, metadata: { userId: user.id } });
+        customer = c.id;
+        await db.update(professionalProfiles).set({ stripeCustomerId: customer }).where(eq(professionalProfiles.userId, user.id));
+      }
+      const session = await stripe().checkout.sessions.create({
+        mode: "setup", currency: "usd", customer,
+        client_reference_id: user.id,
+        setup_intent_data: { metadata: { userId: user.id, kind: "entry" } },
+        metadata: { userId: user.id, kind: "entry", entryType: choice.type, saveCard: "1", ...(linkId ? { studentLinkId: linkId } : {}) },
+        expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_MIN * 60,
+        success_url: `${base}/pro/join?session={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${base}/pro/join`,
+      });
+      await db.update(professionalProfiles).set({
+        entryType: choice.type, monthlyRateCents: ENTRY[choice.type].cents, entryCheckoutId: session.id,
+        entryHoldUntil: choice.type === "FIRST_IN" ? (heldAlready ? profile.entryHoldUntil : new Date(Date.now() + HOLD_MIN * 60000)) : null,
+      }).where(eq(professionalProfiles.userId, user.id));
+      return { url: session.url! };
+    }
+
     const price = await priceFor(choice.type);
     const session = await stripe().checkout.sessions.create({
       mode: "subscription",
@@ -191,6 +222,16 @@ export async function finalizeEntry(sessionOrId: string | Stripe.Checkout.Sessio
     .returning();
   if (!row) return { done: true, already: true }; // already finalized
 
+  // Card saved (city not open yet): make it the default card for the membership that starts when the city opens.
+  if (session.mode === "setup" && session.setup_intent) {
+    try {
+      const si = typeof session.setup_intent === "string" ? await stripe().setupIntents.retrieve(session.setup_intent) : session.setup_intent;
+      const pm = typeof si.payment_method === "string" ? si.payment_method : si.payment_method?.id;
+      const cust = typeof session.customer === "string" ? session.customer : session.customer?.id;
+      if (pm && cust) await stripe().customers.update(cust, { invoice_settings: { default_payment_method: pm } });
+      await db.update(professionalProfiles).set({ cardSavedAt: new Date() }).where(eq(professionalProfiles.userId, userId));
+    } catch (e) { console.error("save card", e); }
+  }
   const sub = typeof session.subscription === "string" ? await stripe().subscriptions.retrieve(session.subscription) : session.subscription;
   if (sub) await saveSubscription(userId, sub);
   if (session.customer) await db.update(professionalProfiles).set({ stripeCustomerId: typeof session.customer === "string" ? session.customer : session.customer.id }).where(eq(professionalProfiles.userId, userId));

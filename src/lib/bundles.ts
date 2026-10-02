@@ -51,6 +51,9 @@ export async function categoryCandidates(area: Area, categoryId: number, adult: 
       eq(proServices.categoryId, categoryId), eq(proServices.active, true), sql`${proServices.priceCents} <= ${MAX_PRICE_CENTS}`,
       ...(adult ? [] : [eq(proServices.adultsOnly, false)]),
       ...liveProWhere(area, undefined),
+      // Only pros students can book now: their city is open (or it's an owner's own business).
+      sql`(exists (select 1 from cities c where c.id = coalesce(${professionalProfiles.cityId}, ${professionalProfiles.slotCityId}) and c.booking_open_at is not null)
+        or exists (select 1 from admin_members a where a.user_id = ${professionalProfiles.userId} and a.role = 'OWNER' and a.active))`,
     ))
     .orderBy(asc(proServices.priceCents));
   // One row per professional: their lowest price in this category.

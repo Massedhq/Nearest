@@ -13,7 +13,7 @@ import { getSettings } from "./settings";
  *   $11 / $16 / $21 / $30 payment ($8.80 / $13.60 / $17.85 / $26); earlier $10 / $20 members: $8 / $17. Pros with no partner code → Nearest.
  * Pro numbers follow sign-up order.
  */
-const CUT: Record<number, number> = { 1000: 800, 1100: 880, 1600: 1360, 2000: 1700, 2100: 1785, 3000: 2600 }; // $11 → 80%; $16/$21 → 85% (same shares as before)
+const CUT: Record<number, number> = { 1000: 800, 1100: 880, 1600: 1360, 1700: 1445, 2000: 1700, 2100: 1785, 3000: 2600 }; // $11 → 80%; $16/$17/$20/$21 → 85%
 export const partnerCut = (cents: number) => CUT[cents] ?? Math.round(cents * 0.85);
 
 export async function partners() {

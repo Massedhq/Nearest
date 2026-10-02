@@ -1,6 +1,6 @@
 import "server-only";
 import { redirect } from "next/navigation";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, sql, ne } from "drizzle-orm";
 import { db, professionalProfiles, proServices, proHours, portfolioItems, proCredentials, categories } from "@/db";
 import { getViewer, destinationFor, proAccess } from "./viewer";
 import { hasPaidEntry } from "./entry";
@@ -31,7 +31,8 @@ export async function setupSteps(userId: string): Promise<SetupStep[]> {
       .from(proServices)
       .innerJoin(categories, eq(categories.id, proServices.categoryId))
       .where(and(eq(proServices.userId, userId), eq(proServices.active, true), eq(categories.licenseRequired, true))),
-    db.select({ n: sql<number>`count(*)::int` }).from(proCredentials).where(eq(proCredentials.userId, userId)),
+    // A license sent back ("Can't verify") doesn't count — the License step stays open until they fix it.
+    db.select({ n: sql<number>`count(*)::int` }).from(proCredentials).where(and(eq(proCredentials.userId, userId), ne(proCredentials.status, "rejected"))),
   ]);
   const steps: SetupStep[] = [
     { key: "profile", label: "Profile", href: "/pro/setup/profile", done: Boolean(profile.businessName && profile.bio) },

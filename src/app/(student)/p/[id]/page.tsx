@@ -46,7 +46,13 @@ export default async function ProProfile({ params, searchParams }: { params: Pro
     p.cityId ? db.query.cities.findFirst({ where: eq(cities.id, p.cityId) }) : null,
     openModelCalls(null, "all", id),
   ]);
-  const bookingOpen = await getFlag("status.bookings");
+  // Booking only once this pro's city is open (owners' own businesses are always bookable).
+  const [cityOpen, ownerBiz] = await Promise.all([
+    (await import("@/lib/city-booking")).cityBookingOpen(p.cityId ?? p.slotCityId),
+    (await import("@/lib/entry")).isOwnerBusiness(p.userId),
+  ]);
+  const bookingOpen = (await getFlag("status.bookings")) && (cityOpen || ownerBiz);
+  const opensSoon = !cityOpen && !ownerBiz;
   const isFav = Boolean(await db.query.favorites.findFirst({ where: and(eq(favorites.studentId, user.id), eq(favorites.proId, id)) }));
   const [{ n: favCount }] = await db.select({ n: sql<number>`count(*)::int` }).from(favorites).where(eq(favorites.proId, id));
   const here = await nearPoint();
@@ -119,10 +125,11 @@ export default async function ProProfile({ params, searchParams }: { params: Pro
         {pendingLicenseCats.size > 0 && <p className="xs muted p">Services tagged &quot;Recent graduate&quot; are from a professional who finished their program and whose state license is pending.</p>}
         <div className="col" style={{ gap: 0 }}>
           {services.map((s) => (
-            <div key={s.id} className="item"><div className="grow"><div className="b">{s.name}{s.adultsOnly && <span className="tag warn" style={{ marginLeft: 8 }}>18+</span>}{s.categoryId && pendingLicenseCats.has(s.categoryId) && <span className="tag" style={{ marginLeft: 8 }}>Recent graduate — license pending</span>}</div><div className="small muted">{money(s.priceCents)} • {s.durationMin} min</div></div>{s.adultsOnly && !adult ? <button className="btn dis sm" type="button" disabled title="You must be 18 or older to book this service">18+ only</button> : bookingOpen ? <Link className="btn sm" href={`/book/${s.id}`}>Book</Link> : <button className="btn dis sm" type="button" disabled>Book</button>}</div>
+            <div key={s.id} className="item"><div className="grow"><div className="b">{s.name}{s.adultsOnly && <span className="tag warn" style={{ marginLeft: 8 }}>18+</span>}{s.categoryId && pendingLicenseCats.has(s.categoryId) && <span className="tag" style={{ marginLeft: 8 }}>Recent graduate — license pending</span>}</div><div className="small muted">{money(s.priceCents)} • {s.durationMin} min</div></div>{s.adultsOnly && !adult ? <button className="btn dis sm" type="button" disabled title="You must be 18 or older to book this service">18+ only</button> : bookingOpen ? <Link className="btn sm" href={`/book/${s.id}`}>Book</Link> : <button className="btn dis sm" type="button" disabled>{opensSoon ? "Opens soon" : "Book"}</button>}</div>
           ))}
         </div>
-        {!bookingOpen && <p className="xs muted p">Booking is paused right now.</p>}
+        {opensSoon ? <div className="card small"><span><span className="b">Booking opens soon here.</span> This professional is getting ready — you&apos;ll be able to book as soon as their city opens on Nearest.</span></div>
+          : !bookingOpen && <p className="xs muted p">Booking is paused right now.</p>}
 
         {calls.length > 0 && (
           <>

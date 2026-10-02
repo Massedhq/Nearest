@@ -21,6 +21,8 @@ const PLANS = {
   FIRST_IN: { key: "nearest_pro_first_in_11", cents: 1100, name: "Nearest Pro — First In ($11/mo first 12 months)" }, // new sign-ups; earlier $10 members keep their price
   PRO_STUDENT: { key: "nearest_pro_student_16", cents: 1600, name: "Nearest Pro — Professional + Student ($16/mo first 12 months)" },
   GENERAL: { key: "nearest_pro_general_21", cents: 2100, name: "Nearest Pro — General Entry ($21/mo first 12 months)" },
+  DFW_NEXT: { key: "nearest_pro_dfw_next_17", cents: 1700, name: "Nearest Pro — DFW ($17/mo first 12 months)" }, // DFW after First In
+  MARKET: { key: "nearest_pro_market_20", cents: 2000, name: "Nearest Pro — Market rate ($20/mo first 12 months)" }, // Houston and every market after DFW
   // Earlier plans, kept so existing subscriptions keep working
   FOUNDING: { key: "nearest_pro_founding_10", cents: 1000, name: "Nearest Pro — First In ($10/mo first 12 months)" },
   SECOND: { key: "nearest_pro_second_20", cents: 2000, name: "Nearest Pro — Early ($20/mo first 12 months)" },

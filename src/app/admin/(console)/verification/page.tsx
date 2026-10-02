@@ -146,7 +146,7 @@ export default async function Verification() {
                 <td>
                   <div className="row">
                     <form action={setCredential}><input type="hidden" name="id" value={c.id} /><input type="hidden" name="status" value="verified" /><button className="btn sm" type="submit">Verified</button></form>
-                    <form action={setCredential}><input type="hidden" name="id" value={c.id} /><input type="hidden" name="status" value="rejected" /><button className="btn danger sm" type="submit">Can&apos;t verify</button></form>
+                    <form action={setCredential} className="row" style={{ gap: 6 }}><input type="hidden" name="id" value={c.id} /><input type="hidden" name="status" value="rejected" /><input name="note" placeholder="Reason (e.g. number doesn't match TDLR)" aria-label="Reason" maxLength={300} style={{ height: 34, borderRadius: 10, border: "1px solid #2A2A2D", background: "#0E0E10", color: "#ECE8E1", padding: "0 10px", minWidth: 200 }} /><button className="btn danger sm" type="submit">Can&apos;t verify</button></form>
                   </div>
                 </td>
               </tr>

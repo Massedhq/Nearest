@@ -38,6 +38,7 @@ export async function rejectPro(_: FormState, form: FormData): Promise<FormState
     .where(and(eq(professionalProfiles.userId, id), eq(professionalProfiles.reviewStatus, "submitted")))
     .returning();
   if (row) await inbox(id, { kind: "review", title: "Changes needed on your profile", body: note, href: "/pro/setup/review" });
+  if (row) await (await import("@/lib/sent-back")).emailSentBack(id, "profile", note, "Fix my profile", "/pro/setup/review");
   if (row) await logActivity({ actorUserId: user.id, action: "pro.changes_requested", targetType: "professional", targetId: row.businessName ?? id, before: "submitted", after: note });
   revalidatePath("/admin", "layout");
   return { ok: "Sent back with your note." };
@@ -48,8 +49,15 @@ export async function setCredential(form: FormData) {
   const id = str(form, "id", 40);
   const status = str(form, "status", 20) as "verified" | "rejected";
   if (!["verified", "rejected"].includes(status)) return;
-  const note = status === "rejected" ? str(form, "note", 300) || "License couldn't be confirmed. Check the number and expiration." : null;
+  const note = status === "rejected" ? str(form, "note", 300) || "Your license couldn't be confirmed. Check the license number and expiration date." : null;
   const [row] = await db.update(proCredentials).set({ status, reviewNote: note }).where(eq(proCredentials.id, id)).returning();
+  if (row && status === "rejected") {
+    const { categories } = await import("@/db");
+    const cat = await db.query.categories.findFirst({ where: eq(categories.id, row.categoryId) });
+    const what = `${cat?.name ?? "license"} ${row.kind === "diploma" ? "diploma" : "license"}`;
+    await inbox(row.userId, { kind: "review", title: `Fix your ${what}`, body: note!, href: "/pro/setup/credentials?edit=1" });
+    await (await import("@/lib/sent-back")).emailSentBack(row.userId, what, note!, "Fix my license", "/pro/setup/credentials?edit=1");
+  }
   if (row) await logActivity({ actorUserId: user.id, action: `license.${status}`, targetType: "credential", targetId: row.licenseNumber, before: "pending", after: status });
   revalidatePath("/admin", "layout");
 }

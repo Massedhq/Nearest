@@ -102,9 +102,10 @@ export async function rejectProId(_: FormState, form: FormData): Promise<FormSta
   const id = str(form, "userId", 40);
   const note = str(form, "note");
   if (!note) return { error: "Tell the professional what to fix." };
-  await db.update(professionalProfiles).set({ identityStatus: "rejected" }).where(and(eq(professionalProfiles.userId, id), eq(professionalProfiles.identityStatus, "pending")));
+  await db.update(professionalProfiles).set({ identityStatus: "rejected", identityNote: note }).where(and(eq(professionalProfiles.userId, id), eq(professionalProfiles.identityStatus, "pending")));
   await db.delete(studentIdDocs).where(eq(studentIdDocs.userId, id));
   await inbox(id, { kind: "verification", title: "Please retake your ID photos", body: note, href: "/pro/payments" });
+  await (await import("@/lib/sent-back")).emailSentBack(id, "ID check", note, "Retake my ID photos", "/pro/payments");
   const u = await db.query.users.findFirst({ where: eq(users.id, id) });
   await logActivity({ actorUserId: user.id, action: "pro.id_rejected", targetType: "professional", targetId: u ? `${u.firstName} ${u.lastName}` : id, before: "pending", after: note });
   revalidatePath("/admin", "layout");

@@ -9,7 +9,7 @@ type Profile = typeof professionalProfiles.$inferSelect;
 /**
  * Spots per city, per category:
  *   spots 1–5  (growth.target_per_category) → First In, $11
- *   spots 6–10 (growth.cap_per_category)    → next entry ($16 with a student, or $21)
+ *   spots 6–10 (growth.cap_per_category)    → next entry (DFW $17; other markets are $20 for all 10 spots)
  *   after 10                                → full: waitlist
  * Owners, Ambassador / pay-from-bookings accounts, and anyone joining with an invitation code are exempt.
  */
@@ -32,6 +32,7 @@ export async function slotCount(cityId: number, categoryId: number, excludeUserI
   const r = await db.execute<{ n: number }>(sql`
     select count(*)::int as n from ${professionalProfiles} p
     where (${excludeUserId ?? null}::uuid is null or p.user_id <> ${excludeUserId ?? null}::uuid)
+      and p.placement_released_at is null
       and (p.entry_paid_at is not null or p.subscription_status in ('active','trialing','past_due') or p.entry_hold_until > now()
            or exists (select 1 from admin_members a where a.user_id = p.user_id and a.role = 'OWNER' and a.active))
       and ((p.slot_city_id = ${cityId} and p.slot_category_id = ${categoryId})

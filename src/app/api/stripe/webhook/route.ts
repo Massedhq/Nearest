@@ -33,7 +33,7 @@ export async function POST(req: Request) {
         const s = event.data.object;
         if (s.mode === "payment" && s.metadata?.fineId) await confirmFinePayment(s.id);
         else if (s.mode === "payment") await confirmFromCheckout(s.id);
-        if (s.mode === "subscription" && s.metadata?.kind === "entry") await finalizeEntry(s.id); // registration payment
+        if ((s.mode === "subscription" || s.mode === "setup") && s.metadata?.kind === "entry") await finalizeEntry(s.id); // registration: paid now, or card saved until the city opens
         else if (s.mode === "subscription" && s.client_reference_id && s.subscription) {
           const sub = await stripe().subscriptions.retrieve(typeof s.subscription === "string" ? s.subscription : s.subscription.id);
           await saveSubscription(s.client_reference_id, sub);

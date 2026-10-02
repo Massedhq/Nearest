@@ -22,7 +22,7 @@ export async function submitProIdDocs(_: FormState, form: FormData): Promise<For
     await db.insert(studentIdDocs).values({ userId: user.id, kind: d.kind, mime: "image/jpeg", dataB64: d.b64 })
       .onConflictDoUpdate({ target: [studentIdDocs.userId, studentIdDocs.kind], set: { dataB64: d.b64, createdAt: new Date() } });
   }
-  await db.update(professionalProfiles).set({ identityStatus: "pending" }).where(eq(professionalProfiles.userId, user.id));
+  await db.update(professionalProfiles).set({ identityStatus: "pending", identityNote: null }).where(eq(professionalProfiles.userId, user.id));
   revalidatePath("/pro", "layout");
   revalidatePath("/admin", "layout");
   return { ok: "Sent. Nearest is checking your ID — usually within a day." };

@@ -63,6 +63,9 @@ export const cities = pgTable("cities", {
   state: text("state").notNull().default("TX"),
   abbreviation: text("abbreviation").notNull().unique(),
   active: boolean("active").notNull().default(true),
+  // When the owner opened booking in this city. Until then pros can join (card saved, no charge) and build
+  // their profiles; their membership starts the day the city opens.
+  bookingOpenAt: timestamp("booking_open_at", { withTimezone: true }),
 });
 
 export const cityCounties = pgTable("city_counties", {
@@ -191,6 +194,11 @@ export const professionalProfiles = pgTable("professional_profiles", {
   slotCategoryId: integer("slot_category_id"),
   // Chose "skip the waitlist" for a full city + category: joins the next 750 and can go live there anyway.
   slotBypass: boolean("slot_bypass").notNull().default(false),
+  // Joined before their city opened: card saved, no charge yet. Membership starts when the city opens.
+  cardSavedAt: ts("card_saved_at"),
+  identityNote: text("identity_note"), // why the ID check was sent back (shown on their Subscription screen)
+  // Spot given up (profile not submitted when the city opened, or card failed for 7 days). Not counted, not shown.
+  placementReleasedAt: ts("placement_released_at"),
   // Setup "save & finish later": half-finished services are kept as a draft; reminders after 1/3/7 days.
   servicesDraft: jsonb("services_draft"),
   setupReminders: integer("setup_reminders").notNull().default(0),

@@ -45,6 +45,12 @@ export default async function Payments({ searchParams }: { searchParams: Promise
             <span className="small">As a Nearest owner, your business has no entry fee and no monthly membership. Just finish your ID check and payouts below.</span>
             <span className="xs muted">Card-processing fees still come out of each student payment.</span>
           </div>
+        ) : !p.subscriptionId && p.cardSavedAt && !p.placementReleasedAt ? (
+          <div className="card">
+            <div className="row between"><span className="eyebrow">Membership</span><span className="tag">Starts when bookings open</span></div>
+            <span className="disp h2">{money(p.monthlyRateCents ?? 1100)}/month</span>
+            <span className="small">Your card is saved and your spot is held. Nothing is charged until Nearest opens bookings in your city — your membership and your 12-month rate lock start that day.</span>
+          </div>
         ) : managed ? (
           <div className="card">
             <div className="row between"><span className="eyebrow">Membership</span><span className="tag ok">{p.entryType === "AMBASSADOR" ? "Free" : "Active"}</span></div>
@@ -90,6 +96,7 @@ export default async function Payments({ searchParams }: { searchParams: Promise
             <span className="small">Your ID is verified.</span>
           ) : (
             <>
+              {p.identityStatus === "rejected" && <div className="card bad small" style={{ gap: 2 }}><span className="b">Please retake your ID photos</span><span>{p.identityNote ?? "We couldn't confirm your ID from those photos."}</span></div>}
               <span className="small">A photo of your driver&apos;s license or state ID, plus a live selfie. Nearest checks that they match — it&apos;s not a background check, your ID is never shown publicly, and the photos are deleted after review.</span>
               {p.identityStatus === "pending" ? (
                 <>

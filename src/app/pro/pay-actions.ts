@@ -14,13 +14,17 @@ import type { FormState } from "@/components/ActionForm";
 export async function startMembership() {
   const { user, profile } = await requirePro();
   if (profile.entryType === "AMBASSADOR" || profile.entryType === "BOOKING_PAID") redirect("/pro/payments"); // Nearest-managed: no card, no Stripe subscription
+  if (profile.placementReleasedAt && profile.slotCityId && profile.slotCategoryId) {
+    const { slotCount, slotLimits, isCapExempt } = await import("@/lib/slots");
+    if (!(await isCapExempt(profile)) && (await slotCount(profile.slotCityId, profile.slotCategoryId, user.id)) >= (await slotLimits()).cap) redirect("/pro/payments?full=1");
+  }
   const base = await origin();
   if (profile.stripeCustomerId && profile.subscriptionStatus && !["canceled", "incomplete_expired"].includes(profile.subscriptionStatus)) {
     const portal = await stripe().billingPortal.sessions.create({ customer: profile.stripeCustomerId, return_url: `${base}/pro/payments` });
     redirect(portal.url);
   }
   if (!profile.entryType) redirect("/pro/join"); // new professionals choose and pay their entry there
-  const price = await priceFor(profile.entryType as "FIRST_IN" | "PRO_STUDENT" | "GENERAL");
+  const price = await priceFor((profile.entryType ?? "DFW_NEXT") as import("@/lib/stripe").PlanKey);
   const session = await stripe().checkout.sessions.create({
     mode: "subscription",
     line_items: [{ price, quantity: 1 }],

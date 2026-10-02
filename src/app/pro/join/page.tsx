@@ -28,6 +28,7 @@ export default async function Join({ searchParams }: { searchParams: Promise<{ s
   const state = await getEntryState();
   const [{ allowed, reason, bypass }, slot, exempt, next750] = await Promise.all([allowedEntries(profile), slotStatus(profile), isCapExempt(profile), nextEntryStats()]);
   const waiting = slot ? await onWaitlist(profile.userId, slot.cityId, slot.categoryId) : false;
+  const cityOpen = await (await import("@/lib/city-booking")).cityBookingOpen(profile.cityId ?? profile.slotCityId);
   const cats = reason === "slot"
     ? await db.select({ id: categories.id, name: categories.name }).from(categories).where(and(eq(categories.active, true), ne(categories.name, "Other"))).orderBy(asc(categories.sort), asc(categories.name))
     : [];
@@ -67,7 +68,8 @@ export default async function Join({ searchParams }: { searchParams: Promise<{ s
           <div className={`card ${slot.tier === "full" ? "warn" : "ok"}`} style={{ gap: 6 }}>
             <span className="eyebrow">{slot.category} in {slot.city}</span>
             {slot.tier === "first_in" && allowed.includes("FIRST_IN") && <span className="small"><span className="b">First In spot #{slot.spotNumber} of {slot.firstIn}</span> is open for you.</span>}
-            {slot.tier === "first_in" && !allowed.includes("FIRST_IN") && <span className="small">First In is closed. <span className="b">Spot #{slot.spotNumber} of {slot.cap}</span> is open for you.</span>}
+            {slot.tier === "first_in" && allowed.includes("MARKET") && <span className="small"><span className="b">Spot #{slot.spotNumber} of {slot.cap}</span> is open for you.</span>}
+            {slot.tier === "first_in" && allowed.includes("DFW_NEXT") && <span className="small">First In is closed. <span className="b">Spot #{slot.spotNumber} of {slot.cap}</span> is open for you.</span>}
             {slot.tier === "next" && <span className="small">The {slot.firstIn} First In spots here are taken. <span className="b">Spot #{slot.spotNumber} of {slot.cap}</span> is open for you.</span>}
             {slot.tier === "full" && <span className="small"><span className="b">All {slot.cap} spots are taken right now.</span></span>}
             {slot.tier === "full"
@@ -92,58 +94,38 @@ export default async function Join({ searchParams }: { searchParams: Promise<{ s
         )}
         {reason === "next_full" && <div className="card small"><span>The next {next750.capacity} spots are taken right now, so new spots open from the waitlist.</span></div>}
 
-        {allowed.includes("FIRST_IN") && (
-          <>
-            <span className="tag warn" style={{ alignSelf: "flex-start" }}>First In</span>
-            <h1 className="disp h1">Join Nearest First In.</h1>
-            <div className="card pearl">
-              <span className="disp h2">$11/month</span>
-              <span className="small">For your first 12 months.</span>
-              <span className="xs muted">Your First In rate is locked to your account.</span>
-            </div>
-            <ActionForm action={payEntry} submitLabel="Pay $11 and continue"><input type="hidden" name="type" value="FIRST_IN" /><label className="check xs" style={{ alignItems: "flex-start" }}><input type="checkbox" name="inviteReward" required /><span>I agree to honor Nearest&apos;s $5 student invite reward: a student who earned it by inviting a friend gets $5 off their first booking with me, taken from that booking&apos;s payout.</span></label></ActionForm>
-            <p className="xs muted p">$11 is charged today, then $11 each month for your first 12 months. No commission on bookings.</p>
-          </>
-        )}
-
-        {allowed.includes("GENERAL") && (
-          <>
-            {bypass
-              ? <>
-                  <span className="tag warn" style={{ alignSelf: "flex-start" }}>Or skip the waitlist</span>
-                  <h1 className="disp h1">Join the next {next750.capacity} now.</h1>
-                  <p className="small muted p">Pay today, finish setting up your profile, and go live in {slot?.city} right away.</p>
-                </>
-              : <h1 className="disp h1">Choose your entry.</h1>}
-            <div className="card" style={{ gap: 6 }}>
-              <div className="row between"><span className="small b">The next {next750.capacity}</span><span className="small b">{next750.left.toLocaleString()} of {next750.capacity.toLocaleString()} left</span></div>
-              <div className="bar"><i style={{ width: `${next750.capacity ? Math.round((next750.registered / next750.capacity) * 100) : 0}%` }} /></div>
-            </div>
-            <div className="acols even">
-              <div className="card" style={{ gap: 12 }}>
-                <span className="eyebrow">Professional + Student</span>
-                <span className="disp h2">$16/month</span>
-                <span className="small">For your first 12 months. Register one student to join with you.</span>
-                <ActionForm action={payEntry} submitLabel="Pay $16 and continue">
-                  <input type="hidden" name="type" value="PRO_STUDENT" /><label className="check xs" style={{ alignItems: "flex-start" }}><input type="checkbox" name="inviteReward" required /><span>I agree to honor Nearest&apos;s $5 student invite reward: a student who earned it by inviting a friend gets $5 off their first booking with me, taken from that booking&apos;s payout.</span></label>
-                  <div className="grid2">
-                    <div className="field"><label htmlFor="sf">Student first name</label><input id="sf" name="studentFirst" required /></div>
-                    <div className="field"><label htmlFor="sl">Student last name</label><input id="sl" name="studentLast" required /></div>
-                  </div>
-                  <div className="field"><label htmlFor="se">Student email</label><input id="se" name="studentEmail" type="email" required /></div>
-                  <div className="field"><label htmlFor="ss">Student&apos;s school (optional)</label><input id="ss" name="studentSchool" /></div>
-                </ActionForm>
+        {(["FIRST_IN", "DFW_NEXT", "MARKET"] as const).filter((t) => allowed.includes(t)).map((t) => {
+          const price = t === "FIRST_IN" ? 11 : t === "DFW_NEXT" ? 17 : 20;
+          const where = slot?.city ?? "your city";
+          return (
+            <div key={t} className="col" style={{ gap: 12 }}>
+              {t === "FIRST_IN" && <span className="tag warn" style={{ alignSelf: "flex-start" }}>First In</span>}
+              {bypass && <span className="tag warn" style={{ alignSelf: "flex-start" }}>Or skip the waitlist</span>}
+              <h1 className="disp h1">{t === "FIRST_IN" ? "Join Nearest First In." : bypass ? `Join the next ${next750.capacity} now.` : "Join Nearest."}</h1>
+              {t === "DFW_NEXT" && (
+                <div className="card" style={{ gap: 6 }}>
+                  <div className="row between"><span className="small b">The next {next750.capacity}</span><span className="small b">{next750.left.toLocaleString()} of {next750.capacity.toLocaleString()} left</span></div>
+                  <div className="bar"><i style={{ width: `${next750.capacity ? Math.round((next750.registered / next750.capacity) * 100) : 0}%` }} /></div>
+                </div>
+              )}
+              <div className="card pearl">
+                <span className="disp h2">${price}/month</span>
+                <span className="small">Locked for your first 12 months.</span>
               </div>
-              <div className="card" style={{ gap: 12 }}>
-                <span className="eyebrow">General Entry</span>
-                <span className="disp h2">$21/month</span>
-                <span className="small">For your first 12 months. No student registration required.</span>
-                <ActionForm action={payEntry} submitLabel="Pay $21 and continue"><input type="hidden" name="type" value="GENERAL" /><label className="check xs" style={{ alignItems: "flex-start" }}><input type="checkbox" name="inviteReward" required /><span>I agree to honor Nearest&apos;s $5 student invite reward: a student who earned it by inviting a friend gets $5 off their first booking with me, taken from that booking&apos;s payout.</span></label></ActionForm>
-              </div>
+              {!cityOpen && (
+                <div className="card ok small" style={{ gap: 4 }}>
+                  <span className="b">No charge today.</span>
+                  <span>We&apos;re filling {where} now. Save your card to claim your spot and build your profile. Your ${price}/month membership starts the day bookings open in {where} — and your 12 months start then too.</span>
+                </div>
+              )}
+              <ActionForm action={payEntry} submitLabel={cityOpen ? `Pay $${price} and continue` : "Save card and claim my spot"}>
+                <input type="hidden" name="type" value={t} />
+                <label className="check xs" style={{ alignItems: "flex-start" }}><input type="checkbox" name="inviteReward" required /><span>I agree to honor Nearest&apos;s $5 student invite reward: a student who earned it by inviting a friend gets $5 off their first booking with me, taken from that booking&apos;s payout.</span></label>
+              </ActionForm>
+              <p className="xs muted p">{cityOpen ? `$${price} is charged today, then $${price} each month for your first 12 months.` : `Nothing is charged until bookings open in ${where}. You can remove your card before then.`} No commission on bookings.</p>
             </div>
-            <p className="xs muted p">The first month is charged today. Your rate is locked to your account for your first 12 months. No commission on bookings.</p>
-          </>
-        )}
+          );
+        })}
       </div>
     </div>
   );
