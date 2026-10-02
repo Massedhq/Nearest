@@ -22,6 +22,7 @@ const isEdit = (f: FormData) => f.get("edit") === "1";
 
 async function done(userId: string, key: string, form: FormData): Promise<FormState> {
   revalidatePath("/pro", "layout");
+  if (form.get("later") === "1") redirect("/pro/home?setup=saved"); // saved — finish the rest later
   if (isEdit(form)) return { ok: "Saved." };
   redirect(nextStep(await setupSteps(userId), key));
 }
@@ -85,6 +86,12 @@ export async function saveServices(_: FormState, form: FormData): Promise<FormSt
   } catch {
     return { error: "Something went wrong reading your services. Try again." };
   }
+  if (form.get("later") === "1") {
+    // Save & finish later: keep exactly what they typed, even half-finished rows, and come back to it.
+    await db.update(professionalProfiles).set({ servicesDraft: rows.slice(0, 200) }).where(eq(professionalProfiles.userId, user.id));
+    revalidatePath("/pro", "layout");
+    redirect("/pro/home?setup=saved");
+  }
   const cleaned = rows.filter((r) => r.name.trim() || r.price.trim());
   if (!cleaned.length) return { error: "Add at least one service with a price." };
   const validCats = new Set((await db.select({ id: categories.id }).from(categories).where(eq(categories.active, true))).map((c) => c.id));
@@ -113,6 +120,7 @@ export async function saveServices(_: FormState, form: FormData): Promise<FormSt
     const same = inserted.find((x) => x.name.trim().toLowerCase() === t.name.trim().toLowerCase());
     if (same) await db.update(portfolioItems).set({ serviceId: same.id }).where(eq(portfolioItems.id, t.photoId));
   }
+  await db.update(professionalProfiles).set({ servicesDraft: null }).where(eq(professionalProfiles.userId, user.id));
   return done(user.id, "services", form);
 }
 

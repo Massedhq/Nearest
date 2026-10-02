@@ -16,7 +16,7 @@ export default async function CommunicationStep({ searchParams }: { searchParams
   const other = langs.find((l) => !LANGS.includes(l) && l !== "ASL") ?? "";
   return (
     <SetupShell steps={steps} current="communication" title="How can you communicate with clients?" edit={edit}>
-      <ActionForm action={saveCommunication} submitLabel={edit ? "Save" : "Save & continue"}>
+      <ActionForm action={saveCommunication} submitLabel={edit ? "Save" : "Save & continue"} laterLabel={edit ? undefined : "Save & finish later"}>
         {edit && <input type="hidden" name="edit" value="1" />}
         {LANGS.map((l) => <label key={l} className="check"><input type="checkbox" name="languages" value={l} defaultChecked={langs.includes(l)} />{l}</label>)}
         <label className="check"><input type="checkbox" name="text" defaultChecked={p.textCommunication} />Text-based communication (writing back and forth)</label>

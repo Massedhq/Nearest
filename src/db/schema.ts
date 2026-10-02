@@ -95,6 +95,7 @@ export const studentProfiles = pgTable("student_profiles", {
   selfieOnlyAt: ts("selfie_only_at"),
   verifyLaterAt: ts("verify_later_at"), // chose "finish verifying later"
   verifyReminders: integer("verify_reminders").notNull().default(0), // reminders sent to come back and finish (max 3)
+  verifyRemindedAt: ts("verify_reminded_at"),
   schoolEmail: text("school_email"),
   schoolEmailVerifiedAt: ts("school_email_verified_at"), // code confirmed → temporary access until the owner approves
   schoolEmailCodeHash: text("school_email_code_hash"),
@@ -190,6 +191,10 @@ export const professionalProfiles = pgTable("professional_profiles", {
   slotCategoryId: integer("slot_category_id"),
   // Chose "skip the waitlist" for a full city + category: joins the next 750 and can go live there anyway.
   slotBypass: boolean("slot_bypass").notNull().default(false),
+  // Setup "save & finish later": half-finished services are kept as a draft; reminders after 1/3/7 days.
+  servicesDraft: jsonb("services_draft"),
+  setupReminders: integer("setup_reminders").notNull().default(0),
+  setupRemindedAt: ts("setup_reminded_at"),
   cityId: integer("city_id").references(() => cities.id),
   zip: text("zip"),
   addressLine: text("address_line"),

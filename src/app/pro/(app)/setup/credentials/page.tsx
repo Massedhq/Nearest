@@ -24,7 +24,7 @@ export default async function CredentialsStep({ searchParams }: { searchParams: 
   return (
     <SetupShell steps={steps} current="credentials" title="Professional credentials" edit={edit}>
       <p className="muted small p">These categories require a license. Just graduated and waiting on yours? Choose &quot;license pending&quot; and add your diploma or certificate instead. Nearest reviews each one before your profile goes live.</p>
-      <ActionForm action={saveCredentials} submitLabel={edit ? "Save" : "Save & continue"}>
+      <ActionForm action={saveCredentials} submitLabel={edit ? "Save" : "Save & continue"} laterLabel={edit ? undefined : "Save & finish later"}>
         {edit && <input type="hidden" name="edit" value="1" />}
         {needed.map((c) => {
           const cur = existing.find((e) => e.categoryId === c.id) ?? null;

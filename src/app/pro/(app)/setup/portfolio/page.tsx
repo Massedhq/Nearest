@@ -41,7 +41,7 @@ export default async function PortfolioStep({ searchParams }: { searchParams: Pr
       <p className="xs muted p">Videos can be up to {MAX_VIDEO_SECONDS} seconds — MP4, or straight from your phone&apos;s camera. Star up to 3 favorites to show first. Pick the service each photo or video shows so students can tap it and <span className="b">Book this look</span>.</p>
       <PortfolioGrid items={items} services={services} />
       {!edit && (
-        <ActionForm action={finishPortfolio} submitLabel={items.length ? "Continue" : "Skip for now"}>
+        <ActionForm action={finishPortfolio} submitLabel={items.length ? "Continue" : "Skip for now"} laterLabel="Save & finish later">
           <span />
         </ActionForm>
       )}

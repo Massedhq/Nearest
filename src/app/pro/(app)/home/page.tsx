@@ -20,7 +20,8 @@ function greeting(minutes: number) {
   return minutes < 720 ? "Good morning" : minutes < 1020 ? "Good afternoon" : "Good evening";
 }
 
-export default async function ProHome() {
+export default async function ProHome({ searchParams }: { searchParams: Promise<{ setup?: string }> }) {
+  const justSaved = (await searchParams).setup === "saved";
   const { viewer, user, profile } = await requirePro();
   const now = chicagoNow();
   const [steps, calls, openings, upcoming] = await Promise.all([
@@ -54,6 +55,7 @@ export default async function ProHome() {
           </Link>
         )}
 
+        {justSaved && !approved && <div className="card ok small"><span><span className="b">Saved.</span> Pick up right where you left off anytime — tap Continue setup below.</span></div>}
         {!approved && (
           <div className="card" style={{ gap: 12 }}>
             <div className="row between"><span className="eyebrow">Set up your business</span><span className="xs muted">{steps.filter((s) => s.done).length} of {steps.length}</span></div>

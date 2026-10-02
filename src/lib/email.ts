@@ -125,3 +125,15 @@ export async function sendFinishVerifyEmail(opts: { to: string; first: string; l
   });
   return { sent: r.sent };
 }
+
+/** Reminder for professionals who paid but haven't finished setting up. */
+export async function sendFinishSetupEmail(opts: { to: string; first: string; left: number; link: string; last: boolean }) {
+  if (!emailEnabled()) return { sent: false as const };
+  const r = await sendEmail({
+    to: opts.to, subject: opts.last ? "Last reminder: finish setting up your Nearest profile" : "Finish setting up your Nearest profile",
+    eyebrow: "Your profile", heading: `${opts.first}, you're ${opts.left} step${opts.left === 1 ? "" : "s"} away.`,
+    lines: ["Everything you've done so far is saved. Pick up right where you left off — once your profile is approved, students can find and book you."],
+    button: { label: "Continue setup", url: opts.link },
+  });
+  return { sent: r.sent };
+}

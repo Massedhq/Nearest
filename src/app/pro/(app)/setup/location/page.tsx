@@ -18,7 +18,7 @@ export default async function LocationStep({ searchParams }: { searchParams: Pro
   const mode = p.serviceMode ?? "both";
   return (
     <SetupShell steps={steps} current="location" title="Where are you based?" edit={edit}>
-      <ActionForm action={saveLocation} submitLabel={edit ? "Save" : "Save & continue"}>
+      <ActionForm action={saveLocation} submitLabel={edit ? "Save" : "Save & continue"} laterLabel={edit ? undefined : "Save & finish later"}>
         {edit && <input type="hidden" name="edit" value="1" />}
         <ProAddressFields groups={cityList} address={p.addressLine ?? ""} unit={p.addressUnit ?? ""} cityId={p.cityId} zip={p.zip ?? ""} />
         <span className="xs muted">Your street address stays private. Students only see how far away you are until they&apos;ve booked.</span>

@@ -39,7 +39,7 @@ export default async function HoursStep({ searchParams }: { searchParams: Promis
   const [steps, rows] = await Promise.all([setupSteps(user.id), db.select().from(proHours).where(eq(proHours.userId, user.id))]);
   return (
     <SetupShell steps={steps} current="hours" title="When can customers book you?" edit={edit}>
-      <ActionForm action={saveHours} submitLabel={edit ? "Save hours" : "Save & continue"}>
+      <ActionForm action={saveHours} submitLabel={edit ? "Save hours" : "Save & continue"} laterLabel={edit ? undefined : "Save & finish later"}>
         {edit && <input type="hidden" name="edit" value="1" />}
         <div className="card"><span className="eyebrow">Regular hours</span><DayRows kind="regular" rows={rows} defaults={["09:00", "17:00"]} /></div>
         <div className="card">

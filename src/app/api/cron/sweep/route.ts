@@ -8,5 +8,6 @@ export async function GET(req: Request) {
   const [result, reminders, steppedUp, seatsReleased] = [await sweep(), await sendReminders(), await stepUpPrices(), await releaseExpiredHolds()];
   const bundlesExpired = await (await import("@/lib/bundles")).expireBundles(); // unbooked bundles clear after 14 days
   const verifyReminders = await (await import("@/lib/verify-reminders")).remindUnfinishedVerification(); // 1, 3, 7 days
-  return Response.json({ ...result, reminders, steppedUp, seatsReleased, bundlesExpired, verifyReminders });
+  const setupReminders = await (await import("@/lib/setup-reminders")).remindUnfinishedSetup(); // pros: 1, 3, 7 days
+  return Response.json({ ...result, reminders, steppedUp, seatsReleased, bundlesExpired, verifyReminders, setupReminders });
 }
