@@ -125,30 +125,34 @@ function Shot({ name, label, hint, facing, value, onPick, icon, allowUpload }: {
 type IdAction = (state: FormState, form: FormData) => Promise<FormState>;
 
 /** Photo of an ID + live selfie. Students: school ID. Professionals: driver's license or state ID. */
-export function IdCapture({ action = submitIdDocs as IdAction, idName = "school_id", idLabel = "Photo of school ID", idHint = "Name, school and photo clearly visible", submitLabel = "Submit for verification" }: { action?: IdAction; idName?: string; idLabel?: string; idHint?: string; submitLabel?: string } = {}) {
+export function IdCapture({ action = submitIdDocs as IdAction, idName = "school_id", idLabel = "Photo of school ID", idHint = "Name, school and photo clearly visible", submitLabel = "Submit for verification", allowLater = false }: { action?: IdAction; idName?: string; idLabel?: string; idHint?: string; submitLabel?: string; allowLater?: boolean } = {}) {
   const [state, run, pending] = useActionState<FormState, FormData>(action, {});
+  // Students: "I don't have my school ID with me" — the same selfie is saved, and they finish later.
+  const [laterState, runLater, pendingLater] = useActionState<FormState, FormData>(submitSelfieOnly, {});
+  const [later, setLater] = useState(false);
   const [idPhoto, setIdPhoto] = useState("");
   const [selfie, setSelfie] = useState("");
+  const busy = pending || pendingLater;
+  const err = later ? laterState.error : state.error;
   return (
-    <form action={run} className="col g16">
-      <Shot name={idName} label={idLabel} hint={idHint} facing="environment" value={idPhoto} onPick={setIdPhoto} icon="id" allowUpload />
+    <form action={later ? runLater : run} className="col g16">
+      {later ? (
+        <div className="card small" style={{ gap: 4 }}>
+          <span className="b">No problem — no school ID right now.</span>
+          <span className="muted">Take your selfie below and your account will be created. Then finish with your school ID later, or right away with your school email.</span>
+          <button type="button" className="link xs" style={{ alignSelf: "flex-start" }} onClick={() => setLater(false)}>Have it after all? Add your school ID</button>
+        </div>
+      ) : (
+        <>
+          <Shot name={idName} label={idLabel} hint={idHint} facing="environment" value={idPhoto} onPick={setIdPhoto} icon="id" allowUpload />
+          {allowLater && !idPhoto && <button type="button" className="btn ghost sm" onClick={() => setLater(true)}>I don&apos;t have my school ID with me</button>}
+        </>
+      )}
       <Shot name="selfie" label="Selfie" hint="Opens your camera — face it in good light" facing="user" value={selfie} onPick={setSelfie} icon="face" allowUpload={false} />
-      {state.error && <p className="err" role="alert">{state.error}</p>}
-      {state.ok && <p className="small" role="status">{state.ok}</p>}
-      <button className="btn" type="submit" disabled={pending || !idPhoto || !selfie}>{pending ? "Sending…" : submitLabel}</button>
+      {err && <p className="err" role="alert">{err}</p>}
+      {!later && state.ok && <p className="small" role="status">{state.ok}</p>}
+      <button className="btn" type="submit" disabled={busy || !selfie || (!later && !idPhoto)}>{busy ? "Sending…" : later ? "Save selfie and continue" : submitLabel}</button>
     </form>
   );
 }
 
-/** "I don't have my school ID with me": just the live selfie now; finish with the ID or a school email later. */
-export function SelfieOnlyCapture() {
-  const [state, run, pending] = useActionState<FormState, FormData>(submitSelfieOnly, {});
-  const [selfie, setSelfie] = useState("");
-  return (
-    <form action={run} className="col g16">
-      <Shot name="selfie" label="Selfie" hint="Opens your camera — face it in good light" facing="user" value={selfie} onPick={setSelfie} icon="face" allowUpload={false} />
-      {state.error && <p className="err" role="alert">{state.error}</p>}
-      <button className="btn" type="submit" disabled={pending || !selfie}>{pending ? "Saving…" : "Save selfie and continue"}</button>
-    </form>
-  );
-}

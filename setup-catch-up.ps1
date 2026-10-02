@@ -11,7 +11,7 @@ Write-Host "Owner emails in .env.local (should be ONLY your three owner emails):
 Get-Content .\.env.local | Where-Object { $_ -match "^(OWNER_EMAILS|MAIN_OWNER_EMAIL)=" } | ForEach-Object { Write-Host "  $_" }
 
 # Files removed from Nearest (unzipping never deletes old files, so remove them here).
-$retired = @(".\src\app\how-it-works")
+$retired = @(".\src\app\how-it-works", ".\src\app\(student)\verify\later")
 foreach ($r in $retired) { if (Test-Path $r) { Remove-Item -Recurse -Force $r; Write-Host "Removed $r" -ForegroundColor DarkGray } }
 
 Step "1/4  Installing packages"
@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Student verification: no ID with me (selfie only), finish with school ID or school email code for temporary access until approved"
+git commit -q -m "Get Verified: one selfie; I don't have my school ID sits under the ID photo"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""
