@@ -9,7 +9,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ userId: st
   const viewer = await getViewer();
   if (!viewer?.admin || !viewer.user) return new Response("Not allowed", { status: 403 });
   const { userId, kind } = await params;
-  if (!["school_id", "gov_id", "selfie"].includes(kind) || !/^[0-9a-f-]{36}$/.test(userId)) return new Response("Not found", { status: 404 });
+  if ((!["school_id", "gov_id", "selfie"].includes(kind) && !/^diploma_\d+$/.test(kind)) || !/^[0-9a-f-]{36}$/.test(userId)) return new Response("Not found", { status: 404 });
   // Sales reps belong to the main owner alone — their ID photos open only for the main owner.
   const rep = await db.query.salesReps.findFirst({ where: eq(salesReps.userId, userId) });
   if (rep && (await mainOwnerId()) !== viewer.user.id) return new Response("Not allowed", { status: 403 });

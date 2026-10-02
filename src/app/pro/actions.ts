@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import {
+  studentIdDocs,
   db, professionalProfiles, proServices, proHours, proBlocks, proOpenings, portfolioItems, proCredentials, categories, modelCalls, cities, cityCounties, bookings,
 } from "@/db";
 import { requirePro, setupSteps, nextStep, setupComplete } from "@/lib/pro";
@@ -121,6 +122,29 @@ export async function saveCredentials(_: FormState, form: FormData): Promise<For
   const ids = form.getAll("categoryId").map(Number);
   if (!ids.length) return done(user.id, "credentials", form);
   for (const id of ids) {
+    if (str(form, `mode_${id}`, 10) === "diploma") {
+      // Recent graduate, license pending: school + graduation date + diploma photo and/or number.
+      const schoolName = str(form, `school_${id}`, 120);
+      const completed = str(form, `completed_${id}`, 10);
+      const number = str(form, `dipnum_${id}`, 40);
+      const photo = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(String(form.get(`diploma_${id}`) ?? ""));
+      const hadPhoto = await db.query.studentIdDocs.findFirst({ where: and(eq(studentIdDocs.userId, user.id), eq(studentIdDocs.kind, `diploma_${id}`)) });
+      if (!schoolName || !/^\d{4}-\d{2}-\d{2}$/.test(completed)) return { error: "Enter your school and graduation date." };
+      if (!photo && !number && !hadPhoto) return { error: "Add a photo of your diploma or certificate, or its number." };
+      if (photo && photo[1].length > 1_400_000) return { error: "That photo is too large. Try again." };
+      if (photo) {
+        await db.insert(studentIdDocs).values({ userId: user.id, kind: `diploma_${id}`, mime: "image/jpeg", dataB64: photo[1] })
+          .onConflictDoUpdate({ target: [studentIdDocs.userId, studentIdDocs.kind], set: { dataB64: photo[1], createdAt: new Date() } });
+      }
+      const licenseType = "Recent graduate — license pending";
+      await db.insert(proCredentials)
+        .values({ userId: user.id, categoryId: id, kind: "diploma", licenseType, licenseNumber: number, schoolName, completedOn: completed, issuingState: "Texas" })
+        .onConflictDoUpdate({
+          target: [proCredentials.userId, proCredentials.categoryId],
+          set: { kind: "diploma", licenseType, licenseNumber: number, schoolName, completedOn: completed, expiresOn: null, status: "pending", reviewNote: null },
+        });
+      continue;
+    }
     const licenseType = str(form, `type_${id}`, 120);
     const licenseNumber = str(form, `number_${id}`, 40);
     const issuingState = str(form, `state_${id}`, 30) || "Texas";
@@ -129,10 +153,10 @@ export async function saveCredentials(_: FormState, form: FormData): Promise<For
     if (expires && !/^\d{4}-\d{2}-\d{2}$/.test(expires)) return { error: "Use the date picker for the expiration." };
     await db
       .insert(proCredentials)
-      .values({ userId: user.id, categoryId: id, licenseType, licenseNumber, issuingState, expiresOn: expires || null })
+      .values({ userId: user.id, categoryId: id, kind: "license", licenseType, licenseNumber, issuingState, expiresOn: expires || null })
       .onConflictDoUpdate({
         target: [proCredentials.userId, proCredentials.categoryId],
-        set: { licenseType, licenseNumber, issuingState, expiresOn: expires || null, status: "pending", reviewNote: null },
+        set: { kind: "license", licenseType, licenseNumber, issuingState, expiresOn: expires || null, schoolName: null, completedOn: null, status: "pending", reviewNote: null },
       });
   }
   return done(user.id, "credentials", form);

@@ -89,7 +89,7 @@ export function Camera({ facing: initialFacing, label, onDone, onCancel, allowFl
   );
 }
 
-function Shot({ name, label, hint, facing, value, onPick, icon, allowUpload }: { name: string; label: string; hint: string; facing: "user" | "environment"; value: string; onPick: (v: string) => void; icon: string; allowUpload: boolean }) {
+export function Shot({ name, label, hint, facing, value, onPick, icon, allowUpload }: { name: string; label: string; hint: string; facing: "user" | "environment"; value: string; onPick: (v: string) => void; icon: string; allowUpload: boolean }) {
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState("");
   const file = useRef<HTMLInputElement>(null);

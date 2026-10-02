@@ -3,7 +3,7 @@ import { SignOutButton } from "@clerk/nextjs";
 import { Icon } from "@/components/Icon";
 import { Tabs } from "@/components/Tabs";
 import { displayName, initials } from "@/lib/viewer";
-import { requireStudent, schoolArea } from "@/lib/student";
+import { requireStudent, schoolArea, isAlumni } from "@/lib/student";
 import { headers } from "next/headers";
 import { InviteFriends } from "@/components/InviteFriends";
 import { ensureInviteCode, inviteSummary } from "@/lib/student-invites";
@@ -31,8 +31,8 @@ export default async function Account() {
           <div className="avatar lg">{initials(u)}</div>
           <div className="col g4">
             <span className="disp h2">{displayName(u)}</span>
-            <span className={`badge${verified ? "" : " mute"}`}><Icon name="shield" size="s" /> {verified ? "Verified Student" : profile.schoolEmailVerifiedAt ? "Temporary access — verification pending" : "Verification in progress"}</span>
-            {area && <span className="xs muted">{area.school}{profile.reverifyBy ? ` • Reverify by ${profile.reverifyBy}` : ""}</span>}
+            <span className={`badge${verified ? "" : " mute"}`}><Icon name="shield" size="s" /> {verified ? (isAlumni(profile) ? "Nearest Alumni" : "Verified Student") : profile.schoolEmailVerifiedAt ? "Temporary access — verification pending" : "Verification in progress"}</span>
+            {area && <span className="xs muted">{area.school}{profile.graduationYear ? ` • Class of ${profile.graduationYear}` : ""}</span>}
           </div>
         </div>
         {inviteLink && invites && <InviteFriends link={inviteLink} joined={invites.joined} verified={invites.verified} available={invites.available} />}

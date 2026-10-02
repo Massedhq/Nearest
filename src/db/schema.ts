@@ -304,8 +304,12 @@ export const proCredentials = pgTable("pro_credentials", {
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   categoryId: integer("category_id").notNull().references(() => categories.id),
   licenseType: text("license_type").notNull(),
-  licenseNumber: text("license_number").notNull(),
+  licenseNumber: text("license_number").notNull(), // for "diploma": the diploma / certificate number (may be empty if a photo was sent)
   issuingState: text("issuing_state").notNull().default("Texas"),
+  // "license" = state license. "diploma" = recent graduate, license pending (school + completion date + diploma photo or number).
+  kind: text("kind").notNull().default("license"),
+  schoolName: text("school_name"),
+  completedOn: date("completed_on"),
   expiresOn: date("expires_on"),
   status: credentialStatus("status").notNull().default("pending"),
   reviewNote: text("review_note"),

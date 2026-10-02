@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Verification: finish later with reminders; school ID after a saved selfie asks only for the ID"
+git commit -q -m "Students: verified once for good, no yearly re-check; graduates become Nearest Alumni with the same access"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

@@ -37,10 +37,7 @@ export async function verifyStep(userId: string, profile: typeof studentProfiles
 /** Browsing is only for verified students. Everyone else is sent to their next verification step. */
 export async function requireVerifiedStudent() {
   const s = await requireStudent();
-  if (s.profile.verificationStatus === "verified" && s.profile.reverifyBy && s.profile.reverifyBy < new Date().toISOString().slice(0, 10)) {
-    await db.update(studentProfiles).set({ verificationStatus: "unverified", schoolId: null, verifiedAt: null, reviewNote: "Time to re-verify for the new school year." }).where(eq(studentProfiles.userId, s.user.id));
-    redirect("/verify?renew=1");
-  }
+  // Verified once, verified for good: no yearly school re-check. Graduates become Nearest Alumni (see isAlumni).
   const step = await verifyStep(s.user.id, s.profile);
   if (step) redirect(step);
   // Students 13–17: their parent or guardian must approve by email before they can use Nearest.
@@ -67,4 +64,10 @@ export function nextAug31(from = new Date()) {
   const y = from.getUTCFullYear();
   const thisYear = new Date(Date.UTC(y, 7, 31));
   return `${from <= thisYear ? y : y + 1}-08-31`;
+}
+
+/** Nearest Alumni: a verified student whose graduation year has passed (after June 30 of that year). Same access as students. */
+export function isAlumni(p: { verificationStatus: string; graduationYear: number | null }, now = new Date()) {
+  if (p.verificationStatus !== "verified" || !p.graduationYear) return false;
+  return now.getTime() > Date.UTC(p.graduationYear, 5, 30, 23, 59);
 }

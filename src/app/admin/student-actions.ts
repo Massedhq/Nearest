@@ -4,7 +4,6 @@ import { and, eq } from "drizzle-orm";
 import { db, studentProfiles, studentIdDocs, schools, schoolRequests, users, professionalProfiles } from "@/db";
 import { requireAdmin } from "@/lib/admin";
 import { logActivity } from "@/lib/log";
-import { nextAug31 } from "@/lib/student";
 import type { FormState } from "@/components/ActionForm";
 import { placeFromForm } from "@/app/admin/place-actions";
 import { inbox } from "@/lib/inbox";
@@ -24,7 +23,7 @@ export async function approveStudent(form: FormData) {
   if (!sp.schoolId) return; // add their requested school first
   await db
     .update(studentProfiles)
-    .set({ verificationStatus: "verified", verifiedAt: new Date(), reverifyBy: nextAug31(), reviewNote: null })
+    .set({ verificationStatus: "verified", verifiedAt: new Date(), reverifyBy: null, reviewNote: null })
     .where(eq(studentProfiles.userId, id));
   await db.delete(studentIdDocs).where(eq(studentIdDocs.userId, id));
   await inbox(id, { kind: "verified", title: "You're a Verified Student", body: "Find who's available near you.", href: "/home" });

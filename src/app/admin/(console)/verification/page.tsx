@@ -133,7 +133,16 @@ export default async function Verification() {
             {creds.map(({ c, u, cat, biz }) => (
               <tr key={c.id}>
                 <td>{biz ?? `${u.firstName} ${u.lastName}`}<div className="xs muted">{u.firstName} {u.lastName}</div></td>
-                <td>{cat}</td><td>{c.licenseType}</td><td className="num">{c.licenseNumber}</td><td>{c.issuingState}</td><td>{c.expiresOn ?? "—"}</td>
+                <td>{cat}</td>
+                {c.kind === "diploma" ? (
+                  <td colSpan={4}>
+                    <span className="tag warn">Recent graduate — license pending</span>
+                    <div className="small">{c.schoolName} • graduated {c.completedOn}{c.licenseNumber ? ` • diploma # ${c.licenseNumber}` : ""}</div>
+                    <a className="link xs" href={`/api/admin/id-doc/${c.userId}/diploma_${c.categoryId}`} target="_blank" rel="noreferrer">View diploma / certificate photo (view logged)</a>
+                  </td>
+                ) : (
+                  <><td>{c.licenseType}</td><td className="num">{c.licenseNumber}</td><td>{c.issuingState}</td><td>{c.expiresOn ?? "—"}</td></>
+                )}
                 <td>
                   <div className="row">
                     <form action={setCredential}><input type="hidden" name="id" value={c.id} /><input type="hidden" name="status" value="verified" /><button className="btn sm" type="submit">Verified</button></form>
