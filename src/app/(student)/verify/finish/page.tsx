@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireStudent, verifyStep } from "@/lib/student";
-import { TopBar } from "@/components/TopBar";
+import { Icon } from "@/components/Icon";
+import { VerifyExits } from "@/components/VerifyExits";
 import { ActionForm } from "@/components/ActionForm";
 import { sendSchoolCode, confirmSchoolCode, finishVerifyLater } from "@/app/verify-actions";
 
@@ -16,7 +17,7 @@ export default async function FinishVerifying({ searchParams }: { searchParams: 
   const codeSent = Boolean(profile.schoolEmail && profile.schoolEmailCodeExpires && profile.schoolEmailCodeExpires.getTime() > Date.now());
   return (
     <div className="scr">
-      <TopBar title="Finish verifying" />
+      <div className="top"><span className="sp" /><div className="t">Finish verifying</div><Link className="iconbtn" href="/account" aria-label="My account"><Icon name="user" /></Link></div>
       <div className="body">
         <h1 className="disp h1">Finish verifying</h1>
         {profile.verifyLaterAt
@@ -49,6 +50,7 @@ export default async function FinishVerifying({ searchParams }: { searchParams: 
             <span className="xs muted" style={{ textAlign: "center" }}>No school email or ID right now? Finish setting up your account, and come back to verify anytime.</span>
           </form>
         )}
+        <VerifyExits />
       </div>
     </div>
   );

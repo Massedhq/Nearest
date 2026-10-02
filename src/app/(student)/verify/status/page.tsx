@@ -1,6 +1,6 @@
 import Link from "next/link";
+import { VerifyExits } from "@/components/VerifyExits";
 import { redirect } from "next/navigation";
-import { SignOutButton } from "@clerk/nextjs";
 import { requireStudent } from "@/lib/student";
 import { restartVerification } from "@/app/verify-actions";
 import { Icon } from "@/components/Icon";
@@ -43,7 +43,7 @@ export default async function VerifyStatus() {
           </>
         )}
         <div style={{ flex: 1 }} />
-        <SignOutButton redirectUrl="/"><button className="link small" type="button">Sign out</button></SignOutButton>
+        <div style={{ width: "100%", textAlign: "left" }}><VerifyExits /></div>
       </div>
     </div>
   );
