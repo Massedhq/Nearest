@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Pro transfers to full cities with owner approval and waitlist alerts; guides and Terms updated"
+git commit -q -m "ZIP lookup: county from Nearest cities first, then FCC, then Census (fixes Where do you work)"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

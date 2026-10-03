@@ -46,7 +46,7 @@ export async function saveSlot(_: FormState, form: FormData): Promise<FormState>
   const { lookupZip, findOrCreateCounty, findOrCreateCity } = await import("@/lib/places");
   const z = await lookupZip(zip);
   if ("error" in z) return { error: z.error };
-  if (!z.county) return { error: "We couldn't find the county for that ZIP code. Try another ZIP." };
+  if (!z.county) return { error: "We couldn't confirm that ZIP code right now. Try again in a minute — if it keeps happening, email support@usenearest.com." };
   const county = await findOrCreateCounty(z.state, z.county);
   const { city } = await findOrCreateCity(z.state, z.city, county.id);
   await db.update(professionalProfiles).set({ slotCityId: city.id, slotCategoryId: cat.id }).where(eq(professionalProfiles.userId, user.id));

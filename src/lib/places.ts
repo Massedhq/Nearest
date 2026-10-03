@@ -54,16 +54,44 @@ export async function lookupZip(zip: string): Promise<ZipResult | { error: strin
     const p = zd.places?.[0];
     if (!p) return { error: "We couldn't find that ZIP code." };
     const lat = Number(p.latitude), lng = Number(p.longitude);
-    let county: string | null = null;
-    try {
-      const f = await fetch(`https://geo.fcc.gov/api/census/area?lat=${lat}&lon=${lng}&format=json`, { signal: AbortSignal.timeout(8000), cache: "no-store" });
-      if (f.ok) {
-        const fd = (await f.json()) as { results?: { county_name?: string }[] };
-        county = fd.results?.[0]?.county_name?.replace(/\s+(County|Parish|Borough|Census Area|Municipality)$/i, "") ?? null;
-      }
-    } catch { /* county stays blank; the owner can type it */ }
-    return { zip, state: p["state abbreviation"], city: p["place name"], county, lat, lng };
+    const state = p["state abbreviation"], city = p["place name"];
+    const clean = (n: string | null | undefined) => n?.replace(/\s+(County|Parish|Borough|Census Area|Municipality)$/i, "").trim() || null;
+    // 1) A city Nearest already knows (with its county) — no outside service needed.
+    let county: string | null = await knownCounty(city, state);
+    // 2) FCC area lookup.
+    if (!county) {
+      try {
+        const f = await fetch(`https://geo.fcc.gov/api/census/area?lat=${lat}&lon=${lng}&format=json`, { signal: AbortSignal.timeout(6000), cache: "no-store" });
+        if (f.ok) county = clean(((await f.json()) as { results?: { county_name?: string }[] }).results?.[0]?.county_name);
+      } catch { /* try the next source */ }
+    }
+    // 3) U.S. Census Bureau geocoder.
+    if (!county) {
+      try {
+        const c = await fetch(`https://geocoding.geo.census.gov/geocoder/geographies/coordinates?x=${lng}&y=${lat}&benchmark=Public_AR_Current&vintage=Current_Current&layers=Counties&format=json`, { signal: AbortSignal.timeout(8000), cache: "no-store" });
+        if (c.ok) {
+          const cd = (await c.json()) as { result?: { geographies?: { Counties?: { BASENAME?: string; NAME?: string }[] } } };
+          const k = cd.result?.geographies?.Counties?.[0];
+          county = clean(k?.BASENAME ?? k?.NAME);
+        }
+      } catch { /* county stays blank */ }
+    }
+    return { zip, state, city, county, lat, lng };
   } catch {
     return { error: "The ZIP lookup service didn't respond. Try again, or type the city and county yourself." };
+  }
+}
+
+/** The county of a city Nearest already has (by name + state), if any. */
+async function knownCounty(cityName: string, state: string): Promise<string | null> {
+  try {
+    const { db, cities, cityCounties, counties } = await import("@/db");
+    const { and, eq, sql } = await import("drizzle-orm");
+    const [row] = await db.select({ name: counties.name }).from(cities)
+      .innerJoin(cityCounties, eq(cityCounties.cityId, cities.id)).innerJoin(counties, eq(counties.id, cityCounties.countyId))
+      .where(and(sql`lower(${cities.name}) = lower(${cityName})`, eq(cities.state, state))).limit(1);
+    return row?.name ?? null;
+  } catch {
+    return null;
   }
 }
