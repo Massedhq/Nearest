@@ -195,7 +195,18 @@ export async function saveLocation(_: FormState, form: FormData): Promise<FormSt
     const mine = await db.select({ c: proServices.categoryId }).from(proServices).where(and(eq(proServices.userId, user.id), eq(proServices.active, true)));
     const cats = [...mine.map((m) => m.c), ...(profile.slotCategoryId ? [profile.slotCategoryId] : [])];
     const full = await (await import("@/lib/slots")).wouldOverfill({ ...profile, cityId: null, slotCityId: null }, cityId, cats);
-    if (full) return { error: full };
+    if (full) {
+      // Active members who move can ask for a transfer instead of being blocked — an owner approves it.
+      const active = ["active", "trialing", "past_due"].includes(profile.subscriptionStatus ?? "") || Boolean(profile.cardSavedAt);
+      if (!active || !profile.cityId) return { error: full };
+      const point = addressLine ? await geocode(addressLine, city.name, zip, city.state) : null;
+      const payload = { cityId, countyId: link?.countyId ?? null, zip, addressLine: addressLine || null, addressUnit, lat: point?.lat ?? null, lng: point?.lng ?? null, serviceMode: mode, travelFeeCents: travelFee === null ? null : Math.round(travelFee * 100), travelRadiusMi: mode === "come_to_me" ? null : radius };
+      const { proTransfers } = await import("@/db");
+      await db.update(proTransfers).set({ status: "cancelled" }).where(and(eq(proTransfers.userId, user.id), eq(proTransfers.status, "pending")));
+      await db.insert(proTransfers).values({ userId: user.id, fromCityId: profile.cityId, toCityId: cityId, payload, note: str(form, "transferNote", 300) || null });
+      revalidatePath("/pro", "layout");
+      return { ok: `${city.name} is full in your category, so we sent Nearest a transfer request. You'll stay listed where you are until it's approved — we'll let you know.` };
+    }
   }
   const point = addressLine ? await geocode(addressLine, city.name, zip, city.state) : null;
   await db

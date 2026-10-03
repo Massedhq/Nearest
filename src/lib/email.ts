@@ -162,3 +162,30 @@ export async function sendSentBackEmail(opts: { to: string; first: string; what:
   });
   return { sent: r.sent };
 }
+
+/** Transfer request decided. */
+export async function sendTransferEmail(opts: { to: string; first: string; approved: boolean; toCity: string; reason?: string | null; link: string }) {
+  if (!emailEnabled()) return { sent: false as const };
+  const r = await sendEmail({
+    to: opts.to, eyebrow: "Transfer request",
+    subject: opts.approved ? `You're now listed in ${opts.toCity}` : `Your transfer to ${opts.toCity} wasn't approved`,
+    heading: opts.approved ? `${opts.first}, your transfer to ${opts.toCity} is approved.` : `${opts.first}, we couldn't approve your transfer to ${opts.toCity}.`,
+    lines: opts.approved
+      ? ["Your new location is live — students near you can find you there. Your membership and rate stay the same."]
+      : [opts.reason ? `Reason: ${opts.reason}` : "Reply to this email or contact support@usenearest.com with questions.", "You're still listed in your current city."],
+    button: { label: "Open Nearest", url: opts.link },
+  });
+  return { sent: r.sent };
+}
+
+/** A spot opened in a city + category someone is waiting for. */
+export async function sendSpotOpenedEmail(opts: { to: string; first: string; city: string; category: string; link: string }) {
+  if (!emailEnabled()) return { sent: false as const };
+  const r = await sendEmail({
+    to: opts.to, eyebrow: "A spot opened", subject: `A ${opts.category} spot just opened in ${opts.city}`,
+    heading: `${opts.first}, a ${opts.category.toLowerCase()} spot opened in ${opts.city}.`,
+    lines: ["Spots go to whoever claims them first. Open Nearest to claim it."],
+    button: { label: "Claim my spot", url: opts.link },
+  });
+  return { sent: r.sent };
+}

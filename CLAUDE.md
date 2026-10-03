@@ -10,6 +10,9 @@ Nearest is a DFW booking marketplace. Verified students book verified beauty pro
 
 The student app never shows a professional sign-up option. Professionals arrive through an invitation link a sales rep sends, or through `/pro` directly.
 
+## Standing rule: update the guides with every change
+Every feature or behavior change must also update the in-app guides in src/lib/guide.ts — student, pro AND admin sections, whichever are affected — and the Terms (src/app/terms/page.tsx) when rules, money, eligibility or responsibilities change. A change isn't done until the guides match what users see.
+
 ## Stack (do not substitute)
 
 - Next.js (App Router) + TypeScript, deployed on Vercel
@@ -77,6 +80,7 @@ Every admin write (invite, pause, refund, setting change, status switch) inserts
 - City-by-city launch: `cities.booking_open_at` (owner "Open booking" on Service coverage → `activateCity()` in src/lib/city-activation.ts). Before a city opens, Join saves a card (Stripe Checkout mode "setup", `card_saved_at`, no charge); pros are visible (liveProWhere allows card-saved pros in unopened cities) but bookings are blocked (createAndPay + profile "Opens soon"). Opening: starts subscriptions on saved cards (12-month lock from then), extends already-paying subs 30 days (trial_end), releases never-submitted profiles (`placement_released_at`, excluded from slot counts/search); declined cards released after 7 days (cron `releaseFailedPlacements`). Pricing: DFW First In $11 → DFW_NEXT $17 (next 750); other markets MARKET $20 (`marketOfCity`). PRO_STUDENT/GENERAL are legacy (existing members only).
 - Sending things back to pros (profile `rejectPro`, ID `rejectProId` → `identity_note`, license `setCredential` rejected + reason box): each sends a notification + email (`emailSentBack`, src/lib/sent-back.ts) with the reason and a link to fix. Rejected licenses don't count toward the License setup step and show as fix-it items in proReadiness.
 - Browse before verifying: `requireBrowsingStudent()` (Explore, profiles, Model Calls list, favorites, toggleFavorite) works for any student account and returns `finishStep`; booking/bundles/messages/credits keep `requireVerifiedStudent`. Explore: "Finish verifying to book" bar; profile Book → VerifyToBook. Empty area → "This market is currently being filled" + pros within 50 miles of the student's point.
+- Transfers: a pro with an active/card-saved membership moving to a city full in their category gets a `pro_transfers` request (payload = new location) instead of an error; Admin → Professionals "Transfer requests" approve (`decideTransfer` applies payload, notifies, alerts the old city's waitlist) or deny with reason.
 - Travel fee: pros who travel set a flat $35–$55 (`travelFeeCents`); added to the booking only when the pro goes to the student. The $150 cap is on the service price.
 - Model Calls can be Open time (`flexible`): startsAt = open-until; each model picks a time from openSlots. Optional photo + Additional information (`about`).
 - Owners can Browse & book as customers (requireStudent gives owners a customer profile without the school check).

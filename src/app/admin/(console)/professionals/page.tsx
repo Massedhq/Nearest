@@ -5,6 +5,7 @@ import { ENTRY, type EntryType } from "@/lib/entry";
 import { AdminHead } from "@/components/AdminHead";
 import { ActionForm } from "@/components/ActionForm";
 import { remindAllProSetup } from "@/app/admin/reminder-actions";
+import { decideTransfer } from "@/app/admin/transfer-actions";
 import { DeleteAccount } from "@/components/DeleteAccount";
 import { Icon } from "@/components/Icon";
 import { requireAdmin } from "@/lib/admin";
@@ -94,9 +95,45 @@ export default async function Professionals({ searchParams }: { searchParams: Pr
     );
   };
 
+  const { proTransfers, proServices: ps, categories: cats2, cities: cs, professionalProfiles: pp2, users: us } = await import("@/db");
+  const { eq: is, and: both } = await import("drizzle-orm");
+  const pendingT = await db.select().from(proTransfers).where(is(proTransfers.status, "pending"));
+  const transfers = await Promise.all(pendingT.map(async (t) => {
+    const [u, pro, from, to, svc] = await Promise.all([
+      db.query.users.findFirst({ where: is(us.id, t.userId) }),
+      db.query.professionalProfiles.findFirst({ where: is(pp2.userId, t.userId) }),
+      t.fromCityId ? db.query.cities.findFirst({ where: is(cs.id, t.fromCityId) }) : null,
+      db.query.cities.findFirst({ where: is(cs.id, t.toCityId) }),
+      db.selectDistinct({ name: cats2.name }).from(ps).innerJoin(cats2, is(cats2.id, ps.categoryId)).where(both(is(ps.userId, t.userId), is(ps.active, true))),
+    ]);
+    return { id: t.id, note: t.note, createdAt: t.createdAt, name: pro?.businessName || [u?.firstName, u?.lastName].filter(Boolean).join(" ") || "Professional", from: from?.name ?? "—", to: to?.name ?? "—", categories: svc.map((x) => x.name).join(", ") };
+  }));
   return (
     <>
       <AdminHead eyebrow="People" title="Professionals" />
+      {transfers.length > 0 && (
+        <div className="card warn" style={{ gap: 10 }}>
+          <span className="eyebrow">Transfer requests ({transfers.length})</span>
+          <span className="xs muted">Active members moving to a city that&apos;s full in their category. Approving moves them there and tells anyone waiting in their old city that a spot opened.</span>
+          {transfers.map((t) => (
+            <div key={t.id} className="card" style={{ gap: 6 }}>
+              <div className="row between" style={{ flexWrap: "wrap", gap: 6 }}>
+                <span className="b">{t.name}</span>
+                <span className="small">{t.from} → <span className="b">{t.to}</span></span>
+              </div>
+              <span className="xs muted">{t.categories || "—"} • requested {t.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Chicago" })}</span>
+              {t.note && <span className="small">&ldquo;{t.note}&rdquo;</span>}
+              <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "flex-start" }}>
+                <ActionForm action={decideTransfer} submitLabel="Approve transfer" buttonClass="btn sm" className="col g4"><input type="hidden" name="id" value={t.id} /><input type="hidden" name="decision" value="approve" /></ActionForm>
+                <ActionForm action={decideTransfer} submitLabel="Deny" buttonClass="btn ghost sm" className="row" >
+                  <input type="hidden" name="id" value={t.id} /><input type="hidden" name="decision" value="deny" />
+                  <input name="reason" placeholder="Reason" aria-label="Reason" maxLength={300} style={{ height: 34, borderRadius: 10, border: "1px solid #2A2A2D", background: "#0E0E10", color: "#ECE8E1", padding: "0 10px", minWidth: 180 }} />
+                </ActionForm>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="card" style={{ gap: 6, maxWidth: 560 }}>
         <span className="small b">Haven&apos;t finished setting up?</span>
         <span className="xs muted">Sends every professional who paid but hasn&apos;t submitted their profile an email and notification with how many steps they have left. Anyone reminded in the last 12 hours is skipped.</span>

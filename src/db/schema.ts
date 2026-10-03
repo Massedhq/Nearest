@@ -738,3 +738,19 @@ export const bundleItems = pgTable("bundle_items", {
   bookingId: uuid("booking_id"),
   savedAt: ts("saved_at").notNull().defaultNow(),
 }, (t) => [uniqueIndex("bundle_items_cat_idx").on(t.bundleId, t.categoryId)]);
+
+// A paying professional moving to a city where their category is full asks for a transfer; an owner approves it.
+// payload = the new location exactly as they entered it (applied as-is on approval).
+export const proTransfers = pgTable("pro_transfers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  fromCityId: integer("from_city_id"),
+  toCityId: integer("to_city_id").notNull(),
+  payload: jsonb("payload").notNull(),
+  note: text("note"),
+  status: text("status").notNull().default("pending"), // pending | approved | denied | cancelled
+  decisionNote: text("decision_note"),
+  decidedBy: uuid("decided_by").references(() => users.id, { onDelete: "set null" }),
+  decidedAt: ts("decided_at"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("pro_transfers_status_idx").on(t.status), index("pro_transfers_user_idx").on(t.userId)]);
