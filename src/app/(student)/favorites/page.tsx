@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { and, desc, eq } from "drizzle-orm";
 import { db, favorites, professionalProfiles, cities } from "@/db";
-import { requireVerifiedStudent } from "@/lib/student";
+import { requireBrowsingStudent } from "@/lib/student";
 import { liveProWhere } from "@/lib/search";
 import { TopBar } from "@/components/TopBar";
 import { FavButton } from "@/components/FavButton";
@@ -12,7 +12,7 @@ import { proLink } from "@/lib/connections";
 export const metadata = { title: "Favorites" };
 
 export default async function Favorites() {
-  const { user } = await requireVerifiedStudent();
+  const { user } = await requireBrowsingStudent();
   const rows = await db
     .select({ p: professionalProfiles, city: cities.name })
     .from(favorites)

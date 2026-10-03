@@ -11,7 +11,7 @@ import { unreadCount } from "@/lib/inbox";
 import { Icon } from "@/components/Icon";
 import { Tabs } from "@/components/Tabs";
 import { ProResult } from "@/components/ProResult";
-import { requireVerifiedStudent } from "@/lib/student";
+import { requireBrowsingStudent } from "@/lib/student";
 import { searchPros, resolvePlace, countOpenModelCalls, ZIP_RADIUS_MI, type Filters } from "@/lib/search";
 import { proTitle } from "@/lib/pro-titles";
 import { studentSuspendedUntil, SUSPENSION_TEXT } from "@/lib/enforcement";
@@ -24,7 +24,7 @@ export const metadata = { title: "Explore" };
 const QUICK: [keyof Filters, string, string][] = [["today", "bolt", "Available Today"], ["after", "school", "After School"], ["under", "dollar", "Under $25"]];
 
 export default async function Home({ searchParams }: { searchParams: Promise<Filters> }) {
-  const { user, area, profile } = await requireVerifiedStudent();
+  const { user, area, profile, finishStep } = await requireBrowsingStudent();
   const until = studentSuspendedUntil(profile);
   if (until) {
     return (
@@ -70,23 +70,27 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
   const catRow = f.cat && f.cat !== "other" ? cats.find((c) => String(c.id) === f.cat) : undefined;
   const svcName = f.svc ? catalog.find((c) => String(c.id) === f.svc)?.name : undefined;
   const lookingFor = catRow || f.q;
+  // Nothing in their area yet: "this market is currently being filled" + professionals within 50 miles.
+  const NEARBY_MI = 50;
   let closest: typeof pros = [];
   let closestLabel = "";
-  if (pros.length === 0 && lookingFor) {
+  if (pros.length === 0 && from) {
     const tries: Filters[] = catRow
       ? [...(f.svc ? [{ cat: f.cat, svc: f.svc } as Filters] : []), { cat: f.cat } as Filters]
-      : [{ q: f.q } as Filters];
+      : f.q ? [{ q: f.q } as Filters] : [{} as Filters];
     for (const t of tries) {
-      const got = await searchPros(t, null, null); // no area limit: anywhere on Nearest
+      const got = (await searchPros(t, null, null)).map((p) => ({ ...p, miles: miles(from, p) })).filter((p) => p.miles !== null && p.miles <= NEARBY_MI);
       if (got.length) {
-        closest = got.map((p) => ({ ...p, miles: from ? miles(from, p) : null })).sort((a, b) => (a.miles ?? 9999) - (b.miles ?? 9999)).slice(0, 6);
+        closest = got.sort((a, b) => (a.miles ?? 9999) - (b.miles ?? 9999)).slice(0, 12);
         closestLabel = catRow
-          ? t.svc && svcName ? `Closest ${proTitle(catRow.name)} offering ${svcName}` : `Closest ${proTitle(catRow.name)} on Nearest`
-          : `Closest matches for “${f.q}” on Nearest`;
+          ? t.svc && svcName ? `${proTitle(catRow.name)} offering ${svcName} within ${NEARBY_MI} miles` : `${proTitle(catRow.name)} within ${NEARBY_MI} miles`
+          : f.q ? `Matches for “${f.q}” within ${NEARBY_MI} miles` : `Professionals within ${NEARBY_MI} miles`;
+        closestLabel = closestLabel.charAt(0).toUpperCase() + closestLabel.slice(1);
         break;
       }
     }
   }
+  const filling = pros.length === 0 && !lookingFor && !f.today && !f.after && !f.under && !f.asl && !place;
   const whereText = place?.kind === "zip" ? `within ${ZIP_RADIUS_MI} miles of ${place.label}` : place?.kind === "city" ? `in ${place.label}` : f.area === "all" ? `in ${marketName(area?.market) || "your area"}` : "in your area";
   const missingTitle = catRow
     ? svcName ? `No one offering ${svcName} ${whereText} yet` : `No ${proTitle(catRow.name)} ${whereText} yet`
@@ -119,6 +123,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
         <Bell href="/notifications" unread={unread} />
       </div>
       <div className="body">
+        {finishStep && (
+          <Link className="card warn" href={finishStep} style={{ textDecoration: "none", color: "inherit", gap: 2 }}>
+            <span className="b">Finish verifying to book</span>
+            <span className="small">Browse everyone now — booking opens once your student account is verified.</span>
+          </Link>
+        )}
         <p className="eyebrow p">Hi, {user.firstName}</p>
         <h1 className="disp h1">What do you need?</h1>
         <Link className="card pearl" href="/model-calls?area=all" style={{ textDecoration: "none", padding: 22, gap: 6 }}>
@@ -157,7 +167,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
           const on = [f.cat && f.cat !== "other" && [cats.find((c) => String(c.id) === f.cat)?.name, f.svc && catalog.find((c) => String(c.id) === f.svc)?.name].filter(Boolean).join(" › "), place && (place.kind === "zip" ? `within ${ZIP_RADIUS_MI} mi of ${place.label}` : `in ${place.label}`), f.today && "Available Today", f.after && "After School", f.under && "Under $25", f.asl && "communicates in ASL", f.q && `“${f.q}”`].filter(Boolean) as string[];
           const title = pros.length
             ? (f.asl ? "ASL professionals near you" : "Near you")
-            : missingTitle && place?.kind !== "none" ? `${missingTitle}${extraFilters ? " with these filters" : ""}` : on.length ? "No matches for these filters" : "No professionals here yet";
+            : missingTitle && place?.kind !== "none" ? `${missingTitle}${extraFilters ? " with these filters" : ""}` : on.length ? "No matches for these filters" : filling ? "This market is currently being filled" : "No professionals here yet";
           return (
             <>
               <div id="results" className="row between" style={{ scrollMarginTop: 16 }}><h2 className="disp h2">{title}</h2><span className="xs muted">{pros.length} professional{pros.length === 1 ? "" : "s"}</span></div>
@@ -172,11 +182,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
                     ? `No professionals who communicate in ASL are listed in ${marketName(area?.market) || "your area"} yet. They'll show up here as they join.`
                     : missingTitle
                       ? closest.length
-                        ? `New professionals join every week. Until then, here are the closest ones Nearest has${extraFilters ? " (without your other filters)" : ""}.`
+                        ? `New professionals join every week. Until then, here are the ones within 50 miles${extraFilters ? " (without your other filters)" : ""}.`
                         : `Nearest doesn't have any yet — new professionals join every week. Check back soon.`
                     : on.length
                       ? `Nobody matches all of these right now. Try turning a filter off, or choose All ${marketName(area?.market) || "areas"}.`
-                      : `No professionals are live in ${marketName(area?.market) || "your area"} yet. New professionals join every week.`}
+                      : closest.length ? `Here are professionals within 50 miles in the meantime.` : `No professionals are live in ${marketName(area?.market) || "your area"} yet. New professionals join every week.`}
                 </p>
               )}
             </>

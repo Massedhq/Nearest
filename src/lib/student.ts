@@ -71,3 +71,18 @@ export function isAlumni(p: { verificationStatus: string; graduationYear: number
   if (p.verificationStatus !== "verified" || !p.graduationYear) return false;
   return now.getTime() > Date.UTC(p.graduationYear, 5, 30, 23, 59);
 }
+
+/**
+ * Browsing (Explore, profiles, Model Calls, favorites) opens as soon as the student's account exists.
+ * Booking still needs verification (and parent approval under 18) — `finishStep` says where to finish.
+ */
+export async function requireBrowsingStudent() {
+  const s = await requireStudent();
+  let finishStep = await verifyStep(s.user.id, s.profile);
+  if (!finishStep) {
+    const { needsGuardian } = await import("./guardian");
+    if (needsGuardian(s.user) && s.profile.guardianStatus !== "approved") finishStep = "/verify/parent";
+  }
+  const area = s.profile.schoolId ? await schoolArea(s.profile.schoolId) : null;
+  return { ...s, area, finishStep, canBook: !finishStep };
+}

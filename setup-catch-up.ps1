@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Student view: greyed Book with short filling-market message; Coverage admin stacks on mobile"
+git commit -q -m "Students browse before verifying (booking still needs verification); empty areas show professionals within 50 miles"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

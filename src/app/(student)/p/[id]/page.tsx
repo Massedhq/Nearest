@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { PortfolioViewer } from "@/components/PortfolioViewer";
 import { FillingMarketBook } from "@/components/FillingMarketBook";
+import { VerifyToBook } from "@/components/VerifyToBook";
 import { instagramHandle, tiktokHandle, instagramUrl, tiktokUrl } from "@/lib/social";
 import Link from "next/link";
 import { getFlag } from "@/lib/settings";
@@ -12,7 +13,7 @@ import { FavButton } from "@/components/FavButton";
 import { ShareProButton } from "@/components/ShareProButton";
 import { ensureProSlug, proLink } from "@/lib/connections";
 import { nearPoint, miles } from "@/lib/near";
-import { requireVerifiedStudent } from "@/lib/student";
+import { requireBrowsingStudent } from "@/lib/student";
 import { isAdult } from "@/lib/age";
 import { openModelCalls } from "@/lib/search";
 import { chicagoNow, label12, money, WEEKDAYS } from "@/lib/time";
@@ -26,7 +27,7 @@ const ASL: Record<string, string> = { basic: "Basic", conversational: "Conversat
 const MODE: Record<string, string> = { come_to_me: "Customers come to me", travel: "Travels to you", both: "Come to me or I travel" };
 
 export default async function ProProfile({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ notbooked?: string }> }) {
-  const { user } = await requireVerifiedStudent();
+  const { user, finishStep } = await requireBrowsingStudent();
   const notBooked = (await searchParams).notbooked === "1";
   const adult = isAdult(user.dateOfBirth);
   const { id } = await params;
@@ -52,7 +53,7 @@ export default async function ProProfile({ params, searchParams }: { params: Pro
     (await import("@/lib/city-booking")).cityBookingOpen(p.cityId ?? p.slotCityId),
     (await import("@/lib/entry")).isOwnerBusiness(p.userId),
   ]);
-  const bookingOpen = (await getFlag("status.bookings")) && (cityOpen || ownerBiz);
+  const bookingOpen = (await getFlag("status.bookings")) && (cityOpen || ownerBiz) && !finishStep; // booking needs verification
   const opensSoon = !cityOpen && !ownerBiz;
   const isFav = Boolean(await db.query.favorites.findFirst({ where: and(eq(favorites.studentId, user.id), eq(favorites.proId, id)) }));
   const [{ n: favCount }] = await db.select({ n: sql<number>`count(*)::int` }).from(favorites).where(eq(favorites.proId, id));
@@ -126,10 +127,10 @@ export default async function ProProfile({ params, searchParams }: { params: Pro
         {pendingLicenseCats.size > 0 && <p className="xs muted p">Services tagged &quot;Recent graduate&quot; are from a professional who finished their program and whose state license is pending.</p>}
         <div className="col" style={{ gap: 0 }}>
           {services.map((s) => (
-            <div key={s.id} className="item"><div className="grow"><div className="b">{s.name}{s.adultsOnly && <span className="tag warn" style={{ marginLeft: 8 }}>18+</span>}{s.categoryId && pendingLicenseCats.has(s.categoryId) && <span className="tag" style={{ marginLeft: 8 }}>Recent graduate — license pending</span>}</div><div className="small muted">{money(s.priceCents)} • {s.durationMin} min</div></div>{s.adultsOnly && !adult ? <button className="btn dis sm" type="button" disabled title="You must be 18 or older to book this service">18+ only</button> : bookingOpen ? <Link className="btn sm" href={`/book/${s.id}`}>Book</Link> : opensSoon ? <FillingMarketBook /> : <button className="btn dis sm" type="button" disabled>Book</button>}</div>
+            <div key={s.id} className="item"><div className="grow"><div className="b">{s.name}{s.adultsOnly && <span className="tag warn" style={{ marginLeft: 8 }}>18+</span>}{s.categoryId && pendingLicenseCats.has(s.categoryId) && <span className="tag" style={{ marginLeft: 8 }}>Recent graduate — license pending</span>}</div><div className="small muted">{money(s.priceCents)} • {s.durationMin} min</div></div>{s.adultsOnly && !adult ? <button className="btn dis sm" type="button" disabled title="You must be 18 or older to book this service">18+ only</button> : bookingOpen ? <Link className="btn sm" href={`/book/${s.id}`}>Book</Link> : opensSoon ? <FillingMarketBook /> : finishStep ? <VerifyToBook href={finishStep} /> : <button className="btn dis sm" type="button" disabled>Book</button>}</div>
           ))}
         </div>
-        {!opensSoon && !bookingOpen && <p className="xs muted p">Booking is paused right now.</p>}
+        {!opensSoon && !finishStep && !bookingOpen && <p className="xs muted p">Booking is paused right now.</p>}
 
         {calls.length > 0 && (
           <>

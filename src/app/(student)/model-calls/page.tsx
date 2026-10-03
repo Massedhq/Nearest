@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { marketName } from "@/lib/markets";
-import { requireVerifiedStudent } from "@/lib/student";
+import { requireBrowsingStudent } from "@/lib/student";
 import { openModelCalls } from "@/lib/search";
 import { ModelCallCard } from "@/components/ModelCallCard";
 import { TopBar } from "@/components/TopBar";
@@ -9,7 +9,7 @@ import { Tabs } from "@/components/Tabs";
 export const metadata = { title: "Model Calls" };
 
 export default async function ModelCallsPage({ searchParams }: { searchParams: Promise<{ area?: string }> }) {
-  const { area } = await requireVerifiedStudent();
+  const { area } = await requireBrowsingStudent();
   const { area: mode } = await searchParams;
   const calls = await openModelCalls(area, mode);
   return (
