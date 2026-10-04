@@ -7,7 +7,7 @@ import { requireAdmin } from "@/lib/admin";
 import { getFlag } from "@/lib/settings";
 import { getAiCopy } from "@/lib/outreach-ai";
 import { REPLY_TO } from "@/lib/outreach-mail";
-import { saveAiCopy, addAnswer, deleteAnswer, setAiEnabled } from "@/app/admin/outreach-actions";
+import { saveAiCopy, addAnswer, deleteAnswer, setAiEnabled, testAiAnswer } from "@/app/admin/outreach-actions";
 
 export const metadata = { title: "AI recruiter answers" };
 const field = { width: "100%", borderRadius: 10, border: "1px solid #2A2A2D", background: "#0E0E10", color: "#ECE8E1", padding: "10px 12px", font: "inherit", lineHeight: 1.5 } as const;
@@ -26,6 +26,13 @@ export default async function OutreachAnswers() {
         <span className="xs">{keyOk ? "✓" : "✗"} AI key (ANTHROPIC_API_KEY in Vercel) • {inboxOk ? "✓" : "✗"} Incoming email ({REPLY_TO} → Resend → RESEND_INBOUND_SECRET) • {on ? "✓ Turned on" : "✗ Turned off"}</span>
         <span className="xs muted">Until all three are ✓, replies go to Needs review for a person to answer.</span>
         {role === "OWNER" && <form action={setAiEnabled}><input type="hidden" name="on" value={on ? "0" : "1"} /><button className={on ? "btn ghost sm" : "btn sm"} type="submit">{on ? "Turn the AI off" : "Turn the AI on"}</button></form>}
+      </div>
+      <div className="card" style={{ gap: 8 }}>
+        <span className="eyebrow">Test the AI</span>
+        <span className="xs muted">Ask it a question the way a prospect would. You&apos;ll see its exact reply — or the exact reason it can&apos;t answer (missing key, billing, model). Nothing is emailed.</span>
+        <ActionForm action={testAiAnswer} submitLabel="Ask the AI" buttonClass="btn sm" className="col g8">
+          <input name="question" defaultValue="What is this? I need to know more." maxLength={500} style={field} aria-label="Test question" />
+        </ActionForm>
       </div>
       <div className="card small" style={{ gap: 4 }}>
         <span>The AI only answers from: the <span className="b">How Nearest works professional guide</span> (always current), <span className="b">live spots and prices</span> for the prospect&apos;s city and category, the <span className="b">approved answers</span> below, and your playbook. Anything else goes to <span className="b">Needs review</span> — it never guesses.</span>

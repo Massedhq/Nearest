@@ -7,7 +7,7 @@ import { OutreachNav } from "@/components/OutreachNav";
 import { ActionForm } from "@/components/ActionForm";
 import { requireAdmin } from "@/lib/admin";
 import { outreachScope, PROSPECT_STATUSES, SOURCES } from "@/lib/outreach";
-import { updateProspect, doNotContact, setProspectPaused, replyToProspect, setAiMode } from "@/app/admin/outreach-actions";
+import { updateProspect, doNotContact, setProspectPaused, replyToProspect, setAiMode, answerWithAi } from "@/app/admin/outreach-actions";
 
 export const metadata = { title: "Prospect" };
 
@@ -73,6 +73,9 @@ export default async function ProspectDetail({ params }: { params: Promise<{ id:
               <span style={{ whiteSpace: "pre-wrap" }}>{m.body}</span>
             </div>
           ))}
+          {mine && p.status === "needs_review" && thread.some((m) => m.direction === "in") && (
+            <ActionForm action={answerWithAi} submitLabel="Answer with AI" buttonClass="btn sm" className="col g4"><input type="hidden" name="id" value={p.id} /></ActionForm>
+          )}
           {mine && p.email && !["opted_out"].includes(p.status) && (
             <ActionForm action={replyToProspect} submitLabel="Send reply" buttonClass="btn sm" className="col g8">
               <input type="hidden" name="id" value={p.id} />
@@ -90,7 +93,7 @@ export default async function ProspectDetail({ params }: { params: Promise<{ id:
           {!["registered", "profile_complete", "opted_out"].includes(p.status) && (
             <form action={setProspectPaused}><input type="hidden" name="id" value={p.id} /><input type="hidden" name="paused" value={p.paused ? "0" : "1"} /><button className={p.paused ? "btn sm" : "btn ghost sm"} type="submit">{p.paused ? "Resume emails" : "Pause emails"}</button></form>
           )}
-          <span className="xs muted">Replied to the email? Pause emails if you'd rather handle them yourself.</span>
+          <span className="xs muted">Replied to the email? Pause emails if you&apos;d rather handle them yourself.</span>
         </div>
         <div className="card" style={{ gap: 6 }}>
           <span className="eyebrow">History</span>

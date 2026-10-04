@@ -374,3 +374,30 @@ export async function setBroadcastStatus(form: FormData) {
   if (to === "delete" && b.status === "draft") await db.delete(broadcasts).where(eq(broadcasts.id, id));
   revalidatePath("/admin/outreach/broadcasts");
 }
+
+/** "Answer with AI": have the AI reply to the latest message (e.g. after the AI key was added). */
+export async function answerWithAi(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireAdmin();
+  const id = s(form, "id", 40);
+  const p = await db.query.prospects.findFirst({ where: eq(prospects.id, id) });
+  if (!p || !(await canTouch(user.id, p.recruiterId))) return { error: "Not found." };
+  if (p.aiMode === "human") await db.update(prospects).set({ aiMode: "ai" }).where(eq(prospects.id, id));
+  const { respondWithAi } = await import("@/lib/outreach-ai");
+  const r = await respondWithAi(id);
+  revalidatePath("/admin/outreach/review");
+  revalidatePath(`/admin/outreach/prospects/${id}`);
+  if (r.startsWith("for a person:")) return { error: `The AI couldn't answer — ${r.slice(14)}` };
+  if (r === "escalated") return { ok: "The AI decided this needs a person, sent your holding reply, and left it here." };
+  return { ok: r === "send_link" ? "The AI answered and sent their invite link." : "The AI answered." };
+}
+
+/** "Test the AI": a sample question → the AI's answer, or the exact error. Nothing is emailed. */
+export async function testAiAnswer(_: FormState, form: FormData): Promise<FormState> {
+  await requireAdmin();
+  const q = s(form, "question", 500) || "What is this? I need to know more.";
+  const { testAi } = await import("@/lib/outreach-ai");
+  const r = await testAi(q);
+  if ("error" in r) return { error: r.error };
+  const d = r.decision;
+  return { ok: d.action === "escalate" ? `It would send this to Needs review: ${d.question ?? "(no reason given)"}` : `[${d.action === "send_link" ? "reply + invite link" : d.action}] ${d.reply}` };
+}

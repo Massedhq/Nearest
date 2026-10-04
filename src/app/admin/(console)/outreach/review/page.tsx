@@ -6,7 +6,7 @@ import { ActionForm } from "@/components/ActionForm";
 import { OutreachNav } from "@/components/OutreachNav";
 import { requireAdmin } from "@/lib/admin";
 import { outreachScope } from "@/lib/outreach";
-import { replyToProspect } from "@/app/admin/outreach-actions";
+import { replyToProspect, answerWithAi } from "@/app/admin/outreach-actions";
 
 export const metadata = { title: "Needs review" };
 const field = { width: "100%", borderRadius: 10, border: "1px solid #2A2A2D", background: "#0E0E10", color: "#ECE8E1", padding: "10px 12px", font: "inherit", lineHeight: 1.5 } as const;
@@ -34,6 +34,8 @@ export default async function NeedsReview() {
             </div>
             {p.reviewQuestion && <span className="small"><span className="b">Needs an answer:</span> {p.reviewQuestion}</span>}
             {msg && <div className="card small" style={{ whiteSpace: "pre-wrap" }}>{msg.body}</div>}
+            <ActionForm action={answerWithAi} submitLabel="Answer with AI" buttonClass="btn sm" className="col g4"><input type="hidden" name="id" value={p.id} /></ActionForm>
+            <span className="xs muted">Or write the reply yourself:</span>
             <ActionForm action={replyToProspect} submitLabel="Send reply" buttonClass="btn sm" className="col g8">
               <input type="hidden" name="id" value={p.id} />
               <textarea name="body" rows={4} placeholder="Your reply (sent from you at Nearest)" maxLength={5000} style={field} aria-label="Reply" />

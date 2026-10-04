@@ -69,22 +69,27 @@ async function knowledge() {
 
 type Decision = { action: "reply" | "send_link" | "escalate" | "declined"; reply: string; question?: string };
 
-async function decide(p: typeof prospects.$inferSelect, history: (typeof prospectMessages.$inferSelect)[]): Promise<Decision | null> {
+type DecideResult = { decision: Decision } | { error: string };
+
+async function decide(p: typeof prospects.$inferSelect, history: (typeof prospectMessages.$inferSelect)[]): Promise<DecideResult> {
   const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) return null;
+  if (!key) return { error: "AI key missing (ANTHROPIC_API_KEY isn't set for Production in Vercel, or the site wasn't redeployed after adding it)" };
   const [copy, k, facts, recruiter] = await Promise.all([getAiCopy(), knowledge(), marketFacts(p), p.recruiterId ? db.query.users.findFirst({ where: eq(users.id, p.recruiterId) }) : null]);
   const recruiterName = [recruiter?.firstName, recruiter?.lastName].filter(Boolean).join(" ") || "the Nearest team";
   const system = `${copy.playbook}
 
 RULES YOU MUST FOLLOW:
 ${copy.never}
-- If the answer isn't clearly in the facts, approved answers or guide below, use action "escalate" (don't guess).
+- ALWAYS ANSWER (never escalate) normal prospect questions — what is this / what is Nearest, how does it work, how much does it cost, who is it for, how do I sign up, what do I get, is it in my area, tell me more, where did you find me, is this legit, can you explain — using the facts, approved answers and guide below. A vague "what is this? tell me more" is a buying signal: explain Nearest in 2–4 friendly sentences and offer their invite.
+- "Where did you find me?": say you came across their work publicly${p.source ? ` (they were found via ${p.source})` : ""} and thought they'd be a great fit — never claim a referral or relationship that isn't in the facts.
+- "Is this legit?": Nearest is a real company at usenearest.com; they can look it up, nothing is charged by email, and they only ever sign up on usenearest.com.
+- Use "escalate" ONLY when: they ask to speak/call/meet with a person; they need a decision or exception (refunds, special pricing, partnerships, legal or contract questions, complaints); or the specific fact they ask for truly isn't in the facts, approved answers or guide. When unsure about a specific number or policy, escalate rather than guess.
 - Sign off as ${recruiterName}. Write plain text only. Do not include any link — if you choose "send_link", Nearest adds their personal invite link (good for 24 hours) for you; just say it's below.
 - Reply ONLY with JSON: {"action":"reply"|"send_link"|"escalate"|"declined","reply":"<email text>","question":"<only for escalate: their question in one line>"}.
 - "escalate": leave "reply" empty — Nearest sends a holding message. "declined": a short, kind goodbye.
 
 FACTS (live, true right now):
-Prospect: ${p.name}${p.business ? ` (${p.business})` : ""}. Recruiter: ${recruiterName}.
+Prospect: ${p.name}${p.business ? ` (${p.business})` : ""}${p.category ? `, ${p.category}` : ""}${p.city ? `, ${p.city}` : ""}. Found via: ${p.source ?? "public profile"}. Recruiter: ${recruiterName}.
 ${facts.join("\n")}
 
 APPROVED ANSWERS (use these when they fit):
@@ -94,28 +99,41 @@ HOW NEAREST WORKS — PROFESSIONAL GUIDE (source of truth):
 ${k.guide}`;
   // The conversation must start with the prospect: emails we sent before their first reply become context.
   const firstIn = history.findIndex((m) => m.direction === "in");
-  if (firstIn < 0) return null;
+  if (firstIn < 0) return { error: "no message from the prospect to answer" };
   const sentBefore = history.slice(0, firstIn).map((m) => `Subject: ${m.subject ?? ""}\n${m.body}`).join("\n---\n");
   const messages = history.slice(firstIn).map((m) => ({ role: m.direction === "in" ? "user" as const : "assistant" as const, content: m.direction === "in" ? m.body : JSON.stringify({ action: "reply", reply: m.body }) }));
   const fullSystem = sentBefore ? `${system}\n\nEMAILS ALREADY SENT TO THEM (before their reply):\n${sentBefore}` : system;
-  try {
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: AI_MODEL, max_tokens: 700, system: fullSystem, messages }),
-      signal: AbortSignal.timeout(45000),
-    });
-    if (!r.ok) { console.error("AI recruiter", r.status, await r.text()); return null; }
-    const data = (await r.json()) as { content?: { type: string; text?: string }[] };
-    const text = (data.content ?? []).filter((c) => c.type === "text").map((c) => c.text).join("").trim();
-    const json = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)) as Decision;
-    if (!["reply", "send_link", "escalate", "declined"].includes(json.action)) return null;
-    if (json.action !== "escalate" && !json.reply?.trim()) return null;
-    return json;
-  } catch (e) {
-    console.error("AI recruiter", e);
-    return null;
+  let lastError = "";
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
+        body: JSON.stringify({ model: AI_MODEL, max_tokens: 800, system: fullSystem, messages }),
+        signal: AbortSignal.timeout(45000),
+      });
+      if (!r.ok) {
+        const t = (await r.text()).slice(0, 300);
+        lastError = r.status === 401 ? "AI key rejected (401) — re-copy ANTHROPIC_API_KEY into Vercel and redeploy"
+          : r.status === 404 ? `AI model "${AI_MODEL}" not found (404) — set ANTHROPIC_MODEL in Vercel to a current model`
+          : r.status === 400 && /credit|billing/i.test(t) ? "AI account has no credit — add billing at console.anthropic.com"
+          : `AI service error ${r.status}: ${t}`;
+        if (r.status === 401 || r.status === 404 || r.status === 400) break; // won't fix itself on retry
+      } else {
+        const data = (await r.json()) as { content?: { type: string; text?: string }[] };
+        const text = (data.content ?? []).filter((c) => c.type === "text").map((c) => c.text).join("").trim();
+        const json = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)) as Decision;
+        if (!["reply", "send_link", "escalate", "declined"].includes(json.action)) lastError = `AI answered in an unexpected format: ${text.slice(0, 120)}`;
+        else if (json.action !== "escalate" && !json.reply?.trim()) lastError = "AI returned an empty reply";
+        else return { decision: json };
+      }
+    } catch (e) {
+      lastError = `AI request failed: ${(e as Error).message}`;
+    }
+    if (attempt === 0) await new Promise((r) => setTimeout(r, 1500));
   }
+  console.error("AI recruiter", lastError);
+  return { error: lastError };
 }
 
 /** Email a reply in the conversation (from the recruiter, reply-to the outreach reply address) and record it. */
@@ -182,20 +200,41 @@ export async function handleInbound(e: { from: string; subject: string; text: st
     await notifyAdmins({ kind: "inbound_member", title: `${p.name} emailed info@`, body: `They're already a Nearest member: "${body.slice(0, 140)}"`, href: `/admin/outreach/prospects/${p.id}` }, notifyTo);
     return "member";
   }
-  const fresh = (await db.query.prospects.findFirst({ where: eq(prospects.id, p.id) }))!;
-  if (fresh.aiMode === "human" || !(await getFlag("outreach.ai_enabled")) || !process.env.ANTHROPIC_API_KEY) {
-    await db.update(prospects).set({ status: "needs_review", reviewQuestion: body.slice(0, 300) }).where(eq(prospects.id, p.id));
-    await notifyAdmins({ kind: "human_review", title: `${p.name} replied`, body: body.slice(0, 160), href: `/admin/outreach/prospects/${p.id}` }, notifyTo);
-    return "for a person";
-  }
+  return respondWithAi(p.id);
+}
+
+/** Why the AI can't answer right now (null = it can). */
+async function aiBlocked(p: typeof prospects.$inferSelect) {
+  if (p.aiMode === "human") return "a partner took over this conversation";
+  if (!(await getFlag("outreach.ai_enabled"))) return "the AI recruiter is turned off (Outreach → AI recruiter)";
+  if (!process.env.ANTHROPIC_API_KEY) return "AI key missing — ANTHROPIC_API_KEY isn't set for Production in Vercel (or the site wasn't redeployed after adding it)";
+  return null;
+}
+
+/**
+ * Have the AI answer the latest message in this conversation. Used for every incoming reply, and by
+ * "Answer with AI" on Needs review. Only genuine cases go to a person — and the reason is always recorded.
+ */
+export async function respondWithAi(prospectId: string): Promise<string> {
+  const p = await db.query.prospects.findFirst({ where: eq(prospects.id, prospectId) });
+  if (!p) return "not found";
+  const notifyTo = p.recruiterId ? [p.recruiterId] : undefined;
+  const lastIn = await db.query.prospectMessages.findFirst({ where: and(eq(prospectMessages.prospectId, p.id), eq(prospectMessages.direction, "in")), orderBy: desc(prospectMessages.createdAt) });
+  const body = lastIn?.body ?? "";
+  const toPerson = async (why: string, question: string, holding: boolean) => {
+    if (holding) { const { holding: h } = await getAiCopy(); await sendReply(p, h, "ai"); }
+    await db.update(prospects).set({ status: "needs_review", reviewQuestion: question.slice(0, 300), updatedAt: new Date() }).where(eq(prospects.id, p.id));
+    await logProspect(p.id, "needs_review", `For a person — ${why}.`, null);
+    await notifyAdmins({ kind: "human_review", title: holding ? "Human review required" : `${p.name} replied — the AI didn't answer`, body: `${question.slice(0, 120)} — ${why}`, href: "/admin/outreach/review" }, notifyTo);
+  };
+  const blocked = await aiBlocked(p);
+  if (blocked) { await toPerson(blocked, body, false); return `for a person: ${blocked}`; }
   const history = await db.select().from(prospectMessages).where(eq(prospectMessages.prospectId, p.id)).orderBy(asc(prospectMessages.createdAt));
-  const d = await decide(fresh, history.slice(-12));
-  if (!d || d.action === "escalate") {
-    const { holding } = await getAiCopy();
-    await sendReply(fresh, holding, "ai");
-    await db.update(prospects).set({ status: "needs_review", reviewQuestion: (d?.question || body).slice(0, 300) }).where(eq(prospects.id, p.id));
-    await logProspect(p.id, "needs_review", `AI needs a person: ${(d?.question || body).slice(0, 160)}`, null);
-    await notifyAdmins({ kind: "human_review", title: "Human review required", body: `${p.name}: ${(d?.question || body).slice(0, 150)}`, href: `/admin/outreach/review` }, notifyTo);
+  const r = await decide(p, history.slice(-12));
+  if ("error" in r) { await toPerson(`the AI couldn't reply: ${r.error}`, body, false); return `for a person: ${r.error}`; }
+  const d = r.decision;
+  if (d.action === "escalate") {
+    await toPerson(`the AI escalated it: ${d.question || "needs a human decision"}`, d.question || body, true);
     return "escalated";
   }
   let reply = d.reply.trim();
@@ -203,9 +242,15 @@ export async function handleInbound(e: { from: string; subject: string; text: st
     const link = await makeInviteLink(p.id);
     reply = `${reply}\n\nYour personal invite (good for 24 hours):\n${link}`;
   }
-  const ok = await sendReply(fresh, reply, "ai");
-  if (!ok) return "send failed";
-  await db.update(prospects).set(d.action === "send_link" ? { status: "link_sent", linkSentAt: new Date() } : d.action === "declined" ? { status: "declined" } : { status: "conversation" }).where(eq(prospects.id, p.id));
-  await logProspect(p.id, d.action === "send_link" ? "link_sent" : d.action === "declined" ? "declined" : "ai_replied", d.action === "send_link" ? "AI sent their invite link." : d.action === "declined" ? "Not interested — AI said goodbye and stopped." : "AI answered.", null);
+  if (!(await sendReply(p, reply, "ai"))) { await toPerson("the AI wrote a reply but the email couldn't be sent (check RESEND_API_KEY)", body, false); return "send failed"; }
+  await db.update(prospects).set({ reviewQuestion: null, updatedAt: new Date(), ...(d.action === "send_link" ? { status: "link_sent", linkSentAt: new Date() } : d.action === "declined" ? { status: "declined" } : { status: "conversation" }) }).where(eq(prospects.id, p.id));
+  await logProspect(p.id, d.action === "send_link" ? "link_sent" : d.action === "declined" ? "declined" : "ai_replied", d.action === "send_link" ? "AI answered and sent their invite link." : d.action === "declined" ? "Not interested — AI said goodbye and stopped." : "AI answered.", null);
   return d.action;
+}
+
+/** "Test the AI" on Outreach → AI recruiter: ask a sample question, see the answer — nothing is emailed. */
+export async function testAi(question: string) {
+  const p = { id: "00000000-0000-0000-0000-000000000000", name: "Christina Lopez", business: null, category: "Nails", city: "The Colony", cityId: null, categoryId: null, source: "Instagram", recruiterId: null, aiMode: "ai" } as unknown as typeof prospects.$inferSelect;
+  const history = [{ direction: "in", body: question, subject: "Re: a spot for nails in The Colony" }] as unknown as (typeof prospectMessages.$inferSelect)[];
+  return decide(p, history);
 }
