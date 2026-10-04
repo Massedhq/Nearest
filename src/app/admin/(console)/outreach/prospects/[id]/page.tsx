@@ -76,7 +76,7 @@ export default async function ProspectDetail({ params }: { params: Promise<{ id:
           {mine && p.email && !["opted_out"].includes(p.status) && (
             <ActionForm action={replyToProspect} submitLabel="Send reply" buttonClass="btn sm" className="col g8">
               <input type="hidden" name="id" value={p.id} />
-              <textarea name="body" rows={3} placeholder="Write a reply (sent from you at Nearest, reply-to info@usenearest.com)" maxLength={5000} aria-label="Reply" style={{ width: "100%", borderRadius: 10, border: "1px solid #2A2A2D", background: "#0E0E10", color: "#ECE8E1", padding: "10px 12px", font: "inherit" }} />
+              <textarea name="body" rows={3} placeholder="Write a reply (sent from you at Nearest, replies come back here)" maxLength={5000} aria-label="Reply" style={{ width: "100%", borderRadius: 10, border: "1px solid #2A2A2D", background: "#0E0E10", color: "#ECE8E1", padding: "10px 12px", font: "inherit" }} />
               <label className="check xs"><input type="checkbox" name="withLink" /><span>Add their personal invite link (24 hours)</span></label>
             </ActionForm>
           )}
@@ -90,7 +90,7 @@ export default async function ProspectDetail({ params }: { params: Promise<{ id:
           {!["registered", "profile_complete", "opted_out"].includes(p.status) && (
             <form action={setProspectPaused}><input type="hidden" name="id" value={p.id} /><input type="hidden" name="paused" value={p.paused ? "0" : "1"} /><button className={p.paused ? "btn sm" : "btn ghost sm"} type="submit">{p.paused ? "Resume emails" : "Pause emails"}</button></form>
           )}
-          <span className="xs muted">Replied to the email? Pause emails while you answer them from info@usenearest.com.</span>
+          <span className="xs muted">Replied to the email? Pause emails if you'd rather handle them yourself.</span>
         </div>
         <div className="card" style={{ gap: 6 }}>
           <span className="eyebrow">History</span>

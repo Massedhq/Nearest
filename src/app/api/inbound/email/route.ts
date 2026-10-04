@@ -4,7 +4,7 @@ import { handleInbound } from "@/lib/outreach-ai";
 export const maxDuration = 60;
 
 /**
- * Resend Inbound → emails sent to info@usenearest.com. The webhook only carries the envelope (sender, subject, id),
+ * Resend Inbound → emails sent to the outreach reply address (OUTREACH_REPLY_TO). The webhook only carries the envelope (sender, subject, id),
  * so the message body is fetched with the Received Emails API. Every call is verified with the webhook signing secret.
  */
 export async function POST(req: Request) {

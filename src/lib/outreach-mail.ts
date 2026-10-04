@@ -6,7 +6,9 @@ import { db, prospects, outreachTemplates, outreachBatches, outreachLinks, outre
 import { getSettings, getFlag } from "./settings";
 import { logProspect, notifyAdmins, normEmail } from "./outreach";
 
-export const REPLY_TO = "info@usenearest.com";
+// Where prospect replies go. Set OUTREACH_REPLY_TO in Vercel (e.g. info@reply.usenearest.com — a sub-address
+// whose MX points to Resend, so replies reach Nearest without touching your Zoho mail).
+export const REPLY_TO = process.env.OUTREACH_REPLY_TO || "info@usenearest.com";
 const base = () => process.env.APP_URL || "https://www.usenearest.com";
 const SENDER = (process.env.EMAIL_FROM || "Nearest <hello@usenearest.com>").match(/<([^>]+)>/)?.[1] ?? "hello@usenearest.com";
 

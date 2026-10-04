@@ -888,3 +888,29 @@ export const outreachAnswers = pgTable("outreach_answers", {
   createdBy: uuid("created_by"),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
+
+// Broadcasts: one email to a chosen audience (prospects, professionals or students). Separate from recruiting —
+// sending one never changes anyone's outreach status. Recipients are snapshotted when the draft is made.
+export const broadcasts = pgTable("broadcasts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+  audience: jsonb("audience").notNull(), // { kind, ...filters } and a human label
+  label: text("label").notNull(),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  status: text("status").notNull().default("draft"), // draft | sending | sent | cancelled
+  recipients: integer("recipients").notNull().default(0),
+  sent: integer("sent").notNull().default(0),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  sentAt: ts("sent_at"),
+});
+
+export const broadcastRecipients = pgTable("broadcast_recipients", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  broadcastId: uuid("broadcast_id").notNull().references(() => broadcasts.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  firstName: text("first_name"),
+  userId: uuid("user_id"),
+  prospectId: uuid("prospect_id"),
+  sentAt: ts("sent_at"),
+}, (t) => [index("broadcast_recipients_todo_idx").on(t.broadcastId, t.sentAt)]);

@@ -6,6 +6,7 @@ import { OutreachNav } from "@/components/OutreachNav";
 import { requireAdmin } from "@/lib/admin";
 import { getFlag } from "@/lib/settings";
 import { getAiCopy } from "@/lib/outreach-ai";
+import { REPLY_TO } from "@/lib/outreach-mail";
 import { saveAiCopy, addAnswer, deleteAnswer, setAiEnabled } from "@/app/admin/outreach-actions";
 
 export const metadata = { title: "AI recruiter answers" };
@@ -22,7 +23,7 @@ export default async function OutreachAnswers() {
       <OutreachNav at="answers" />
       <div className={`card ${keyOk && inboxOk && on ? "ok" : "warn"}`} style={{ gap: 6 }}>
         <span className="small b">{keyOk && inboxOk && on ? "The AI recruiter is answering replies." : "The AI recruiter isn't answering yet."}</span>
-        <span className="xs">{keyOk ? "✓" : "✗"} AI key (ANTHROPIC_API_KEY in Vercel) • {inboxOk ? "✓" : "✗"} Incoming email (info@usenearest.com → Resend → RESEND_INBOUND_SECRET) • {on ? "✓ Turned on" : "✗ Turned off"}</span>
+        <span className="xs">{keyOk ? "✓" : "✗"} AI key (ANTHROPIC_API_KEY in Vercel) • {inboxOk ? "✓" : "✗"} Incoming email ({REPLY_TO} → Resend → RESEND_INBOUND_SECRET) • {on ? "✓ Turned on" : "✗ Turned off"}</span>
         <span className="xs muted">Until all three are ✓, replies go to Needs review for a person to answer.</span>
         {role === "OWNER" && <form action={setAiEnabled}><input type="hidden" name="on" value={on ? "0" : "1"} /><button className={on ? "btn ghost sm" : "btn sm"} type="submit">{on ? "Turn the AI off" : "Turn the AI on"}</button></form>}
       </div>

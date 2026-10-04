@@ -118,7 +118,7 @@ ${k.guide}`;
   }
 }
 
-/** Email a reply in the conversation (from the recruiter, reply-to info@usenearest.com) and record it. */
+/** Email a reply in the conversation (from the recruiter, reply-to the outreach reply address) and record it. */
 export async function sendReply(p: typeof prospects.$inferSelect, body: string, author: "ai" | "admin", authorId?: string | null) {
   if (!process.env.RESEND_API_KEY || !p.email) return false;
   const last = await db.query.prospectMessages.findFirst({ where: and(eq(prospectMessages.prospectId, p.id), eq(prospectMessages.direction, "in")), orderBy: desc(prospectMessages.createdAt) });
@@ -156,14 +156,14 @@ export function cleanReply(text: string) {
   return out.join("\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, 6000);
 }
 
-/** An email arrived at info@usenearest.com. */
+/** An email arrived at the outreach reply address. */
 export async function handleInbound(e: { from: string; subject: string; text: string; messageId: string | null }) {
   const em = normEmail(e.from.match(/<([^>]+)>/)?.[1] ?? e.from);
   if (e.messageId && (await db.query.prospectMessages.findFirst({ where: eq(prospectMessages.messageId, e.messageId) }))) return "duplicate";
   const p = em ? await db.query.prospects.findFirst({ where: eq(prospects.emailNorm, em) }) : null;
   const body = cleanReply(e.text) || "(empty message)";
   if (!p) {
-    await notifyAdmins({ kind: "inbound_unknown", title: "Email to info@usenearest.com", body: `From ${e.from}: ${e.subject || "(no subject)"} — ${body.slice(0, 140)}` });
+    await notifyAdmins({ kind: "inbound_unknown", title: "Email to the outreach inbox", body: `From ${e.from}: ${e.subject || "(no subject)"} — ${body.slice(0, 140)}` });
     return "unknown sender";
   }
   await db.insert(prospectMessages).values({ prospectId: p.id, direction: "in", author: "prospect", subject: e.subject, body, messageId: e.messageId });

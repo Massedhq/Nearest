@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Professional Outreach part 3: AI recruiter answers replies (guide + live spots + approved answers), needs review, conversations, take over"
+git commit -q -m "Outreach replies: configurable reply address (OUTREACH_REPLY_TO) so replies reach Nearest via reply.usenearest.com without changing Zoho"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

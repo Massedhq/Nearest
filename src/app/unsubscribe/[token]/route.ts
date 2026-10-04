@@ -9,6 +9,14 @@ const page = (title: string, body: string, form = "") => new Response(`<!doctype
 
 async function unsubscribe(token: string) {
   const id = checkUnsubToken(token);
+  if (id?.startsWith("u-")) {
+    // A member or student unsubscribing from broadcasts.
+    const { users } = await import("@/db");
+    const u = await db.query.users.findFirst({ where: eq(users.id, id.slice(2)) });
+    if (!u?.email) return false;
+    await db.insert(outreachSuppression).values({ emailNorm: normEmail(u.email), reason: "Unsubscribed from Nearest broadcasts" });
+    return true;
+  }
   const p = id ? await db.query.prospects.findFirst({ where: eq(prospects.id, id) }) : null;
   if (!p) return false;
   await db.insert(outreachSuppression).values({ emailNorm: normEmail(p.email), phoneNorm: normPhone(p.phone), reason: "Unsubscribed from outreach email" });

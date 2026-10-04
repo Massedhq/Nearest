@@ -335,3 +335,42 @@ export async function setAiEnabled(form: FormData) {
     .onConflictDoUpdate({ target: platformSettings.key, set: { value, updatedBy: user.id, updatedAt: new Date() } });
   revalidatePath("/admin/outreach/answers");
 }
+
+// ---------- Part 4: broadcasts ----------
+
+/** Make a broadcast draft: saves the exact recipient list now and shows the count before anything is sent. */
+export async function createBroadcast(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireAdmin({ owner: true });
+  const kind = s(form, "kind", 20) as "prospects" | "pros" | "students";
+  if (!["prospects", "pros", "students"].includes(kind)) return { error: "Choose who it goes to." };
+  const subject = s(form, "subject", 200), body = String(form.get("body") ?? "").trim().slice(0, 8000);
+  if (!subject || !body) return { error: "Add a subject and a message." };
+  const { audienceRecipients, audienceLabel } = await import("@/lib/broadcasts");
+  const a = { kind, status: s(form, `${kind}_status`, 20) || undefined, city: s(form, "city", 80) || undefined, category: s(form, "category", 80) || undefined, recruiter: kind === "prospects" && form.get("onlyMine") === "on" ? user.id : undefined };
+  const list = await audienceRecipients(a);
+  if (!list.length) return { error: "Nobody matches that audience (after removing anyone who unsubscribed)." };
+  const { broadcasts, broadcastRecipients } = await import("@/db");
+  const [b] = await db.insert(broadcasts).values({ createdBy: user.id, audience: a, label: audienceLabel(a), subject, body, recipients: list.length }).returning();
+  for (let i = 0; i < list.length; i += 500) {
+    await db.insert(broadcastRecipients).values(list.slice(i, i + 500).map((r) => ({ broadcastId: b.id, email: r.email, firstName: r.firstName, userId: r.userId ?? null, prospectId: r.prospectId ?? null })));
+  }
+  revalidatePath("/admin/outreach/broadcasts");
+  return { ok: `Draft ready: ${list.length} recipient${list.length === 1 ? "" : "s"}. Review it below, then tap Send.` };
+}
+
+/** Send, cancel or delete a broadcast. */
+export async function setBroadcastStatus(form: FormData) {
+  const { user } = await requireAdmin({ owner: true });
+  const { broadcasts } = await import("@/db");
+  const id = s(form, "id", 40), to = s(form, "to", 20);
+  const b = await db.query.broadcasts.findFirst({ where: eq(broadcasts.id, id) });
+  if (!b) return;
+  if (to === "send" && b.status === "draft" && form.get("confirm") === "on") {
+    await db.update(broadcasts).set({ status: "sending" }).where(eq(broadcasts.id, id));
+    const { logActivity } = await import("@/lib/log");
+    await logActivity({ actorUserId: user.id, action: "broadcast.sent", targetType: "broadcast", targetId: id, after: { label: b.label, recipients: b.recipients } });
+  }
+  if (to === "cancel" && b.status === "sending") await db.update(broadcasts).set({ status: "cancelled" }).where(eq(broadcasts.id, id));
+  if (to === "delete" && b.status === "draft") await db.delete(broadcasts).where(eq(broadcasts.id, id));
+  revalidatePath("/admin/outreach/broadcasts");
+}
