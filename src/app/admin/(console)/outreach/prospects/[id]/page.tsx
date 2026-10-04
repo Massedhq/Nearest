@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, desc, eq } from "drizzle-orm";
-import { db, prospects, prospectEvents, users, adminMembers } from "@/db";
+import { and, desc, eq, asc } from "drizzle-orm";
+import { db, prospects, prospectEvents, users, adminMembers, prospectMessages } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
 import { OutreachNav } from "@/components/OutreachNav";
 import { ActionForm } from "@/components/ActionForm";
 import { requireAdmin } from "@/lib/admin";
 import { outreachScope, PROSPECT_STATUSES, SOURCES } from "@/lib/outreach";
-import { updateProspect, doNotContact } from "@/app/admin/outreach-actions";
+import { updateProspect, doNotContact, setProspectPaused, replyToProspect, setAiMode } from "@/app/admin/outreach-actions";
 
 export const metadata = { title: "Prospect" };
 
@@ -16,6 +16,8 @@ export default async function ProspectDetail({ params }: { params: Promise<{ id:
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const p = await db.query.prospects.findFirst({ where: eq(prospects.id, id) });
+  const thread = p ? await db.select().from(prospectMessages).where(eq(prospectMessages.prospectId, p.id)).orderBy(asc(prospectMessages.createdAt)) : [];
+  const when = (d: Date | null) => d ? d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Chicago" }) : "—";
   if (!p) notFound();
   const { isMain } = await outreachScope(user.id);
   const mine = p.recruiterId === user.id || isMain;
@@ -56,6 +58,39 @@ export default async function ProspectDetail({ params }: { params: Promise<{ id:
           {mine && p.status !== "opted_out" && (
             <form action={doNotContact}><input type="hidden" name="id" value={p.id} /><button className="link xs" type="submit">Mark do not contact (never re-added from any upload)</button></form>
           )}
+        </div>
+        <div className="card" style={{ gap: 8 }}>
+          <div className="row between" style={{ gap: 6, flexWrap: "wrap" }}>
+            <span className="eyebrow">Conversation</span>
+            {mine && !["registered", "profile_complete", "opted_out"].includes(p.status) && (
+              <form action={setAiMode}><input type="hidden" name="id" value={p.id} /><input type="hidden" name="mode" value={p.aiMode === "human" ? "ai" : "human"} /><button className="btn ghost sm" type="submit">{p.aiMode === "human" ? "Hand back to the AI" : "Take over (AI stops replying)"}</button></form>
+            )}
+          </div>
+          {thread.length === 0 && <span className="small muted">No emails yet.</span>}
+          {thread.map((m) => (
+            <div key={m.id} className="card small" style={{ gap: 2, ...(m.direction === "in" ? {} : { borderColor: "#2E5A43", background: "#0B1510" }) }}>
+              <span className="xs muted">{m.direction === "in" ? p.name : m.author === "ai" ? "Nearest (automatic)" : "You"} • {when(m.createdAt)}{m.subject ? ` • ${m.subject}` : ""}</span>
+              <span style={{ whiteSpace: "pre-wrap" }}>{m.body}</span>
+            </div>
+          ))}
+          {mine && p.email && !["opted_out"].includes(p.status) && (
+            <ActionForm action={replyToProspect} submitLabel="Send reply" buttonClass="btn sm" className="col g8">
+              <input type="hidden" name="id" value={p.id} />
+              <textarea name="body" rows={3} placeholder="Write a reply (sent from you at Nearest, reply-to info@usenearest.com)" maxLength={5000} aria-label="Reply" style={{ width: "100%", borderRadius: 10, border: "1px solid #2A2A2D", background: "#0E0E10", color: "#ECE8E1", padding: "10px 12px", font: "inherit" }} />
+              <label className="check xs"><input type="checkbox" name="withLink" /><span>Add their personal invite link (24 hours)</span></label>
+            </ActionForm>
+          )}
+        </div>
+        <div className="card" style={{ gap: 6 }}>
+          <span className="eyebrow">Email outreach</span>
+          <div className="row between small"><span className="muted">Emails sent</span><span className="b">{p.emailsSent} of 3</span></div>
+          <div className="row between small"><span className="muted">Next email</span><span>{p.paused ? "Paused" : p.nextEmailAt ? when(p.nextEmailAt) : "None scheduled"}</span></div>
+          <div className="row between small"><span className="muted">Invite link sent</span><span>{when(p.linkSentAt)}</span></div>
+          <div className="row between small"><span className="muted">Invite link opened</span><span>{when(p.linkClickedAt)}</span></div>
+          {!["registered", "profile_complete", "opted_out"].includes(p.status) && (
+            <form action={setProspectPaused}><input type="hidden" name="id" value={p.id} /><input type="hidden" name="paused" value={p.paused ? "0" : "1"} /><button className={p.paused ? "btn sm" : "btn ghost sm"} type="submit">{p.paused ? "Resume emails" : "Pause emails"}</button></form>
+          )}
+          <span className="xs muted">Replied to the email? Pause emails while you answer them from info@usenearest.com.</span>
         </div>
         <div className="card" style={{ gap: 6 }}>
           <span className="eyebrow">History</span>

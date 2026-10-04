@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Professional Outreach part 1: prospects, bulk import (Excel/CSV/Word/PDF) with review, duplicate + do-not-contact protection, markets, admin bell, registration tracking, text opt-in"
+git commit -q -m "Professional Outreach part 3: AI recruiter answers replies (guide + live spots + approved answers), needs review, conversations, take over"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

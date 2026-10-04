@@ -780,6 +780,17 @@ export const prospects = pgTable("prospects", {
   status: text("status").notNull().default("approved"),
   importId: uuid("import_id"),
   registeredUserId: uuid("registered_user_id"),
+  // Email outreach: which batch, how many emails sent (1 = first email, 2–3 = follow-ups), when the next one is due.
+  batchId: uuid("batch_id"),
+  emailsSent: integer("emails_sent").notNull().default(0),
+  nextEmailAt: ts("next_email_at"),
+  paused: boolean("paused").notNull().default(false),
+  linkSentAt: ts("link_sent_at"),
+  linkClickedAt: ts("link_clicked_at"),
+  // AI recruiter: "ai" answers replies; "human" = a partner took over. reviewQuestion = what the AI couldn't answer.
+  aiMode: text("ai_mode").notNull().default("ai"),
+  reviewQuestion: text("review_question"),
+  lastMessageAt: ts("last_message_at"),
   lastContactAt: ts("last_contact_at"),
   createdAt: ts("created_at").notNull().defaultNow(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
@@ -826,3 +837,54 @@ export const adminNotifications = pgTable("admin_notifications", {
   readAt: ts("read_at"),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("admin_notifications_user_idx").on(t.userId, t.readAt, t.createdAt)]);
+
+// Outreach emails the owners edit: "first" email and two follow-ups. Placeholders: {first_name} {name} {city}
+// {category} {recruiter} {link} {spots_left}. One shared set for every partner.
+export const outreachTemplates = pgTable("outreach_templates", {
+  key: text("key").primaryKey(), // "first" | "follow1" | "follow2" | "address" (mailing address in the footer, body only)
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  updatedBy: uuid("updated_by"),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+// A group of prospects started (or scheduled) together.
+export const outreachBatches = pgTable("outreach_batches", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  recruiterId: uuid("recruiter_id").references(() => users.id, { onDelete: "set null" }),
+  name: text("name").notNull(),
+  status: text("status").notNull().default("scheduled"), // scheduled | running | paused | cancelled | done
+  startAt: ts("start_at").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("outreach_batches_status_idx").on(t.status, t.startAt)]);
+
+// Personal invite links in outreach emails: expire 24 hours after they're sent, credit the prospect's recruiter.
+export const outreachLinks = pgTable("outreach_links", {
+  token: text("token").primaryKey(),
+  prospectId: uuid("prospect_id").notNull().references(() => prospects.id, { onDelete: "cascade" }),
+  expiresAt: ts("expires_at").notNull(),
+  clickedAt: ts("clicked_at"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+// Every email in a prospect conversation: their replies (to info@usenearest.com), the AI's answers, a partner's answers.
+export const prospectMessages = pgTable("prospect_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  prospectId: uuid("prospect_id").notNull().references(() => prospects.id, { onDelete: "cascade" }),
+  direction: text("direction").notNull(), // "in" | "out"
+  author: text("author").notNull(), // "prospect" | "ai" | "admin"
+  authorId: uuid("author_id"),
+  subject: text("subject"),
+  body: text("body").notNull(),
+  messageId: text("message_id"), // the email's Message-ID (prevents double-processing, threads replies)
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("prospect_messages_prospect_idx").on(t.prospectId, t.createdAt), index("prospect_messages_mid_idx").on(t.messageId)]);
+
+// Approved answers the AI recruiter may use word-for-word (added by partners, often from "Needs review").
+export const outreachAnswers = pgTable("outreach_answers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  question: text("question").notNull(),
+  answer: text("answer").notNull(),
+  createdBy: uuid("created_by"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});

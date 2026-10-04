@@ -125,7 +125,7 @@ export async function checkCapacity(cityId: number | null, categoryId: number | 
 export const PROSPECT_STATUSES: Record<string, string> = {
   new: "New", approved: "Ready", scheduled: "Scheduled", contacted: "Contacted", conversation: "Conversation", interested: "Interested",
   link_sent: "Link sent", link_clicked: "Link clicked", registered: "Registered", profile_complete: "Profile complete",
-  declined: "Declined", no_response: "No response", opted_out: "Opted out", needs_review: "Needs review", ineligible: "Ineligible",
+  declined: "Declined", no_response: "No response", opted_out: "Opted out", needs_review: "Needs review", ineligible: "Ineligible", market_full: "Market full",
 };
 export const SOURCES = ["Instagram", "Facebook", "Google", "Website", "Event", "Referral", "Beauty Supply Store", "Salon", "Barber Shop", "Beauty School", "Trade School", "Other"];
 

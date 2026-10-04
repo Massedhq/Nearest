@@ -154,3 +154,184 @@ export async function markNotificationsRead() {
   await db.update(adminNotifications).set({ readAt: new Date() }).where(and(eq(adminNotifications.userId, user.id), isNull(adminNotifications.readAt)));
   revalidatePath("/admin", "layout");
 }
+
+// ---------- Part 2: email outreach ----------
+
+/** Save the outreach emails (and the mailing address shown in every email). */
+export async function saveTemplates(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireAdmin();
+  const { outreachTemplates } = await import("@/db");
+  for (const key of ["first", "follow1", "follow2"] as const) {
+    const subject = s(form, `${key}_subject`, 200), body = String(form.get(`${key}_body`) ?? "").trim().slice(0, 5000);
+    if (!subject || !body) return { error: "Every email needs a subject and a message." };
+    if (!body.includes("{link}")) return { error: `Add {link} to the ${key === "first" ? "first email" : key === "follow1" ? "first follow-up" : "last follow-up"} so they can claim their spot.` };
+    await db.insert(outreachTemplates).values({ key, subject, body, updatedBy: user.id }).onConflictDoUpdate({ target: outreachTemplates.key, set: { subject, body, updatedBy: user.id, updatedAt: new Date() } });
+  }
+  const address = s(form, "address", 300);
+  if (!address) return { error: "Add your mailing address — every outreach email must include one." };
+  await db.insert(outreachTemplates).values({ key: "address", subject: "address", body: address, updatedBy: user.id }).onConflictDoUpdate({ target: outreachTemplates.key, set: { body: address, updatedBy: user.id, updatedAt: new Date() } });
+  revalidatePath("/admin/outreach/templates");
+  return { ok: "Saved. Every email from now on uses these." };
+}
+
+/** Email yourself a sample of one template. */
+export async function sendTestOutreach(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireAdmin();
+  if (!user.email) return { error: "Your account has no email." };
+  const key = (["first", "follow1", "follow2"].includes(String(form.get("key"))) ? String(form.get("key")) : "first") as "first" | "follow1" | "follow2";
+  const { sendOutreach } = await import("@/lib/outreach-mail");
+  const sample = { id: "00000000-0000-0000-0000-000000000000", recruiterId: user.id, name: "Christina Lopez", city: "The Colony", category: "Nails", cityId: null, categoryId: null, email: user.email } as unknown as typeof prospects.$inferSelect;
+  const r = await sendOutreach(sample, key, user.email);
+  return r.sent ? { ok: `Test sent to ${user.email}.` } : { error: r.reason ?? "Couldn't send the test." };
+}
+
+/** Put prospects into a batch and start it now or on a date. */
+export async function createBatch(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireAdmin();
+  const { outreachBatches } = await import("@/db");
+  const { isNull, inArray, sql } = await import("drizzle-orm");
+  const name = s(form, "name", 80) || `Outreach ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Chicago" })}`;
+  const limit = Math.min(2000, Math.max(1, Number(form.get("limit")) || 100));
+  const city = s(form, "city", 80), category = s(form, "category", 80);
+  const when = s(form, "startAt", 20);
+  let startAt = new Date();
+  if (form.get("start") === "later") {
+    const m = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})$/.exec(when);
+    if (!m) return { error: "Choose the date and time to start." };
+    startAt = (await import("@/lib/time")).chicagoToUtc(m[1], m[2]);
+    if (startAt.getTime() < Date.now() - 60000) return { error: "Choose a time in the future." };
+  }
+  const ready = await db.select({ id: prospects.id }).from(prospects)
+    .where(and(eq(prospects.recruiterId, user.id), eq(prospects.status, "approved"), isNull(prospects.batchId), sql`${prospects.emailNorm} is not null`,
+      ...(city ? [sql`lower(${prospects.city}) = lower(${city})`] : []), ...(category ? [sql`lower(${prospects.category}) = lower(${category})`] : [])))
+    .orderBy(prospects.createdAt).limit(limit);
+  if (!ready.length) return { error: "No ready prospects with an email match those choices." };
+  const [b] = await db.insert(outreachBatches).values({ recruiterId: user.id, name, status: "scheduled", startAt }).returning();
+  await db.update(prospects).set({ batchId: b.id, updatedAt: new Date() }).where(inArray(prospects.id, ready.map((r) => r.id)));
+  revalidatePath("/admin/outreach/queue");
+  const t = startAt.getTime() <= Date.now() + 60000 ? "starts within 15 minutes" : `starts ${startAt.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Chicago" })}`;
+  return { ok: `"${name}": ${ready.length} prospect${ready.length === 1 ? "" : "s"} — ${t}.` };
+}
+
+/** Pause, resume or cancel a batch. */
+export async function setBatchStatus(form: FormData) {
+  const { user } = await requireAdmin();
+  const { outreachBatches } = await import("@/db");
+  const id = s(form, "id", 40);
+  const to = s(form, "to", 20);
+  const b = await db.query.outreachBatches.findFirst({ where: eq(outreachBatches.id, id) });
+  if (!b || !(await canTouch(user.id, b.recruiterId))) return;
+  if (to === "paused" && ["running", "scheduled"].includes(b.status)) await db.update(outreachBatches).set({ status: "paused" }).where(eq(outreachBatches.id, id));
+  if (to === "resume" && b.status === "paused") await db.update(outreachBatches).set({ status: b.startAt.getTime() > Date.now() ? "scheduled" : "running" }).where(eq(outreachBatches.id, id));
+  if (to === "cancelled" && !["done", "cancelled"].includes(b.status)) {
+    await db.update(outreachBatches).set({ status: "cancelled" }).where(eq(outreachBatches.id, id));
+    const { isNull } = await import("drizzle-orm");
+    // Anyone not emailed yet goes back to Ready; the rest just stop.
+    await db.update(prospects).set({ batchId: null, status: "approved", nextEmailAt: null }).where(and(eq(prospects.batchId, id), eq(prospects.emailsSent, 0)));
+    await db.update(prospects).set({ nextEmailAt: null }).where(and(eq(prospects.batchId, id), isNull(prospects.registeredUserId)));
+  }
+  revalidatePath("/admin/outreach/queue");
+}
+
+/** Master switch: pause every outreach email (owners). */
+export async function setOutreachPaused(form: FormData) {
+  const { user } = await requireAdmin({ owner: true });
+  const { platformSettings } = await import("@/db");
+  const value = form.get("paused") === "1";
+  await db.insert(platformSettings).values({ key: "outreach.paused", value, updatedBy: user.id })
+    .onConflictDoUpdate({ target: platformSettings.key, set: { value, updatedBy: user.id, updatedAt: new Date() } });
+  revalidatePath("/admin/outreach/queue");
+}
+
+/** Pause / resume one prospect's emails. */
+export async function setProspectPaused(form: FormData) {
+  const { user } = await requireAdmin();
+  const id = s(form, "id", 40);
+  const p = await db.query.prospects.findFirst({ where: eq(prospects.id, id) });
+  if (!p || !(await canTouch(user.id, p.recruiterId))) return;
+  const paused = form.get("paused") === "1";
+  await db.update(prospects).set({ paused, updatedAt: new Date() }).where(eq(prospects.id, id));
+  await logProspect(id, paused ? "paused" : "resumed", paused ? "Emails paused." : "Emails resumed.", user.id);
+  revalidatePath(`/admin/outreach/prospects/${id}`);
+}
+
+// ---------- Part 3: AI recruiter ----------
+
+/** A partner answers a prospect (from Needs review or the prospect page). Optionally saves it as an approved answer. */
+export async function replyToProspect(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireAdmin();
+  const id = s(form, "id", 40);
+  const body = String(form.get("body") ?? "").trim().slice(0, 5000);
+  if (!body) return { error: "Write your reply." };
+  const p = await db.query.prospects.findFirst({ where: eq(prospects.id, id) });
+  if (!p || !(await canTouch(user.id, p.recruiterId))) return { error: "Not found." };
+  let text = body;
+  if (form.get("withLink") === "on") {
+    const { makeInviteLink } = await import("@/lib/outreach-mail");
+    text = `${body}\n\nYour personal invite (good for 24 hours):\n${await makeInviteLink(p.id)}`;
+  }
+  const { sendReply } = await import("@/lib/outreach-ai");
+  if (!(await sendReply(p, text, "admin", user.id))) return { error: "Couldn't send — check that email is set up and they have an email address." };
+  await db.update(prospects).set({ status: form.get("withLink") === "on" ? "link_sent" : p.status === "needs_review" ? "conversation" : p.status, reviewQuestion: null, updatedAt: new Date(), ...(form.get("withLink") === "on" ? { linkSentAt: new Date() } : {}) }).where(eq(prospects.id, id));
+  await logProspect(id, "admin_replied", `${user.firstName ?? "A partner"} replied.`, user.id);
+  const q = s(form, "saveQuestion", 500);
+  if (form.get("save") === "on" && q) {
+    const { outreachAnswers } = await import("@/db");
+    await db.insert(outreachAnswers).values({ question: q, answer: body, createdBy: user.id });
+  }
+  revalidatePath(`/admin/outreach/prospects/${id}`);
+  revalidatePath("/admin/outreach/review");
+  return { ok: form.get("save") === "on" && q ? "Sent — and saved so the AI can answer this next time." : "Sent." };
+}
+
+/** Take over a conversation (AI stops answering) or hand it back to the AI. */
+export async function setAiMode(form: FormData) {
+  const { user } = await requireAdmin();
+  const id = s(form, "id", 40);
+  const p = await db.query.prospects.findFirst({ where: eq(prospects.id, id) });
+  if (!p || !(await canTouch(user.id, p.recruiterId))) return;
+  const mode = form.get("mode") === "human" ? "human" : "ai";
+  await db.update(prospects).set({ aiMode: mode, updatedAt: new Date() }).where(eq(prospects.id, id));
+  await logProspect(id, mode === "human" ? "taken_over" : "handed_back", mode === "human" ? `${user.firstName ?? "A partner"} took over — the AI won't reply.` : "Handed back to the AI recruiter.", user.id);
+  revalidatePath(`/admin/outreach/prospects/${id}`);
+}
+
+/** The AI's playbook, never-say rules and holding reply (owners). */
+export async function saveAiCopy(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireAdmin();
+  const { outreachTemplates } = await import("@/db");
+  for (const key of ["playbook", "never", "holding"] as const) {
+    const body = String(form.get(key) ?? "").trim().slice(0, 12000);
+    if (!body) return { error: "Fill in every box." };
+    await db.insert(outreachTemplates).values({ key, subject: key, body, updatedBy: user.id }).onConflictDoUpdate({ target: outreachTemplates.key, set: { body, updatedBy: user.id, updatedAt: new Date() } });
+  }
+  revalidatePath("/admin/outreach/answers");
+  return { ok: "Saved. The AI uses this on its next reply." };
+}
+
+export async function addAnswer(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireAdmin();
+  const question = s(form, "question", 500), answer = String(form.get("answer") ?? "").trim().slice(0, 3000);
+  if (!question || !answer) return { error: "Add the question and the approved answer." };
+  const { outreachAnswers } = await import("@/db");
+  await db.insert(outreachAnswers).values({ question, answer, createdBy: user.id });
+  revalidatePath("/admin/outreach/answers");
+  return { ok: "Added. The AI can use it now." };
+}
+
+export async function deleteAnswer(form: FormData) {
+  await requireAdmin();
+  const { outreachAnswers } = await import("@/db");
+  await db.delete(outreachAnswers).where(eq(outreachAnswers.id, s(form, "id", 40)));
+  revalidatePath("/admin/outreach/answers");
+}
+
+/** Turn the AI recruiter on or off for everyone (owners). Off = every reply goes to Needs review. */
+export async function setAiEnabled(form: FormData) {
+  const { user } = await requireAdmin({ owner: true });
+  const { platformSettings } = await import("@/db");
+  const value = form.get("on") === "1";
+  await db.insert(platformSettings).values({ key: "outreach.ai_enabled", value, updatedBy: user.id })
+    .onConflictDoUpdate({ target: platformSettings.key, set: { value, updatedBy: user.id, updatedAt: new Date() } });
+  revalidatePath("/admin/outreach/answers");
+}
