@@ -6,7 +6,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSignIn } from "@clerk/nextjs";
 
-const msg = (e: { longMessage?: string; message: string } | null) => (e ? e.longMessage ?? e.message : "");
+const raw = (e: { longMessage?: string; message: string } | null) => (e ? e.longMessage ?? e.message : "");
+/** Clerk's "You are signed out" mid-sign-in means this browser's saved login is out of sync — say what fixes it. */
+const msg = (e: { longMessage?: string; message: string } | null) => {
+  const m = raw(e);
+  return /signed out/i.test(m)
+    ? "This browser's saved Nearest login is out of sync. Check that your computer's date and time are set automatically, then clear this site's cookies (or try a private/incognito window) and sign in again."
+    : m;
+};
 
 type Stage = "password" | "code" | "device" | "reset";
 
@@ -21,6 +28,15 @@ export function NearestSignIn({ signUpHref, signUpLabel = "Create an account", a
   const [stage, setStage] = useState<Stage>("password");
   const [email, setEmail] = useState("");
   useEffect(() => { const e = rememberedEmail(); if (e) setEmail(e); }, []);
+  // Clerk sessions break when this device's clock is off — compare with Nearest's server and say so plainly.
+  const [clockOff, setClockOff] = useState(0);
+  useEffect(() => {
+    const t0 = Date.now();
+    fetch("/api/time", { cache: "no-store" }).then((r) => r.json()).then(({ now }: { now: number }) => {
+      const skew = now - (t0 + (Date.now() - t0) / 2);
+      if (Math.abs(skew) > 60_000) setClockOff(Math.round(skew / 60_000));
+    }).catch(() => {});
+  }, []);
   const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [error, setError] = useState("");
@@ -40,6 +56,14 @@ export function NearestSignIn({ signUpHref, signUpLabel = "Create an account", a
         else router.push(url);
       },
     });
+    if (res.error && /signed out/i.test(raw(res.error))) {
+      // One retry, then a full reload — a fresh page picks up the new session if the cookie was just set.
+      await new Promise((r) => setTimeout(r, 800));
+      const again = await signIn.finalize({ navigate: ({ decorateUrl }) => { window.location.href = decorateUrl(afterSignIn); } });
+      if (!again.error) return;
+      setError(msg(again.error));
+      return;
+    }
     if (res.error) setError(msg(res.error));
   }
 
@@ -63,7 +87,7 @@ export function NearestSignIn({ signUpHref, signUpLabel = "Create an account", a
     setEmail(emailAddress);
     await signIn.reset(); // a fresh attempt every time
     let { error } = await signIn.password({ identifier: emailAddress, password });
-    if (error && /signed out/i.test(msg(error))) { await signIn.reset(); ({ error } = await signIn.password({ identifier: emailAddress, password })); }
+    if (error && /signed out/i.test(raw(error))) { await signIn.reset(); ({ error } = await signIn.password({ identifier: emailAddress, password })); }
     if (error) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return; };
     await next();
   }
@@ -76,7 +100,7 @@ export function NearestSignIn({ signUpHref, signUpLabel = "Create an account", a
     setEmail(emailAddress);
     await signIn.reset();
     let { error } = await signIn.emailCode.sendCode({ emailAddress });
-    if (error && /signed out/i.test(msg(error))) { await signIn.reset(); ({ error } = await signIn.emailCode.sendCode({ emailAddress })); }
+    if (error && /signed out/i.test(raw(error))) { await signIn.reset(); ({ error } = await signIn.emailCode.sendCode({ emailAddress })); }
     if (error) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return; };
     setWait(45); setCode(""); setNote(`We emailed a 6-digit code to ${emailAddress}.`); setStage("code");
   }
@@ -100,12 +124,14 @@ export function NearestSignIn({ signUpHref, signUpLabel = "Create an account", a
     const c = code.replace(/\D/g, "");
     if (c.length !== 6) return setError("Enter the 6-digit code.");
     if (stage === "code") {
-      const { error } = await signIn.emailCode.verifyCode({ code: c });
+      let { error } = await signIn.emailCode.verifyCode({ code: c });
+      if (error && /signed out/i.test(raw(error))) { await new Promise((r) => setTimeout(r, 600)); ({ error } = await signIn.emailCode.verifyCode({ code: c })); }
       if (error) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return; };
       return next();
     }
     if (stage === "device") {
-      const { error } = await signIn.mfa.verifyEmailCode({ code: c });
+      let { error } = await signIn.mfa.verifyEmailCode({ code: c });
+      if (error && /signed out/i.test(raw(error))) { await new Promise((r) => setTimeout(r, 600)); ({ error } = await signIn.mfa.verifyEmailCode({ code: c })); }
       if (error) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return; };
       return next();
     }
@@ -131,6 +157,12 @@ export function NearestSignIn({ signUpHref, signUpLabel = "Create an account", a
   if (stage !== "password") {
     return (
       <div className="col" style={{ gap: 14 }}>
+        {clockOff !== 0 && (
+          <div className="card warn small" role="alert" style={{ gap: 2 }}>
+            <span className="b">Your computer&apos;s clock is about {Math.abs(clockOff)} minute{Math.abs(clockOff) === 1 ? "" : "s"} {clockOff > 0 ? "behind" : "ahead"}.</span>
+            <span>That signs you right back out. On Windows: Settings → Time &amp; language → Date &amp; time → turn on &ldquo;Set time automatically&rdquo; and tap Sync now. On a Mac: System Settings → General → Date &amp; Time → &ldquo;Set time and date automatically.&rdquo;</span>
+          </div>
+        )}
         <h2 className="disp h2">{stage === "reset" ? "Reset your password" : "Enter your code"}</h2>
         {note && <p className="small p" style={{ margin: 0 }}>{note}</p>}
         <div className="field">
@@ -154,6 +186,12 @@ export function NearestSignIn({ signUpHref, signUpLabel = "Create an account", a
     <form action={withPassword} className="col" style={{ gap: 14 }}>
       <h2 className="disp h2">Sign in</h2>
       <SignedInBanner />
+      {clockOff !== 0 && (
+        <div className="card warn small" role="alert" style={{ gap: 2 }}>
+          <span className="b">Your computer&apos;s clock is about {Math.abs(clockOff)} minute{Math.abs(clockOff) === 1 ? "" : "s"} {clockOff > 0 ? "behind" : "ahead"}.</span>
+          <span>That signs you right back out. On Windows: Settings → Time &amp; language → Date &amp; time → turn on &ldquo;Set time automatically&rdquo; and tap Sync now. On a Mac: System Settings → General → Date &amp; Time → &ldquo;Set time and date automatically.&rdquo;</span>
+        </div>
+      )}
       <div className="field"><label htmlFor="si-email">Email</label><input id="si-email" name="email" type="email" autoComplete="email" key={email} defaultValue={email} required /></div>
       <div className="field"><label htmlFor="si-password">Password</label><PasswordInput id="si-password" name="password" autoComplete="current-password" /></div>
       {error && <p className="err" role="alert">{error}</p>}
