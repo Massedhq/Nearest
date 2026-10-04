@@ -43,6 +43,7 @@ export const users = pgTable("users", {
   repId: uuid("rep_id"), // sales rep whose link brought them (Sales Board) — never changes after sign-up
   inviteCode: text("invite_code"), // students: their "Invite friends" link code (usenearest.com/?friend=CODE)
   invitedBy: uuid("invited_by"), // students: the student whose invite link they signed up through
+  smsOptInAt: ts("sms_opt_in_at"), // agreed at sign-up to receive text updates (texting isn't on yet — saved for later)
   createdAt: ts("created_at").notNull().defaultNow(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
 }, (t) => [uniqueIndex("users_username_idx").on(t.username), uniqueIndex("users_invite_code_idx").on(t.inviteCode)]);
@@ -754,3 +755,74 @@ export const proTransfers = pgTable("pro_transfers", {
   decidedAt: ts("decided_at"),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("pro_transfers_status_idx").on(t.status), index("pro_transfers_user_idx").on(t.userId)]);
+
+// ---------- Professional Outreach (Admin) ----------
+// One professional = one outreach record across Nearest (matched by normalized email / phone).
+// recruiterId = the owner/partner who works this prospect; their partner code goes on every signup link.
+export const prospects = pgTable("prospects", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  recruiterId: uuid("recruiter_id").references(() => users.id, { onDelete: "set null" }),
+  name: text("name").notNull(),
+  business: text("business"),
+  city: text("city"),
+  state: text("state"),
+  cityId: integer("city_id"),
+  category: text("category"),
+  categoryId: integer("category_id"),
+  email: text("email"),
+  emailNorm: text("email_norm"),
+  phone: text("phone"),
+  phoneNorm: text("phone_norm"),
+  source: text("source"),
+  notes: text("notes"),
+  // new | approved | scheduled | contacted | conversation | interested | link_sent | link_clicked | registered | profile_complete
+  // | declined | no_response | opted_out | needs_review | ineligible
+  status: text("status").notNull().default("approved"),
+  importId: uuid("import_id"),
+  registeredUserId: uuid("registered_user_id"),
+  lastContactAt: ts("last_contact_at"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+}, (t) => [index("prospects_recruiter_idx").on(t.recruiterId, t.status), index("prospects_email_idx").on(t.emailNorm), index("prospects_phone_idx").on(t.phoneNorm), index("prospects_city_idx").on(t.cityId, t.categoryId)]);
+
+// Everything that happens to a prospect: added, imported, emailed, replied, link clicked, registered, notes…
+export const prospectEvents = pgTable("prospect_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  prospectId: uuid("prospect_id").notNull().references(() => prospects.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(),
+  detail: text("detail"),
+  actorId: uuid("actor_id"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("prospect_events_prospect_idx").on(t.prospectId, t.createdAt)]);
+
+// A bulk upload waiting for review: parsed rows with any issues found.
+export const prospectImports = pgTable("prospect_imports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  recruiterId: uuid("recruiter_id").references(() => users.id, { onDelete: "set null" }),
+  filename: text("filename"),
+  source: text("source"),
+  rows: jsonb("rows").notNull(),
+  status: text("status").notNull().default("review"), // review | done
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+// Do not contact: opted out or asked not to be contacted. Checked before any outreach, forever.
+export const outreachSuppression = pgTable("outreach_suppression", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  emailNorm: text("email_norm"),
+  phoneNorm: text("phone_norm"),
+  reason: text("reason"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("outreach_suppression_email_idx").on(t.emailNorm), index("outreach_suppression_phone_idx").on(t.phoneNorm)]);
+
+// Admin bell: one row per admin per notification (read state is per person).
+export const adminNotifications = pgTable("admin_notifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(),
+  title: text("title").notNull(),
+  body: text("body"),
+  href: text("href"),
+  readAt: ts("read_at"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("admin_notifications_user_idx").on(t.userId, t.readAt, t.createdAt)]);

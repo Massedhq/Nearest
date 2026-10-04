@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   experimental: {
     // Student ID + selfie are resized on the phone (~300 KB each) before upload.
-    serverActions: { bodySizeLimit: "3mb" },
+    serverActions: { bodySizeLimit: "10mb" },
   },
   images: {
     // Portfolio and profile photos are stored in Vercel Blob.

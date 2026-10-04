@@ -234,6 +234,10 @@ export async function finalizeEntry(sessionOrId: string | Stripe.Checkout.Sessio
   }
   const sub = typeof session.subscription === "string" ? await stripe().subscriptions.retrieve(session.subscription) : session.subscription;
   if (sub) await saveSubscription(userId, sub);
+  try {
+    const joined = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, userId) });
+    if (joined) await (await import("./outreach")).checkCapacity(joined.slotCityId, joined.slotCategoryId);
+  } catch (e) { console.error("capacity alert", e); }
   if (session.customer) await db.update(professionalProfiles).set({ stripeCustomerId: typeof session.customer === "string" ? session.customer : session.customer.id }).where(eq(professionalProfiles.userId, userId));
 
   if (type === "PRO_STUDENT" && session.metadata.studentLinkId) {

@@ -81,6 +81,7 @@ export async function clerkContact() {
     dob: (cu.unsafeMetadata?.dob as string | undefined) ?? null,
     ref: (cu.unsafeMetadata?.ref as string | undefined) ?? null,
     guardianEmail: (cu.unsafeMetadata?.guardianEmail as string | undefined)?.slice(0, 120) ?? null,
+    smsOptIn: cu.unsafeMetadata?.smsOptIn === true, // pro sign-up: "Text me updates" (saved for when texting is turned on)
     guardianConsent: cu.unsafeMetadata?.guardianConsent === true,
     typedPhone: (cu.unsafeMetadata?.phone as string | undefined)?.slice(0, 30) || null,
   };

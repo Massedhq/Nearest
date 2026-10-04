@@ -13,6 +13,10 @@ export const metadata = { title: { default: "Admin", template: "%s · Nearest Ad
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, role } = await requireAdmin();
   const isMain = (await mainOwnerId()) === user.id;
+  // Notification bell: unread for this admin.
+  const { db, adminNotifications } = await import("@/db");
+  const { and, eq, isNull, sql } = await import("drizzle-orm");
+  const [{ unread }] = await db.select({ unread: sql<number>`count(*)::int` }).from(adminNotifications).where(and(eq(adminNotifications.userId, user.id), isNull(adminNotifications.readAt)));
   return (
     <div className="adm">
       <AdminMobileBar />
@@ -38,6 +42,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
         </div>
       </aside>
+      <Link className="admbell" href="/admin/notifications" aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`}>
+        <Icon name="bell" />{unread > 0 && <span className="admbell-n">{unread > 99 ? "99+" : unread}</span>}
+      </Link>
       <main className="main">{children}</main>
     </div>
   );

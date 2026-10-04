@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "ZIP lookup: county from Nearest cities first, then FCC, then Census (fixes Where do you work)"
+git commit -q -m "Professional Outreach part 1: prospects, bulk import (Excel/CSV/Word/PDF) with review, duplicate + do-not-contact protection, markets, admin bell, registration tracking, text opt-in"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

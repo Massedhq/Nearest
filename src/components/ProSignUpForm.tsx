@@ -34,9 +34,10 @@ export function ProSignUpForm({ invite, refCode, redirectTo }: { invite: string 
     const password = String(form.get("password") ?? "");
     if (password.length < 8) return setError("Use at least 8 characters for your password.");
     if (form.get("agree") !== "on") return setError("Please agree to the Terms and Privacy Policy.");
+    const smsOptIn = form.get("smsOptIn") === "on"; // optional — saved for when Nearest turns texting on
     const params = {
       emailAddress, password, legalAccepted: true,
-      unsafeMetadata: { door: "pro", ...(invite ? { invite } : {}), ...(refCode ? { ref: refCode } : {}) },
+      unsafeMetadata: { door: "pro", ...(invite ? { invite } : {}), ...(refCode ? { ref: refCode } : {}), smsOptIn },
     };
     // Always start a brand-new sign-up (an old, unfinished one is rejected as "signed out").
     await signUp.reset();
@@ -93,6 +94,7 @@ export function ProSignUpForm({ invite, refCode, redirectTo }: { invite: string 
       <div className="field"><label htmlFor="pro-email">Email</label><input id="pro-email" name="email" type="email" autoComplete="email" required /></div>
       <div className="field"><label htmlFor="pro-password">Password</label><PasswordInput id="pro-password" name="password" autoComplete="new-password" minLength={8} required /></div>
       <label className="check" style={{ fontSize: 13 }}><input type="checkbox" name="agree" required /><span>I agree to the <Link className="link" href="/terms" target="_blank" style={{ fontSize: "inherit" }}>Terms</Link> and <Link className="link" href="/privacy" target="_blank" style={{ fontSize: "inherit" }}>Privacy Policy</Link></span></label>
+      <label className="check" style={{ fontSize: 13 }}><input type="checkbox" name="smsOptIn" /><span>Text me Nearest updates (optional). Message and data rates may apply. Reply STOP anytime.</span></label>
       <p className="xs muted p" style={{ margin: 0 }}>We&apos;ll email you a 6-digit code to verify your account. Your email is never shown to customers.</p>
       {error && <p className="err" role="alert">{error}</p>}
       <div id="clerk-captcha" />

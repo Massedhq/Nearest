@@ -46,6 +46,7 @@ export async function completePro(_: FormState, form: FormData): Promise<FormSta
     phoneVerifiedAt: c.phoneVerifiedAt,
     email: c.email,
     emailVerifiedAt: c.emailVerifiedAt,
+    ...(c.smsOptIn ? { smsOptInAt: new Date() } : {}),
     updatedAt: new Date(),
   };
   const [user] = viewer.user
@@ -89,5 +90,7 @@ export async function completePro(_: FormState, form: FormData): Promise<FormSta
       monthlyRateCents: managed === "AMBASSADOR" ? 0 : inv!.rateCents ?? 1500,
     } : {}),
   }).onConflictDoNothing();
+  // Outreach: mark them registered (stops recruiting) and ring the owners' bell.
+  try { await (await import("@/lib/outreach")).onProRegistered(user.id); } catch (e) { console.error("outreach registered", e); }
   redirect("/pro/join"); // pay the entry rate (managed accounts skip straight to setup), then onboarding
 }

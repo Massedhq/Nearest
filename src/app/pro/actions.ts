@@ -343,6 +343,7 @@ export async function submitForReview(_: FormState, form: FormData): Promise<For
     .update(professionalProfiles)
     .set({ reviewStatus: "submitted", submittedAt: new Date(), reviewNote: null })
     .where(eq(professionalProfiles.userId, user.id));
+  try { await (await import("@/lib/outreach")).onProProfileSubmitted(user.id); } catch (e) { console.error("outreach submitted", e); }
   revalidatePath("/pro", "layout");
   redirect("/pro/home");
 }
