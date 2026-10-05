@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { asc, eq } from "drizzle-orm";
 import { db, categories, catalogServices, proServices } from "@/db";
 import { requirePro, setupSteps } from "@/lib/pro";
@@ -27,7 +28,8 @@ export default async function ServicesStep({ searchParams }: { searchParams: Pro
     <SetupShell steps={steps} current="services" title="What do you do?" edit={edit}>
       <p className="muted small p">Customers search the actual service, not just your category.</p>
       {draft && <div className="card ok small"><span>Welcome back — here&apos;s what you saved. Finish your services, then tap Save &amp; continue.</span></div>}
-      <ActionForm action={saveServices} submitLabel={edit ? "Save services" : "Save & continue"} laterLabel={edit ? undefined : "Save & finish later"}>
+      <ActionForm action={saveServices} submitLabel={edit ? "Save services" : "Save & continue"} laterLabel={edit ? undefined : "Save & finish later"}
+        afterOk={<div className="grid2" style={{ gap: 8 }}><Link className="btn ghost sm" href="/pro/setup/review">View my profile</Link><Link className="btn ghost sm" href="/pro/business">Back to my account menu</Link></div>}>
         {edit && <input type="hidden" name="edit" value="1" />}
         <ServicesEditor categories={catProps} initial={initial} userId={user.id} feeCents={Number((await getSettings())["fees.service_fee_cents"] ?? 500)} />
       </ActionForm>

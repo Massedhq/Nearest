@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Service photos, four credential choices (no profile tags for enrolled/self-taught), ID check in setup, Finish buttons, $30 after-year rate, $5 Nearest service fee added to student prices"
+git commit -q -m "Services: saved services fold into one-line rows with Edit; after saving, View my profile / Back to my account menu"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

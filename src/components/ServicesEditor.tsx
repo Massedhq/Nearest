@@ -44,11 +44,15 @@ export function ServicesEditor({ categories, initial, userId, feeCents = 500 }: 
   const [rows, setRows] = useState<Row[]>(initial);
   const [cats, setCats] = useState<number[]>(() => [...new Set(initial.map((r) => r.categoryId))]);
   const [capWarn, setCapWarn] = useState(false);
+  const [open, setOpen] = useState<Set<number>>(() => new Set(initial.map((r, i) => (!r.name.trim() || !String(r.price).trim() ? i : -1)).filter((i) => i >= 0)));
+  const openRow = (i: number) => setOpen((o) => new Set(o).add(i));
+  const close = (i: number) => setOpen((o) => { const n = new Set(o); n.delete(i); return n; });
 
   const toggleCat = (id: number) => setCats((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
   const update = (i: number, patch: Partial<Row>) => setRows((r) => r.map((row, j) => (j === i ? { ...row, ...patch } : row)));
-  const add = (categoryId: number, name = "") => setRows((r) => [...r, { categoryId, name, price: "", duration: "60", addFee: true }]);
-  const remove = (i: number) => setRows((r) => r.filter((_, j) => j !== i));
+  const add = (categoryId: number, name = "") => setRows((r) => { setOpen((o) => new Set(o).add(r.length)); return [...r, { categoryId, name, price: "", duration: "60", addFee: true }]; });
+  // Removing shifts the rows after it up by one — keep the same services open.
+  const remove = (i: number) => { setRows((r) => r.filter((_, j) => j !== i)); setOpen((o) => new Set([...o].filter((x) => x !== i).map((x) => (x > i ? x - 1 : x)))); };
   const kept = rows.filter((r) => cats.includes(r.categoryId));
 
   return (
@@ -67,6 +71,7 @@ export function ServicesEditor({ categories, initial, userId, feeCents = 500 }: 
             <div className="row between"><span className="eyebrow">{c.name}</span><span className="xs muted">Price • Minutes</span></div>
             {c.licenseRequired && <span className="tag warn" style={{ alignSelf: "flex-start" }}>License required</span>}
             {mine.map(({ r, i }) => (
+              open.has(i) ? (
               <div key={i} className="col" style={{ gap: 6 }}>
               <div className="row">
                 <input className="ainput grow" aria-label="Service name" placeholder="Service name" value={r.name} onChange={(e) => update(i, { name: e.target.value })} />
@@ -84,7 +89,19 @@ export function ServicesEditor({ categories, initial, userId, feeCents = 500 }: 
                 <span>Add the {fmt(feeD)} Nearest service fee to my price{studentPrice(r) != null ? <> — <span className="b">students see {fmt(studentPrice(r)!)}</span>{r.addFee === false ? `, you receive ${fmt(Math.max(0, studentPrice(r)! - feeD))}` : ""}</> : ""}</span>
               </label>
               <ServicePhoto userId={userId} url={r.photo} onChange={(u) => update(i, { photo: u })} />
+              <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} onClick={() => close(i)}>Done</button>
             </div>
+              ) : (
+              // Saved services stay compact: one line with the price students see and an Edit button.
+              <div key={i} className="row" style={{ gap: 10, padding: "6px 0", borderTop: "1px solid #1C1C1F" }}>
+                {r.photo ? <span style={{ width: 40, height: 40, borderRadius: 8, overflow: "hidden", flex: "none" }}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={r.photo} alt="" width={40} height={40} style={{ objectFit: "cover", width: 40, height: 40 }} /></span> : null}
+                <div className="grow col" style={{ gap: 2, minWidth: 0 }}>
+                  <span className="b" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name || "Untitled service"}{r.adultsOnly ? <span className="tag warn" style={{ marginLeft: 6 }}>18+</span> : null}</span>
+                  <span className="xs muted">{studentPrice(r) != null ? `Students see ${fmt(studentPrice(r)!)}` : "No price yet"} • {r.duration || "?"} min</span>
+                </div>
+                <button type="button" className="btn ghost sm" style={{ flex: "none" }} onClick={() => openRow(i)}>Edit</button>
+              </div>
+              )
             ))}
             {unused.length > 0 && (
               <div className="chips">{unused.map((s) => <button key={s} type="button" className="chip" style={{ height: 32 }} onClick={() => add(c.id, s)}>+ {s}</button>)}</div>
