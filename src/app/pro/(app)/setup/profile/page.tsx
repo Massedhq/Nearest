@@ -8,7 +8,7 @@ import { instagramUrl, tiktokUrl } from "@/lib/social";
 import { ActionForm } from "@/components/ActionForm";
 import { Uploader } from "@/components/Uploader";
 import { Icon } from "@/components/Icon";
-import { saveProfile, saveAvatar } from "@/app/pro/actions";
+import { saveProfile, saveAvatar, saveLogo } from "@/app/pro/actions";
 
 export const metadata = { title: "Profile" };
 
@@ -19,18 +19,32 @@ export default async function ProfileStep({ searchParams }: { searchParams: Prom
   const slug = await ensureProSlug(user.id);
   return (
     <SetupShell steps={steps} current="profile" title="Build your professional profile" edit={edit}>
+      <span className="lbl">Photo of you</span>
       <div className="row">
         {p.photoUrl ? (
-          <Image src={p.photoUrl} alt="Your profile photo" width={84} height={84} style={{ borderRadius: 42, objectFit: "cover" }} />
+          <Image src={p.photoUrl} alt="Photo of you" width={84} height={84} style={{ borderRadius: 42, objectFit: "cover" }} />
         ) : (
           <div className="avatar lg"><Icon name="camera" size="l" /></div>
         )}
-        <div className="grow"><Uploader userId={user.id} folder="avatar" save={saveAvatar} multiple={false} label={p.photoUrl ? "Change photo or logo" : "Upload photo or logo"} /></div>
+        <div className="grow col" style={{ gap: 4 }}>
+          <Uploader userId={user.id} folder="avatar" save={saveAvatar} multiple={false} label={p.photoUrl ? "Change your photo" : "Upload a photo of you"} />
+          <span className="xs muted">A clear, friendly photo of your face, so clients know who they&apos;re booking.</span>
+        </div>
+      </div>
+      <span className="lbl">Business logo (optional)</span>
+      <div className="row">
+        {p.logoUrl ? (
+          <Image src={p.logoUrl} alt="Your business logo" width={64} height={64} style={{ borderRadius: 12, objectFit: "cover" }} />
+        ) : (
+          <div className="avatar" style={{ borderRadius: 12 }}><Icon name="store" /></div>
+        )}
+        <div className="grow"><Uploader userId={user.id} folder="logo" save={saveLogo} multiple={false} label={p.logoUrl ? "Change logo" : "Upload your logo"} /></div>
       </div>
       <FollowNearest />
       <ActionForm action={saveProfile} submitLabel={edit ? "Save" : "Save & continue"} laterLabel={edit ? undefined : "Save & finish later"}>
         {edit && <input type="hidden" name="edit" value="1" />}
-        <div className="field"><label htmlFor="businessName">Business / professional name</label><input id="businessName" name="businessName" defaultValue={p.businessName ?? ""} required /></div>
+        <div className="field"><label htmlFor="displayName">Your name (as clients will see it)</label><input id="displayName" name="displayName" defaultValue={p.displayName ?? [user.firstName, user.lastName ? `${user.lastName[0]}.` : ""].filter(Boolean).join(" ")} maxLength={60} required /><span className="xs muted">The person clients are booking — for example &ldquo;Jasmine C.&rdquo;</span></div>
+        <div className="field"><label htmlFor="businessName">Business name</label><input id="businessName" name="businessName" defaultValue={p.businessName ?? ""} maxLength={80} required /><span className="xs muted">Your salon, studio or brand. No business name yet? Use your own name.</span></div>
         <div className="field"><label htmlFor="bio">About me</label><textarea id="bio" name="bio" defaultValue={p.bio ?? ""} placeholder="Tell customers about your work and experience." required /></div>
         <div className="field">
           <label htmlFor="slug">Your booking link</label>

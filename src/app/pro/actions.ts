@@ -40,6 +40,8 @@ function blobUrlOk(url: string, userId: string) {
 export async function saveProfile(_: FormState, form: FormData): Promise<FormState> {
   const { user } = await requirePro();
   const businessName = str(form, "businessName", 80);
+  const displayName = str(form, "displayName", 60);
+  if (form.get("later") !== "1" && !displayName) return { error: "Add your name the way clients will see it." };
   const bio = str(form, "bio", 1200);
   const yearsRaw = str(form, "years", 3);
   const years = yearsRaw ? Number(yearsRaw) : null;
@@ -61,9 +63,19 @@ export async function saveProfile(_: FormState, form: FormData): Promise<FormSta
   if (years !== null && (!Number.isInteger(years) || years < 0 || years > 70)) return { error: "Years of experience should be a whole number." };
   await db
     .update(professionalProfiles)
-    .set({ businessName, bio, yearsExperience: years, instagram, tiktok, website: null, showInstagram: form.get("showInstagram") === "on" })
+    .set({ displayName: displayName || null, businessName, bio, yearsExperience: years, instagram, tiktok, website: null, showInstagram: form.get("showInstagram") === "on" })
     .where(eq(professionalProfiles.userId, user.id));
   return done(user.id, "profile", form);
+}
+
+/** The business logo (separate from the photo of the professional). */
+export async function saveLogo(urls: string[]): Promise<{ error?: string }> {
+  const { user } = await requirePro();
+  const url = urls[0];
+  if (!url || !blobUrlOk(url, user.id)) return { error: "Upload didn't complete. Try again." };
+  await db.update(professionalProfiles).set({ logoUrl: url }).where(eq(professionalProfiles.userId, user.id));
+  revalidatePath("/pro", "layout");
+  return {};
 }
 
 export async function saveAvatar(urls: string[]): Promise<{ error?: string }> {
@@ -76,7 +88,7 @@ export async function saveAvatar(urls: string[]): Promise<{ error?: string }> {
 }
 
 // ---------- Services ----------
-type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean };
+type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; photo?: string | null };
 
 export async function saveServices(_: FormState, form: FormData): Promise<FormState> {
   const { user, profile } = await requirePro();
@@ -105,7 +117,8 @@ export async function saveServices(_: FormState, form: FormData): Promise<FormSt
     if (!Number.isFinite(price) || price <= 0) return { error: `Enter a price for ${name}.` };
     if (price > MAX_PRICE_DOLLARS) return { error: `Student prices can't be more than $${MAX_PRICE_DOLLARS} — ${name} is set to $${price}.` };
     if (!Number.isInteger(duration) || duration < 10 || duration > 600) return { error: `Enter ${name}'s length in minutes (10–600).` };
-    values.push({ userId: user.id, categoryId: Number(r.categoryId), name, priceCents: Math.round(price * 100), durationMin: duration, sort: i, adultsOnly: Boolean(r.adultsOnly) });
+    const photo = typeof r.photo === "string" && blobUrlOk(r.photo, user.id) ? r.photo : null; // optional photo of this service
+    values.push({ userId: user.id, categoryId: Number(r.categoryId), name, priceCents: Math.round(price * 100), durationMin: duration, sort: i, adultsOnly: Boolean(r.adultsOnly), photoUrl: photo });
   }
   // Spots are limited per city, per category — nobody can add a category that's full where they work.
   const full = await (await import("@/lib/slots")).wouldOverfill(profile, profile.cityId ?? profile.slotCityId, values.map((v) => v.categoryId));
@@ -130,7 +143,33 @@ export async function saveCredentials(_: FormState, form: FormData): Promise<For
   const ids = form.getAll("categoryId").map(Number);
   if (!ids.length) return done(user.id, "credentials", form);
   for (const id of ids) {
-    if (str(form, `mode_${id}`, 10) === "diploma") {
+    const mode = str(form, `mode_${id}`, 12);
+    if (mode === "enrolled" || mode === "self_taught") {
+      // Currently in school (program + expected graduation + student ID/enrollment photo) or self-taught (years + how).
+      const photo = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(String(form.get(`diploma_${id}`) ?? ""));
+      const hadPhoto = await db.query.studentIdDocs.findFirst({ where: and(eq(studentIdDocs.userId, user.id), eq(studentIdDocs.kind, `diploma_${id}`)) });
+      let schoolName = "", completed: string | null = null, number = "";
+      if (mode === "enrolled") {
+        schoolName = str(form, `school_${id}`, 120); completed = str(form, `completed_${id}`, 10);
+        if (!schoolName || !/^\d{4}-\d{2}-\d{2}$/.test(completed)) return { error: "Enter your school and expected graduation date." };
+        if (!photo && !hadPhoto) return { error: "Add a photo of your student ID or enrollment letter." };
+      } else {
+        number = str(form, `years_${id}`, 2); schoolName = str(form, `how_${id}`, 120);
+        if (!/^\d{1,2}$/.test(number)) return { error: "Enter how many years you've been doing this." };
+        if (!schoolName) return { error: "Tell us how you learned." };
+      }
+      if (photo && photo[1].length > 1_400_000) return { error: "That photo is too large. Try again." };
+      if (photo) {
+        await db.insert(studentIdDocs).values({ userId: user.id, kind: `diploma_${id}`, mime: "image/jpeg", dataB64: photo[1] })
+          .onConflictDoUpdate({ target: [studentIdDocs.userId, studentIdDocs.kind], set: { dataB64: photo[1], createdAt: new Date() } });
+      }
+      const licenseType = mode === "enrolled" ? "Student — license in progress" : "Self-taught";
+      await db.insert(proCredentials)
+        .values({ userId: user.id, categoryId: id, kind: mode, licenseType, licenseNumber: number, schoolName, completedOn: completed, issuingState: "Texas" })
+        .onConflictDoUpdate({ target: [proCredentials.userId, proCredentials.categoryId], set: { kind: mode, licenseType, licenseNumber: number, schoolName, completedOn: completed, expiresOn: null, status: "pending", reviewNote: null } });
+      continue;
+    }
+    if (mode === "diploma") {
       // Recent graduate, license pending: school + graduation date + diploma photo and/or number.
       const schoolName = str(form, `school_${id}`, 120);
       const completed = str(form, `completed_${id}`, 10);
@@ -335,10 +374,31 @@ export async function finishPortfolio(_: FormState, form: FormData): Promise<For
 
 // ---------- Submit for review ----------
 export async function submitForReview(_: FormState, form: FormData): Promise<FormState> {
-  void form;
-  const { user, profile } = await requirePro();
+  const { user, profile, viewer } = await requirePro();
   if (profile.reviewStatus === "approved") return { ok: "You're already approved." };
   if (!setupComplete(await setupSteps(user.id))) return { error: "Finish the remaining setup steps first." };
+  // First submit: accept the Professional Terms and join — their spot and membership rate are set now (no payment).
+  if (!profile.entryPaidAt && viewer.admin?.role !== "OWNER") {
+    const { PRO_TERMS_VERSION } = await import("@/lib/pro-terms");
+    if (form.get("acceptTerms") !== "on" || String(form.get("termsVersion")) !== PRO_TERMS_VERSION) return { error: "Scroll through and accept the Professional Terms to submit." };
+    if (form.get("inviteReward") !== "on") return { error: "Please agree to honor the $5 student invite reward." };
+    const { enrollmentQuote } = await import("@/lib/enroll");
+    const q = await enrollmentQuote(profile);
+    if (!q.ok) return { error: q.reason };
+    const { headers } = await import("next/headers");
+    const ip = ((await headers()).get("x-forwarded-for") ?? "").split(",")[0].trim().slice(0, 64) || null;
+    const { isNull } = await import("drizzle-orm");
+    const [row] = await db.update(professionalProfiles).set({
+      entryType: q.type, monthlyRateCents: q.cents, entryPaidAt: new Date(), cohort: q.type === "FIRST_IN" ? "FOUNDING" : "SECOND", entryHoldUntil: null,
+      slotCityId: q.cityId, slotCategoryId: q.categoryId,
+      proTermsVersion: PRO_TERMS_VERSION, proTermsAcceptedAt: new Date(), proTermsIp: ip,
+    }).where(and(eq(professionalProfiles.userId, user.id), isNull(professionalProfiles.entryPaidAt))).returning();
+    if (row) {
+      const { logActivity } = await import("@/lib/log");
+      await logActivity({ actorUserId: user.id, action: "pro.enrolled", targetType: "professional", targetId: user.id, after: { entryType: q.type, rateCents: q.cents, termsVersion: PRO_TERMS_VERSION, ip } });
+      try { await (await import("@/lib/outreach")).checkCapacity(row.slotCityId, row.slotCategoryId); } catch (e) { console.error(e); }
+    }
+  }
   await db
     .update(professionalProfiles)
     .set({ reviewStatus: "submitted", submittedAt: new Date(), reviewNote: null })

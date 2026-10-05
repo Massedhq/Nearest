@@ -3,17 +3,18 @@ import { redirect } from "next/navigation";
 import { and, eq, sql, ne } from "drizzle-orm";
 import { db, professionalProfiles, proServices, proHours, portfolioItems, proCredentials, categories } from "@/db";
 import { getViewer, destinationFor, proAccess } from "./viewer";
-import { hasPaidEntry } from "./entry";
 
-/** Use at the top of every pro page and pro server action. */
-/** Professionals pay their entry at registration; anyone who hasn't is sent to /pro/join first. */
-export async function requirePro(opts: { allowUnpaid?: boolean } = {}) {
+/**
+ * Use at the top of every pro page and pro server action. Professionals build their whole profile first and accept
+ * the Professional Terms on the last step (no payment to join). `allowUnpaid` is kept for older callers; it has no effect.
+ */
+export async function requirePro(_opts: { allowUnpaid?: boolean } = {}) {
+  void _opts;
   const viewer = await getViewer();
   if (!viewer) redirect("/pro/sign-in");
   if (!viewer.user || !(await proAccess(viewer))) redirect(await destinationFor(viewer));
   const profile = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, viewer.user!.id) });
   if (!profile) redirect("/pro/onboarding");
-  if (!opts.allowUnpaid && !hasPaidEntry(profile) && viewer.admin?.role !== "OWNER") redirect("/pro/join"); // owners never pay
   return { viewer, user: viewer.user!, profile };
 }
 
@@ -44,6 +45,8 @@ export async function setupSteps(userId: string): Promise<SetupStep[]> {
     { key: "hours", label: "Hours", href: "/pro/setup/hours", done: hrs.n > 0 },
     { key: "communication", label: "Communication", href: "/pro/setup/communication", done: Array.isArray(profile.languages) && profile.languages.length > 0 },
     { key: "portfolio", label: "Portfolio", href: "/pro/setup/portfolio", done: port.n > 0, optional: true },
+    // Secures the account: photo ID + selfie, checked by Nearest. Sent (pending) counts as done for submitting.
+    { key: "identity", label: "Verify your identity", href: "/pro/setup/identity", done: ["pending", "verified"].includes(profile.identityStatus ?? "") },
   );
   return steps;
 }

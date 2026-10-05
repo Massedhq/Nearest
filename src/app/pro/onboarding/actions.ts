@@ -92,5 +92,5 @@ export async function completePro(_: FormState, form: FormData): Promise<FormSta
   }).onConflictDoNothing();
   // Outreach: mark them registered (stops recruiting) and ring the owners' bell.
   try { await (await import("@/lib/outreach")).onProRegistered(user.id); } catch (e) { console.error("outreach registered", e); }
-  redirect("/pro/join"); // pay the entry rate (managed accounts skip straight to setup), then onboarding
+  redirect("/pro/setup/profile"); // build the whole profile first; Terms + membership are on the last step
 }

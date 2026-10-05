@@ -4,10 +4,39 @@ import { MAX_PRICE_DOLLARS } from "@/lib/pricing";
 import { cleanPrice, underCap } from "./PriceInput";
 
 export type Cat = { id: number; name: string; licenseRequired: boolean; suggestions: string[] };
-export type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean };
+export type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; photo?: string | null };
 
 /** Pick categories, then list each service with a price and length. Sends everything as one JSON field. */
-export function ServicesEditor({ categories, initial }: { categories: Cat[]; initial: Row[] }) {
+/** Optional photo of one service: uploads straight to storage and keeps the link on that row. */
+function ServicePhoto({ userId, url, onChange }: { userId: string; url?: string | null; onChange: (u: string | null) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const pick = async (f: File | undefined) => {
+    if (!f) return;
+    if (!/^image\/(jpeg|png|webp)$/.test(f.type)) { setErr("Use a JPG, PNG or WebP photo."); return; }
+    setBusy(true); setErr("");
+    try {
+      const { upload } = await import("@vercel/blob/client");
+      const ext = f.type === "image/png" ? "png" : f.type === "image/webp" ? "webp" : "jpg";
+      const blob = await upload(`pros/${userId}/service/${Date.now()}.${ext}`, f, { access: "public", handleUploadUrl: "/api/blob" });
+      onChange(blob.url);
+    } catch { setErr("Upload didn't finish. Try again."); }
+    setBusy(false);
+  };
+  return (
+    <div className="row" style={{ gap: 8, marginTop: -2 }}>
+      {url && <span style={{ width: 40, height: 40, borderRadius: 8, overflow: "hidden", flex: "none" }}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={url} alt="" width={40} height={40} style={{ objectFit: "cover", width: 40, height: 40 }} /></span>}
+      <label className="link xs" style={{ cursor: "pointer" }}>
+        {busy ? "Uploading…" : url ? "Change photo" : "+ Add a photo of this service (optional)"}
+        <input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={busy} onChange={(e) => pick(e.target.files?.[0])} />
+      </label>
+      {url && !busy && <button type="button" className="link xs" onClick={() => onChange(null)}>Remove</button>}
+      {err && <span className="err xs">{err}</span>}
+    </div>
+  );
+}
+
+export function ServicesEditor({ categories, initial, userId }: { categories: Cat[]; initial: Row[]; userId: string }) {
   const [rows, setRows] = useState<Row[]>(initial);
   const [cats, setCats] = useState<number[]>(() => [...new Set(initial.map((r) => r.categoryId))]);
   const [capWarn, setCapWarn] = useState(false);
@@ -46,6 +75,7 @@ export function ServicesEditor({ categories, initial }: { categories: Cat[]; ini
                 <input type="checkbox" checked={Boolean(r.adultsOnly)} onChange={(e) => update(i, { adultsOnly: e.target.checked })} />
                 <span><span className="b">18+ only</span> — must be 18 or older to book</span>
               </label>
+              <ServicePhoto userId={userId} url={r.photo} onChange={(u) => update(i, { photo: u })} />
             </div>
             ))}
             {unused.length > 0 && (

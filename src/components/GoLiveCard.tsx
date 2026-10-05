@@ -41,7 +41,7 @@ export async function GoLiveCard({ profile }: { profile: Profile }) {
       <span className="xs muted">Finish these and the Go live button turns on. Payouts aren&apos;t required.</span>
       <div className="col" style={{ gap: 6 }}>
         {left.map((x) => x.href
-          ? <Link key={x.label} className="row small" href={x.href} style={{ textDecoration: "none", color: "inherit" }}><Icon name="right" size="s" /><span className="grow">{x.label}</span></Link>
+          ? <div key={x.label} className="row small" style={{ gap: 10 }}><span className="grow">{x.label}</span><Link className="btn sm" href={x.href} style={{ flex: "none" }}>Finish</Link></div>
           : <div key={x.label} className="row small"><Icon name="clock" size="s" /><span className="grow">{x.label}</span></div>)}
       </div>
       <button className="btn sm" type="button" disabled style={{ width: "100%", opacity: 0.5 }}>Go live</button>

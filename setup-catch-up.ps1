@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Free pro enrollment + booking requests (no card hold), first-accept membership activation; remove stray Claude outputs copy"
+git commit -q -m "Service photos, four credential choices, ID check in setup, Finish buttons, $30 after-year rate in Terms"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

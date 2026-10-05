@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { asc, and, eq, ne } from "drizzle-orm";
 import { TopBar } from "@/components/TopBar";
@@ -7,9 +8,7 @@ import { stripeEnabled } from "@/lib/stripe";
 import { finalizeEntry, getEntryState, hasPaidEntry, allowedEntries, nextEntryStats } from "@/lib/entry";
 import { slotStatus, onWaitlist, isCapExempt } from "@/lib/slots";
 import { db, categories } from "@/db";
-import { saveSlot, clearSlot, joinSlotWaitlist, enrollPro } from "./actions";
-import { ProTermsAgreement } from "@/components/ProTermsAgreement";
-import { proTermsSections, PRO_TERMS_VERSION } from "@/lib/pro-terms";
+import { saveSlot, clearSlot, joinSlotWaitlist } from "./actions";
 
 export const metadata = { title: "Join Nearest" };
 export const dynamic = "force-dynamic";
@@ -25,7 +24,7 @@ export default async function Join({ searchParams }: { searchParams: Promise<{ s
   }
   const { profile, viewer } = await requirePro({ allowUnpaid: true });
   if (viewer.admin?.role === "OWNER") redirect("/pro/home"); // owners never pay
-  if (hasPaidEntry(profile)) redirect("/pro/home");
+  if (hasPaidEntry(profile)) redirect("/pro/home"); // already joined
 
   const state = await getEntryState();
   const [{ allowed, reason, bypass }, slot, exempt, next750] = await Promise.all([allowedEntries(profile), slotStatus(profile), isCapExempt(profile), nextEntryStats()]);
@@ -94,37 +93,13 @@ export default async function Join({ searchParams }: { searchParams: Promise<{ s
         )}
         {reason === "next_full" && <div className="card small"><span>The next {next750.capacity} spots are taken right now, so new spots open from the waitlist.</span></div>}
 
-        {(["FIRST_IN", "DFW_NEXT", "MARKET"] as const).filter((t) => allowed.includes(t)).slice(0, 1).map((t) => {
-          const price = t === "FIRST_IN" ? 11 : t === "DFW_NEXT" ? 17 : 20;
-          const rate = { cents: price * 100, label: t === "FIRST_IN" ? "First In" : t === "DFW_NEXT" ? "DFW membership" : "Market rate" };
-          return (
-            <div key={t} className="col" style={{ gap: 12 }}>
-              {t === "FIRST_IN" && <span className="tag warn" style={{ alignSelf: "flex-start" }}>First In</span>}
-              {bypass && <span className="tag warn" style={{ alignSelf: "flex-start" }}>Or skip the waitlist</span>}
-              <h1 className="disp h1">{t === "FIRST_IN" ? "Join Nearest First In." : bypass ? `Join the next ${next750.capacity} now.` : "Join Nearest."}</h1>
-              {t === "DFW_NEXT" && (
-                <div className="card" style={{ gap: 6 }}>
-                  <div className="row between"><span className="small b">The next {next750.capacity}</span><span className="small b">{next750.left.toLocaleString()} of {next750.capacity.toLocaleString()} left</span></div>
-                  <div className="bar"><i style={{ width: `${next750.capacity ? Math.round((next750.registered / next750.capacity) * 100) : 0}%` }} /></div>
-                </div>
-              )}
-              <div className="card pearl">
-                <span className="disp h2">${price}/month</span>
-                <span className="small">Your rate for your first 12 months.</span>
-              </div>
-              <div className="card ok small" style={{ gap: 4 }}>
-                <span className="b">Nothing to pay today.</span>
-                <span>Build your full profile for free. Your ${price}/month membership activates when you accept your first booking.</span>
-              </div>
-              <ActionForm action={enrollPro} submitLabel="Agree and continue">
-                <input type="hidden" name="type" value={t} />
-                <ProTermsAgreement sections={proTermsSections(rate)} version={PRO_TERMS_VERSION} />
-                <label className="check xs" style={{ alignItems: "flex-start" }}><input type="checkbox" name="inviteReward" required /><span>I agree to honor Nearest&apos;s $5 student invite reward: a student who earned it by inviting a friend gets $5 off their first booking with me, taken from that booking&apos;s payout.</span></label>
-              </ActionForm>
-              <p className="xs muted p">No commission on bookings.</p>
-            </div>
-          );
-        })}
+        {allowed.length > 0 && (
+          <div className="card ok" style={{ gap: 8 }}>
+            <span className="b">There&apos;s room for you.</span>
+            <span className="small">Keep building your profile — services, hours, photos. You&apos;ll review the Professional Terms and submit on the last step. Nothing is charged to join.</span>
+            <Link className="btn sm" href="/pro/home" style={{ alignSelf: "flex-start" }}>Continue setting up</Link>
+          </div>
+        )}
       </div>
     </div>
   );

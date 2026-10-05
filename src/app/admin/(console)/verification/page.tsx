@@ -134,11 +134,11 @@ export default async function Verification() {
               <tr key={c.id}>
                 <td>{biz ?? `${u.firstName} ${u.lastName}`}<div className="xs muted">{u.firstName} {u.lastName}</div></td>
                 <td>{cat}</td>
-                {c.kind === "diploma" ? (
+                {c.kind !== "license" ? (
                   <td colSpan={4}>
-                    <span className="tag warn">Recent graduate — license pending</span>
-                    <div className="small">{c.schoolName} • graduated {c.completedOn}{c.licenseNumber ? ` • diploma # ${c.licenseNumber}` : ""}</div>
-                    <a className="link xs" href={`/api/admin/id-doc/${c.userId}/diploma_${c.categoryId}`} target="_blank" rel="noreferrer">View diploma / certificate photo (view logged)</a>
+                    <span className="tag warn">{c.kind === "diploma" ? "Recent graduate — license pending" : c.kind === "enrolled" ? "Currently enrolled in school" : "Self-taught"}</span>
+                    <div className="small">{c.kind === "diploma" ? `${c.schoolName} • graduated ${c.completedOn}${c.licenseNumber ? ` • diploma # ${c.licenseNumber}` : ""}` : c.kind === "enrolled" ? `${c.schoolName} • expected graduation ${c.completedOn}` : `${c.licenseNumber} year(s) • learned: ${c.schoolName}`}</div>
+                    <a className="link xs" href={`/api/admin/id-doc/${c.userId}/diploma_${c.categoryId}`} target="_blank" rel="noreferrer">View photo (view logged)</a>
                   </td>
                 ) : (
                   <><td>{c.licenseType}</td><td className="num">{c.licenseNumber}</td><td>{c.issuingState}</td><td>{c.expiresOn ?? "—"}</td></>

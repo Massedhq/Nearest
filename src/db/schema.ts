@@ -201,6 +201,9 @@ export const professionalProfiles = pgTable("professional_profiles", {
   cardSavedAt: ts("card_saved_at"),
   identityNote: text("identity_note"), // why the ID check was sent back (shown on their Subscription screen)
   // Professional Terms (incl. the membership disclosure) — proof of exactly which version they accepted.
+  // Who students are booking: the professional's own name + photo (photoUrl), separate from the business name + logo.
+  displayName: text("display_name"), // e.g. "Jasmine C." — falls back to first name + last initial
+  logoUrl: text("logo_url"),
   proTermsVersion: text("pro_terms_version"),
   proTermsAcceptedAt: ts("pro_terms_accepted_at"),
   proTermsIp: text("pro_terms_ip"),
@@ -269,6 +272,7 @@ export const catalogServices = pgTable("catalog_services", {
 }, (t) => [uniqueIndex("catalog_services_cat_name").on(t.categoryId, t.name)]);
 
 export const proServices = pgTable("pro_services", {
+  photoUrl: text("photo_url"), // optional photo of this service (their own work)
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   categoryId: integer("category_id").notNull().references(() => categories.id),

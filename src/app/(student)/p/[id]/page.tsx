@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { PortfolioViewer } from "@/components/PortfolioViewer";
+import { personName } from "@/lib/pro-name";
 import { VerifyToBook } from "@/components/VerifyToBook";
 import { instagramHandle, tiktokHandle, instagramUrl, tiktokUrl } from "@/lib/social";
 import Link from "next/link";
@@ -7,7 +8,7 @@ import { getFlag } from "@/lib/settings";
 import { notFound } from "next/navigation";
 import { and, asc, desc, eq, lte, sql } from "drizzle-orm";
 import { MAX_PRICE_CENTS } from "@/lib/pricing";
-import { db, bookings, proCredentials, professionalProfiles, proServices, portfolioItems, proHours, proOpenings, cities, reviews, favorites } from "@/db";
+import { db, users, bookings, proCredentials, professionalProfiles, proServices, portfolioItems, proHours, proOpenings, cities, reviews, favorites } from "@/db";
 import { FavButton } from "@/components/FavButton";
 import { ShareProButton } from "@/components/ShareProButton";
 import { ensureProSlug, proLink } from "@/lib/connections";
@@ -37,8 +38,11 @@ export default async function ProProfile({ params, searchParams }: { params: Pro
   if (!p) notFound();
   const today = chicagoNow().date;
   // Categories where this pro was approved as a recent graduate (license pending) — shown honestly to students.
-  const pendingLicenseCats = new Set((await db.select({ c: proCredentials.categoryId }).from(proCredentials)
-    .where(and(eq(proCredentials.userId, id), eq(proCredentials.kind, "diploma"), eq(proCredentials.status, "verified")))).map((r) => r.c));
+  const credRows = await db.select({ c: proCredentials.categoryId, kind: proCredentials.kind }).from(proCredentials)
+    .where(and(eq(proCredentials.userId, id), eq(proCredentials.status, "verified")));
+  const CRED_TAG: Record<string, string> = { diploma: "Recent graduate — license pending", enrolled: "Student — license in progress", self_taught: "Self-taught" };
+  const credTag = new Map(credRows.filter((r) => CRED_TAG[r.kind]).map((r) => [r.c, CRED_TAG[r.kind]]));
+  const pendingLicenseCats = new Set(credTag.keys());
   const [services, photos, hours, openings, city, calls] = await Promise.all([
     db.select().from(proServices).where(and(eq(proServices.userId, id), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS))).orderBy(asc(proServices.sort)),
     db.select().from(portfolioItems).where(eq(portfolioItems.userId, id)).orderBy(desc(portfolioItems.featured), asc(portfolioItems.sort)).limit(15), // 10 photos + 5 videos
@@ -64,7 +68,9 @@ export default async function ProProfile({ params, searchParams }: { params: Pro
     .from(reviews).innerJoin(bookings, eq(bookings.id, reviews.bookingId))
     .where(and(eq(reviews.proId, id), eq(reviews.hidden, false))).orderBy(desc(reviews.createdAt)).limit(20);
   const avg = revs.length ? Math.round((revs.reduce((a, r) => a + r.rating, 0) / revs.length) * 10) / 10 : null;
-  const initials = (p.businessName ?? "N").split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+  const proUser = await db.query.users.findFirst({ where: eq(users.id, p.userId) });
+  const who = personName(p.displayName, proUser?.firstName, proUser?.lastName);
+  const initials = who.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
   const langs = (p.languages ?? []).filter((l) => l !== "ASL");
 
   return (
@@ -74,7 +80,11 @@ export default async function ProProfile({ params, searchParams }: { params: Pro
         {notBooked && <div className="card small" role="status"><span>Not booked — you backed out before paying, so you weren&apos;t charged. Pick a time again whenever you&apos;re ready.</span></div>}
         <div className="row">
           {p.photoUrl ? <Image src={p.photoUrl} alt="" width={84} height={84} style={{ borderRadius: 42, objectFit: "cover" }} /> : <div className="avatar lg">{initials}</div>}
-          <div className="col g4 grow"><h1 className="disp h2">{p.businessName}</h1><span className="badge"><Icon name="shield" size="s" /> Approved by Nearest</span></div>
+          <div className="col g4 grow">
+            <h1 className="disp h2">{who}</h1>
+            {p.businessName && p.businessName !== who && <span className="row small" style={{ gap: 8 }}>{p.logoUrl && <Image src={p.logoUrl} alt={`${p.businessName} logo`} width={24} height={24} style={{ borderRadius: 5, objectFit: "cover" }} />}<span className="b">{p.businessName}</span></span>}
+            <span className="badge"><Icon name="shield" size="s" /> Approved by Nearest</span>
+          </div>
           <FavButton proId={id} on={isFav} size={44} count={favCount} />
           <ShareProButton proId={id} proName={p.businessName ?? "This professional"} link={proLink((await ensureProSlug(id)) ?? id)} compact />
         </div>
@@ -117,10 +127,10 @@ export default async function ProProfile({ params, searchParams }: { params: Pro
         <p className="p muted" style={{ whiteSpace: "pre-line" }}>{p.bio}</p>
 
         <h3 className="eyebrow p" id="services" style={{ scrollMarginTop: 80 }}>Services</h3>
-        {pendingLicenseCats.size > 0 && <p className="xs muted p">Services tagged &quot;Recent graduate&quot; are from a professional who finished their program and whose state license is pending.</p>}
+        {pendingLicenseCats.size > 0 && <p className="xs muted p">Tags like &quot;Recent graduate,&quot; &quot;Student&quot; or &quot;Self-taught&quot; show how this professional is qualified for that service.</p>}
         <div className="col" style={{ gap: 0 }}>
           {services.map((s) => (
-            <div key={s.id} className="item"><div className="grow"><div className="b">{s.name}{s.adultsOnly && <span className="tag warn" style={{ marginLeft: 8 }}>18+</span>}{s.categoryId && pendingLicenseCats.has(s.categoryId) && <span className="tag" style={{ marginLeft: 8 }}>Recent graduate — license pending</span>}</div><div className="small muted">{money(s.priceCents)} • {s.durationMin} min</div></div>{s.adultsOnly && !adult ? <button className="btn dis sm" type="button" disabled title="You must be 18 or older to book this service">18+ only</button> : bookingOpen ? <Link className="btn sm" href={`/book/${s.id}`}>Book</Link> : finishStep ? <VerifyToBook href={finishStep} /> : <button className="btn dis sm" type="button" disabled>Book</button>}</div>
+            <div key={s.id} className="item">{s.photoUrl && <Image src={s.photoUrl} alt={s.name} width={48} height={48} style={{ borderRadius: 8, objectFit: "cover", flex: "none" }} />}<div className="grow"><div className="b">{s.name}{s.adultsOnly && <span className="tag warn" style={{ marginLeft: 8 }}>18+</span>}{s.categoryId && credTag.has(s.categoryId) && <span className="tag" style={{ marginLeft: 8 }}>{credTag.get(s.categoryId)}</span>}</div><div className="small muted">{money(s.priceCents)} • {s.durationMin} min</div></div>{s.adultsOnly && !adult ? <button className="btn dis sm" type="button" disabled title="You must be 18 or older to book this service">18+ only</button> : bookingOpen ? <Link className="btn sm" href={`/book/${s.id}`}>Book</Link> : finishStep ? <VerifyToBook href={finishStep} /> : <button className="btn dis sm" type="button" disabled>Book</button>}</div>
           ))}
         </div>
         {!finishStep && !bookingOpen && <p className="xs muted p">Booking is paused right now.</p>}
