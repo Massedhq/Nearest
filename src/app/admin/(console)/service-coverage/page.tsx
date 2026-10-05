@@ -3,7 +3,6 @@ import { asc, eq, ne, sql, and } from "drizzle-orm";
 import { db, categories, cities, counties, cityCounties, professionalProfiles, studentProfiles, schools } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
 import { ActionForm } from "@/components/ActionForm";
-import { openCityBooking } from "@/app/admin/city-actions";
 import { requireAdmin } from "@/lib/admin";
 import { getSettings } from "@/lib/settings";
 import { liveProWhere } from "@/lib/search";
@@ -121,22 +120,6 @@ export default async function ServiceCoverage({ searchParams }: { searchParams: 
 
       {city ? (
         <div className="card" style={{ gap: 12 }}>
-          <div className={`card ${city.bookingOpenAt ? "ok" : "warn"}`} style={{ gap: 8 }}>
-            {city.bookingOpenAt ? (
-              <span className="small"><span className="b">Booking is open in {city.name}</span> since {city.bookingOpenAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Chicago" })}. Students can book, and new professionals here pay when they join.</span>
-            ) : (
-              <>
-                <span className="small"><span className="b">Booking isn&apos;t open in {city.name} yet.</span> Professionals here have saved a card but aren&apos;t charged; students can see them but can&apos;t book.</span>
-                <span className="xs muted">Opening booking: starts every waiting professional&apos;s membership today on their saved card, moves anyone who already paid to 30 days from today, releases spots for profiles never submitted (no charge), and tells verified students here.</span>
-                {role === "OWNER" ? (
-                  <ActionForm action={openCityBooking} submitLabel={`Open booking in ${city.name}`} buttonClass="btn sm" className="col g4">
-                    <input type="hidden" name="cityId" value={city.id} />
-                    <label className="check xs"><input type="checkbox" name="confirm" /><span>I&apos;m ready — start memberships in {city.name} today.</span></label>
-                  </ActionForm>
-                ) : <span className="xs muted">Only an owner can open booking.</span>}
-              </>
-            )}
-          </div>
           <div className="row between" style={{ flexWrap: "wrap", gap: 8 }}>
             <span className="disp h2">{city.name}</span>
             <span className="small muted">{prosIn(city.id)} professional{prosIn(city.id) === 1 ? "" : "s"} • {studentsIn(city.id)} verified student{studentsIn(city.id) === 1 ? "" : "s"}</span>
@@ -176,7 +159,7 @@ export default async function ServiceCoverage({ searchParams }: { searchParams: 
                 {working.length === 0 && <tr><td className="empty" colSpan={cats.length + 3}>No launched cities with professionals or students yet. Tick &ldquo;Show every city&rdquo; to see them all.</td></tr>}
                 {working.map((c) => (
                   <tr key={c.id}>
-                    <td><Link className="link" href={`/admin/service-coverage${qs({ city: String(c.id) })}`}>{c.name}</Link>{c.bookingOpenAt ? <span className="tag ok" style={{ marginLeft: 6 }}>Open</span> : null}</td>
+                    <td><Link className="link" href={`/admin/service-coverage${qs({ city: String(c.id) })}`}>{c.name}</Link></td>
                     <td className="num">{studentsIn(c.id)}</td>
                     <td className="num">{prosIn(c.id)}</td>
                     {cats.map((k) => {

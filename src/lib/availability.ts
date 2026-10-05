@@ -46,7 +46,7 @@ export async function openSlots(proId: string, durationMin: number, day: string)
   const [taken, blocks, calls] = await Promise.all([
     db.select({ s: bookings.startsAt, e: bookings.endsAt }).from(bookings).where(and(
       eq(bookings.proId, proId), lt(bookings.startsAt, dayEnd), gt(bookings.endsAt, dayStart),
-      or(inArray(bookings.status, ["confirmed", "completed"]), and(eq(bookings.status, "pending_payment"), gt(bookings.holdExpiresAt, new Date()))),
+      or(inArray(bookings.status, ["confirmed", "completed", "requested"]), and(eq(bookings.status, "pending_payment"), gt(bookings.holdExpiresAt, new Date()))),
     )),
     db.select({ s: proBlocks.startsAt, e: proBlocks.endsAt }).from(proBlocks).where(and(eq(proBlocks.userId, proId), lt(proBlocks.startsAt, dayEnd), gt(proBlocks.endsAt, dayStart))),
     db.select({ s: modelCalls.startsAt, d: modelCalls.durationMin }).from(modelCalls).where(and(eq(modelCalls.userId, proId), inArray(modelCalls.status, ["open", "full"]), lt(modelCalls.startsAt, dayEnd), gt(modelCalls.startsAt, new Date(dayStart.getTime() - 12 * 3600000)))),

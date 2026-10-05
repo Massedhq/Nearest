@@ -24,7 +24,7 @@ export async function confirmBooking(bookingId: string, charge?: { chargeId: str
       holdExpiresAt: null,
       ...(charge ? { stripeChargeId: charge.chargeId, chargedCents: charge.chargedCents, stripeFeeCents: charge.feeCents } : {}),
     })
-    .where(and(eq(bookings.id, bookingId), inArray(bookings.status, ["pending_payment", "expired"])))
+    .where(and(eq(bookings.id, bookingId), inArray(bookings.status, ["pending_payment", "expired", "requested"])))
     .returning();
   if (!b) return null; // already confirmed
   await useInviteReward(b.id, b.inviteRewardId);
@@ -59,6 +59,7 @@ export async function confirmBooking(bookingId: string, charge?: { chargeId: str
 export async function releaseHold(bookingId: string, studentId: string): Promise<"released" | "paid" | "none"> {
   const b = await db.query.bookings.findFirst({ where: and(eq(bookings.id, bookingId), eq(bookings.studentId, studentId), eq(bookings.status, "pending_payment")) });
   if (!b) return "none";
+  const accepted = b.isRequest && Boolean(b.respondedAt);
   if (b.stripeCheckoutId) {
     try {
       await stripe().checkout.sessions.expire(b.stripeCheckoutId);
@@ -70,6 +71,7 @@ export async function releaseHold(bookingId: string, studentId: string): Promise
       } catch (e) { console.error(e); }
     }
   }
+  if (accepted) { await db.update(bookings).set({ stripeCheckoutId: null }).where(eq(bookings.id, b.id)); return "none"; } // keep the accepted booking — they can still pay
   await db.update(bookings).set({ status: "expired", holdExpiresAt: null }).where(and(eq(bookings.id, b.id), eq(bookings.status, "pending_payment")));
   await restoreInviteRewards();
   return "released";
@@ -84,9 +86,9 @@ export async function releaseMyHolds(studentId: string) {
 /** Reads a finished Checkout session and confirms its booking. */
 export async function confirmFromCheckout(sessionId: string) {
   const session = await stripe().checkout.sessions.retrieve(sessionId, { expand: ["payment_intent.latest_charge.balance_transaction"] });
-  if (session.mode !== "payment" || session.payment_status !== "paid") return null;
   const bookingId = session.metadata?.bookingId;
-  if (!bookingId) return null;
+  if (session.mode !== "payment" || !bookingId) return null;
+  if (session.payment_status !== "paid") return null;
   const pi = session.payment_intent as Stripe.PaymentIntent | null;
   const ch = pi?.latest_charge as Stripe.Charge | null;
   const bt = ch?.balance_transaction as Stripe.BalanceTransaction | null;

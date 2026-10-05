@@ -9,9 +9,12 @@ import { Icon } from "@/components/Icon";
 
 export const metadata = { title: "Appointments" };
 
-export default async function Appointments() {
+export default async function Appointments({ searchParams }: { searchParams: Promise<{ declined?: string }> }) {
   const { user } = await requirePro();
-  const [upcoming, past] = await Promise.all([
+  const declined = (await searchParams).declined;
+  const [requests, upcoming, past] = await Promise.all([
+    db.select({ b: bookings, first: users.firstName }).from(bookings).innerJoin(users, eq(users.id, bookings.studentId))
+      .where(and(eq(bookings.proId, user.id), eq(bookings.status, "requested"))).orderBy(asc(bookings.startsAt)).limit(50),
     db.select({ b: bookings, first: users.firstName, last: users.lastName }).from(bookings).innerJoin(users, eq(users.id, bookings.studentId))
       .where(and(eq(bookings.proId, user.id), eq(bookings.status, "confirmed"))).orderBy(asc(bookings.startsAt)).limit(100),
     db.select({ b: bookings, first: users.firstName, last: users.lastName }).from(bookings).innerJoin(users, eq(users.id, bookings.studentId))
@@ -21,6 +24,20 @@ export default async function Appointments() {
     <div className="scr">
       <TopBar title="Appointments" back="/pro/home" />
       <div className="body">
+        {declined && <div className="card small"><span>Request declined — the client wasn&apos;t charged.</span></div>}
+        {requests.length > 0 && (
+          <>
+            <h3 className="eyebrow p">Booking requests ({requests.length})</h3>
+            {requests.map(({ b, first }) => (
+              <Link key={b.id} className="card warn" href={`/pro/appointments/${b.id}`} style={{ textDecoration: "none", color: "inherit", gap: 4 }}>
+                <div className="row between"><span className="b">{b.serviceName}</span><span className="tag warn">Request</span></div>
+                <div className="small">{fmtDate(b.startsAt, { weekday: "long", month: "short", day: "numeric" })} • {fmtTime(b.startsAt)}</div>
+                <div className="row between small"><span>{first} • Verified Student</span><span className="b">{money(b.priceCents - b.inviteDiscountCents)}</span></div>
+                <span className="xs muted">Tap to accept or decline.</span>
+              </Link>
+            ))}
+          </>
+        )}
         <h3 className="eyebrow p">Upcoming</h3>
         {upcoming.length === 0 && <p className="small muted p">No upcoming appointments.</p>}
         {upcoming.map(({ b, first, last }) => (

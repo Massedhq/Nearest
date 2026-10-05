@@ -64,9 +64,10 @@ export default async function Confirm({ params, searchParams }: { params: Promis
         </div>
         {travels && <div className="card small"><span>{pro.serviceMode === "both" && pro.addressLine ? `If they come to you, a ${money(pro.travelFeeCents ?? 3500)} travel fee is added to this price.` : `Includes a ${money(pro.travelFeeCents ?? 3500)} travel fee at checkout — your professional comes to you.`}</span></div>}
         {bundleItem && <div className="card small"><span><span className="b">Bundle booking.</span> Credits and invite rewards can&apos;t be used on bundle bookings — they stay in your account for single bookings.</span></div>}
+        <div className="card small"><span><span className="b">Nothing is charged now.</span> Your request goes to the professional to confirm. Once they accept, you&apos;ll pay to lock in your appointment.</span></div>
         <PriceBox price={svc.priceCents} deposit={deposit} pro={use.pro} general={use.general} charge={use.charge} invite={inv?.cents ?? 0} />
         <Terms deposit={deposit} cutoffHours={Number(s["cancel.cutoff_hours"])} graceMin={Number(s["appt.grace_minutes"])} />
-        <ActionForm action={bookService} submitLabel={use.charge > 0 ? "Continue to payment" : "Book with credit"}>
+        <ActionForm action={bookService} submitLabel="Send booking request">
           <input type="hidden" name="serviceId" value={svc.id} />
           <input type="hidden" name="day" value={day} />
           <input type="hidden" name="time" value={time} />

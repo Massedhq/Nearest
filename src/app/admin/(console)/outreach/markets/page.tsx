@@ -41,7 +41,7 @@ export default async function Markets({ searchParams }: { searchParams: Promise<
                   <td><Link className="link" href={`/admin/outreach/markets?city=${c.id}`}>{c.name}</Link></td>
                   <td className="num">{mine.reduce((t, x) => t + x.n, 0)}</td>
                   <td className="num">{mine.filter((x) => x.n >= cap).length}</td>
-                  <td>{c.bookingOpenAt ? <span className="tag ok">Open</span> : <span className="tag">Filling</span>}</td>
+                  <td><span className="tag ok">Enrolling</span></td>
                 </tr>
               );
             })}

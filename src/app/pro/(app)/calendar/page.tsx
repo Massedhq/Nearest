@@ -90,7 +90,7 @@ export default async function Calendar({ searchParams }: { searchParams: Promise
             <form action={removeBlock}><input type="hidden" name="id" value={b.id} /><button className="link small" type="submit">Remove</button></form>
           </div>
         ))}
-        <p className="xs muted p">Appointments will appear here once booking opens.</p>
+        <p className="xs muted p">Appointments and booking requests will appear here as clients book you.</p>
       </div>
       <Tabs kind="pro" active="Calendar" />
     </div>

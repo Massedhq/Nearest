@@ -13,9 +13,12 @@ export function liveProWhere(area: Area, areaMode: string | undefined) {
     eq(professionalProfiles.searchable, true),
     eq(professionalProfiles.vacationMode, false),
     // Live when membership is trialing/active and ID is verified. Payouts can come later — Nearest holds their money until then.
-    // ...or they joined with a saved card and their city hasn't opened for booking yet (visible, "Booking opens soon").
-    sql`(${professionalProfiles.subscriptionStatus} in ('trialing', 'active') or exists (select 1 from admin_members a where a.user_id = ${professionalProfiles.userId} and a.role = 'OWNER' and a.active)
-      or (${professionalProfiles.cardSavedAt} is not null and not exists (select 1 from cities c where c.id = coalesce(${professionalProfiles.cityId}, ${professionalProfiles.slotCityId}) and c.booking_open_at is not null)))`, // owners never pay
+    // Membership: active members, owners, Nearest-managed accounts — AND professionals who joined but haven't activated
+    // yet (their membership activates when they accept their first booking). Hidden: a membership with a payment problem.
+    sql`(${professionalProfiles.subscriptionStatus} in ('trialing', 'active')
+      or exists (select 1 from admin_members a where a.user_id = ${professionalProfiles.userId} and a.role = 'OWNER' and a.active)
+      or ${professionalProfiles.entryType} in ('AMBASSADOR', 'BOOKING_PAID')
+      or (${professionalProfiles.subscriptionId} is null and ${professionalProfiles.entryPaidAt} is not null))`,
     sql`${professionalProfiles.placementReleasedAt} is null`,
     eq(professionalProfiles.identityStatus, "verified"),
     // Not paused by Nearest, not suspended, and no fine past its due date.

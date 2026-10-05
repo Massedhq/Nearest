@@ -23,7 +23,7 @@ export const DEFAULT_TEMPLATES: Record<TemplateKey, { subject: string; body: str
 
 I came across your work and wanted to reach out personally. I'm {recruiter} with Nearest — a booking platform for beauty, wellness and self-care professionals.
 
-Nearest is controlled by city, so you're never one of fifty: each city has a limited number of spots per service. There's no charge while we fill your market — your membership only begins once your city opens for booking.
+Nearest is controlled by city, so you're never one of fifty: each city has a limited number of spots per service. Joining is free — build your full profile at no cost. Your membership only activates when you accept your first booking.
 
 If you want to grow your bookings and get in early, here's your personal invite (it expires in 24 hours):
 {link}

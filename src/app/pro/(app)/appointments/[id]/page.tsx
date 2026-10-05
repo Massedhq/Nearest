@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, bookings, users, studentProfiles, incidents, reviews } from "@/db";
 import { requirePro } from "@/lib/pro";
+import { BookingRequestActions } from "@/components/BookingRequestActions";
 import { addressUnlocked, noShowAllowedAt } from "@/lib/appointment";
 import { bookingCode } from "@/lib/bookings";
 import { fmtDate, fmtTime, money } from "@/lib/time";
@@ -16,7 +17,8 @@ import { proCancelBooking } from "@/app/pro/pay-actions";
 export const metadata = { title: "Appointment" };
 export const dynamic = "force-dynamic";
 
-export default async function ProAppointment({ params }: { params: Promise<{ id: string }> }) {
+export default async function ProAppointment({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ accepted?: string; activated?: string; activation?: string }> }) {
+  const sp2 = await searchParams;
   const { user } = await requirePro();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
@@ -37,6 +39,15 @@ export default async function ProAppointment({ params }: { params: Promise<{ id:
     <div className="scr">
       <TopBar title={`${fmtTime(b.startsAt)} appointment`} back="/pro/appointments" />
       <div className="body">
+        {sp2.accepted && b.status === "confirmed" && <div className="card ok small"><span className="b">{sp2.activated ? "Membership active — booking accepted! 🎉" : "Booking accepted!"}</span><span>Your client has been notified that you confirmed.</span></div>}
+        {sp2.activation === "cancelled" && b.status === "requested" && <div className="card small"><span>No payment was made — the request is still waiting for you.</span></div>}
+        {b.status === "requested" && (
+          <div className="card warn" style={{ gap: 8 }}>
+            <span className="eyebrow">New booking request</span>
+            <span className="small">A client wants this appointment. Accept it to confirm{b.requestExpiresAt ? ` — before ${fmtDate(b.requestExpiresAt, { month: "short", day: "numeric" })} at ${fmtTime(b.requestExpiresAt)}, when it expires` : ""}.</span>
+            <BookingRequestActions id={b.id} />
+          </div>
+        )}
         {b.checkedInAt && live && !b.startedAt && (
           <div className="card ok"><div className="row"><Icon name="check" /><div className="grow"><div className="b">Your client has checked in</div><div className="small muted">{fmtTime(b.checkedInAt)}{b.checkinDistanceFt != null ? ` • location confirmed (${b.checkinDistanceFt} ft)` : " • location not compared"}</div></div></div></div>
         )}

@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db, bookings, professionalProfiles } from "@/db";
 import { requireVerifiedStudent } from "@/lib/student";
 import { bookingCode, confirmFromCheckout, expireStaleHolds } from "@/lib/bookings";
+import { cancelBookingRequest } from "@/app/book-actions";
 import { getSettings } from "@/lib/settings";
 import { fmtDate, fmtTime, money } from "@/lib/time";
 import { ShareProButton } from "@/components/ShareProButton";
@@ -10,7 +11,7 @@ import { ensureProSlug, proLink } from "@/lib/connections";
 import { TopBar } from "@/components/TopBar";
 import { ActionForm } from "@/components/ActionForm";
 import { Icon } from "@/components/Icon";
-import { cancelMyBooking, resumePayment, abandonBooking } from "@/app/book-actions";
+import { cancelMyBooking, resumePayment, abandonBooking, payAcceptedBooking } from "@/app/book-actions";
 import Link from "next/link";
 import { addressUnlocked, checkinOpen, finishOpen } from "@/lib/appointment";
 import { studentCheckIn } from "@/app/day-actions";
@@ -52,9 +53,20 @@ export default async function Booking({ params, searchParams }: { params: Promis
             <Icon name="check" size="xl" /><span className="disp h2">You&apos;re Booked</span><span className="small muted">Your payment is held until you release it.</span>
           </div>
         )}
-        {b.status === "pending_payment" && <div className="card warn small"><span>Payment isn&apos;t finished, so this isn&apos;t booked yet and you haven&apos;t been charged. Finish paying to keep this time, or cancel to let it go.</span></div>}
-        {b.status === "expired" && <div className="card small"><span>This wasn&apos;t booked — payment was never finished, and you weren&apos;t charged.</span><Link className="btn sm" href="/home" style={{ alignSelf: "flex-start" }}>Back to Explore</Link></div>}
-        <div className="row"><span className={`tag ${b.status === "confirmed" ? "ok" : b.status.startsWith("cancelled") ? "bad" : ""}`}>{b.status.replace("_", " ")}</span><span className="xs muted">Booking #{bookingCode(b.number)}</span></div>
+        {b.status === "pending_payment" && (b.isRequest && b.respondedAt
+          ? <div className="card ok small" style={{ gap: 4 }}><span className="b">Accepted! Complete payment to confirm.</span><span>{pro} accepted your request. Pay {money(b.chargedCents)}{b.holdExpiresAt ? ` by ${fmtDate(b.holdExpiresAt, { weekday: "short", month: "short", day: "numeric" })} at ${fmtTime(b.holdExpiresAt)}` : ""} to confirm your appointment — after that the time is released.</span></div>
+          : <div className="card warn small"><span>Payment isn&apos;t finished, so this isn&apos;t booked yet and you haven&apos;t been charged. Finish paying to keep this time, or cancel to let it go.</span></div>)}
+        {b.status === "requested" && (
+          <div className="card warn" style={{ gap: 6 }}>
+            <span className="b">Booking Request Sent</span>
+            <span className="small">Your requested appointment has been sent to the professional for confirmation. Nothing is charged now — once they accept, you&apos;ll pay to confirm. We&apos;ll let you know as soon as they do.</span>
+            <form action={cancelBookingRequest}><input type="hidden" name="id" value={b.id} /><button className="link xs" type="submit">Cancel this request</button></form>
+          </div>
+        )}
+        {b.status === "expired" && b.isRequest && b.requestExpiresAt && <div className="card small"><span>The professional couldn&apos;t confirm this request in time, so it wasn&apos;t booked and you weren&apos;t charged.</span><Link className="btn sm" href="/home" style={{ alignSelf: "flex-start" }}>Back to Explore</Link></div>}
+        {b.status === "cancelled_pro" && b.isRequest && <div className="card small"><span>This request wasn&apos;t confirmed, and you weren&apos;t charged.</span><Link className="btn sm" href="/home" style={{ alignSelf: "flex-start" }}>Find another time</Link></div>}
+        {b.status === "expired" && !(b.isRequest && b.requestExpiresAt) && <div className="card small"><span>This wasn&apos;t booked — payment was never finished, and you weren&apos;t charged.</span><Link className="btn sm" href="/home" style={{ alignSelf: "flex-start" }}>Back to Explore</Link></div>}
+        <div className="row"><span className={`tag ${b.status === "confirmed" ? "ok" : b.status.startsWith("cancelled") ? "bad" : b.status === "requested" ? "warn" : ""}`}>{b.status === "requested" ? "Pending professional approval" : b.status === "pending_payment" && b.isRequest && b.respondedAt ? "Accepted — pay to confirm" : b.status.replace("_", " ")}</span><span className="xs muted">Booking #{bookingCode(b.number)}</span></div>
         <div className="row between" style={{ gap: 10 }}>
           <h1 className="disp h2">{b.serviceName} with {pro}</h1>
           <ShareProButton proId={b.proId} proName={pro ?? "This professional"} link={shareLink} compact />
@@ -73,12 +85,14 @@ export default async function Booking({ params, searchParams }: { params: Promis
           <div className="row between"><span>Service</span><span className="num">{money(b.priceCents)}</span></div>
           {b.creditProCents + b.creditGeneralCents > 0 && <div className="row between small muted"><span>Paid with credit</span><span className="num">{money(b.creditProCents + b.creditGeneralCents)}</span></div>}
           <div className="row between small muted"><span>Paid by card</span><span className="num">{money(b.chargedCents)}</span></div>
-          <div className="row between small muted"><span>{b.status === "completed" ? "Released to your professional" : "Held until you release it"}</span><Icon name={b.status === "completed" ? "check" : "lock"} size="s" /></div>
+          <div className="row between small muted"><span>{b.status === "completed" ? "Released to your professional" : b.status === "requested" ? "Nothing charged yet — you pay after the professional accepts" : "Held until you release it"}</span><Icon name={b.status === "completed" ? "check" : "lock"} size="s" /></div>
         </div>
 
         {b.status === "pending_payment" && (
           <div className="col" style={{ gap: 10 }}>
-            <form action={resumePayment}><input type="hidden" name="id" value={b.id} /><button className="btn" type="submit" style={{ width: "100%" }}>Finish payment</button></form>
+            {b.isRequest && b.respondedAt
+              ? <form action={payAcceptedBooking}><input type="hidden" name="id" value={b.id} /><button className="btn" type="submit" style={{ width: "100%" }}>Pay {money(b.chargedCents)} and confirm</button></form>
+              : <form action={resumePayment}><input type="hidden" name="id" value={b.id} /><button className="btn" type="submit" style={{ width: "100%" }}>Finish payment</button></form>}
             <form action={abandonBooking}><input type="hidden" name="id" value={b.id} /><button className="btn ghost" type="submit" style={{ width: "100%" }}>Cancel — don&apos;t book</button></form>
             <Link className="link small" href="/home" style={{ textAlign: "center" }}>Back to Explore</Link>
           </div>

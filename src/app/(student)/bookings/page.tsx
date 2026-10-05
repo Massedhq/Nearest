@@ -10,7 +10,8 @@ export const metadata = { title: "My appointments" };
 
 const LABEL: Record<string, [string, string]> = {
   pending_payment: ["Awaiting payment", "warn"], confirmed: ["Confirmed", "ok"], completed: ["Completed", ""],
-  cancelled_student: ["Cancelled", "bad"], cancelled_pro: ["Cancelled by pro", "bad"], expired: ["Not completed", ""],
+  cancelled_student: ["Cancelled", "bad"], cancelled_pro: ["Not confirmed", "bad"], expired: ["Not completed", ""],
+  requested: ["Pending professional approval", "warn"],
 };
 
 export default async function MyBookings({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
@@ -26,7 +27,7 @@ export default async function MyBookings({ searchParams }: { searchParams: Promi
     .limit(100);
   const now = Date.now();
   const list = rows.filter(({ b }) =>
-    tab === "upcoming" ? b.status === "confirmed" && b.endsAt.getTime() > now - 12 * 3600000
+    tab === "upcoming" ? (b.status === "confirmed" || b.status === "requested") && b.endsAt.getTime() > now - 12 * 3600000
     : tab === "past" ? b.status === "completed" || (b.status === "confirmed" && b.endsAt.getTime() <= now - 12 * 3600000)
     : b.status.startsWith("cancelled"));
   return (

@@ -20,7 +20,7 @@ How to sell Nearest (only with true facts):
 - It helps pros who are underbooked, underexposed, newer and building clientele, or who want to reach a new market.
 - "I already have a booking site": Nearest doesn't replace it — it's another place new clients find and book them.
 - "I'm new / few clients": Model Calls and a protected local spot help build clientele and a portfolio.
-- "I don't want to pay if I don't get bookings": explain the real enrollment terms in the facts (for example no charge until their city opens). Never promise bookings, clients or income.
+- "I don't want to pay if I don't get bookings": explain the real terms in the facts: joining and building a profile is free, and the membership only activates when they accept their first booking. Never promise bookings, clients or income.
 - "I'll think about it": you may state the real spots left in their city and category from the facts. Never invent urgency.
 If they say yes, sounds good, send it, how do I sign up, or similar: action "send_link".`;
 export const DEFAULT_NEVER = `Never promise or imply guaranteed bookings, clients, income or results.
@@ -46,16 +46,16 @@ async function marketFacts(p: typeof prospects.$inferSelect) {
     return lines;
   }
   const { slotCount, slotLimits } = await import("./slots");
-  const { marketOfCity, cityBookingOpen } = await import("./city-booking");
+  const { marketOfCity } = await import("./city-booking");
   const { firstInStats, nextEntryStats, getEntryState } = await import("./entry");
-  const [taken, { firstIn, cap }, market, open, fi, next, state] = await Promise.all([slotCount(city.id, cat.id), slotLimits(), marketOfCity(city.id), cityBookingOpen(city.id), firstInStats(), nextEntryStats(), getEntryState()]);
+  const [taken, { firstIn, cap }, market, fi, next, state] = await Promise.all([slotCount(city.id, cat.id), slotLimits(), marketOfCity(city.id), firstInStats(), nextEntryStats(), getEntryState()]);
   const left = Math.max(0, cap - taken);
   lines.push(`${cat.name} in ${city.name}: ${taken} of ${cap} spots taken, ${left} left.`);
   if (state === "FIRST_IN_CLOSED") lines.push("New professional enrollment is paused right now — escalate if they want to join.");
   else if (left === 0) lines.push(market === "DFW" && next.open ? "That category is full there: they can join the free waitlist, or skip it by joining the next 750 at $17/month." : "That category is full there: they can join the free waitlist.");
   else if (market === "DFW") lines.push(taken < firstIn && fi.open && state === "FIRST_IN_OPEN" ? `Their price: First In, $11/month for the first 12 months (First In spot ${taken + 1} of ${firstIn} in this category and city).` : "Their price: $17/month for the first 12 months.");
   else lines.push("Their price: $20/month for the first 12 months.");
-  lines.push(open ? `Booking is already open in ${city.name}: the first month is charged when they join.` : `Booking isn't open in ${city.name} yet: they save a card to claim the spot, nothing is charged until booking opens there, and their 12 months start then.`);
+  lines.push("Joining is free: they build their full profile with no payment. The membership above activates (first month charged) only when they accept their first booking, then renews monthly. It's a membership, not a per-booking fee.");
   lines.push("After the first 12 months the standard rate applies. Nearest takes no commission on bookings.");
   return lines;
 }

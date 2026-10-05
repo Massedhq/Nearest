@@ -7,7 +7,9 @@ import { stripeEnabled } from "@/lib/stripe";
 import { finalizeEntry, getEntryState, hasPaidEntry, allowedEntries, nextEntryStats } from "@/lib/entry";
 import { slotStatus, onWaitlist, isCapExempt } from "@/lib/slots";
 import { db, categories } from "@/db";
-import { payEntry, saveSlot, clearSlot, joinSlotWaitlist } from "./actions";
+import { saveSlot, clearSlot, joinSlotWaitlist, enrollPro } from "./actions";
+import { ProTermsAgreement } from "@/components/ProTermsAgreement";
+import { proTermsSections, PRO_TERMS_VERSION } from "@/lib/pro-terms";
 
 export const metadata = { title: "Join Nearest" };
 export const dynamic = "force-dynamic";
@@ -28,7 +30,6 @@ export default async function Join({ searchParams }: { searchParams: Promise<{ s
   const state = await getEntryState();
   const [{ allowed, reason, bypass }, slot, exempt, next750] = await Promise.all([allowedEntries(profile), slotStatus(profile), isCapExempt(profile), nextEntryStats()]);
   const waiting = slot ? await onWaitlist(profile.userId, slot.cityId, slot.categoryId) : false;
-  const cityOpen = await (await import("@/lib/city-booking")).cityBookingOpen(profile.cityId ?? profile.slotCityId);
   const cats = reason === "slot"
     ? await db.select({ id: categories.id, name: categories.name }).from(categories).where(and(eq(categories.active, true), ne(categories.name, "Other"))).orderBy(asc(categories.sort), asc(categories.name))
     : [];
@@ -37,7 +38,6 @@ export default async function Join({ searchParams }: { searchParams: Promise<{ s
     <div className="scr">
       <TopBar title="Join Nearest" />
       <div className="body">
-        {!stripeEnabled() && <div className="card warn small"><span>Payments aren&apos;t set up yet.</span></div>}
 
         {state === "FIRST_IN_CLOSED" && (
           <>
@@ -94,9 +94,9 @@ export default async function Join({ searchParams }: { searchParams: Promise<{ s
         )}
         {reason === "next_full" && <div className="card small"><span>The next {next750.capacity} spots are taken right now, so new spots open from the waitlist.</span></div>}
 
-        {(["FIRST_IN", "DFW_NEXT", "MARKET"] as const).filter((t) => allowed.includes(t)).map((t) => {
+        {(["FIRST_IN", "DFW_NEXT", "MARKET"] as const).filter((t) => allowed.includes(t)).slice(0, 1).map((t) => {
           const price = t === "FIRST_IN" ? 11 : t === "DFW_NEXT" ? 17 : 20;
-          const where = slot?.city ?? "your city";
+          const rate = { cents: price * 100, label: t === "FIRST_IN" ? "First In" : t === "DFW_NEXT" ? "DFW membership" : "Market rate" };
           return (
             <div key={t} className="col" style={{ gap: 12 }}>
               {t === "FIRST_IN" && <span className="tag warn" style={{ alignSelf: "flex-start" }}>First In</span>}
@@ -110,19 +110,18 @@ export default async function Join({ searchParams }: { searchParams: Promise<{ s
               )}
               <div className="card pearl">
                 <span className="disp h2">${price}/month</span>
-                <span className="small">Locked for your first 12 months.</span>
+                <span className="small">Your rate for your first 12 months.</span>
               </div>
-              {!cityOpen && (
-                <div className="card ok small" style={{ gap: 4 }}>
-                  <span className="b">No charge today.</span>
-                  <span>We&apos;re filling {where} now. Save your card to claim your spot and build your profile. Your ${price}/month membership starts the day bookings open in {where} — and your 12 months start then too.</span>
-                </div>
-              )}
-              <ActionForm action={payEntry} submitLabel={cityOpen ? `Pay $${price} and continue` : "Save card and claim my spot"}>
+              <div className="card ok small" style={{ gap: 4 }}>
+                <span className="b">Nothing to pay today.</span>
+                <span>Build your full profile for free. Your ${price}/month membership activates when you accept your first booking.</span>
+              </div>
+              <ActionForm action={enrollPro} submitLabel="Agree and continue">
                 <input type="hidden" name="type" value={t} />
+                <ProTermsAgreement sections={proTermsSections(rate)} version={PRO_TERMS_VERSION} />
                 <label className="check xs" style={{ alignItems: "flex-start" }}><input type="checkbox" name="inviteReward" required /><span>I agree to honor Nearest&apos;s $5 student invite reward: a student who earned it by inviting a friend gets $5 off their first booking with me, taken from that booking&apos;s payout.</span></label>
               </ActionForm>
-              <p className="xs muted p">{cityOpen ? `$${price} is charged today, then $${price} each month for your first 12 months.` : `Nothing is charged until bookings open in ${where}. You can remove your card before then.`} No commission on bookings.</p>
+              <p className="xs muted p">No commission on bookings.</p>
             </div>
           );
         })}

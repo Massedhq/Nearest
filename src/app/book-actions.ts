@@ -54,7 +54,7 @@ async function checkout(b: typeof bookings.$inferSelect, email: string | null, p
   const session = await stripe().checkout.sessions.create({
     mode: "payment",
     customer_email: email ?? undefined,
-    line_items: [{ quantity: 1, price_data: { currency: "usd", unit_amount: b.chargedCents, product_data: { name: `${b.serviceName} with ${proName}`, description: `Booking ${bookingCode(b.number)} • includes a protected deposit` } } }],
+    line_items: [{ quantity: 1, price_data: { currency: "usd", unit_amount: b.chargedCents, product_data: { name: `${b.serviceName} with ${proName}`, description: `Booking ${bookingCode(b.number)} • confirmed by your professional • includes a protected deposit` } } }],
     payment_intent_data: { transfer_group: b.id, metadata: { bookingId: b.id } },
     metadata: { bookingId: b.id },
     expires_at: Math.floor(Date.now() / 1000) + HOLD_MIN * 60,
@@ -71,14 +71,6 @@ async function createAndPay(opts: {
   serviceName: string; startsAt: Date; durationMin: number; priceCents: number; where: Where; travelFeeCents?: number;
   bundleId?: string;
 }): Promise<FormState> {
-  // Booking opens city by city: no bookings with a pro whose city hasn't opened yet (owners' businesses excepted).
-  {
-    const pp = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, opts.proId) });
-    const { cityBookingOpen } = await import("@/lib/city-booking");
-    if (pp && !(await cityBookingOpen(pp.cityId ?? pp.slotCityId)) && !(await (await import("@/lib/entry")).isOwnerBusiness(pp.userId))) {
-      return { error: "Booking isn't open in this professional's city yet — it opens soon." };
-    }
-  }
   if (opts.priceCents > MAX_PRICE_CENTS) return { error: `This is priced above Nearest's $${MAX_PRICE_CENTS / 100} student limit, so it can't be booked.` };
   // The $150 cap is on the service; a travel fee ($35–$55) is added only when the pro travels to the student.
   const travelFee = opts.where.locationType === "student" ? Math.min(Math.max(opts.travelFeeCents ?? 0, 0), 5500) : 0;
@@ -91,15 +83,18 @@ async function createAndPay(opts: {
   // Invite reward: $5 off a student's first booking with this pro (services only, one per booking). The pro funds it.
   const inv = opts.serviceId && !opts.bundleId ? await inviteRewardFor(opts.studentId, opts.proId, opts.priceCents) : null;
   let use = applyCredits(opts.priceCents - (inv?.cents ?? 0), bal);
-  if (use.charge > 0 && !stripeEnabled()) return { error: "Payments aren't set up yet." };
   const endsAt = new Date(opts.startsAt.getTime() + opts.durationMin * 60000);
-  await releaseMyHolds(opts.studentId); // an old unfinished payment never blocks a new booking
+  await releaseMyHolds(opts.studentId); // an old unfinished payment never blocks a new booking (accepted requests are kept)
+  // Every booking starts as a request: nothing is charged now. The professional accepts (activating their membership
+  // first if needed), then the student pays to confirm.
+  const { requestDeadline, notifyNewRequest } = await import("@/lib/requests");
+  const isRequest = true;
 
   const [b] = await db.insert(bookings).values({
     studentId: opts.studentId, proId: opts.proId, serviceId: opts.serviceId ?? null, modelCallId: opts.modelCallId ?? null,
     serviceName: opts.serviceName, startsAt: opts.startsAt, endsAt, priceCents: opts.priceCents, travelFeeCents: travelFee, depositCents: deposit,
-    creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge, inviteDiscountCents: inv?.cents ?? 0, bundleId: opts.bundleId ?? null,
-    holdExpiresAt: new Date(Date.now() + HOLD_MIN * 60000),
+    creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge, inviteDiscountCents: inv?.cents ?? 0, bundleId: opts.bundleId ?? null, isRequest,
+    status: "requested", holdExpiresAt: null, requestExpiresAt: requestDeadline(opts.startsAt),
     locationType: opts.where.locationType, locationAddress: opts.where.locationAddress, lat: opts.where.lat, lng: opts.where.lng,
   }).returning();
   if (inv) {
@@ -117,7 +112,7 @@ async function createAndPay(opts: {
     const clash = await db.select({ id: bookings.id }).from(bookings).where(and(
       eq(bookings.proId, opts.proId), ne(bookings.id, b.id), lt(bookings.number, b.number),
       lt(bookings.startsAt, endsAt), gt(bookings.endsAt, opts.startsAt),
-      or(inArray(bookings.status, ["confirmed", "completed"]), and(eq(bookings.status, "pending_payment"), gt(bookings.holdExpiresAt, new Date()))),
+      or(inArray(bookings.status, ["confirmed", "completed", "requested"]), and(eq(bookings.status, "pending_payment"), gt(bookings.holdExpiresAt, new Date()))),
     )).limit(1);
     if (clash.length) {
       await db.update(bookings).set({ status: "expired" }).where(eq(bookings.id, b.id));
@@ -126,11 +121,23 @@ async function createAndPay(opts: {
     }
   }
 
-  if (use.charge === 0) {
-    await confirmBooking(b.id);
-    redirect(`/bookings/${b.id}?booked=1`);
-  }
-  redirect(await checkout(b, opts.email, opts.proName));
+  await notifyNewRequest(b);
+  redirect(`/bookings/${b.id}?requested=1`);
+}
+
+/** The professional accepted: the student pays now (credits re-checked) — or it confirms right away if credit covers it. */
+export async function payAcceptedBooking(form: FormData) {
+  const { user } = await requireVerifiedStudent();
+  const id = String(form.get("id") ?? "");
+  const b = await db.query.bookings.findFirst({ where: and(eq(bookings.id, id), eq(bookings.studentId, user.id)) });
+  if (!b || b.status !== "pending_payment" || !b.respondedAt || (b.holdExpiresAt && b.holdExpiresAt.getTime() < Date.now())) redirect(`/bookings/${id}`);
+  const bal = b.bundleId ? { pro: 0, general: 0 } : await creditBalances(user.id, b.proId);
+  const use = applyCredits(b.priceCents - b.inviteDiscountCents, bal);
+  await db.update(bookings).set({ creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge }).where(eq(bookings.id, id));
+  if (use.charge === 0) { await confirmBooking(id); redirect(`/bookings/${id}?booked=1`); }
+  if (!stripeEnabled()) redirect(`/bookings/${id}?payment=unavailable`);
+  const pro = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, b.proId) });
+  redirect(await checkout({ ...b, chargedCents: use.charge, creditProCents: use.pro, creditGeneralCents: use.general }, user.email, pro?.businessName ?? "your professional"));
 }
 
 export async function bookService(_: FormState, form: FormData): Promise<FormState> {
@@ -226,4 +233,12 @@ export async function abandonBooking(form: FormData) {
   revalidatePath("/bookings");
   if (r === "paid") redirect(`/bookings/${id}?booked=1`);
   redirect(b ? `${b.modelCallId ? `/book/call/${b.modelCallId}` : `/p/${b.proId}`}?notbooked=1` : "/home");
+}
+
+/** The student withdraws a booking request before the professional confirms (the card hold is released). */
+export async function cancelBookingRequest(form: FormData) {
+  const { user } = await requireVerifiedStudent();
+  const id = String(form.get("id") ?? "");
+  await (await import("@/lib/requests")).cancelRequest(id, user.id);
+  redirect(`/bookings/${id}`);
 }

@@ -55,10 +55,27 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
   const blockers = await proBlockers(p);
   const ig = instagramHandle(p.instagram), tt = tiktokHandle(p.tiktok);
 
+  const { membershipState, MEMBERSHIP_LABEL, profileState } = await import("@/lib/membership");
+  const { isOwnerBusiness: ownerBiz } = await import("@/lib/entry");
+  const mstate = membershipState(p, await ownerBiz(p.userId));
+  const { bookings: bk } = await import("@/db");
+  const { and: both, eq: is, sql: q } = await import("drizzle-orm");
+  const [{ n: pendingRequests }] = await db.select({ n: q<number>`count(*)::int` }).from(bk).where(both(is(bk.proId, p.userId), is(bk.status, "requested")));
   return (
     <>
       <AdminHead eyebrow="Professionals • Review account" title={p.businessName ?? `${u.firstName ?? ""} ${u.lastName ?? ""}`} />
       <Link className="link small" href={`/admin/professionals?sel=${id}`}>← Back to Professionals</Link>
+
+      <div className="card" style={{ gap: 6 }}>
+        <span className="eyebrow">Membership &amp; terms</span>
+        <div className="row between small"><span className="muted">Profile</span><span>{profileState(p)}</span></div>
+        <div className="row between small"><span className="muted">Membership</span><span className={`tag ${mstate === "active" ? "ok" : mstate === "payment_issue" ? "bad" : ""}`}>{MEMBERSHIP_LABEL[mstate]}</span></div>
+        <div className="row between small"><span className="muted">Rate</span><span>{p.entryType ?? "—"}{p.monthlyRateCents ? ` • $${(p.monthlyRateCents / 100).toFixed(0)}/mo` : ""}{p.cohort === "FOUNDING" ? " • First In pricing" : ""}</span></div>
+        <div className="row between small"><span className="muted">Membership activated</span><span>{p.membershipActivatedAt ? p.membershipActivatedAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Chicago" }) : "—"}</span></div>
+        <div className="row between small"><span className="muted">Professional Terms</span><span>{p.proTermsAcceptedAt ? `Accepted • v${p.proTermsVersion} • ${p.proTermsAcceptedAt.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Chicago" })}` : "Not accepted yet"}</span></div>
+        <div className="row between small"><span className="muted">Pending booking requests</span><span className="b">{pendingRequests}</span></div>
+        <div className="row between small"><span className="muted">First booking request</span><span>{p.firstRequestAt ? p.firstRequestAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Chicago" }) : "—"}</span></div>
+      </div>
 
       <div className={`card ${blockers.length ? "warn" : "ok"}`} style={{ gap: 8 }}>
         <span className="eyebrow">{blockers.length ? "Not live for students yet" : "Live — students can find and book them"}</span>

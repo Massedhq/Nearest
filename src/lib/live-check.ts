@@ -16,16 +16,15 @@ type Profile = typeof professionalProfiles.$inferSelect;
 export async function proBlockers(p: Profile): Promise<string[]> {
   const [owner, steps, standing] = await Promise.all([isOwnerBusiness(p.userId), setupSteps(p.userId), proStanding(p.userId)]);
   const paid = owner || hasPaidEntry(p);
-  // Card saved and their city not open yet: membership starts the day it opens — not a blocker until then.
-  const waitingForCity = Boolean(p.cardSavedAt) && !(await (await import("./city-booking")).cityBookingOpen(p.cityId ?? p.slotCityId));
-  const subActive = ["active", "trialing"].includes(p.subscriptionStatus ?? "") || waitingForCity;
+  // Membership activates at the first accepted booking — only a membership with a payment problem blocks going live.
+  const subActive = (await import("./membership")).membershipState(p) !== "payment_issue";
   return [
     !paid && "Hasn't paid their entry (Join)",
     ...steps.filter((s) => !s.done && !s.optional).map((s) => `Setup not finished: ${s.label}`),
     p.reviewStatus !== "approved" && (p.reviewStatus === "submitted" ? "Waiting for approval (Verification Queue)" : p.reviewStatus === "rejected" ? "Profile was sent back for changes" : "Profile not submitted for review yet"),
     p.reviewStatus === "approved" && !p.searchable && "Went offline — their Go live switch is off (they turn it back on from Today or Business)",
     p.identityStatus !== "verified" && (p.identityStatus === "pending" ? "ID waiting for a check (Verification Queue)" : "ID not verified yet"),
-    !owner && !subActive && `Membership not active (${p.subscriptionStatus ?? "not started"})`,
+    !owner && !subActive && `Membership payment issue (${p.subscriptionStatus ?? "unknown"})`,
     p.placementReleasedAt && "Placement released (profile not ready or card failed when the city opened)",
     p.vacationMode && "Vacation mode is on",
     p.membershipPausedAt && "Membership paused by Nearest",
@@ -50,9 +49,8 @@ export async function proReadiness(p: Profile): Promise<ReadyItem[]> {
   const rejectedLicenses = await d.select({ name: cats.name, kind: pc.kind, note: pc.reviewNote }).from(pc).innerJoin(cats, is(cats.id, pc.categoryId))
     .where(both(is(pc.userId, p.userId), is(pc.status, "rejected")));
   const paid = owner || hasPaidEntry(p);
-  // Card saved and their city not open yet: membership starts the day it opens — not a blocker until then.
-  const waitingForCity = Boolean(p.cardSavedAt) && !(await (await import("./city-booking")).cityBookingOpen(p.cityId ?? p.slotCityId));
-  const subActive = ["active", "trialing"].includes(p.subscriptionStatus ?? "") || waitingForCity;
+  // Membership activates at the first accepted booking — only a membership with a payment problem blocks going live.
+  const subActive = (await import("./membership")).membershipState(p) !== "payment_issue";
   const out: (ReadyItem | false | null | undefined)[] = [
     !paid && { label: "Pay your entry to join", href: "/pro/join" },
     ...steps.filter((s) => !s.done && !s.optional).map((s) => ({ label: `Finish setup: ${s.label}`, href: `${s.href}?edit=1` })),
@@ -63,7 +61,7 @@ export async function proReadiness(p: Profile): Promise<ReadyItem[]> {
         : { label: "Submit your profile for review", href: "/pro/setup/review" }),
     p.identityStatus !== "verified" && (p.identityStatus === "pending" ? { label: "Nearest is checking your ID" } : p.identityStatus === "rejected" ? { label: `Retake your ID photos — ${p.identityNote ?? "we couldn't confirm your ID"}`, href: "/pro/payments" } : { label: "Finish your ID check", href: "/pro/payments" }),
     ...rejectedLicenses.map((c) => ({ label: `Fix your ${c.name} ${c.kind === "diploma" ? "diploma" : "license"} — ${c.note ?? "it couldn't be confirmed"}`, href: "/pro/setup/credentials?edit=1" })),
-    !owner && !subActive && { label: "Start your membership", href: "/pro/payments" },
+    !owner && !subActive && { label: "Fix your membership payment", href: "/pro/payments" },
     p.vacationMode && { label: "Turn off vacation mode", href: "/pro/calendar" },
     p.membershipPausedAt && { label: "Your membership is paused by Nearest" },
     p.listingPausedAt && { label: "Your listing is paused by Nearest" },

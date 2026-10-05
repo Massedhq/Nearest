@@ -18,7 +18,9 @@ export const portfolioSource = pgEnum("portfolio_source", ["upload", "instagram"
 export const modelCallStatus = pgEnum("model_call_status", ["open", "full", "cancelled", "completed"]);
 export const schoolType = pgEnum("school_type", ["high_school", "college", "trade"]);
 export const schoolRequestStatus = pgEnum("school_request_status", ["pending", "added", "dismissed"]);
-export const bookingStatus = pgEnum("booking_status", ["pending_payment", "confirmed", "completed", "cancelled_student", "cancelled_pro", "expired", "no_show"]);
+// "requested" = every booking starts here; nothing is charged. The pro accepts → "pending_payment" (student pays to confirm) → "confirmed"
+// until the pro accepts (activating their membership first), declines, or the request expires.
+export const bookingStatus = pgEnum("booking_status", ["pending_payment", "confirmed", "completed", "cancelled_student", "cancelled_pro", "expired", "no_show", "requested"]);
 export const incidentStatus = pgEnum("incident_status", ["open", "pro_fault", "not_substantiated"]);
 export const fineStatus = pgEnum("fine_status", ["outstanding", "paid", "waived"]);
 export const appealStatus = pgEnum("appeal_status", ["under_review", "upheld", "overturned"]);
@@ -198,6 +200,13 @@ export const professionalProfiles = pgTable("professional_profiles", {
   // Joined before their city opened: card saved, no charge yet. Membership starts when the city opens.
   cardSavedAt: ts("card_saved_at"),
   identityNote: text("identity_note"), // why the ID check was sent back (shown on their Subscription screen)
+  // Professional Terms (incl. the membership disclosure) — proof of exactly which version they accepted.
+  proTermsVersion: text("pro_terms_version"),
+  proTermsAcceptedAt: ts("pro_terms_accepted_at"),
+  proTermsIp: text("pro_terms_ip"),
+  // Membership activates when they accept their first booking request (not at sign-up).
+  membershipActivatedAt: ts("membership_activated_at"),
+  firstRequestAt: ts("first_request_at"),
   // Spot given up (profile not submitted when the city opened, or card failed for 7 days). Not counted, not shown.
   placementReleasedAt: ts("placement_released_at"),
   // Setup "save & finish later": half-finished services are kept as a draft; reminders after 1/3/7 days.
@@ -419,6 +428,11 @@ export const bookings = pgTable("bookings", {
   inviteDiscountCents: integer("invite_discount_cents").notNull().default(0),
   inviteRewardId: uuid("invite_reward_id"),
   bundleId: uuid("bundle_id"), // booked through Bundle Me (no credits or invite rewards)
+  // Booking request (pro without an active membership): card authorized at checkout, captured only on acceptance.
+  isRequest: boolean("is_request").notNull().default(false),
+  requestExpiresAt: ts("request_expires_at"),
+  paymentIntentId: text("payment_intent_id"),
+  respondedAt: ts("responded_at"),
   chargedCents: integer("charged_cents").notNull().default(0),
   status: bookingStatus("status").notNull().default("pending_payment"),
   holdExpiresAt: ts("hold_expires_at"),

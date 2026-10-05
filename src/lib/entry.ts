@@ -3,7 +3,7 @@ import type Stripe from "stripe";
 import { and, eq, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { db, platformSettings, entryCounters, professionalProfiles, proStudentLinks, users } from "@/db";
 import { getSettings } from "./settings";
-import { stripe, priceFor } from "./stripe";
+import { stripe } from "./stripe";
 import { saveSubscription } from "./pro-stripe";
 import { logActivity } from "./log";
 
@@ -46,8 +46,6 @@ export async function setEntryState(state: EntryState, actorId: string | null) {
 }
 
 // ---------- First In seats: a hard limit enforced by one atomic counter ----------
-const HOLD_MIN = 35; // a seat is held this long while someone pays
-const CHECKOUT_MIN = 31; // Stripe's minimum is 30 — checkout always expires before the hold, so no 751st payment can finish
 
 async function capacity() {
   return Number((await getSettings())["growth.founding_capacity"]) || 750;
@@ -63,14 +61,6 @@ export async function firstInStats() {
   return { capacity: cap, registered: paid.n, holding: held.n, remaining: Math.max(0, cap - paid.n), state, open: state === "FIRST_IN_OPEN" && paid.n < cap };
 }
 
-/** Takes one First In seat if one is left (atomic: two people can never get the last seat). */
-async function takeSeat(): Promise<boolean> {
-  const cap = await capacity();
-  await db.insert(entryCounters).values({ key: "first_in", taken: 0 }).onConflictDoNothing();
-  const [row] = await db.update(entryCounters).set({ taken: sql`${entryCounters.taken} + 1` })
-    .where(and(eq(entryCounters.key, "first_in"), lt(entryCounters.taken, cap))).returning();
-  return Boolean(row);
-}
 async function giveBackSeat() {
   await db.update(entryCounters).set({ taken: sql`greatest(${entryCounters.taken} - 1, 0)` }).where(eq(entryCounters.key, "first_in"));
 }
@@ -124,85 +114,6 @@ export async function allowedEntries(profile: typeof professionalProfiles.$infer
   return { allowed: next };
 }
 
-export async function startEntryCheckout(user: typeof users.$inferSelect, choice: EntryChoice, base: string): Promise<{ url: string } | { error: string }> {
-  const profile = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, user.id) });
-  if (!profile) return { error: "Finish creating your account first." };
-  if (profile.entryPaidAt) return { error: "You've already joined Nearest." };
-  const { allowed, reason, bypass } = await allowedEntries(profile);
-  if (!allowed.includes(choice.type)) {
-    return { error: reason === "paused" ? "New professional enrollment is paused right now."
-      : reason === "slot" ? "Choose your city and main category first."
-      : reason === "full" ? "Your city and category is full right now. Join the waitlist and we'll invite you when a spot opens."
-      : reason === "next_full" ? "The next 750 spots are taken right now. Join the waitlist and we'll invite you when spots open."
-      : "That option isn't available right now." };
-  }
-  // Skipping the waitlist in a full city: remember it so setup lets them list there.
-  if (bypass && !profile.slotBypass) await db.update(professionalProfiles).set({ slotBypass: true }).where(eq(professionalProfiles.userId, user.id));
-
-  // First In: hold a seat (reuse an unexpired hold if they come back)
-  const heldAlready = profile.entryType === "FIRST_IN" && profile.entryHoldUntil && profile.entryHoldUntil > new Date();
-  if (choice.type === "FIRST_IN" && !heldAlready) {
-    if (profile.entryType === "FIRST_IN") await releaseExpiredHolds();
-    if (!(await takeSeat())) return { error: "Every First In spot is taken or being paid for right now. If someone doesn't finish, a spot opens within 35 minutes." };
-  }
-
-  // Professional + Student: save the student they're registering
-  let linkId: string | null = null;
-  if (choice.type === "PRO_STUDENT") {
-    const st = choice.student!;
-    await db.delete(proStudentLinks).where(and(eq(proStudentLinks.proId, user.id), eq(proStudentLinks.status, "pending")));
-    const [link] = await db.insert(proStudentLinks).values({ proId: user.id, firstName: st.firstName, lastName: st.lastName, email: st.email.toLowerCase(), school: st.school ?? null }).returning();
-    linkId = link.id;
-  }
-
-  try {
-    // City not open for booking yet: save the card now (no charge) — the membership starts the day the city opens.
-    const { cityBookingOpen, proCityId } = await import("./city-booking");
-    if (!(await cityBookingOpen(proCityId(profile)))) {
-      let customer = profile.stripeCustomerId;
-      if (!customer) {
-        const c = await stripe().customers.create({ email: user.email ?? undefined, name: [user.firstName, user.lastName].filter(Boolean).join(" ") || undefined, metadata: { userId: user.id } });
-        customer = c.id;
-        await db.update(professionalProfiles).set({ stripeCustomerId: customer }).where(eq(professionalProfiles.userId, user.id));
-      }
-      const session = await stripe().checkout.sessions.create({
-        mode: "setup", currency: "usd", customer,
-        client_reference_id: user.id,
-        setup_intent_data: { metadata: { userId: user.id, kind: "entry" } },
-        metadata: { userId: user.id, kind: "entry", entryType: choice.type, saveCard: "1", ...(linkId ? { studentLinkId: linkId } : {}) },
-        expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_MIN * 60,
-        success_url: `${base}/pro/join?session={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${base}/pro/join`,
-      });
-      await db.update(professionalProfiles).set({
-        entryType: choice.type, monthlyRateCents: ENTRY[choice.type].cents, entryCheckoutId: session.id,
-        entryHoldUntil: choice.type === "FIRST_IN" ? (heldAlready ? profile.entryHoldUntil : new Date(Date.now() + HOLD_MIN * 60000)) : null,
-      }).where(eq(professionalProfiles.userId, user.id));
-      return { url: session.url! };
-    }
-
-    const price = await priceFor(choice.type);
-    const session = await stripe().checkout.sessions.create({
-      mode: "subscription",
-      line_items: [{ price, quantity: 1 }],
-      ...(profile.stripeCustomerId ? { customer: profile.stripeCustomerId } : { customer_email: user.email ?? undefined }),
-      client_reference_id: user.id,
-      subscription_data: { metadata: { userId: user.id, entryType: choice.type } }, // no trial — first month is paid now
-      metadata: { userId: user.id, kind: "entry", entryType: choice.type, ...(linkId ? { studentLinkId: linkId } : {}) },
-      expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_MIN * 60,
-      success_url: `${base}/pro/join?session={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${base}/pro/join`,
-    });
-    await db.update(professionalProfiles).set({
-      entryType: choice.type, monthlyRateCents: ENTRY[choice.type].cents, entryCheckoutId: session.id,
-      entryHoldUntil: choice.type === "FIRST_IN" ? (heldAlready ? profile.entryHoldUntil : new Date(Date.now() + HOLD_MIN * 60000)) : null,
-    }).where(eq(professionalProfiles.userId, user.id));
-    return { url: session.url! };
-  } catch (e) {
-    if (choice.type === "FIRST_IN" && !heldAlready) await giveBackSeat();
-    return { error: `Payment couldn't start: ${(e as Error).message}` };
-  }
-}
 
 /**
  * Called when payment succeeds (return page and webhook both call this; it only acts once).

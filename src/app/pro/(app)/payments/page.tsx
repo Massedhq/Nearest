@@ -45,11 +45,12 @@ export default async function Payments({ searchParams }: { searchParams: Promise
             <span className="small">As a Nearest owner, your business has no entry fee and no monthly membership. Just finish your ID check and payouts below.</span>
             <span className="xs muted">Card-processing fees still come out of each student payment.</span>
           </div>
-        ) : !p.subscriptionId && p.cardSavedAt && !p.placementReleasedAt ? (
+        ) : !p.subscriptionId && !managed ? (
           <div className="card">
-            <div className="row between"><span className="eyebrow">Membership</span><span className="tag">Starts when bookings open</span></div>
+            <div className="row between"><span className="eyebrow">Membership</span><span className="tag">Not yet activated</span></div>
             <span className="disp h2">{money(p.monthlyRateCents ?? 1100)}/month</span>
-            <span className="small">Your card is saved and your spot is held. Nothing is charged until Nearest opens bookings in your city — your membership and your 12-month rate lock start that day.</span>
+            <span className="small">Nothing to pay now. As agreed in your Professional Terms, your membership activates when you accept your first booking — you&apos;ll see an Activate &amp; accept button right on the request. Your 12-month rate starts that day.</span>
+            {p.proTermsAcceptedAt && <span className="xs muted">Terms version {p.proTermsVersion} accepted {p.proTermsAcceptedAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Chicago" })}.</span>}
           </div>
         ) : managed ? (
           <div className="card">

@@ -3,6 +3,7 @@ import { desc, eq, sql } from "drizzle-orm";
 import { db, users, professionalProfiles, proServices, categories, cities, adminMembers, bookings, reviews, fines, incidents, proStudentLinks } from "@/db";
 import { ENTRY, type EntryType } from "@/lib/entry";
 import { AdminHead } from "@/components/AdminHead";
+import { membershipState, MEMBERSHIP_LABEL } from "@/lib/membership";
 import { ActionForm } from "@/components/ActionForm";
 import { remindAllProSetup } from "@/app/admin/reminder-actions";
 import { decideTransfer } from "@/app/admin/transfer-actions";
@@ -86,7 +87,7 @@ export default async function Professionals({ searchParams }: { searchParams: Pr
         <td>
           {r.fineCents > 0 && r.fineDue && r.fineDue.getTime() < now ? <span className="tag bad">Past due {money(r.fineCents)}</span>
             : sub === "past_due" ? <span className="tag bad">Past due</span>
-            : r.isOwner ? "Owner — free" : r.p.membershipPausedAt ? "Paused" : r.p.membershipEndsAt ? `Ends ${fmtDate(r.p.membershipEndsAt, { month: "short", day: "numeric" })}` : sub === "active" || sub === "trialing" ? "Paid" : sub === "canceled" ? "Canceled" : r.p.entryPaidAt ? "Paid" : "Not paid"}
+            : r.isOwner ? "Owner — free" : r.p.membershipPausedAt ? "Paused" : r.p.membershipEndsAt ? `Ends ${fmtDate(r.p.membershipEndsAt, { month: "short", day: "numeric" })}` : <span className={`tag ${membershipState(r.p) === "active" ? "ok" : membershipState(r.p) === "payment_issue" ? "bad" : ""}`}>{MEMBERSHIP_LABEL[membershipState(r.p)]}</span>}
         </td>
         <td>{r.bookings}</td>
         <td>{r.rating ?? "—"}</td>
@@ -150,7 +151,7 @@ export default async function Professionals({ searchParams }: { searchParams: Pr
 
       <div className="card" style={{ overflowX: "auto" }}>
         <table className="tbl">
-          <thead><tr><th>Professional</th><th>City</th><th>Identity</th><th>Profile</th><th>Services</th><th>Entry</th><th>Registered</th><th>Payment</th><th>Bookings</th><th>Rating</th><th>Pro cancel rate</th></tr></thead>
+          <thead><tr><th>Professional</th><th>City</th><th>Identity</th><th>Profile</th><th>Services</th><th>Entry</th><th>Joined</th><th>Membership</th><th>Bookings</th><th>Rating</th><th>Pro cancel rate</th></tr></thead>
           <tbody>
             {owners.length > 0 && <tr><td colSpan={11} className="eyebrow" style={{ paddingTop: 10 }}>Owner business{owners.length === 1 ? "" : "es"}</td></tr>}
             {owners.map((r) => <Row key={r.p.userId} r={r} />)}

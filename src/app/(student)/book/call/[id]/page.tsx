@@ -73,10 +73,11 @@ export default async function BookCall({ params, searchParams }: { params: Promi
           <div className="card bad small"><span>This model call is full or no longer open.</span></div>
         ) : (
           <>
+            <div className="card small"><span><span className="b">Nothing is charged now.</span> Your request goes to the professional to confirm. Once they accept, you&apos;ll pay to lock in your appointment.</span></div>
             {call.priceCents > 0 && <PriceBox price={call.priceCents} deposit={deposit} pro={use.pro} general={use.general} charge={use.charge} />}
             <Terms deposit={deposit} cutoffHours={Number(s["cancel.cutoff_hours"])} graceMin={Number(s["appt.grace_minutes"])} />
             {call.flexible && !time ? <div className="card small"><span>Pick a day and time above to claim your spot.</span></div> : (
-            <ActionForm action={bookModelCall} submitLabel={use.charge > 0 ? "Continue to payment" : "Claim my spot"}>
+            <ActionForm action={bookModelCall} submitLabel="Send request for this spot">
               <input type="hidden" name="modelCallId" value={call.id} />
               {call.flexible && <><input type="hidden" name="day" value={day!} /><input type="hidden" name="time" value={time!} /><span className="small b">{fmtDate(chicagoToUtc(day!, time!), { weekday: "long", month: "long", day: "numeric" })} • {fmtTime(chicagoToUtc(day!, time!))}</span></>}
               {!pro.addressLine && <WherePicker mode="travel" proCity="" travelFee={pro.travelFeeCents ?? 3500} />}

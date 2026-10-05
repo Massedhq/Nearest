@@ -37,6 +37,10 @@ export async function POST(req: Request) {
         else if (s.mode === "subscription" && s.client_reference_id && s.subscription) {
           const sub = await stripe().subscriptions.retrieve(typeof s.subscription === "string" ? s.subscription : s.subscription.id);
           await saveSubscription(s.client_reference_id, sub);
+          // Activated from a booking request: accept that booking even if they closed the page after paying.
+          if (s.metadata?.kind === "membership" && s.metadata.bookingId && ["active", "trialing"].includes(sub.status)) {
+            await (await import("@/lib/requests")).acceptRequest(s.metadata.bookingId, s.client_reference_id);
+          }
         }
         break;
       }
