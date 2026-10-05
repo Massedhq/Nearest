@@ -2,7 +2,7 @@
  * The Professional Terms shown (scrollable) on the final Review & submit step — the membership rate is the last section. Bump PRO_TERMS_VERSION whenever the text changes —
  * every professional's accepted version is stored, so Nearest can prove which terms they agreed to.
  */
-export const PRO_TERMS_VERSION = "2026-10-05.3";
+export const PRO_TERMS_VERSION = "2026-10-05.4";
 
 export function proTermsSections(rate: { cents: number; label: string }) {
   const price = `$${(rate.cents / 100).toFixed(rate.cents % 100 ? 2 : 0)}`;
@@ -33,6 +33,8 @@ export function proTermsSections(rate: { cents: number; label: string }) {
       "You are not charged for creating your account or building your profile.",
       `By accepting these terms, you agree to the ${price}/month membership. Your membership is activated — and your card is charged ${price} — when you accept your first booking through Nearest. You must activate your membership before you can accept a booking.`,
       "Your membership then renews monthly until you cancel. It's a monthly membership, not a per-booking fee: once it's active, you can accept as many bookings as you like. Nearest takes no commission on your bookings; card-processing fees come out of each payment.",
+      "Nearest service fee: a flat $5.00 Nearest service fee applies to each service booked through Nearest. When you save a service, the fee is added to your price by default, so students see one total (for example, a $30 service shows as $35) and you receive your full price. You can instead choose, per service, to include the fee in your price — then students see your price and the $5.00 comes out of your payout for that booking. Nearest keeps the fee only when a booking is completed; when a booking is refunded, the fee is refunded too. Model Calls have no service fee.",
+      "Nearest may add, change or remove platform and service fees to operate and improve the service. Nearest will tell you before any change takes effect, and changes apply only to bookings made after the change.",
     ] },
   ];
 }

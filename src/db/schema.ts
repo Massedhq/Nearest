@@ -273,6 +273,11 @@ export const catalogServices = pgTable("catalog_services", {
 
 export const proServices = pgTable("pro_services", {
   photoUrl: text("photo_url"), // optional photo of this service (their own work)
+  // Nearest service fee. priceCents = what students see and pay. proPriceCents = what the pro entered (null = saved
+  // before the fee existed: no fee on those until the pro edits them). feeAdded = fee added on top (else the pro absorbs it).
+  proPriceCents: integer("pro_price_cents"),
+  serviceFeeCents: integer("service_fee_cents").notNull().default(0),
+  feeAdded: boolean("fee_added").notNull().default(true),
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   categoryId: integer("category_id").notNull().references(() => categories.id),
@@ -430,6 +435,7 @@ export const bookings = pgTable("bookings", {
   creditGeneralCents: integer("credit_general_cents").notNull().default(0),
   // Student invite reward used on this booking: $5 off, funded by the professional (first booking with them only).
   inviteDiscountCents: integer("invite_discount_cents").notNull().default(0),
+  serviceFeeCents: integer("service_fee_cents").notNull().default(0), // Nearest's service fee in this price — kept when the booking completes
   inviteRewardId: uuid("invite_reward_id"),
   bundleId: uuid("bundle_id"), // booked through Bundle Me (no credits or invite rewards)
   // Booking request (pro without an active membership): card authorized at checkout, captured only on acceptance.

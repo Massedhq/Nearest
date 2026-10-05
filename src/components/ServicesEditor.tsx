@@ -4,7 +4,7 @@ import { MAX_PRICE_DOLLARS } from "@/lib/pricing";
 import { cleanPrice, underCap } from "./PriceInput";
 
 export type Cat = { id: number; name: string; licenseRequired: boolean; suggestions: string[] };
-export type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; photo?: string | null };
+export type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; photo?: string | null; addFee?: boolean };
 
 /** Pick categories, then list each service with a price and length. Sends everything as one JSON field. */
 /** Optional photo of one service: uploads straight to storage and keeps the link on that row. */
@@ -36,14 +36,18 @@ function ServicePhoto({ userId, url, onChange }: { userId: string; url?: string 
   );
 }
 
-export function ServicesEditor({ categories, initial, userId }: { categories: Cat[]; initial: Row[]; userId: string }) {
+export function ServicesEditor({ categories, initial, userId, feeCents = 500 }: { categories: Cat[]; initial: Row[]; userId: string; feeCents?: number }) {
+  const feeD = feeCents / 100;
+  const fmt = (n: number) => `$${n.toFixed(2).replace(/\.00$/, "")}`;
+  // What students see and pay for a row: the pro's price + the service fee (unless they chose to absorb it).
+  const studentPrice = (r: Row) => { const p = Number(String(r.price).replace(/[$,\s]/g, "")); return Number.isFinite(p) && p > 0 ? (r.addFee === false ? p : p + feeD) : null; };
   const [rows, setRows] = useState<Row[]>(initial);
   const [cats, setCats] = useState<number[]>(() => [...new Set(initial.map((r) => r.categoryId))]);
   const [capWarn, setCapWarn] = useState(false);
 
   const toggleCat = (id: number) => setCats((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
   const update = (i: number, patch: Partial<Row>) => setRows((r) => r.map((row, j) => (j === i ? { ...row, ...patch } : row)));
-  const add = (categoryId: number, name = "") => setRows((r) => [...r, { categoryId, name, price: "", duration: "60" }]);
+  const add = (categoryId: number, name = "") => setRows((r) => [...r, { categoryId, name, price: "", duration: "60", addFee: true }]);
   const remove = (i: number) => setRows((r) => r.filter((_, j) => j !== i));
   const kept = rows.filter((r) => cats.includes(r.categoryId));
 
@@ -75,6 +79,10 @@ export function ServicesEditor({ categories, initial, userId }: { categories: Ca
                 <input type="checkbox" checked={Boolean(r.adultsOnly)} onChange={(e) => update(i, { adultsOnly: e.target.checked })} />
                 <span><span className="b">18+ only</span> — must be 18 or older to book</span>
               </label>
+              <label className="check" style={{ fontSize: 12, marginTop: -4 }}>
+                <input type="checkbox" checked={r.addFee !== false} onChange={(e) => update(i, { addFee: e.target.checked })} />
+                <span>Add the {fmt(feeD)} Nearest service fee to my price{studentPrice(r) != null ? <> — <span className="b">students see {fmt(studentPrice(r)!)}</span>{r.addFee === false ? `, you receive ${fmt(Math.max(0, studentPrice(r)! - feeD))}` : ""}</> : ""}</span>
+              </label>
               <ServicePhoto userId={userId} url={r.photo} onChange={(u) => update(i, { photo: u })} />
             </div>
             ))}
@@ -86,8 +94,8 @@ export function ServicesEditor({ categories, initial, userId }: { categories: Ca
         );
       })}
       {cats.length === 0 && <p className="small muted p">Pick at least one category above.</p>}
-      {(capWarn || rows.some((r) => Number(String(r.price).replace(/[$,\s]/g, "")) > MAX_PRICE_DOLLARS)) && <p className="err small" role="alert">Student prices can&apos;t be more than ${MAX_PRICE_DOLLARS} per service.{rows.some((r) => Number(String(r.price).replace(/[$,\s]/g, "")) > MAX_PRICE_DOLLARS) ? " Lower the price outlined in red to save." : ""}</p>}
-      <p className="xs muted p">Nearest is a student marketplace — every service is ${MAX_PRICE_DOLLARS} or less.</p>
+      {(capWarn || rows.some((r) => (studentPrice(r) ?? 0) > MAX_PRICE_DOLLARS)) && <p className="err small" role="alert">Students can&apos;t be charged more than ${MAX_PRICE_DOLLARS} per service{rows.some((r) => (studentPrice(r) ?? 0) > MAX_PRICE_DOLLARS) ? ` — with the ${fmt(feeD)} service fee, a service can be up to ${fmt(MAX_PRICE_DOLLARS - feeD)}.` : "."}</p>}
+      <p className="xs muted p">Enter your price. Nearest adds its {fmt(feeD)} service fee, so students see one total price (no separate fee). Every service is ${MAX_PRICE_DOLLARS} or less for students.</p>
     </div>
   );
 }

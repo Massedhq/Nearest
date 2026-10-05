@@ -155,14 +155,14 @@ export async function cancelAsProFault(bookingId: string, reason: string, proId?
   return { ok: "Cancelled. The student received the full amount as Nearest credit." };
 }
 
-/** Student releases payment after the appointment started. The pro receives the price minus Stripe's processing fee. */
+/** Student releases payment after the appointment started. The pro receives the price minus Nearest's service fee and Stripe's processing fee. */
 export async function releasePayment(bookingId: string, studentId: string) {
   const b = await db.query.bookings.findFirst({ where: and(eq(bookings.id, bookingId), eq(bookings.studentId, studentId)) });
   if (!b || b.status !== "confirmed") return { error: "This payment can't be released." };
   // Release once the pro has finished (even if they started early) or the start time has passed.
   if (!b.finishedAt && b.startsAt.getTime() > Date.now()) return { error: "You can release payment once your appointment has started." };
   const pro = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, b.proId) });
-  const gross = Math.max(0, total(b) - (b.stripeFeeCents ?? 0));
+  const gross = Math.max(0, total(b) - b.serviceFeeCents - (b.stripeFeeCents ?? 0)); // Nearest keeps its service fee
   const amount = gross - (await collectDues(pro, b.id, gross)); // pay-from-bookings membership comes out first
   let transferId: string | null = null;
   if (amount > 0) {

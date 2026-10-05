@@ -88,7 +88,7 @@ export async function saveAvatar(urls: string[]): Promise<{ error?: string }> {
 }
 
 // ---------- Services ----------
-type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; photo?: string | null };
+type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; photo?: string | null; addFee?: boolean };
 
 export async function saveServices(_: FormState, form: FormData): Promise<FormState> {
   const { user, profile } = await requirePro();
@@ -107,6 +107,7 @@ export async function saveServices(_: FormState, form: FormData): Promise<FormSt
   const cleaned = rows.filter((r) => r.name.trim() || r.price.trim());
   if (!cleaned.length) return { error: "Add at least one service with a price." };
   const validCats = new Set((await db.select({ id: categories.id }).from(categories).where(eq(categories.active, true))).map((c) => c.id));
+  const fee = Math.max(0, Number((await getSettings())["fees.service_fee_cents"] ?? 500)); // Nearest service fee per service
   const values = [];
   for (const [i, r] of cleaned.entries()) {
     const name = r.name.trim().slice(0, 80);
@@ -115,10 +116,15 @@ export async function saveServices(_: FormState, form: FormData): Promise<FormSt
     if (!name) return { error: "Every service needs a name." };
     if (!validCats.has(Number(r.categoryId))) return { error: "Pick a category for every service." };
     if (!Number.isFinite(price) || price <= 0) return { error: `Enter a price for ${name}.` };
-    if (price > MAX_PRICE_DOLLARS) return { error: `Student prices can't be more than $${MAX_PRICE_DOLLARS} — ${name} is set to $${price}.` };
+    // The pro enters their price. With the fee added (default), students see their price + the Nearest service fee.
+    const addFee = r.addFee !== false;
+    const proCents = Math.round(price * 100);
+    const studentCents = addFee ? proCents + fee : proCents;
+    if (studentCents > MAX_PRICE_DOLLARS * 100) return { error: `Students can't be charged more than $${MAX_PRICE_DOLLARS} per service — ${name} would be $${(studentCents / 100).toFixed(2).replace(/\.00$/, "")}${addFee ? " with the service fee" : ""}.` };
+    if (!addFee && proCents <= fee) return { error: `${name} needs to be more than the $${(fee / 100).toFixed(0)} service fee.` };
     if (!Number.isInteger(duration) || duration < 10 || duration > 600) return { error: `Enter ${name}'s length in minutes (10–600).` };
     const photo = typeof r.photo === "string" && blobUrlOk(r.photo, user.id) ? r.photo : null; // optional photo of this service
-    values.push({ userId: user.id, categoryId: Number(r.categoryId), name, priceCents: Math.round(price * 100), durationMin: duration, sort: i, adultsOnly: Boolean(r.adultsOnly), photoUrl: photo });
+    values.push({ userId: user.id, categoryId: Number(r.categoryId), name, priceCents: studentCents, proPriceCents: addFee ? proCents : proCents - fee, serviceFeeCents: fee, feeAdded: addFee, durationMin: duration, sort: i, adultsOnly: Boolean(r.adultsOnly), photoUrl: photo });
   }
   // Spots are limited per city, per category — nobody can add a category that's full where they work.
   const full = await (await import("@/lib/slots")).wouldOverfill(profile, profile.cityId ?? profile.slotCityId, values.map((v) => v.categoryId));

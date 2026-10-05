@@ -32,6 +32,7 @@ export const SETTINGS: Record<string, SettingDef> = {
   "partner.pool_size": { label: "Partner pool size (pros)", group: "Growth", type: "number", value: 3500 },
   "partner.nearest_block": { label: "Pool pros whose payments go to Nearest", group: "Growth", type: "number", value: 500 },
   "growth.target_per_city": { label: "Target per city", group: "Growth", type: "number", value: 5 },
+  "fees.service_fee_cents": { label: "Nearest service fee per service (added to the price students see)", group: "Fees", type: "cents", value: 500 },
   "outreach.paused": { label: "Pause all outreach emails", group: "Outreach", type: "bool", value: false },
   "outreach.ai_enabled": { label: "AI recruiter answers replies", group: "Outreach", type: "bool", value: true },
   "outreach.per_run": { label: "Outreach emails sent per 15 minutes (all partners)", group: "Outreach", type: "number", value: 40 },

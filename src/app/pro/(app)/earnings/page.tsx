@@ -11,7 +11,7 @@ export const metadata = { title: "Earnings" };
 
 export default async function Earnings() {
   const { user, profile } = await requirePro();
-  const value = sql<number>`coalesce(sum(${bookings.chargedCents} + ${bookings.creditProCents} + ${bookings.creditGeneralCents} - coalesce(${bookings.stripeFeeCents},0)),0)::int`;
+  const value = sql<number>`coalesce(sum(${bookings.chargedCents} + ${bookings.creditProCents} + ${bookings.creditGeneralCents} - ${bookings.serviceFeeCents} - coalesce(${bookings.stripeFeeCents},0)),0)::int`;
   const [[pending], [released], [held], recent] = await Promise.all([
     db.select({ n: value }).from(bookings).where(and(eq(bookings.proId, user.id), eq(bookings.status, "confirmed"))),
     db.select({ n: value }).from(bookings).where(and(eq(bookings.proId, user.id), eq(bookings.status, "completed"))),

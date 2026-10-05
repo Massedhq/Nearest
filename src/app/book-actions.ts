@@ -69,6 +69,7 @@ async function checkout(b: typeof bookings.$inferSelect, email: string | null, p
 async function createAndPay(opts: {
   studentId: string; email: string | null; proId: string; proName: string; serviceId?: string; modelCallId?: string;
   serviceName: string; startsAt: Date; durationMin: number; priceCents: number; where: Where; travelFeeCents?: number;
+  serviceFeeCents?: number; // Nearest's service fee inside priceCents (kept when the booking completes; none on Model Calls)
   bundleId?: string;
 }): Promise<FormState> {
   if (opts.priceCents > MAX_PRICE_CENTS) return { error: `This is priced above Nearest's $${MAX_PRICE_CENTS / 100} student limit, so it can't be booked.` };
@@ -93,7 +94,7 @@ async function createAndPay(opts: {
   const [b] = await db.insert(bookings).values({
     studentId: opts.studentId, proId: opts.proId, serviceId: opts.serviceId ?? null, modelCallId: opts.modelCallId ?? null,
     serviceName: opts.serviceName, startsAt: opts.startsAt, endsAt, priceCents: opts.priceCents, travelFeeCents: travelFee, depositCents: deposit,
-    creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge, inviteDiscountCents: inv?.cents ?? 0, bundleId: opts.bundleId ?? null, isRequest,
+    creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge, inviteDiscountCents: inv?.cents ?? 0, bundleId: opts.bundleId ?? null, isRequest, serviceFeeCents: opts.serviceFeeCents ?? 0,
     status: "requested", holdExpiresAt: null, requestExpiresAt: requestDeadline(opts.startsAt),
     locationType: opts.where.locationType, locationAddress: opts.where.locationAddress, lat: opts.where.lat, lng: opts.where.lng,
   }).returning();
@@ -167,6 +168,7 @@ export async function bookService(_: FormState, form: FormData): Promise<FormSta
   return createAndPay({ where, travelFeeCents: pro.travelFeeCents ?? 3500, bundleId,
     studentId: user.id, email: user.email, proId: svc.userId, proName: pro.businessName ?? "your professional", serviceId: svc.id,
     serviceName: svc.name, startsAt: chicagoToUtc(day, time), durationMin: svc.durationMin, priceCents: svc.priceCents,
+    serviceFeeCents: svc.proPriceCents == null ? 0 : svc.serviceFeeCents,
   });
 }
 
