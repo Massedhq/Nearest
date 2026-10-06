@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Services: saved services fold into one-line rows with Edit; after saving, View my profile / Back to my account menu"
+git commit -q -m "Services: categories expand/minimize (one open at a time), services fold to one line with Edit/Minimize"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

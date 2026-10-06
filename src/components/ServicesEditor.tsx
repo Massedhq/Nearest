@@ -48,9 +48,15 @@ export function ServicesEditor({ categories, initial, userId, feeCents = 500 }: 
   const openRow = (i: number) => setOpen((o) => new Set(o).add(i));
   const close = (i: number) => setOpen((o) => { const n = new Set(o); n.delete(i); return n; });
 
-  const toggleCat = (id: number) => setCats((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
+  const [openCat, setOpenCat] = useState<number | null>(() => initial.find((r) => !r.name.trim() || !String(r.price).trim())?.categoryId ?? null);
+  // Picking a new category opens it (and minimizes the others); removing one closes it.
+  const toggleCat = (id: number) => setCats((c) => {
+    if (c.includes(id)) { setOpenCat((o) => (o === id ? null : o)); return c.filter((x) => x !== id); }
+    setOpenCat(id);
+    return [...c, id];
+  });
   const update = (i: number, patch: Partial<Row>) => setRows((r) => r.map((row, j) => (j === i ? { ...row, ...patch } : row)));
-  const add = (categoryId: number, name = "") => setRows((r) => { setOpen((o) => new Set(o).add(r.length)); return [...r, { categoryId, name, price: "", duration: "60", addFee: true }]; });
+  const add = (categoryId: number, name = "") => setRows((r) => { setOpen((o) => new Set(o).add(r.length)); setOpenCat(categoryId); return [...r, { categoryId, name, price: "", duration: "60", addFee: true }]; });
   // Removing shifts the rows after it up by one — keep the same services open.
   const remove = (i: number) => { setRows((r) => r.filter((_, j) => j !== i)); setOpen((o) => new Set([...o].filter((x) => x !== i).map((x) => (x > i ? x - 1 : x)))); };
   const kept = rows.filter((r) => cats.includes(r.categoryId));
@@ -67,9 +73,13 @@ export function ServicesEditor({ categories, initial, userId, feeCents = 500 }: 
         const mine = rows.map((r, i) => ({ r, i })).filter(({ r }) => r.categoryId === c.id);
         const unused = c.suggestions.filter((s) => !mine.some(({ r }) => r.name.toLowerCase() === s.toLowerCase()));
         return (
-          <div key={c.id} className="card">
-            <div className="row between"><span className="eyebrow">{c.name}</span><span className="xs muted">Price • Minutes</span></div>
-            {c.licenseRequired && <span className="tag warn" style={{ alignSelf: "flex-start" }}>License required</span>}
+          <div key={c.id} className="card" style={{ gap: openCat === c.id ? 10 : 0 }}>
+            <button type="button" className="row between" aria-expanded={openCat === c.id} onClick={() => setOpenCat((o) => (o === c.id ? null : c.id))}
+              style={{ background: "none", border: 0, padding: 0, color: "inherit", font: "inherit", cursor: "pointer", width: "100%", textAlign: "left" }}>
+              <span className="eyebrow">{c.name}</span>
+              <span className="row xs muted" style={{ gap: 6 }}>{mine.length} service{mine.length === 1 ? "" : "s"}{c.licenseRequired ? " • License required" : ""}<span aria-hidden="true" style={{ fontSize: 14 }}>{openCat === c.id ? "▾" : "▸"}</span></span>
+            </button>
+            {openCat === c.id && (<>
             {mine.map(({ r, i }) => (
               open.has(i) ? (
               <div key={i} className="col" style={{ gap: 6 }}>
@@ -89,7 +99,7 @@ export function ServicesEditor({ categories, initial, userId, feeCents = 500 }: 
                 <span>Add the {fmt(feeD)} Nearest service fee to my price{studentPrice(r) != null ? <> — <span className="b">students see {fmt(studentPrice(r)!)}</span>{r.addFee === false ? `, you receive ${fmt(Math.max(0, studentPrice(r)! - feeD))}` : ""}</> : ""}</span>
               </label>
               <ServicePhoto userId={userId} url={r.photo} onChange={(u) => update(i, { photo: u })} />
-              <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} onClick={() => close(i)}>Done</button>
+              <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} onClick={() => close(i)}>Minimize</button>
             </div>
               ) : (
               // Saved services stay compact: one line with the price students see and an Edit button.
@@ -107,6 +117,7 @@ export function ServicesEditor({ categories, initial, userId, feeCents = 500 }: 
               <div className="chips">{unused.map((s) => <button key={s} type="button" className="chip" style={{ height: 32 }} onClick={() => add(c.id, s)}>+ {s}</button>)}</div>
             )}
             <button type="button" className="link small" style={{ alignSelf: "flex-start" }} onClick={() => add(c.id)}>+ Add custom service</button>
+            </>)}
           </div>
         );
       })}
