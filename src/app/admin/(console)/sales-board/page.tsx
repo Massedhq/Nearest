@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { desc, sql } from "drizzle-orm";
@@ -9,14 +10,14 @@ import { expiryLabel } from "@/lib/invite-expiry";
 import { CopyText } from "@/components/CopyText";
 import { requireAdmin } from "@/lib/admin";
 import { mainOwnerId } from "@/lib/partner";
-import { repLinks, repStats } from "@/lib/reps";
+import { repLinks, repStats, type RepPeriod } from "@/lib/reps";
 import { fmtDate } from "@/lib/time";
 import { inviteRep, resendRepInvite, setRepStatus, payRep, reviewRepVerification } from "@/app/admin/rep-actions";
 
 export const metadata = { title: "Sales Board" };
 
 /** The main owner's sales team: invite reps, see who signed up through each rep's link. Nobody else can open this. */
-export default async function SalesBoard() {
+export default async function SalesBoard({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
   const { user } = await requireAdmin();
   if ((await mainOwnerId()) !== user.id) notFound();
   const h = await headers();
@@ -28,10 +29,47 @@ export default async function SalesBoard() {
   const live = reps.filter((r) => r.status !== "removed");
   const sum = (k: "total" | "pros" | "prosJoined" | "students" | "thisMonth") => live.reduce((t, r) => t + (stats.get(r.id)?.[k] ?? 0), 0);
   const now = Date.now();
+  // Leaderboard: who's actually performing in the chosen period, ranked by results (pros who submitted + students verified).
+  const pRaw = (await searchParams).period;
+  const period = (pRaw === "week" || pRaw === "month" ? pRaw : "all") as RepPeriod;
+  const pStats = period === "all" ? stats : await repStats(reps.map((r) => r.id), period);
+  const board = live.map((r) => ({ r, s: pStats.get(r.id)! })).filter((x) => x.s)
+    .sort((a, b) => (b.s.prosJoined + b.s.studentsVerified) - (a.s.prosJoined + a.s.studentsVerified) || (b.s.total - a.s.total) || (b.s.proClicks + b.s.studentClicks) - (a.s.proClicks + a.s.studentClicks));
 
   return (
     <>
       <AdminHead eyebrow="Only you can see this" title="Sales Board" />
+      <div className="card" style={{ gap: 10 }}>
+        <div className="row between" style={{ flexWrap: "wrap", gap: 8 }}>
+          <span className="eyebrow">Leaderboard</span>
+          <div className="chips">
+            {([["week", "This week"], ["month", "This month"], ["all", "All time"]] as const).map(([k, l]) => <Link key={k} className={`chip${period === k ? " on" : ""}`} href={`/admin/sales-board${k === "all" ? "" : `?period=${k}`}`}>{l}</Link>)}
+          </div>
+        </div>
+        <span className="xs muted">Ranked by results: pros who submitted a profile + students who verified, from each ambassador&apos;s own links. Clicks show who&apos;s sharing.</span>
+        <div style={{ overflowX: "auto" }}>
+          <table className="tbl">
+            <thead>
+              <tr><th>#</th><th>Ambassador</th><th className="num">Clicks<br /><span className="xs muted">pro • student</span></th><th className="num">Pros<br /><span className="xs muted">signed up</span></th><th className="num">Profile<br /><span className="xs muted">submitted</span></th><th className="num">Live</th><th className="num">Activated</th><th className="num">Students<br /><span className="xs muted">signed up</span></th><th className="num">Verified</th><th className="num">Booked</th></tr>
+            </thead>
+            <tbody>
+              {board.length === 0 && <tr><td className="empty" colSpan={10}>No ambassadors yet.</td></tr>}
+              {board.map(({ r, s }, i) => (
+                <tr key={r.id}>
+                  <td className="b">{i + 1}</td>
+                  <td>
+                    <span className="b">{r.name}</span>
+                    {r.status !== "active" ? <div className="xs muted">Invitation not accepted yet</div> : r.verificationStatus !== "approved" ? <div className="xs" style={{ color: "#E3C58A" }}>Links not crediting yet — approve their ID</div> : null}
+                  </td>
+                  <td className="num">{s.proClicks} • {s.studentClicks}</td>
+                  <td className="num">{s.pros}</td><td className="num b">{s.prosJoined}</td><td className="num">{s.prosLive}</td><td className="num">{s.prosActive}</td>
+                  <td className="num">{s.students}</td><td className="num b">{s.studentsVerified}</td><td className="num">{s.studentsBooked}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
       <p className="small muted" style={{ maxWidth: 760 }}>
         Your sales team. Each rep gets their own links and a dashboard that shows who signed up through them. This is separate from partners, the Sales Track and professional invitations.
       </p>

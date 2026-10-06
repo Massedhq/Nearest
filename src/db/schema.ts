@@ -941,3 +941,11 @@ export const broadcastRecipients = pgTable("broadcast_recipients", {
   prospectId: uuid("prospect_id"),
   sentAt: ts("sent_at"),
 }, (t) => [index("broadcast_recipients_todo_idx").on(t.broadcastId, t.sentAt)]);
+
+// Taps on an ambassador's personal links, counted per day (kind = "pro" | "student").
+export const repLinkClicks = pgTable("rep_link_clicks", {
+  repId: uuid("rep_id").notNull().references(() => salesReps.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(),
+  day: date("day").notNull(),
+  clicks: integer("clicks").notNull().default(0),
+}, (t) => [uniqueIndex("rep_link_clicks_idx").on(t.repId, t.kind, t.day)]);

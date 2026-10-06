@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Admins can overturn rejected profiles (Approve / Approve all / Overturn & approve) with notification + email"
+git commit -q -m "Ambassadors: click-tracked links (/r/CODE, /r/CODE/students), ranked Leaderboard by week/month/all with full pro + student funnel"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

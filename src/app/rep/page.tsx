@@ -83,10 +83,10 @@ export default async function RepDashboard({ searchParams }: { searchParams: Pro
         )}
 
         <div className="kpis k4">
+          <div className="card" style={{ gap: 4 }}><span className="xs muted">Link taps</span><span className="stat">{s.proClicks + s.studentClicks}</span><span className="xs muted">{s.proClicks} pro • {s.studentClicks} student</span></div>
           <div className="card" style={{ gap: 4 }}><span className="xs muted">Total sign-ups</span><span className="stat">{s.total}</span><span className="xs muted">{s.thisMonth} this month</span></div>
-          <div className="card" style={{ gap: 4 }}><span className="xs muted">Professionals</span><span className="stat">{s.pros}</span></div>
-          <div className="card" style={{ gap: 4 }}><span className="xs muted">Professionals joined</span><span className="stat">{s.prosJoined}</span><span className="xs muted">Paid or active</span></div>
-          <div className="card" style={{ gap: 4 }}><span className="xs muted">Students</span><span className="stat">{s.students}</span><span className="xs muted">{s.studentsVerified} verified</span></div>
+          <div className="card" style={{ gap: 4 }}><span className="xs muted">Professionals</span><span className="stat">{s.pros}</span><span className="xs muted">{s.prosJoined} submitted • {s.prosLive} live • {s.prosActive} activated</span></div>
+          <div className="card" style={{ gap: 4 }}><span className="xs muted">Students</span><span className="stat">{s.students}</span><span className="xs muted">{s.studentsVerified} verified • {s.studentsBooked} booked</span></div>
         </div>
 
         {verified && (<>
