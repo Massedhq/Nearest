@@ -1,7 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { headers } from "next/headers";
 import { db, professionalProfiles, categories, catalogServices, invitations, cities } from "@/db";
 import { requireAdmin } from "@/lib/admin";
@@ -14,16 +14,44 @@ import { stripe, stripeEnabled } from "@/lib/stripe";
 const str = (f: FormData, k: string, max = 500) => String(f.get(k) ?? "").trim().slice(0, max);
 
 // ---------- Profile review ----------
-export async function approvePro(form: FormData) {
-  const { user } = await requireAdmin();
-  const id = str(form, "userId", 40);
+/** Approve a submitted profile — or overturn an earlier rejection (e.g. license/certificate rejections, no longer required). */
+async function approveOne(id: string, actorId: string) {
+  const before = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, id) });
+  if (!before || !["submitted", "rejected"].includes(before.reviewStatus)) return false;
   const [row] = await db
     .update(professionalProfiles)
     .set({ reviewStatus: "approved", approvedAt: new Date(), reviewNote: null, searchable: true })
-    .where(and(eq(professionalProfiles.userId, id), eq(professionalProfiles.reviewStatus, "submitted")))
+    .where(and(eq(professionalProfiles.userId, id), inArray(professionalProfiles.reviewStatus, ["submitted", "rejected"])))
     .returning();
-  if (row) await inbox(id, { kind: "approved", title: "You're approved on Nearest", body: "You go live as soon as your membership and ID check are done — check the Go live card on Today. Payouts can come later.", href: "/pro/home" });
-  if (row) await logActivity({ actorUserId: user.id, action: "pro.approved", targetType: "professional", targetId: row.businessName ?? id, before: "submitted", after: "approved" });
+  if (!row) return false;
+  const overturned = before.reviewStatus === "rejected";
+  await inbox(id, { kind: "approved", title: "You're approved on Nearest", body: "Students can find you once your ID check is done — check the Go live card on Today.", href: "/pro/home" });
+  try {
+    const { users } = await import("@/db");
+    const u = await db.query.users.findFirst({ where: eq(users.id, id) });
+    if (u?.email) {
+      const { sendEmail } = await import("@/lib/email");
+      await sendEmail({ to: u.email, subject: "You're approved on Nearest", eyebrow: "Nearest", heading: `${u.firstName ?? "Hi"}, your profile is approved.`,
+        lines: [overturned ? "We took another look at your profile and approved it — nothing else is needed for licenses or certificates." : "Your profile is approved.", "Open Nearest to see anything left before students can book you."],
+        button: { label: "Open Nearest", url: `${process.env.APP_URL || "https://www.usenearest.com"}/pro/home` } });
+    }
+  } catch (e) { console.error("approval email", e); }
+  await logActivity({ actorUserId: actorId, action: overturned ? "pro.rejection_overturned" : "pro.approved", targetType: "professional", targetId: row.businessName ?? id, before: before.reviewStatus, after: "approved" });
+  return true;
+}
+
+export async function approvePro(form: FormData) {
+  const { user } = await requireAdmin();
+  await approveOne(str(form, "userId", 40), user.id);
+  revalidatePath("/admin", "layout");
+}
+
+/** Approve every rejected profile at once (owners). */
+export async function approveAllRejected(form: FormData) {
+  const { user } = await requireAdmin({ owner: true });
+  if (form.get("confirm") !== "on") return;
+  const rows = await db.select({ id: professionalProfiles.userId }).from(professionalProfiles).where(eq(professionalProfiles.reviewStatus, "rejected"));
+  for (const r of rows) await approveOne(r.id, user.id);
   revalidatePath("/admin", "layout");
 }
 

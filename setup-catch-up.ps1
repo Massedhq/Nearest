@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Professional status is one account-level answer (no per-category cards, no License required on services); admin counts from the account status"
+git commit -q -m "Admins can overturn rejected profiles (Approve / Approve all / Overturn & approve) with notification + email"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

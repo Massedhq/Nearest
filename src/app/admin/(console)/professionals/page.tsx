@@ -12,7 +12,7 @@ import { Icon } from "@/components/Icon";
 import { requireAdmin } from "@/lib/admin";
 import { getSettings } from "@/lib/settings";
 import { fmtDate, money } from "@/lib/time";
-import { toggleMembershipPause, cancelMembership, toggleListingPause } from "@/app/admin/pro-actions";
+import { toggleMembershipPause, cancelMembership, toggleListingPause, approvePro, approveAllRejected } from "@/app/admin/pro-actions";
 
 export const metadata = { title: "Professionals" };
 export const dynamic = "force-dynamic";
@@ -21,7 +21,7 @@ const FILTERS = ["All", "Active", "Unpaid", "Inactive", "Suspended"] as const;
 type Filter = (typeof FILTERS)[number];
 
 export default async function Professionals({ searchParams }: { searchParams: Promise<{ q?: string; f?: string; sel?: string; view?: string; ps?: string }> }) {
-  await requireAdmin();
+  const { role } = await requireAdmin();
   const sp = await searchParams;
   const filter: Filter = (FILTERS as readonly string[]).includes(sp.f ?? "") ? (sp.f as Filter) : "All";
   const q = (sp.q ?? "").trim().toLowerCase();
@@ -62,6 +62,7 @@ export default async function Professionals({ searchParams }: { searchParams: Pr
   const PS: [string, string][] = [["licensed", "Licensed"], ["license_pending", "License pending"], ["currently_enrolled", "Currently enrolled"], ["self_taught", "Self-taught"]];
   const psFilter = PS.some(([k]) => k === sp.ps) ? sp.ps! : null;
   const psCount = (k: string) => rows.filter((r) => r.p.professionalStatus === k).length;
+  const rejected = rows.filter((r) => r.p.reviewStatus === "rejected");
   const matches = (r: (typeof rows)[number]) =>
     (filter === "All" || statusOf(r) === filter) &&
     (!psFilter || r.p.professionalStatus === psFilter) &&
@@ -118,6 +119,24 @@ export default async function Professionals({ searchParams }: { searchParams: Pr
   return (
     <>
       <AdminHead eyebrow="People" title="Professionals" />
+      {rejected.length > 0 && (
+        <div className="card warn" style={{ gap: 8 }}>
+          <span className="eyebrow">Rejected profiles ({rejected.length})</span>
+          <span className="xs muted">Overturn any rejection — for example ones sent back over licenses or certificates, which Nearest no longer requires.</span>
+          {rejected.map((r) => (
+            <div key={r.p.userId} className="row small" style={{ gap: 10, flexWrap: "wrap" }}>
+              <span className="grow"><Link className="b link" href={`/admin/professionals/${r.p.userId}`}>{r.p.businessName ?? [r.u.firstName, r.u.lastName].filter(Boolean).join(" ")}</Link> — {r.p.reviewNote ?? "no reason recorded"}</span>
+              <form action={approvePro}><input type="hidden" name="userId" value={r.p.userId} /><button className="btn sm" type="submit">Approve</button></form>
+            </div>
+          ))}
+          {role === "OWNER" && rejected.length > 1 && (
+            <form action={approveAllRejected} className="row" style={{ gap: 8, alignItems: "center" }}>
+              <label className="check xs"><input type="checkbox" name="confirm" required /><span>Approve all {rejected.length}</span></label>
+              <button className="btn ghost sm" type="submit">Approve all</button>
+            </form>
+          )}
+        </div>
+      )}
       <div className="card" style={{ gap: 8 }}>
         <span className="eyebrow">Professional status (self-reported)</span>
         <div className="chips">

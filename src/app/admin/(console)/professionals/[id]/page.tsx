@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db, users, professionalProfiles, proServices, cities, bookings, reviews, favorites, appeals } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
+import { approvePro } from "@/app/admin/pro-actions";
 import { PRO_STATUS_LABEL } from "@/components/CredentialCard";
 import { ActionForm } from "@/components/ActionForm";
 import { remindProSetup } from "@/app/admin/reminder-actions";
@@ -80,6 +81,12 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
       <div className={`card ${blockers.length ? "warn" : "ok"}`} style={{ gap: 8 }}>
         <span className="eyebrow">{blockers.length ? "Not live for students yet" : "Live — students can find and book them"}</span>
         {blockers.length ? blockers.map((b) => <span key={b} className="small">• {b}</span>) : <span className="small">Everything is complete.</span>}
+        {p.reviewStatus === "rejected" && (
+          <div className="card warn small" style={{ gap: 6 }}>
+            <span><span className="b">Profile rejected:</span> {p.reviewNote ?? "no reason recorded"}</span>
+            <form action={approvePro}><input type="hidden" name="userId" value={p.userId} /><button className="btn sm" type="submit">Overturn &amp; approve</button></form>
+          </div>
+        )}
         <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
           {(p.reviewStatus === "submitted" || p.identityStatus === "pending") && <Link className="btn sm" href="/admin/verification">Open Verification Queue</Link>}
           {(standing.fines.length > 0 || standing.incidents > 0 || standing.suspendedUntil) && <Link className="btn ghost sm" href="/admin/enforcement">Open Enforcement</Link>}
