@@ -1,7 +1,7 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { and, eq, sql, ne } from "drizzle-orm";
-import { db, professionalProfiles, proServices, proHours, portfolioItems, proCredentials, categories } from "@/db";
+import { db, professionalProfiles, proServices, proHours, portfolioItems } from "@/db";
 import { getViewer, destinationFor, proAccess } from "./viewer";
 
 /**
@@ -23,23 +23,17 @@ export type SetupStep = { key: string; label: string; href: string; done: boolea
 /** What's finished and what's left before a pro can submit for review. */
 export async function setupSteps(userId: string): Promise<SetupStep[]> {
   const profile = (await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, userId) }))!;
-  const [[svc], [hrs], [port], needLicense, [creds]] = await Promise.all([
+  const [[svc], [hrs], [port]] = await Promise.all([
     db.select({ n: sql<number>`count(*)::int` }).from(proServices).where(and(eq(proServices.userId, userId), eq(proServices.active, true))),
     db.select({ n: sql<number>`count(*)::int` }).from(proHours).where(and(eq(proHours.userId, userId), eq(proHours.kind, "regular"))),
     db.select({ n: sql<number>`count(*)::int` }).from(portfolioItems).where(eq(portfolioItems.userId, userId)),
-    db
-      .selectDistinct({ id: categories.id })
-      .from(proServices)
-      .innerJoin(categories, eq(categories.id, proServices.categoryId))
-      .where(and(eq(proServices.userId, userId), eq(proServices.active, true), eq(categories.licenseRequired, true))),
-    // A license sent back ("Can't verify") doesn't count — the License step stays open until they fix it.
-    db.select({ n: sql<number>`count(*)::int` }).from(proCredentials).where(and(eq(proCredentials.userId, userId), ne(proCredentials.status, "rejected"))),
   ]);
   const steps: SetupStep[] = [
     { key: "profile", label: "Profile", href: "/pro/setup/profile", done: Boolean(profile.businessName && profile.bio) },
     { key: "services", label: "Services & prices", href: "/pro/setup/services", done: svc.n > 0 },
   ];
-  if (needLicense.length) steps.push({ key: "credentials", label: "License", href: "/pro/setup/credentials", done: creds.n >= needLicense.length });
+  // Professional status: asked once for the account (self-reported), never per category and never reviewed.
+  steps.push({ key: "credentials", label: "Professional status", href: "/pro/setup/credentials", done: Boolean(profile.professionalStatus) });
   steps.push(
     { key: "location", label: "Location & travel", href: "/pro/setup/location", done: Boolean(profile.cityId && profile.serviceMode) },
     { key: "hours", label: "Hours", href: "/pro/setup/hours", done: hrs.n > 0 },

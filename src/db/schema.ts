@@ -203,6 +203,9 @@ export const professionalProfiles = pgTable("professional_profiles", {
   // Professional Terms (incl. the membership disclosure) — proof of exactly which version they accepted.
   // Who students are booking: the professional's own name + photo (photoUrl), separate from the business name + logo.
   displayName: text("display_name"), // e.g. "Jasmine C." — falls back to first name + last initial
+  // Self-reported professional status, asked ONCE for the whole account (internal analytics — never verified or shown):
+  // licensed | license_pending | currently_enrolled | self_taught
+  professionalStatus: text("professional_status"),
   logoUrl: text("logo_url"),
   proTermsVersion: text("pro_terms_version"),
   proTermsAcceptedAt: ts("pro_terms_accepted_at"),

@@ -3,8 +3,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import {
-  studentIdDocs,
-  db, professionalProfiles, proServices, proHours, proBlocks, proOpenings, portfolioItems, proCredentials, categories, modelCalls, cities, cityCounties, bookings,
+  db, professionalProfiles, proServices, proHours, proBlocks, proOpenings, portfolioItems, categories, modelCalls, cities, cityCounties, bookings,
 } from "@/db";
 import { requirePro, setupSteps, nextStep, setupComplete } from "@/lib/pro";
 import { getSettings } from "@/lib/settings";
@@ -144,23 +143,15 @@ export async function saveServices(_: FormState, form: FormData): Promise<FormSt
 }
 
 // ---------- Credentials ----------
-export async function saveCredentials(_: FormState, form: FormData): Promise<FormState> {
+/** Professional status — one self-reported value for the whole account. No details, no review. */
+export async function saveProfessionalStatus(_: FormState, form: FormData): Promise<FormState> {
   const { user } = await requirePro();
-  const ids = form.getAll("categoryId").map(Number);
-  if (!ids.length) return done(user.id, "credentials", form);
-  // Self-reported professional status only — no license numbers, schools, documents or review.
-  const LABEL: Record<string, string> = { license: "I have my license", diploma: "Graduated — license pending", enrolled: "Currently enrolled in school", self_taught: "I'm self-taught" };
-  for (const id of ids) {
-    const mode = str(form, `mode_${id}`, 12);
-    if (!LABEL[mode]) {
-      if (form.get("later") === "1") continue;
-      return { error: "Choose your status for each service category." };
-    }
-    await db.insert(proCredentials)
-      .values({ userId: user.id, categoryId: id, kind: mode, licenseType: LABEL[mode], licenseNumber: "", issuingState: "Texas", status: "verified" })
-      .onConflictDoUpdate({ target: [proCredentials.userId, proCredentials.categoryId], set: { kind: mode, licenseType: LABEL[mode], licenseNumber: "", schoolName: null, completedOn: null, expiresOn: null, status: "verified", reviewNote: null } });
+  const v = str(form, "professionalStatus", 30);
+  if (!["licensed", "license_pending", "currently_enrolled", "self_taught"].includes(v)) {
+    if (form.get("later") === "1") return done(user.id, "credentials", form);
+    return { error: "Choose the option that best describes you." };
   }
-
+  await db.update(professionalProfiles).set({ professionalStatus: v }).where(eq(professionalProfiles.userId, user.id));
   return done(user.id, "credentials", form);
 }
 

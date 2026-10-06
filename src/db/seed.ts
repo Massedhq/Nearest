@@ -138,6 +138,11 @@ async function main() {
   const [{ n }] = await db.execute<{ n: number }>(sql`select count(*)::int as n from platform_settings`).then((r) => r.rows as { n: number }[]);
   // Professional status is self-reported now (no license review): accept anything left pending/rejected from the old review.
   await db.execute(sql`update pro_credentials set status = 'verified', review_note = null where status <> 'verified'`);
+  // Professional status is one value per account now: carry over each pro's most common earlier per-category choice.
+  await db.execute(sql`update professional_profiles pp set professional_status = x.st from (
+    select distinct on (user_id) user_id, case kind when 'license' then 'licensed' when 'diploma' then 'license_pending' when 'enrolled' then 'currently_enrolled' when 'self_taught' then 'self_taught' end as st
+    from pro_credentials group by user_id, kind order by user_id, count(*) desc, kind) x
+    where pp.user_id = x.user_id and pp.professional_status is null and x.st is not null`);
   console.log(`Seeded ${countyRows.length} counties, ${cityRows.length} cities, ${CATEGORIES.length} categories, ${schoolValues.length} schools, ${n} settings.`);
 }
 

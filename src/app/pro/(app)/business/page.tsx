@@ -21,7 +21,7 @@ const LINKS: [string, string, string][] = [
   ["pin", "Location & travel radius", "/pro/setup/location?edit=1"],
   ["clock", "Hours", "/pro/setup/hours?edit=1"],
   ["hand", "Communication & accessibility", "/pro/setup/communication?edit=1"],
-  ["id", "Licenses", "/pro/setup/credentials?edit=1"],
+  ["id", "Professional status", "/pro/setup/credentials?edit=1"],
   ["card", "Subscription", "/pro/payments"],
   ["sparkle", "Model calls", "/pro/model-calls"],
   ["cal", "Appointments", "/pro/appointments"],

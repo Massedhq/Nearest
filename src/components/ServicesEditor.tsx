@@ -3,7 +3,7 @@ import { useState } from "react";
 import { MAX_PRICE_DOLLARS } from "@/lib/pricing";
 import { cleanPrice, underCap } from "./PriceInput";
 
-export type Cat = { id: number; name: string; licenseRequired: boolean; suggestions: string[] };
+export type Cat = { id: number; name: string; suggestions: string[] };
 export type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; photo?: string | null; addFee?: boolean };
 
 /** Pick categories, then list each service with a price and length. Sends everything as one JSON field. */
@@ -77,7 +77,7 @@ export function ServicesEditor({ categories, initial, userId, feeCents = 500 }: 
             <button type="button" className="row between" aria-expanded={openCat === c.id} onClick={() => setOpenCat((o) => (o === c.id ? null : c.id))}
               style={{ background: "none", border: 0, padding: 0, color: "inherit", font: "inherit", cursor: "pointer", width: "100%", textAlign: "left" }}>
               <span className="eyebrow">{c.name}</span>
-              <span className="row xs muted" style={{ gap: 6 }}>{mine.length} service{mine.length === 1 ? "" : "s"}{c.licenseRequired ? " • License required" : ""}<span aria-hidden="true" style={{ fontSize: 14 }}>{openCat === c.id ? "▾" : "▸"}</span></span>
+              <span className="row xs muted" style={{ gap: 6 }}>{mine.length} service{mine.length === 1 ? "" : "s"}<span aria-hidden="true" style={{ fontSize: 14 }}>{openCat === c.id ? "▾" : "▸"}</span></span>
             </button>
             {openCat === c.id && (<>
             {mine.map(({ r, i }) => (

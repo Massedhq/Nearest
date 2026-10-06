@@ -19,7 +19,7 @@ export default async function ServicesStep({ searchParams }: { searchParams: Pro
     db.select().from(catalogServices).orderBy(asc(catalogServices.sort)),
     db.select().from(proServices).where(eq(proServices.userId, user.id)).orderBy(asc(proServices.sort)),
   ]);
-  const catProps = cats.map((c) => ({ id: c.id, name: c.name, licenseRequired: c.licenseRequired, suggestions: sugg.filter((s) => s.categoryId === c.id).map((s) => s.name) }));
+  const catProps = cats.map((c) => ({ id: c.id, name: c.name, suggestions: sugg.filter((s) => s.categoryId === c.id).map((s) => s.name) }));
   const saved = mine.map((s) => ({ categoryId: s.categoryId, name: s.name, price: String((s.proPriceCents == null ? s.priceCents : s.feeAdded ? s.proPriceCents : s.priceCents) / 100), duration: String(s.durationMin), adultsOnly: s.adultsOnly, photo: s.photoUrl, addFee: s.proPriceCents == null ? true : s.feeAdded }));
   // "Save & finish later" kept a draft — bring back everything they typed, even unfinished rows.
   const draft = Array.isArray(profile.servicesDraft) ? (profile.servicesDraft as typeof saved) : null;

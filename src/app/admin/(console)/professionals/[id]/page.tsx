@@ -2,8 +2,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { db, users, professionalProfiles, proServices, proCredentials, categories, cities, bookings, reviews, favorites, appeals } from "@/db";
+import { db, users, professionalProfiles, proServices, cities, bookings, reviews, favorites, appeals } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
+import { PRO_STATUS_LABEL } from "@/components/CredentialCard";
 import { ActionForm } from "@/components/ActionForm";
 import { remindProSetup } from "@/app/admin/reminder-actions";
 import { requireAdmin } from "@/lib/admin";
@@ -38,10 +39,9 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
     .where(eq(professionalProfiles.userId, id)).limit(1);
   if (!row) notFound();
   const { u, p } = row;
-  const [steps, services, creds, recent, [stats], [rating], [favs], standing, openAppeals] = await Promise.all([
+  const [steps, services, recent, [stats], [rating], [favs], standing, openAppeals] = await Promise.all([
     setupSteps(id),
     db.select().from(proServices).where(eq(proServices.userId, id)),
-    db.select({ c: proCredentials, cat: categories.name }).from(proCredentials).innerJoin(categories, eq(categories.id, proCredentials.categoryId)).where(eq(proCredentials.userId, id)),
     db.select().from(bookings).where(eq(bookings.proId, id)).orderBy(desc(bookings.startsAt)).limit(8),
     db.select({ total: sql<number>`count(*)::int`, done: sql<number>`count(*) filter (where ${bookings.status} = 'completed')::int`, proCancel: sql<number>`count(*) filter (where ${bookings.status} = 'cancelled_pro')::int` }).from(bookings).where(eq(bookings.proId, id)),
     db.select({ avg: sql<number | null>`avg(${reviews.rating})::float`, n: sql<number>`count(*)::int` }).from(reviews).where(eq(reviews.proId, id)),
@@ -131,8 +131,7 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
           <span className="eyebrow" style={{ marginTop: 8 }}>Services ({services.length})</span>
           {services.length === 0 && <span className="small muted">No services yet.</span>}
           {services.map((s) => <Row key={s.id} k={s.name} v={`${money(s.priceCents)} • ${s.durationMin} min${s.active ? "" : " • hidden"}`} />)}
-          {creds.length > 0 && <span className="eyebrow" style={{ marginTop: 8 }}>Professional status (self-reported)</span>}
-          {creds.map(({ c, cat }) => <Row key={c.id} k={cat} v={({ license: "I have my license", diploma: "Graduated — license pending", enrolled: "Currently enrolled in school", self_taught: "I'm self-taught" } as Record<string, string>)[c.kind] ?? c.licenseType} />)}
+          <Row k="Professional status (self-reported)" v={p.professionalStatus ? PRO_STATUS_LABEL[p.professionalStatus] ?? p.professionalStatus : "Not chosen yet"} />
         </div>
 
         <div className="card" style={{ gap: 8 }}>
