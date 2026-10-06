@@ -8,7 +8,7 @@ import { getFlag } from "@/lib/settings";
 import { notFound } from "next/navigation";
 import { and, asc, desc, eq, lte, sql } from "drizzle-orm";
 import { MAX_PRICE_CENTS } from "@/lib/pricing";
-import { db, users, bookings, proCredentials, professionalProfiles, proServices, portfolioItems, proHours, proOpenings, cities, reviews, favorites } from "@/db";
+import { db, users, bookings, professionalProfiles, proServices, portfolioItems, proHours, proOpenings, cities, reviews, favorites } from "@/db";
 import { FavButton } from "@/components/FavButton";
 import { ShareProButton } from "@/components/ShareProButton";
 import { ensureProSlug, proLink } from "@/lib/connections";
@@ -38,11 +38,6 @@ export default async function ProProfile({ params, searchParams }: { params: Pro
   if (!p) notFound();
   const today = chicagoNow().date;
   // Categories where this pro was approved as a recent graduate (license pending) — shown honestly to students.
-  const credRows = await db.select({ c: proCredentials.categoryId, kind: proCredentials.kind }).from(proCredentials)
-    .where(and(eq(proCredentials.userId, id), eq(proCredentials.status, "verified")));
-  const CRED_TAG: Record<string, string> = { diploma: "Recent graduate — license pending" };
-  const credTag = new Map(credRows.filter((r) => CRED_TAG[r.kind]).map((r) => [r.c, CRED_TAG[r.kind]]));
-  const pendingLicenseCats = new Set(credTag.keys());
   const [services, photos, hours, openings, city, calls] = await Promise.all([
     db.select().from(proServices).where(and(eq(proServices.userId, id), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS))).orderBy(asc(proServices.sort)),
     db.select().from(portfolioItems).where(eq(portfolioItems.userId, id)).orderBy(desc(portfolioItems.featured), asc(portfolioItems.sort)).limit(15), // 10 photos + 5 videos
@@ -127,10 +122,9 @@ export default async function ProProfile({ params, searchParams }: { params: Pro
         <p className="p muted" style={{ whiteSpace: "pre-line" }}>{p.bio}</p>
 
         <h3 className="eyebrow p" id="services" style={{ scrollMarginTop: 80 }}>Services</h3>
-        {pendingLicenseCats.size > 0 && <p className="xs muted p">Services tagged &quot;Recent graduate&quot; are from a professional who finished their program and whose state license is pending.</p>}
         <div className="col" style={{ gap: 0 }}>
           {services.map((s) => (
-            <div key={s.id} className="item">{s.photoUrl && <Image src={s.photoUrl} alt={s.name} width={48} height={48} style={{ borderRadius: 8, objectFit: "cover", flex: "none" }} />}<div className="grow"><div className="b">{s.name}{s.adultsOnly && <span className="tag warn" style={{ marginLeft: 8 }}>18+</span>}{s.categoryId && credTag.has(s.categoryId) && <span className="tag" style={{ marginLeft: 8 }}>{credTag.get(s.categoryId)}</span>}</div><div className="small muted">{money(s.priceCents)} • {s.durationMin} min</div></div>{s.adultsOnly && !adult ? <button className="btn dis sm" type="button" disabled title="You must be 18 or older to book this service">18+ only</button> : bookingOpen ? <Link className="btn sm" href={`/book/${s.id}`}>Book</Link> : finishStep ? <VerifyToBook href={finishStep} /> : <button className="btn dis sm" type="button" disabled>Book</button>}</div>
+            <div key={s.id} className="item">{s.photoUrl && <Image src={s.photoUrl} alt={s.name} width={48} height={48} style={{ borderRadius: 8, objectFit: "cover", flex: "none" }} />}<div className="grow"><div className="b">{s.name}{s.adultsOnly && <span className="tag warn" style={{ marginLeft: 8 }}>18+</span>}</div><div className="small muted">{money(s.priceCents)} • {s.durationMin} min</div></div>{s.adultsOnly && !adult ? <button className="btn dis sm" type="button" disabled title="You must be 18 or older to book this service">18+ only</button> : bookingOpen ? <Link className="btn sm" href={`/book/${s.id}`}>Book</Link> : finishStep ? <VerifyToBook href={finishStep} /> : <button className="btn dis sm" type="button" disabled>Book</button>}</div>
           ))}
         </div>
         {!finishStep && !bookingOpen && <p className="xs muted p">Booking is paused right now.</p>}

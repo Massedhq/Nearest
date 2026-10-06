@@ -136,6 +136,8 @@ async function main() {
     .onConflictDoNothing();
 
   const [{ n }] = await db.execute<{ n: number }>(sql`select count(*)::int as n from platform_settings`).then((r) => r.rows as { n: number }[]);
+  // Professional status is self-reported now (no license review): accept anything left pending/rejected from the old review.
+  await db.execute(sql`update pro_credentials set status = 'verified', review_note = null where status <> 'verified'`);
   console.log(`Seeded ${countyRows.length} counties, ${cityRows.length} cities, ${CATEGORIES.length} categories, ${schoolValues.length} schools, ${n} settings.`);
 }
 

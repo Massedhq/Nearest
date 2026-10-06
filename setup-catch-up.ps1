@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Services: categories expand/minimize (one open at a time), services fold to one line with Edit/Minimize"
+git commit -q -m "Professional status is self-reported: four choices only, no license/school/diploma details or review; admin status counts; qualifications in Terms"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

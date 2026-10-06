@@ -131,8 +131,8 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
           <span className="eyebrow" style={{ marginTop: 8 }}>Services ({services.length})</span>
           {services.length === 0 && <span className="small muted">No services yet.</span>}
           {services.map((s) => <Row key={s.id} k={s.name} v={`${money(s.priceCents)} • ${s.durationMin} min${s.active ? "" : " • hidden"}`} />)}
-          {creds.length > 0 && <span className="eyebrow" style={{ marginTop: 8 }}>Licenses</span>}
-          {creds.map(({ c, cat }) => <Row key={c.id} k={`${cat} • ${c.licenseType} #${c.licenseNumber}`} v={<Tag ok={c.status === "verified"}>{c.status}</Tag>} />)}
+          {creds.length > 0 && <span className="eyebrow" style={{ marginTop: 8 }}>Professional status (self-reported)</span>}
+          {creds.map(({ c, cat }) => <Row key={c.id} k={cat} v={({ license: "I have my license", diploma: "Graduated — license pending", enrolled: "Currently enrolled in school", self_taught: "I'm self-taught" } as Record<string, string>)[c.kind] ?? c.licenseType} />)}
         </div>
 
         <div className="card" style={{ gap: 8 }}>

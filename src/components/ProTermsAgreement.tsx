@@ -23,7 +23,7 @@ export function ProTermsAgreement({ sections, version }: { sections: { h: string
       {!read && <span className="xs muted">Scroll to the end of the terms to continue.</span>}
       <label className="check xs" style={{ alignItems: "flex-start", opacity: read ? 1 : 0.5 }}>
         <input type="checkbox" name="acceptTerms" required disabled={!read} />
-        <span>I&apos;ve read and agree to the Nearest Professional Terms, including the membership in section 6, which activates when I accept my first booking.</span>
+        <span>I&apos;ve read and agree to the Nearest Professional Terms, including the membership in section 7, which activates when I accept my first booking.</span>
       </label>
       <input type="hidden" name="termsVersion" value={version} />
     </div>

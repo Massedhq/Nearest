@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 const FILTERS = ["All", "Active", "Unpaid", "Inactive", "Suspended"] as const;
 type Filter = (typeof FILTERS)[number];
 
-export default async function Professionals({ searchParams }: { searchParams: Promise<{ q?: string; f?: string; sel?: string; view?: string }> }) {
+export default async function Professionals({ searchParams }: { searchParams: Promise<{ q?: string; f?: string; sel?: string; view?: string; ps?: string }> }) {
   await requireAdmin();
   const sp = await searchParams;
   const filter: Filter = (FILTERS as readonly string[]).includes(sp.f ?? "") ? (sp.f as Filter) : "All";
@@ -41,6 +41,8 @@ export default async function Professionals({ searchParams }: { searchParams: Pr
       fineCents: sql<number>`(select coalesce(sum(f.amount_cents),0)::int from ${fines} f where f.pro_id = ${professionalProfiles.userId} and f.status = 'outstanding')`,
       fineDue: sql<Date | null>`(select min(f.due_at) from ${fines} f where f.pro_id = ${professionalProfiles.userId} and f.status = 'outstanding')`,
       incidents: sql<number>`(select count(*)::int from ${incidents} i join ${bookings} b on b.id = i.booking_id where b.pro_id = ${professionalProfiles.userId} and i.status = 'pro_fault')`,
+      // Self-reported professional statuses (internal data): e.g. "license,self_taught"
+      proStatus: sql<string | null>`(select string_agg(distinct pc.kind, ',') from pro_credentials pc where pc.user_id = ${professionalProfiles.userId})`,
       student: sql<string | null>`(select l.first_name || ' ' || l.last_name || ' <' || l.email || '> — ' || l.status from ${proStudentLinks} l where l.pro_id = ${professionalProfiles.userId} and l.status <> 'pending' order by l.created_at desc limit 1)`,
     })
     .from(professionalProfiles)
@@ -57,8 +59,13 @@ export default async function Professionals({ searchParams }: { searchParams: Pr
     if (r.p.reviewStatus === "approved" && (r.isOwner || ["active", "trialing"].includes(r.p.subscriptionStatus ?? "")) && !r.p.listingPausedAt && !r.p.membershipPausedAt) return "Active";
     return "Inactive";
   };
+  // Professional status counts (self-reported; a pro counts once per status they chose).
+  const PS: [string, string][] = [["license", "Licensed"], ["diploma", "License pending"], ["enrolled", "Currently enrolled"], ["self_taught", "Self-taught"]];
+  const psFilter = PS.some(([k]) => k === sp.ps) ? sp.ps! : null;
+  const psCount = (k: string) => rows.filter((r) => (r.proStatus ?? "").split(",").includes(k)).length;
   const matches = (r: (typeof rows)[number]) =>
     (filter === "All" || statusOf(r) === filter) &&
+    (!psFilter || (r.proStatus ?? "").split(",").includes(psFilter)) &&
     (!q || [r.p.businessName, r.u.firstName, r.u.lastName, r.u.email, r.city].filter(Boolean).join(" ").toLowerCase().includes(q));
   const owners = rows.filter((r) => r.isOwner && matches(r));
   const others = rows.filter((r) => !r.isOwner && matches(r));
@@ -112,6 +119,14 @@ export default async function Professionals({ searchParams }: { searchParams: Pr
   return (
     <>
       <AdminHead eyebrow="People" title="Professionals" />
+      <div className="card" style={{ gap: 8 }}>
+        <span className="eyebrow">Professional status (self-reported)</span>
+        <div className="chips">
+          <Link className={`chip${!psFilter ? " on" : ""}`} href={`/admin/professionals${q ? `?q=${encodeURIComponent(q)}` : ""}`}>All</Link>
+          {PS.map(([k, label]) => <Link key={k} className={`chip${psFilter === k ? " on" : ""}`} href={`/admin/professionals?ps=${k}${q ? `&q=${encodeURIComponent(q)}` : ""}`}>{label}: {psCount(k)}</Link>)}
+        </div>
+        <span className="xs muted">What each professional chose for their licensed services. Nearest doesn&apos;t verify these — the Professional Terms make each pro responsible for being qualified.</span>
+      </div>
       {transfers.length > 0 && (
         <div className="card warn" style={{ gap: 10 }}>
           <span className="eyebrow">Transfer requests ({transfers.length})</span>

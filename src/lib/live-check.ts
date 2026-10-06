@@ -43,11 +43,6 @@ export type ReadyItem = { label: string; href?: string };
  */
 export async function proReadiness(p: Profile): Promise<ReadyItem[]> {
   const [owner, steps, standing] = await Promise.all([isOwnerBusiness(p.userId), setupSteps(p.userId), proStanding(p.userId)]);
-  // Licenses sent back with "Can't verify" — the pro needs to fix and resubmit them.
-  const { db: d, proCredentials: pc, categories: cats } = await import("@/db");
-  const { and: both, eq: is } = await import("drizzle-orm");
-  const rejectedLicenses = await d.select({ name: cats.name, kind: pc.kind, note: pc.reviewNote }).from(pc).innerJoin(cats, is(cats.id, pc.categoryId))
-    .where(both(is(pc.userId, p.userId), is(pc.status, "rejected")));
   const paid = owner || hasPaidEntry(p);
   // Membership activates at the first accepted booking — only a membership with a payment problem blocks going live.
   const subActive = (await import("./membership")).membershipState(p) !== "payment_issue";
@@ -60,7 +55,6 @@ export async function proReadiness(p: Profile): Promise<ReadyItem[]> {
         ? { label: "Make the requested changes and resubmit", href: "/pro/setup/review" }
         : { label: "Submit your profile for review", href: "/pro/setup/review" }),
     p.identityStatus !== "verified" && (p.identityStatus === "pending" ? { label: "Nearest is checking your ID" } : p.identityStatus === "rejected" ? { label: `Retake your ID photos — ${p.identityNote ?? "we couldn't confirm your ID"}`, href: "/pro/payments" } : { label: "Finish your ID check", href: "/pro/payments" }),
-    ...rejectedLicenses.map((c) => ({ label: `Fix your ${c.name} ${c.kind === "diploma" ? "diploma" : "license"} — ${c.note ?? "it couldn't be confirmed"}`, href: "/pro/setup/credentials?edit=1" })),
     !owner && !subActive && { label: "Fix your membership payment", href: "/pro/payments" },
     p.vacationMode && { label: "Turn off vacation mode", href: "/pro/calendar" },
     p.membershipPausedAt && { label: "Your membership is paused by Nearest" },

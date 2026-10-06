@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { headers } from "next/headers";
-import { db, professionalProfiles, proCredentials, categories, catalogServices, invitations, cities } from "@/db";
+import { db, professionalProfiles, categories, catalogServices, invitations, cities } from "@/db";
 import { requireAdmin } from "@/lib/admin";
 import { logActivity } from "@/lib/log";
 import { sendInviteEmail, emailEnabled } from "@/lib/email";
@@ -44,23 +44,6 @@ export async function rejectPro(_: FormState, form: FormData): Promise<FormState
   return { ok: "Sent back with your note." };
 }
 
-export async function setCredential(form: FormData) {
-  const { user } = await requireAdmin();
-  const id = str(form, "id", 40);
-  const status = str(form, "status", 20) as "verified" | "rejected";
-  if (!["verified", "rejected"].includes(status)) return;
-  const note = status === "rejected" ? str(form, "note", 300) || "Your license couldn't be confirmed. Check the license number and expiration date." : null;
-  const [row] = await db.update(proCredentials).set({ status, reviewNote: note }).where(eq(proCredentials.id, id)).returning();
-  if (row && status === "rejected") {
-    const { categories } = await import("@/db");
-    const cat = await db.query.categories.findFirst({ where: eq(categories.id, row.categoryId) });
-    const what = `${cat?.name ?? "license"} ${row.kind === "diploma" ? "diploma" : "license"}`;
-    await inbox(row.userId, { kind: "review", title: `Fix your ${what}`, body: note!, href: "/pro/setup/credentials?edit=1" });
-    await (await import("@/lib/sent-back")).emailSentBack(row.userId, what, note!, "Fix my license", "/pro/setup/credentials?edit=1");
-  }
-  if (row) await logActivity({ actorUserId: user.id, action: `license.${status}`, targetType: "credential", targetId: row.licenseNumber, before: "pending", after: status });
-  revalidatePath("/admin", "layout");
-}
 
 // ---------- Marketplace catalog ----------
 export async function addCategory(_: FormState, form: FormData): Promise<FormState> {
