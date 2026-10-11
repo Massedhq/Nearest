@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: { params: Promise<{ handle: s
   const r = await findPro(handle);
   if (!r) return { title: "Nearest" };
   const title = `${r.p.businessName ?? "Professional"} on Nearest`;
-  return { title, description: `Book ${r.p.businessName} on Nearest — verified professionals near you.`, openGraph: { title, images: r.p.photoUrl ? [r.p.photoUrl] : [] } };
+  return { title, description: `Book ${r.p.businessName} on Nearest — verified professionals near you.`, openGraph: { title, ...(r.p.photoUrl ? { images: [r.p.photoUrl] } : {}) } };
 }
 
 /** Public booking link (usenearest.com/pro-<name>): anyone can see it; verified students go straight to the full profile. */

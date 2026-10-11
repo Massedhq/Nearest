@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Install Nearest banner: one-tap install, iPhone steps, open-in-browser for Instagram/Facebook/TikTok"
+git commit -q -m "Student launch campaign: server-stamped 168-hour clock, daily evidence windows, manual review with profile checks and timeline, waitlist, idempotent notices, free-service reward booking"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

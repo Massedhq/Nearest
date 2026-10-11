@@ -14,5 +14,6 @@ export async function GET(req: Request) {
   const setupReminders = await (await import("@/lib/setup-reminders")).remindUnfinishedSetup(); // pros: 1, 3, 7 days
   const outreach = await (await import("@/lib/outreach-mail")).runOutreach(); // Professional Outreach emails + follow-ups
   const broadcastSent = await (await import("@/lib/broadcasts")).sendBroadcasts(); // Broadcasts, in batches
-  return Response.json({ ...result, reminders, steppedUp, seatsReleased, bundlesExpired, verifyReminders, setupReminders, outreach, broadcastSent, requestsExpired, spotsReleased });
+  const campaign = await (await import("@/lib/campaign-cron")).runCampaign(); // launch campaign clock, reminders, rewards
+  return Response.json({ ...result, reminders, steppedUp, seatsReleased, bundlesExpired, verifyReminders, setupReminders, outreach, broadcastSent, requestsExpired, spotsReleased, campaign });
 }

@@ -25,6 +25,12 @@ const QUICK: [keyof Filters, string, string][] = [["today", "bolt", "Available T
 
 export default async function Home({ searchParams }: { searchParams: Promise<Filters> }) {
   const { user, area, profile, finishStep } = await requireBrowsingStudent();
+  const campaignOpen = await (async () => {
+    const { getCampaign, entryFor } = await import("@/lib/campaign");
+    const [c, e] = await Promise.all([getCampaign(), entryFor(user.id)]);
+    if (e && ["reserved", "in_progress", "needs_correction", "ready_for_review", "approved"].includes(e.status)) return "enrolled" as const;
+    return c.status === "open" && !e ? ("open" as const) : null;
+  })();
   const until = studentSuspendedUntil(profile);
   if (until) {
     return (
@@ -127,6 +133,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
           <Link className="card warn" href={finishStep} style={{ textDecoration: "none", color: "inherit", gap: 2 }}>
             <span className="b">Finish verifying to book</span>
             <span className="small">Browse everyone now — booking opens once your student account is verified.</span>
+          </Link>
+        )}
+        {campaignOpen && (
+          <Link className="card" href="/campaign" style={{ textDecoration: "none", color: "inherit", gap: 2 }}>
+            <span className="b">Nearest launch campaign</span>
+            <span className="small">{campaignOpen === "enrolled" ? "Open your campaign — upload today's screenshot." : "Show the Nearest picture for seven days and earn a free service."}</span>
           </Link>
         )}
         <p className="eyebrow p">Hi, {user.firstName}</p>

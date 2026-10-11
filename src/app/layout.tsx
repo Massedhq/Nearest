@@ -11,7 +11,11 @@ import { PoweredBy } from "@/components/PoweredBy";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.APP_URL || "https://www.usenearest.com"),
   title: { default: "Nearest", template: "%s · Nearest" },
+  // Link previews (iMessage, Messenger, Instagram, Facebook…) always show the Nearest logo — src/app/opengraph-image.png.
+  openGraph: { siteName: "Nearest", type: "website", description: "Find who's available near you." },
+  twitter: { card: "summary_large_image" },
   description: "Find who's available near you.",
   applicationName: "Nearest",
   appleWebApp: { capable: true, title: "Nearest", statusBarStyle: "black-translucent" },

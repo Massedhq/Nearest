@@ -23,6 +23,10 @@ export default async function Account() {
   const h = await headers();
   const inviteLink = inviteCode ? `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}/?friend=${inviteCode}` : null;
   const invites = inviteCode ? await inviteSummary(u.id) : null;
+  // Launch campaign entry point (not shown while the campaign is still a draft, unless they're already in it).
+  const { getCampaign, entryFor, effectiveStatus, STATUS_LABEL } = await import("@/lib/campaign");
+  const [camp, myEntry] = await Promise.all([getCampaign(), entryFor(u.id)]);
+  const campaign = myEntry || camp.status !== "draft" ? { entry: Boolean(myEntry), label: myEntry ? STATUS_LABEL[effectiveStatus(myEntry)] : "" } : null;
   return (
     <div className="scr">
       <div className="top"><span className="sp" /><div className="t">Account</div><span className="sp" /></div>
@@ -35,6 +39,13 @@ export default async function Account() {
             {area && <span className="xs muted">{area.school}{profile.graduationYear ? ` • Class of ${profile.graduationYear}` : ""}</span>}
           </div>
         </div>
+        {campaign && (
+          <Link className="card" href="/campaign" style={{ textDecoration: "none", color: "inherit", gap: 4 }}>
+            <span className="eyebrow">Nearest launch campaign</span>
+            <span className="small">{campaign.entry ? `Your campaign: ${campaign.label}` : "Show the Nearest picture for seven days and earn a free service."}</span>
+            <span className="btn sm" style={{ alignSelf: "flex-start" }}>{campaign.entry ? "Open my campaign" : "Join the launch campaign"}</span>
+          </Link>
+        )}
         {inviteLink && invites && <InviteFriends link={inviteLink} joined={invites.joined} verified={invites.verified} available={invites.available} />}
         <div className="card small">
           <div className="row between"><span className="muted">Email</span><span>{u?.email ?? "—"}</span></div>

@@ -29,6 +29,7 @@ export async function confirmBooking(bookingId: string, charge?: { chargeId: str
   if (!b) return null; // already confirmed
   await useInviteReward(b.id, b.inviteRewardId);
   if (b.bundleId) { try { await (await import("./bundles")).onBundleBookingConfirmed(b); } catch (e) { console.error("bundle", e); } }
+  if (b.campaignEntryId) { try { await (await import("./campaign-reward")).markRewardRedeemed(b); } catch (e) { console.error("campaign reward", e); } }
 
   const used = [];
   if (b.creditProCents) used.push({ studentId: b.studentId, proId: b.proId, amountCents: -b.creditProCents, reason: `Used on ${bookingCode(b.number)}`, bookingId: b.id });
@@ -162,13 +163,14 @@ export async function releasePayment(bookingId: string, studentId: string) {
   // Release once the pro has finished (even if they started early) or the start time has passed.
   if (!b.finishedAt && b.startsAt.getTime() > Date.now()) return { error: "You can release payment once your appointment has started." };
   const pro = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, b.proId) });
-  const gross = Math.max(0, total(b) - b.serviceFeeCents - (b.stripeFeeCents ?? 0)); // Nearest keeps its service fee
+  // Launch campaign reward: the student paid $0 and Nearest pays the agreed campaign payout (no fees taken from it).
+  const gross = b.campaignEntryId ? b.campaignPayoutCents : Math.max(0, total(b) - b.serviceFeeCents - (b.stripeFeeCents ?? 0)); // Nearest keeps its service fee
   const amount = gross - (await collectDues(pro, b.id, gross)); // pay-from-bookings membership comes out first
   let transferId: string | null = null;
   if (amount > 0) {
     if (pro?.stripeAccountId && pro.payoutsEnabled) {
       const t = await stripe().transfers.create(
-        { amount, currency: "usd", destination: pro.stripeAccountId, transfer_group: b.id, ...(b.stripeChargeId && b.chargedCents === total(b) ? { source_transaction: b.stripeChargeId } : {}), metadata: { bookingId: b.id, kind: "service" } },
+        { amount, currency: "usd", destination: pro.stripeAccountId, transfer_group: b.id, ...(!b.campaignEntryId && b.stripeChargeId && b.chargedCents === total(b) ? { source_transaction: b.stripeChargeId } : {}), metadata: { bookingId: b.id, kind: b.campaignEntryId ? "campaign_reward" : "service" } },
         { idempotencyKey: `release-${b.id}` },
       );
       transferId = t.id;

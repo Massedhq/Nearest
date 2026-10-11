@@ -439,6 +439,11 @@ export const bookings = pgTable("bookings", {
   // Student invite reward used on this booking: $5 off, funded by the professional (first booking with them only).
   inviteDiscountCents: integer("invite_discount_cents").notNull().default(0),
   serviceFeeCents: integer("service_fee_cents").notNull().default(0), // Nearest's service fee in this price — kept when the booking completes
+  // Launch campaign reward booking: the student pays $0; Nearest pays the pro campaign_payout_cents when it completes.
+  campaignEntryId: uuid("campaign_entry_id"),
+  campaignOfferId: uuid("campaign_offer_id"),
+  campaignPayoutCents: integer("campaign_payout_cents").notNull().default(0),
+  campaignSlotReleased: boolean("campaign_slot_released").notNull().default(false),
   inviteRewardId: uuid("invite_reward_id"),
   bundleId: uuid("bundle_id"), // booked through Bundle Me (no credits or invite rewards)
   // Booking request (pro without an active membership): card authorized at checkout, captured only on acceptance.
@@ -949,3 +954,128 @@ export const repLinkClicks = pgTable("rep_link_clicks", {
   day: date("day").notNull(),
   clicks: integer("clicks").notNull().default(0),
 }, (t) => [uniqueIndex("rep_link_clicks_idx").on(t.repId, t.kind, t.day)]);
+
+// ---------- Student launch campaign (elapsed-time tracking + manual evidence review) ----------
+// One row per campaign. "occupied" is changed only by single atomic statements so the capacity can't be overfilled.
+export const campaigns = pgTable("campaigns", {
+  key: text("key").primaryKey(),
+  name: text("name").notNull(),
+  status: text("status").notNull().default("draft"), // draft | open | paused | closed
+  capacity: integer("capacity").notNull().default(750),
+  occupied: integer("occupied").notNull().default(0),
+  market: text("market").notNull().default("DFW"),
+  bookingOpensAt: ts("booking_opens_at"),
+  instructions: text("instructions"),
+  terms: text("terms"),
+  termsVersion: text("terms_version"),
+  termsPublishedAt: ts("terms_published_at"),
+  graphicUrl: text("graphic_url"),
+  rewardTitle: text("reward_title"),
+  rewardIncludes: text("reward_includes"),
+  rewardConfirmedAt: ts("reward_confirmed_at"), // owner confirmed the reward is arranged and funded
+  rewardConfirmedBy: uuid("reward_confirmed_by"),
+  updatedBy: uuid("updated_by"),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+// One enrollment per student per campaign. Status: reserved → in_progress → ready_for_review → approved → redeemed
+// (also needs_correction, rejected, cancelled). The 168-hour clock starts at started_at (server time).
+export const campaignEntries = pgTable("campaign_entries", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  campaignKey: text("campaign_key").notNull().references(() => campaigns.key),
+  studentId: uuid("student_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("reserved"),
+  termsVersion: text("terms_version"),
+  termsAcceptedAt: ts("terms_accepted_at"),
+  platform: text("platform"), // instagram | facebook | tiktok
+  profileUrl: text("profile_url"),
+  profileUrlNorm: text("profile_url_norm"),
+  pendingProfileUrl: text("pending_profile_url"), // link change waiting for admin review
+  pendingProfileReason: text("pending_profile_reason"),
+  pendingProfileAt: ts("pending_profile_at"),
+  reservedAt: ts("reserved_at").notNull().defaultNow(),
+  fromWaitlist: boolean("from_waitlist").notNull().default(false),
+  startedAt: ts("started_at"),
+  completesAt: ts("completes_at"), // started_at + 168 hours
+  finalProofAt: ts("final_proof_at"),
+  correctionNote: text("correction_note"),
+  decisionNote: text("decision_note"),
+  decidedBy: uuid("decided_by"),
+  approvedAt: ts("approved_at"),
+  rejectedAt: ts("rejected_at"),
+  cancelledAt: ts("cancelled_at"),
+  placeReleased: boolean("place_released").notNull().default(false),
+  rewardBookingId: uuid("reward_booking_id"),
+  redeemedAt: ts("redeemed_at"),
+  flags: text("flags"), // possible duplicates etc., for review
+  cityId: integer("city_id"),
+  countyId: integer("county_id"),
+  version: integer("version").notNull().default(0), // bumped on every change; admin decisions must match it
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [uniqueIndex("campaign_entries_student_idx").on(t.campaignKey, t.studentId), index("campaign_entries_status_idx").on(t.campaignKey, t.status)]);
+
+// Screenshots. uploaded_at is the server time; window_index 1–7 = daily windows, 8 = final proof.
+export const campaignEvidence = pgTable("campaign_evidence", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  entryId: uuid("entry_id").notNull().references(() => campaignEntries.id, { onDelete: "cascade" }),
+  studentId: uuid("student_id").notNull(),
+  kind: text("kind").notNull(), // start | daily | final
+  windowIndex: integer("window_index").notNull(),
+  storageUrl: text("storage_url").notNull(), // never sent to the browser — served only through /api/campaign/evidence/[id]
+  storageAccess: text("storage_access").notNull().default("private"),
+  mime: text("mime").notNull(),
+  bytes: integer("bytes").notNull(),
+  uploadedAt: ts("uploaded_at").notNull().defaultNow(),
+}, (t) => [index("campaign_evidence_entry_idx").on(t.entryId, t.uploadedAt)]);
+
+// An admin looked at the student's social profile directly.
+export const campaignChecks = pgTable("campaign_checks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  entryId: uuid("entry_id").notNull().references(() => campaignEntries.id, { onDelete: "cascade" }),
+  adminId: uuid("admin_id").references(() => users.id, { onDelete: "set null" }),
+  pictureVisible: boolean("picture_visible"), // null = couldn't view the profile
+  notes: text("notes"),
+  checkedAt: ts("checked_at").notNull().defaultNow(),
+});
+
+// Everything that happened to an entry (who, what, when) — never edited.
+export const campaignEvents = pgTable("campaign_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  entryId: uuid("entry_id").notNull().references(() => campaignEntries.id, { onDelete: "cascade" }),
+  actorId: uuid("actor_id"),
+  kind: text("kind").notNull(),
+  detail: text("detail"),
+  at: ts("at").notNull().defaultNow(),
+}, (t) => [index("campaign_events_entry_idx").on(t.entryId, t.at)]);
+
+export const campaignWaitlist = pgTable("campaign_waitlist", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  campaignKey: text("campaign_key").notNull(),
+  studentId: uuid("student_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("waiting"), // waiting | placed | removed
+  joinedAt: ts("joined_at").notNull().defaultNow(),
+  placedAt: ts("placed_at"),
+}, (t) => [uniqueIndex("campaign_waitlist_student_idx").on(t.campaignKey, t.studentId)]);
+
+// Idempotency for campaign emails + notifications: a key is sent once, ever.
+export const campaignNotices = pgTable("campaign_notices", {
+  key: text("key").primaryKey(),
+  userId: uuid("user_id"),
+  sentAt: ts("sent_at").notNull().defaultNow(),
+});
+
+// Reward arrangements: a professional has agreed to provide this service for the campaign, Nearest pays payout_cents.
+export const campaignOffers = pgTable("campaign_offers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  campaignKey: text("campaign_key").notNull(),
+  proId: uuid("pro_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  serviceId: uuid("service_id").notNull(),
+  payoutCents: integer("payout_cents").notNull(),
+  slotsTotal: integer("slots_total").notNull(),
+  slotsUsed: integer("slots_used").notNull().default(0),
+  agreementNote: text("agreement_note"),
+  confirmedBy: uuid("confirmed_by"),
+  confirmedAt: ts("confirmed_at"),
+  active: boolean("active").notNull().default(true),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
