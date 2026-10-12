@@ -5,12 +5,13 @@ import { TopBar } from "@/components/TopBar";
 import { ActionForm } from "@/components/ActionForm";
 import { CampaignClock } from "@/components/CampaignClock";
 import { CampaignUpload } from "@/components/CampaignUpload";
+import { CampaignInvitation } from "@/components/CampaignInvitation";
 import { requireStudent } from "@/lib/student";
 import {
-  CAMPAIGN_KEY, DISCLOSURE_LINE, PLATFORM_LABEL, STATUS_LABEL, bookingOpensLabel, campaignEligibility, currentWindow, effectiveStatus, entryFor,
+  AGREE_TEXT, SCREENSHOT_RULE, WAITLIST_NOTE, CAMPAIGN_KEY, DISCLOSURE_LINE, PLATFORM_LABEL, STATUS_LABEL, bookingOpensLabel, campaignEligibility, currentWindow, effectiveStatus, entryFor,
   evidenceFor, fmtWhen, getCampaign, missingEvidence, DAY_MS, MAX_UPLOADS_PER_WINDOW,
 } from "@/lib/campaign";
-import { joinCampaign, joinCampaignWaitlist, leaveCampaignWaitlist, requestProfileChange, markCorrectionDone } from "@/app/campaign-actions";
+import { dismissCampaignInvite, joinCampaign, joinCampaignWaitlist, leaveCampaignWaitlist, requestProfileChange, markCorrectionDone } from "@/app/campaign-actions";
 
 export const metadata = { title: "Launch campaign" };
 export const dynamic = "force-dynamic";
@@ -18,7 +19,8 @@ export const dynamic = "force-dynamic";
 const box = { maxHeight: 220, overflowY: "auto" as const, border: "1px solid #2A2A2D", borderRadius: 12, padding: "10px 12px", background: "#0E0E10", fontSize: 13, lineHeight: 1.55, whiteSpace: "pre-wrap" as const };
 
 /** The student's launch campaign: join → start (server-stamped) → seven daily windows → final proof → manual review → reward. */
-export default async function CampaignPage() {
+export default async function CampaignPage({ searchParams }: { searchParams: Promise<{ step?: string; invite?: string }> }) {
+  const sp = await searchParams;
   const { user, profile } = await requireStudent();
   const c = await getCampaign();
   let entry = await entryFor(user.id);
@@ -26,46 +28,50 @@ export default async function CampaignPage() {
   const opensLabel = bookingOpensLabel(c);
   const bookingOpen = Boolean(c.bookingOpensAt && c.bookingOpensAt.getTime() <= Date.now());
 
-  const intro = (
-    <div className="card" style={{ gap: 6 }}>
-      <span className="eyebrow">Nearest launch campaign</span>
-      <span className="small">Show the Nearest picture as your Instagram, Facebook or TikTok profile picture for seven full days (168 hours) and earn a free service. No follower minimum.</span>
-      {c.rewardIncludes && <span className="small"><span className="b">{c.rewardTitle ?? "Your reward"}:</span> {c.rewardIncludes}</span>}
-      <span className="xs muted">You can finish the seven days now and book your approved reward once booking opens on {opensLabel}. Booking opening doesn&apos;t guarantee an appointment that same day — appointments depend on availability. Free-service incentive: you receive a free service for taking part, so add the disclosure line shown below to your bio.</span>
-    </div>
-  );
-
-  // ---------- Not enrolled ----------
+  // ---------- Not enrolled: the invitation (JOIN THE CAMPAIGN / NOT NOW), then the agreement step ----------
   if (!entry) {
     const el = await campaignEligibility(user, profile, c);
     const wl = await db.query.campaignWaitlist.findFirst({ where: and(eq(campaignWaitlist.campaignKey, CAMPAIGN_KEY), eq(campaignWaitlist.studentId, user.id)) });
     const full = c.occupied >= c.capacity;
+    const confirming = sp.step === "confirm" && c.status === "open" && el.state === "eligible" && !full;
+    const notNow = <form action={dismissCampaignInvite}><button className="btn ghost" type="submit" style={{ width: "100%" }}>NOT NOW</button></form>;
     let action: React.ReactNode;
     if (c.status === "draft") action = <div className="card small"><span>The launch campaign isn&apos;t open yet. Check back soon.</span></div>;
-    else if (el.state === "incomplete") action = <div className="card warn small" style={{ gap: 8 }}><span className="b">Finish your registration first</span><span>{el.message}</span><Link className="btn sm" href={el.href} style={{ alignSelf: "flex-start" }}>Continue</Link></div>;
-    else if (el.state === "pending") action = <div className="card small" style={{ gap: 6 }}><span className="b">Verification pending</span><span>{el.message}</span><Link className="link small" href={el.href}>See status</Link></div>;
+    else if (c.status === "closed") action = <div className="card small"><span className="b">Enrollment is closed.</span></div>;
+    else if (el.state === "incomplete") action = <div className="card warn small" style={{ gap: 8 }}><span className="b">Finish your registration and verification first</span><span>Students must be fully registered and verified before joining. Remaining step: {el.message}</span><Link className="btn sm" href={el.href} style={{ alignSelf: "flex-start" }}>Continue</Link>{notNow}</div>;
+    else if (el.state === "pending") action = <div className="card small" style={{ gap: 8 }}><span className="b">Verification pending</span><span>Students must be fully registered and verified before joining. Remaining step: {el.message}</span><Link className="link small" href={el.href}>See status</Link>{notNow}</div>;
     else if (el.state === "outside") action = <div className="card small"><span>{el.message}</span></div>;
     else if (c.status === "paused") action = <div className="card small"><span className="b">The campaign is paused.</span><span>New students can&apos;t join while it&apos;s paused. Check back soon.</span></div>;
-    else if (c.status === "closed") action = <div className="card small"><span className="b">Enrollment is closed.</span></div>;
     else if (full) action = wl?.status === "waiting"
-      ? <div className="card small" style={{ gap: 8 }}><span className="b">You&apos;re on the waitlist.</span><span>All {c.capacity} places are taken. If one opens, Nearest reserves it for you automatically and lets you know.</span><form action={leaveCampaignWaitlist}><button className="link xs" type="submit">Leave the waitlist</button></form></div>
-      : <div className="card small" style={{ gap: 8 }}><span className="b">All {c.capacity} places are taken.</span><span>Join the waitlist — if a place opens, it&apos;s reserved for you and you&apos;re notified.</span><form action={joinCampaignWaitlist}><button className="btn sm" type="submit">Join the waitlist</button></form></div>;
-    else action = (
-      <div className="card" style={{ gap: 10 }}>
-        <span className="eyebrow">Join the launch campaign</span>
-        <span className="small">{c.capacity - c.occupied} of {c.capacity} places left. Joining reserves your place — your seven days don&apos;t start until you submit your profile link and starting screenshot.</span>
+      ? <div className="card small" style={{ gap: 8 }}><span className="b">You&apos;re on the waitlist.</span><span>{WAITLIST_NOTE}</span><form action={leaveCampaignWaitlist}><button className="link xs" type="submit">Leave the waitlist</button></form></div>
+      : <div className="card small" style={{ gap: 8 }}><span className="b">The campaign is full — all {c.capacity} places are taken.</span><span>{WAITLIST_NOTE}</span><form action={joinCampaignWaitlist}><button className="btn" type="submit" style={{ width: "100%" }}>JOIN THE WAITLIST</button></form>{notNow}</div>;
+    else if (confirming) action = (
+      <div className="card" style={{ gap: 10 }} id="join">
+        <span className="eyebrow">Confirm your enrollment</span>
+        <span className="small">{c.capacity - c.occupied} of {c.capacity} places left. Confirming reserves your place — your seven days don&apos;t start until Nearest accepts your profile link and starting screenshot.</span>
         <span className="small b">Campaign terms</span>
         <div style={box} tabIndex={0} role="region" aria-label="Campaign terms">{c.terms}</div>
-        <ActionForm action={joinCampaign} submitLabel="Join the launch campaign">
+        <ActionForm action={joinCampaign} submitLabel="Confirm my enrollment">
           <input type="hidden" name="termsVersion" value={c.termsVersion ?? ""} />
-          <label className="check xs" style={{ alignItems: "flex-start" }}><input type="checkbox" name="agree" required /><span>I&apos;ve read and agree to the campaign terms.</span></label>
+          <label className="check xs" style={{ alignItems: "flex-start" }}><input type="checkbox" name="agree" required /><span>{AGREE_TEXT}</span></label>
         </ActionForm>
+        <Link className="link small" href="/campaign" style={{ textAlign: "center" }}>Back to the directions</Link>
+      </div>
+    );
+    else action = (
+      <div className="col" style={{ gap: 8 }} id="join">
+        <span className="xs muted" style={{ textAlign: "center" }}>{c.capacity - c.occupied} of {c.capacity} places left</span>
+        <Link className="btn" href="/campaign?step=confirm#join" style={{ textAlign: "center" }}>JOIN THE CAMPAIGN</Link>
+        {notNow}
       </div>
     );
     return (
       <div className="scr">
-        <TopBar title="Launch campaign" back="/account" />
-        <div className="body">{intro}{action}</div>
+        <TopBar title="Launch campaign" back={sp.invite ? "/home" : "/account"} />
+        <div className="body">
+          {confirming ? null : <CampaignInvitation c={c} opensLabel={opensLabel} />}
+          {action}
+        </div>
       </div>
     );
   }
@@ -132,7 +138,7 @@ export default async function CampaignPage() {
           <div className="card" style={{ gap: 8 }}>
             <span className="eyebrow">Start your seven days</span>
             <span className="small">After the Nearest picture is your profile picture, submit your profile link and a screenshot of your profile. Your 168 hours start the moment Nearest&apos;s server accepts them.</span>
-            <CampaignUpload mode="start" label="Starting screenshot of your profile" hint="JPG, PNG or WebP, up to 4 MB. Show your profile page with the Nearest picture." />
+            <CampaignUpload mode="start" label="Starting screenshot of your profile" hint={`JPG, PNG or WebP, up to 4 MB. ${SCREENSHOT_RULE}`} />
           </div>
         )}
 
@@ -146,7 +152,7 @@ export default async function CampaignPage() {
               : `This upload counts for Day ${win}, which closes ${fmtWhen(new Date(entry.startedAt!.getTime() + (win ?? 1) * DAY_MS))}. Nearest's server records the time — the window is decided when it arrives.`}</span>
             {winCount >= MAX_UPLOADS_PER_WINDOW
               ? <span className="xs muted">You&apos;ve sent {MAX_UPLOADS_PER_WINDOW} screenshots for this window.</span>
-              : <CampaignUpload mode="evidence" label={win === 8 ? "Final screenshot" : `Day ${win} screenshot`} hint="JPG, PNG or WebP, up to 4 MB. Show your profile with the Nearest picture." />}
+              : <CampaignUpload mode="evidence" label={win === 8 ? "Final screenshot" : `Day ${win} screenshot`} hint={`JPG, PNG or WebP, up to 4 MB. ${SCREENSHOT_RULE}`} />}
           </div>
         )}
 
@@ -188,8 +194,9 @@ export default async function CampaignPage() {
         </div>
 
         <details className="card">
-          <summary className="small b">Instructions &amp; terms</summary>
-          <div style={{ ...box, marginTop: 8 }}>{c.instructions}</div>
+          <summary className="small b">Campaign directions, reward &amp; terms</summary>
+          <div style={{ marginTop: 8 }}><CampaignInvitation c={c} opensLabel={opensLabel} headline={false} /></div>
+          <span className="small b" style={{ marginTop: 8 }}>Campaign terms</span>
           <div style={{ ...box, marginTop: 8 }}>{c.terms}</div>
           <span className="xs muted">You agreed to terms version {entry.termsVersion ?? "—"} on {entry.termsAcceptedAt ? fmtWhen(entry.termsAcceptedAt) : "—"}.</span>
         </details>

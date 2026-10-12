@@ -26,7 +26,7 @@ export default async function Account() {
   // Launch campaign entry point (not shown while the campaign is still a draft, unless they're already in it).
   const { getCampaign, entryFor, effectiveStatus, STATUS_LABEL } = await import("@/lib/campaign");
   const [camp, myEntry] = await Promise.all([getCampaign(), entryFor(u.id)]);
-  const campaign = myEntry || camp.status !== "draft" ? { entry: Boolean(myEntry), label: myEntry ? STATUS_LABEL[effectiveStatus(myEntry)] : "" } : null;
+  const campaign = myEntry || camp.status !== "draft" ? { entry: Boolean(myEntry), label: myEntry ? STATUS_LABEL[effectiveStatus(myEntry)] : "", status: myEntry ? effectiveStatus(myEntry) : "", reward: camp.rewardTitle ?? "your free service", opens: camp.bookingOpensAt && camp.bookingOpensAt.getTime() > Date.now() ? camp.bookingOpensAt : null } : null;
   return (
     <div className="scr">
       <div className="top"><span className="sp" /><div className="t">Account</div><span className="sp" /></div>
@@ -40,10 +40,12 @@ export default async function Account() {
           </div>
         </div>
         {campaign && (
-          <Link className="card" href="/campaign" style={{ textDecoration: "none", color: "inherit", gap: 4 }}>
-            <span className="eyebrow">Nearest launch campaign</span>
-            <span className="small">{campaign.entry ? `Your campaign: ${campaign.label}` : "Show the Nearest picture for seven days and earn a free service."}</span>
-            <span className="btn sm" style={{ alignSelf: "flex-start" }}>{campaign.entry ? "Open my campaign" : "Join the launch campaign"}</span>
+          <Link className={`card${campaign.status === "approved" ? " ok" : ""}`} href="/campaign" style={{ textDecoration: "none", color: "inherit", gap: 4 }}>
+            <span className="eyebrow">{campaign.status === "approved" ? "Your campaign reward" : "Nearest launch campaign"}</span>
+            <span className="small">{campaign.status === "approved"
+              ? `Approved — ${campaign.reward} is in your account. ${campaign.opens ? `Redeem it after booking opens ${campaign.opens.toLocaleDateString("en-US", { timeZone: "America/Chicago", month: "long", day: "numeric", year: "numeric" })}.` : "Book it from your campaign page."}`
+              : campaign.entry ? `Your campaign: ${campaign.label}` : "Optional: complete the seven-day profile-picture promotion to qualify for one free eligible service."}</span>
+            <span className="btn sm" style={{ alignSelf: "flex-start" }}>{campaign.status === "approved" ? "View my reward" : campaign.entry ? "Open my campaign" : "See the campaign directions"}</span>
           </Link>
         )}
         {inviteLink && invites && <InviteFriends link={inviteLink} joined={invites.joined} verified={invites.verified} available={invites.available} />}

@@ -16,7 +16,7 @@ export async function joinCampaign(_: FormState, form: FormData): Promise<FormSt
   if (c.status !== "open") return { error: c.status === "paused" ? "The campaign is paused right now." : "The campaign isn't open for new students." };
   const el = await campaignEligibility(user, profile, c);
   if (el.state !== "eligible") return { error: el.message };
-  if (form.get("agree") !== "on" || String(form.get("termsVersion") ?? "") !== (c.termsVersion ?? "")) return { error: "Read and agree to the campaign terms to join." };
+  if (form.get("agree") !== "on" || String(form.get("termsVersion") ?? "") !== (c.termsVersion ?? "")) return { error: "Tick the box to confirm you have read the campaign directions and reward terms and agree to participate." };
   const res = await reservePlaceAndNotify(user.id, el, c.termsVersion);
   if ("full" in res) { revalidatePath("/campaign"); return { error: "The campaign just filled up. You can join the waitlist." }; }
   redirect("/campaign?joined=1");
@@ -35,6 +35,15 @@ async function reservePlaceAndNotify(userId: string, el: { cityId: number | null
     });
   }
   return res;
+}
+
+/** "Not now" on the invitation: it isn't shown automatically again. The campaign stays open from Account. */
+export async function dismissCampaignInvite() {
+  const { user } = await requireStudent();
+  const { campaignNotices } = await import("@/db");
+  await db.insert(campaignNotices).values({ key: `invite-dismissed:${user.id}`, userId: user.id }).onConflictDoNothing();
+  revalidatePath("/home");
+  redirect("/home");
 }
 
 export async function joinCampaignWaitlist() {

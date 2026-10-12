@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { NO_ID_LABEL } from "@/lib/enrollment-proof";
 import { requireStudent, verifyStep } from "@/lib/student";
 import { TopBar } from "@/components/TopBar";
 import { IdCapture, SchoolIdOnlyCapture } from "@/components/IdCapture";
@@ -17,11 +19,11 @@ export default async function VerifyId() {
       <div className="body">
         <Steps at={3} />
         <h1 className="disp h1">Get Verified</h1>
-        <p className="muted small p">A Nearest team member checks that the ID matches your school and your selfie.</p>
+        <p className="muted small p">A Nearest team member checks that your school ID — or, if your school doesn&apos;t issue IDs, your proof of enrollment — matches your school and your account.</p>
         {step === "/verify/finish"
-          ? <><p className="small p" style={{ margin: 0 }}>Your selfie is already saved — just add your school ID.</p><SchoolIdOnlyCapture /></>
+          ? <><p className="small p" style={{ margin: 0 }}>Your selfie is already saved — just add your school ID.</p><SchoolIdOnlyCapture /><Link className="btn ghost sm" href="/verify/proof">{NO_ID_LABEL}</Link></>
           : <IdCapture allowLater />}
-        <div className="card small"><div className="row top-a"><Icon name="lock" size="s" /><span className="grow muted">Your photos are private. Only Nearest reviewers can see them, and they&apos;re deleted as soon as your review is finished. They never appear on your profile.</span></div></div>
+        <div className="card small"><div className="row top-a"><Icon name="lock" size="s" /><span className="grow muted">Your photos and documents are private. Only Nearest reviewers can see them, and they&apos;re deleted as soon as your review is finished. They never appear on your profile.</span></div></div>
       </div>
     </div>
   );

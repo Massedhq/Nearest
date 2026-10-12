@@ -218,47 +218,18 @@ export async function applySuppliedGraphic() {
   refresh();
 }
 
-/** A professional has agreed (outside Nearest) to provide this service for the campaign at this payout. */
-export async function addRewardOffer(_: FormState, f: FormData): Promise<FormState> {
-  const { user } = await requireAdmin({ owner: true });
-  const proId = s(f, "proId", 40), serviceId = s(f, "serviceId", 40);
-  const pro = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, proId) });
-  const svc = await db.query.proServices.findFirst({ where: and(eq(proServices.id, serviceId), eq(proServices.userId, proId), eq(proServices.active, true)) });
-  if (!pro || !svc) return { error: "Choose the professional and one of their services." };
-  if (!pro.addressLine) return { error: "Reward appointments happen at the professional's location — this professional hasn't added one." };
-  const payout = Math.round(Number(String(f.get("payout") ?? "").replace(/[$,\s]/g, "")) * 100);
-  const slots = Math.round(Number(f.get("slots")));
-  if (!Number.isFinite(payout) || payout < 0 || payout > 50000) return { error: "Enter what Nearest pays the professional per appointment." };
-  if (!Number.isInteger(slots) || slots < 1 || slots > 5000) return { error: "Enter how many reward appointments this professional agreed to." };
-  if (f.get("agreed") !== "on") return { error: "Confirm the professional has agreed to these terms." };
-  const note = s(f, "note", 1000);
-  if (!note) return { error: "Note how/when the professional agreed (for example: signed agreement, Oct 12)." };
-  const [o] = await db.insert(campaignOffers).values({ campaignKey: CAMPAIGN_KEY, proId, serviceId, payoutCents: payout, slotsTotal: slots, agreementNote: note, confirmedBy: user.id, confirmedAt: new Date() }).returning();
-  await logActivity({ actorUserId: user.id, action: "campaign.offer_added", targetType: "campaign_offer", targetId: o.id, after: { proId, service: svc.name, payout, slots, note } });
-  refresh();
-  return { ok: "Reward arrangement added." };
-}
-
 export async function updateRewardOffer(form: FormData) {
   const { user } = await requireAdmin({ owner: true });
   const id = String(form.get("id") ?? "");
   const o = await db.query.campaignOffers.findFirst({ where: eq(campaignOffers.id, id) });
   if (!o) return;
   if (form.get("toggle") === "1") await db.update(campaignOffers).set({ active: !o.active }).where(eq(campaignOffers.id, id));
-  const slots = Number(form.get("slots"));
-  if (Number.isInteger(slots) && slots >= o.slotsUsed && slots <= 5000) await db.update(campaignOffers).set({ slotsTotal: slots }).where(eq(campaignOffers.id, id));
+  const slots = form.get("slots") === null ? NaN : Number(form.get("slots"));
+  if (Number.isInteger(slots) && slots >= 1 && slots >= o.slotsUsed && slots <= 5000) await db.update(campaignOffers).set({ slotsTotal: slots }).where(eq(campaignOffers.id, id));
   await logActivity({ actorUserId: user.id, action: "campaign.offer_updated", targetType: "campaign_offer", targetId: id, before: { active: o.active, slots: o.slotsTotal }, after: { toggle: form.get("toggle") === "1", slots } });
   refresh();
 }
 
-export async function confirmRewardFunding(_: FormState, f: FormData): Promise<FormState> {
-  const { user } = await requireAdmin({ owner: true });
-  if (f.get("confirm") !== "on") return { error: "Tick the box to confirm." };
-  await db.update(campaigns).set({ rewardConfirmedAt: new Date(), rewardConfirmedBy: user.id }).where(eq(campaigns.key, CAMPAIGN_KEY));
-  await logActivity({ actorUserId: user.id, action: "campaign.reward_confirmed", targetType: "campaign", targetId: CAMPAIGN_KEY });
-  refresh();
-  return { ok: "Reward arrangements confirmed." };
-}
 
 /** Enable (open), pause or close. Opening is blocked until the readiness checklist is complete. */
 export async function setCampaignStatus(_: FormState, f: FormData): Promise<FormState> {

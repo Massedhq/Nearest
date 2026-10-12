@@ -10,6 +10,8 @@ import { submitForReview } from "@/app/pro/actions";
 import { ProTermsAgreement } from "@/components/ProTermsAgreement";
 import { proTermsSections, PRO_TERMS_VERSION } from "@/lib/pro-terms";
 import { enrollmentQuote } from "@/lib/enroll";
+import { ProCampaignFields } from "@/components/ProCampaignFields";
+import { rewardEligibleServices } from "@/lib/campaign-pro";
 
 export const metadata = { title: "Review & submit" };
 
@@ -25,6 +27,7 @@ export default async function ReviewStep() {
   // First submit: the Professional Terms (membership at the end) are accepted here. Owners never enroll.
   const needsTerms = !p.entryPaidAt && viewer.admin?.role !== "OWNER";
   const quote = needsTerms && ready ? await enrollmentQuote(p) : null;
+  const rewardServices = needsTerms ? await rewardEligibleServices(user.id) : [];
   const [{ n: favCount }] = await db.select({ n: sql<number>`count(*)::int` }).from(favorites).where(eq(favorites.proId, p.userId));
   return (
     <div className="scr">
@@ -58,6 +61,10 @@ export default async function ReviewStep() {
                 <>
                   <ProTermsAgreement sections={proTermsSections({ cents: quote.cents, label: quote.label })} version={PRO_TERMS_VERSION} />
                   <label className="check xs" style={{ alignItems: "flex-start" }}><input type="checkbox" name="inviteReward" required /><span>I agree to honor Nearest&apos;s $5 student invite reward: a student who earned it by inviting a friend gets $5 off their first booking with me, taken from that booking&apos;s payout.</span></label>
+                  <div className="card" style={{ gap: 8 }}>
+                    <span className="eyebrow">Nearest launch campaign</span>
+                    <ProCampaignFields services={rewardServices} />
+                  </div>
                 </>
               ) : <span />}
             </ActionForm>

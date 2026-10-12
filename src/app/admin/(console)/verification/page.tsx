@@ -4,6 +4,8 @@ import { db, users, professionalProfiles, proServices, cities, portfolioItems, s
 import { and } from "drizzle-orm";
 import { StudentReject } from "@/components/StudentReject";
 import { approveStudent, approveProId } from "@/app/admin/student-actions";
+import { StudentProofReview } from "@/components/StudentProofReview";
+import { ENROLLMENT_DOC_KINDS, type EnrollmentDocKind } from "@/lib/enrollment-proof";
 import { ProIdReject } from "@/components/ProIdReject";
 import { AdminHead } from "@/components/AdminHead";
 import { RejectForm } from "@/components/RejectForm";
@@ -34,6 +36,8 @@ export default async function Verification() {
       .where(eq(studentProfiles.verificationStatus, "pending"))
       .orderBy(asc(studentProfiles.idSubmittedAt)),
   ]);
+  const pdfProofs = new Set((await db.select({ userId: studentIdDocs.userId }).from(studentIdDocs)
+    .where(and(eq(studentIdDocs.kind, "enrollment_proof"), eq(studentIdDocs.mime, "application/pdf")))).map((r) => r.userId));
   const age = (dob: string | null) => (dob ? Math.floor((Date.now() - new Date(`${dob}T12:00:00Z`).getTime()) / (365.25 * 86400000)) : null);
   const proIds = await db.select({ userId: professionalProfiles.userId, first: users.firstName, last: users.lastName, email: users.email, dob: users.dateOfBirth, business: professionalProfiles.businessName })
     .from(professionalProfiles).innerJoin(users, eq(users.id, professionalProfiles.userId))
@@ -95,7 +99,15 @@ export default async function Verification() {
           )}
           <div className="acols even">
             <div className="grid2">
-              {s.idSubmittedAt ? (
+              {s.idSubmittedAt && s.proofType === "enrollment" ? (
+                <figure style={{ margin: 0 }}>
+                  {pdfProofs.has(s.userId)
+                    ? <a className="card small" href={`/api/admin/id-doc/${s.userId}/enrollment_proof`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", color: "inherit", alignItems: "center", minHeight: 120, justifyContent: "center" }}><span className="b">PDF document</span><span className="link xs">Open to review</span></a>
+                    // eslint-disable-next-line @next/next/no-img-element
+                    : <img src={`/api/admin/id-doc/${s.userId}/enrollment_proof`} alt="Proof of enrollment" style={{ width: "100%", borderRadius: 10, border: "1px solid #2A2A2D", background: "#fff" }} />}
+                  <figcaption className="xs muted">{ENROLLMENT_DOC_KINDS[s.enrollmentDocKind as EnrollmentDocKind] ?? "Proof of enrollment"} (view logged) • <a className="link" href={`/api/admin/id-doc/${s.userId}/enrollment_proof`} target="_blank" rel="noopener noreferrer">Open document</a></figcaption>
+                </figure>
+              ) : s.idSubmittedAt ? (
                 <figure style={{ margin: 0 }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={`/api/admin/id-doc/${s.userId}/school_id`} alt="School ID" style={{ width: "100%", borderRadius: 10, border: "1px solid #2A2A2D" }} />
@@ -110,9 +122,11 @@ export default async function Verification() {
                 <figcaption className="xs muted">Selfie (view logged)</figcaption>
               </figure>
             </div>
-            <StudentReject userId={s.userId} />
+            {s.proofType === "enrollment" ? <StudentProofReview userId={s.userId} /> : <StudentReject userId={s.userId} />}
           </div>
-          <p className="xs muted p">Check the name and school match, the ID looks current, and the selfie matches the ID photo. Photos are deleted as soon as you decide.</p>
+          {s.proofType === "enrollment"
+            ? <p className="xs muted p"><span className="tag warn">No school ID — school doesn&apos;t issue them</span> Check the document shows their name ({u.firstName} {u.lastName}), the school they chose, and current enrollment (this term). Financial and unrelated details may be hidden. Approving gives the same access and campaign eligibility as a school ID. The document is deleted as soon as you decide.</p>
+            : <p className="xs muted p">Check the name and school match, the ID looks current, and the selfie matches the ID photo. Photos are deleted as soon as you decide.</p>}
         </div>
       ))}
 

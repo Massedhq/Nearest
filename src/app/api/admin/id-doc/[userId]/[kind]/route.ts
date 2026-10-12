@@ -4,12 +4,12 @@ import { mainOwnerId } from "@/lib/partner";
 import { getViewer } from "@/lib/viewer";
 import { logActivity } from "@/lib/log";
 
-// Serves a student's ID photo or selfie to admins only. Every view is written to the activity log.
+// Serves a student's ID photo, enrollment proof (image or PDF) or selfie to admins only. Every view is written to the activity log.
 export async function GET(_: Request, { params }: { params: Promise<{ userId: string; kind: string }> }) {
   const viewer = await getViewer();
   if (!viewer?.admin || !viewer.user) return new Response("Not allowed", { status: 403 });
   const { userId, kind } = await params;
-  if ((!["school_id", "gov_id", "selfie"].includes(kind) && !/^diploma_\d+$/.test(kind)) || !/^[0-9a-f-]{36}$/.test(userId)) return new Response("Not found", { status: 404 });
+  if ((!["school_id", "gov_id", "selfie", "enrollment_proof"].includes(kind) && !/^diploma_\d+$/.test(kind)) || !/^[0-9a-f-]{36}$/.test(userId)) return new Response("Not found", { status: 404 });
   // Sales reps belong to the main owner alone — their ID photos open only for the main owner.
   const rep = await db.query.salesReps.findFirst({ where: eq(salesReps.userId, userId) });
   if (rep && (await mainOwnerId()) !== viewer.user.id) return new Response("Not allowed", { status: 403 });
@@ -18,6 +18,6 @@ export async function GET(_: Request, { params }: { params: Promise<{ userId: st
   const student = await db.query.users.findFirst({ where: eq(users.id, userId) });
   await logActivity({ actorUserId: viewer.user.id, action: rep ? "rep.id_viewed" : kind === "gov_id" ? "pro.id_viewed" : "student.id_viewed", targetType: rep ? "sales_rep" : kind === "gov_id" ? "professional" : "student", targetId: student ? `${student.firstName} ${student.lastName}` : userId, after: kind });
   return new Response(Buffer.from(doc.dataB64, "base64"), {
-    headers: { "Content-Type": doc.mime, "Cache-Control": "no-store, private", "X-Content-Type-Options": "nosniff" },
+    headers: { "Content-Type": doc.mime, "Cache-Control": "no-store, private", "X-Content-Type-Options": "nosniff", ...(doc.mime === "application/pdf" ? { "Content-Disposition": "inline; filename=\"enrollment-proof.pdf\"" } : {}) },
   });
 }

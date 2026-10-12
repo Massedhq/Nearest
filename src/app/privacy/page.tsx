@@ -24,7 +24,7 @@ export default function Privacy() {
               "Account details: first and last name, date of birth, email address, optional mobile number, and password (passwords are handled by our sign-in provider, Clerk; we never see them).",
               "Students: school, graduation year, optional interests and communication preferences (for example, text communication or ASL).",
               "Professionals: business name, profile photo, bio, years of experience, services and prices, hours, city, ZIP code, service address, travel radius, languages and ASL level, portfolio photos, Instagram and TikTok links, and license information (type, number, state and expiration).",
-              "Verification: Students provide a school ID photo and a selfie for review; Professionals provide a photo of a government ID (driver's license or state ID) and a live selfie for review (see Section 3).",
+              "Verification: Students provide a school ID photo (or, if their school doesn't issue IDs, a proof-of-enrollment document) and a selfie for review; Professionals provide a photo of a government ID (driver's license or state ID) and a live selfie for review (see Section 3).",
               "Connections: verified students get a username and can Connect with other verified students. Other students see only your first name, last initial and school. Students under 18 can be found by name only by students at their own school (anyone else needs your exact username). Only accepted connections can send you professionals, and you can remove a connection anytime.",
               "Problem reports: if something in the app breaks, you can send an automatic report that includes the error details, the page, your device type and a screenshot of your screen at that moment. It goes only to Nearest support and is used only to fix the problem.",
               "Bookings and activity: appointments, Model Calls, messages, reviews, ratings, the required check-in and result photos for each appointment, problem reports, requests for review, favorites and searches within the app.",
@@ -57,7 +57,7 @@ export default function Privacy() {
         {
           h: "3. Verification photos and biometric information",
           p: [
-            "Students: your school ID photo and selfie are stored privately and can be viewed only by Nearest reviewers to confirm your identity and school. Every view is logged. The photos are permanently deleted as soon as your review is finished (approved or sent back). They are never shown on your profile or to Professionals.",
+            "Students: your school ID photo or proof-of-enrollment document and your selfie are stored privately and can be viewed only by Nearest reviewers to confirm your identity and school. Every view is logged. The photos are permanently deleted as soon as your review is finished (approved or sent back). They are never shown on your profile or to Professionals.",
             "Professionals: Nearest staff compare a photo of your government ID (driver's license or state ID) with a live selfie to confirm you're a real person using your own name. The photos are stored privately, viewed only by authorized Nearest staff (each view is logged), and deleted as soon as the review is decided. We don't create face-recognition templates. This is identity verification, not a background check.",
             "Nearest does not sell, lease or disclose biometric information, and uses verification photos only to verify identity.",
           ],
@@ -110,7 +110,7 @@ export default function Privacy() {
           h: "8. How long we keep information",
           p: [
             [
-              "Student ID photos and selfies: deleted as soon as the review is finished.",
+              "Student ID photos, proof-of-enrollment documents and selfies: deleted as soon as the review is finished.",
               "Account and profile information: while your account is open, and for a limited period after closure to handle disputes, prevent fraud and meet legal requirements.",
               "Bookings, payments, credits, fines and payout records: as long as needed for accounting, tax and legal requirements (generally up to seven years).",
               "Messages, reviews, problem reports and check-in readings: while the account is open and afterwards as long as reasonably needed for safety, disputes and legal purposes.",

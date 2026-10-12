@@ -29,15 +29,15 @@ export default async function VerifyStatus() {
         <h1 className="disp h1">{rejected ? "We couldn't verify you yet" : "Verification in review"}</h1>
         {rejected ? (
           <>
-            <p className="muted p">{profile.reviewNote ?? "Your photos didn't show enough to confirm your school."}</p>
+            <p className="muted p">{profile.reviewNote ?? "Your photos didn't show enough to confirm your school."}{profile.proofType === "enrollment" ? " You can try again with a school ID or another proof-of-enrollment document." : ""}</p>
             <form action={restartVerification} style={{ width: "100%" }}><button className="btn" type="submit">Try again</button></form>
           </>
         ) : (
           <>
-            <p className="muted p">A Nearest team member is checking your school ID. This usually takes less than a day. Check back here anytime.</p>
+            <p className="muted p">A Nearest team member is checking your {profile.proofType === "enrollment" ? "proof of enrollment" : "school ID"}. This usually takes less than a day. Check back here anytime.</p>
             <div className="card small" style={{ textAlign: "left", width: "100%" }}>
               <div className="row"><Icon name="check" size="s" /> School selected</div>
-              <div className="row"><Icon name="check" size="s" /> School ID and selfie submitted</div>
+              <div className="row"><Icon name="check" size="s" /> {profile.proofType === "enrollment" ? "Proof of enrollment and selfie submitted" : "School ID and selfie submitted"}</div>
               <div className="row"><Icon name="clock" size="s" /> Review</div>
             </div>
           </>

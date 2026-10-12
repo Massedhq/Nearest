@@ -56,7 +56,7 @@ export async function submitIdDocs(_: FormState, form: FormData): Promise<FormSt
   }
   await db
     .update(studentProfiles)
-    .set({ verificationStatus: "pending", idSubmittedAt: new Date(), reviewNote: null })
+    .set({ verificationStatus: "pending", idSubmittedAt: new Date(), reviewNote: null, proofType: "school_id", enrollmentDocKind: null, clearerProofRequestedAt: null })
     .where(eq(studentProfiles.userId, user.id));
   revalidatePath("/verify/status");
   redirect(profile.onboardingCompletedAt ? "/verify/status" : "/verify/interests");
@@ -171,7 +171,49 @@ export async function submitSchoolIdOnly(_: FormState, form: FormData): Promise<
   if (m[1].length > 1_400_000) return { error: "That photo is too large. Try again." };
   await db.insert(studentIdDocs).values({ userId: user.id, kind: "school_id", mime: "image/jpeg", dataB64: m[1] })
     .onConflictDoUpdate({ target: [studentIdDocs.userId, studentIdDocs.kind], set: { dataB64: m[1], createdAt: new Date() } });
-  await db.update(studentProfiles).set({ verificationStatus: "pending", idSubmittedAt: new Date(), reviewNote: null }).where(eq(studentProfiles.userId, user.id));
+  await db.update(studentProfiles).set({ verificationStatus: "pending", idSubmittedAt: new Date(), reviewNote: null, proofType: "school_id", enrollmentDocKind: null, clearerProofRequestedAt: null }).where(eq(studentProfiles.userId, user.id));
+  revalidatePath("/verify/status");
+  redirect(profile.onboardingCompletedAt ? "/verify/status" : "/verify/interests");
+}
+
+
+const PROOF_URL = /^data:(image\/jpeg|application\/pdf);base64,([A-Za-z0-9+/=]+)$/;
+
+/**
+ * "My school does not issue student IDs": proof of current enrollment (photo or PDF) instead of a school ID.
+ * Goes to the same verification queue; approval gives exactly the same access as a school ID.
+ * The selfie is taken here too, unless it's already saved (finish-later, or Nearest asked for a clearer document).
+ */
+export async function submitEnrollmentProof(_: FormState, form: FormData): Promise<FormState> {
+  const { user, profile } = await requireStudent();
+  if (profile.verificationStatus === "verified") redirect("/home");
+  if (profile.verificationStatus === "pending" || profile.verificationStatus === "manual_review") redirect("/verify/status");
+  const { ENROLLMENT_DOC_KINDS, PROOF_MAX_BYTES } = await import("@/lib/enrollment-proof");
+  const docKind = String(form.get("docKind") ?? "");
+  if (!(docKind in ENROLLMENT_DOC_KINDS)) return { error: "Choose what kind of document you're uploading." };
+  const m = PROOF_URL.exec(String(form.get("proof") ?? ""));
+  if (!m) return { error: "Upload a photo or PDF of your document." };
+  const bytes = Buffer.from(m[2], "base64");
+  if (bytes.length > PROOF_MAX_BYTES) return { error: "That file is too large (5 MB max). Try a photo or a smaller PDF." };
+  const isPdf = m[1] === "application/pdf";
+  if (isPdf ? bytes.subarray(0, 4).toString("latin1") !== "%PDF" : !(bytes[0] === 0xff && bytes[1] === 0xd8)) return { error: "That file couldn't be read. Upload a photo (JPG/PNG) or a PDF." };
+  const hasSelfie = Boolean(await db.query.studentIdDocs.findFirst({ where: and(eq(studentIdDocs.userId, user.id), eq(studentIdDocs.kind, "selfie")) }));
+  const selfie = DATA_URL.exec(String(form.get("selfie") ?? ""));
+  if (!hasSelfie && !selfie) return { error: "Take a selfie." };
+  if (selfie && selfie[1].length > 1_400_000) return { error: "That selfie is too large. Try again." };
+  if (!profile.schoolId) {
+    const req = await db.query.schoolRequests.findFirst({ where: and(eq(schoolRequests.userId, user.id), eq(schoolRequests.status, "pending")) });
+    if (!req) redirect("/verify");
+  }
+  const save = (kind: string, mime: string, b64: string) => db.insert(studentIdDocs).values({ userId: user.id, kind, mime, dataB64: b64 })
+    .onConflictDoUpdate({ target: [studentIdDocs.userId, studentIdDocs.kind], set: { dataB64: b64, mime, createdAt: new Date() } });
+  await save("enrollment_proof", m[1], m[2]);
+  if (selfie) await save("selfie", "image/jpeg", selfie[1]);
+  await db.delete(studentIdDocs).where(and(eq(studentIdDocs.userId, user.id), eq(studentIdDocs.kind, "school_id")));
+  await db.update(studentProfiles).set({
+    verificationStatus: "pending", idSubmittedAt: new Date(), reviewNote: null, proofType: "enrollment", enrollmentDocKind: docKind,
+    clearerProofRequestedAt: null,
+  }).where(eq(studentProfiles.userId, user.id));
   revalidatePath("/verify/status");
   redirect(profile.onboardingCompletedAt ? "/verify/status" : "/verify/interests");
 }

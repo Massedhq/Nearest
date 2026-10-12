@@ -112,6 +112,10 @@ export const studentProfiles = pgTable("student_profiles", {
   // Phase 3A: manual verification
   idSubmittedAt: ts("id_submitted_at"),
   reviewNote: text("review_note"),
+  // "My school does not issue student IDs": proof of current enrollment instead of a school ID.
+  proofType: text("proof_type"), // null/"school_id" | "enrollment"
+  enrollmentDocKind: text("enrollment_doc_kind"), // enrollment_confirmation | class_schedule | student_portal | tuition_receipt
+  clearerProofRequestedAt: ts("clearer_proof_requested_at"), // admin asked for a clearer document (selfie kept)
   verifiedAt: ts("verified_at"),
   reverifyBy: date("reverify_by"),
   createdAt: ts("created_at").notNull().defaultNow(),
@@ -140,7 +144,7 @@ export const schoolRequests = pgTable("school_requests", {
 // and both rows are deleted as soon as the student is approved or rejected.
 export const studentIdDocs = pgTable("student_id_docs", {
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  kind: text("kind").notNull(), // "school_id" | "selfie"
+  kind: text("kind").notNull(), // "school_id" | "selfie" | "enrollment_proof" (image or PDF) | "gov_id" | …
   mime: text("mime").notNull(),
   dataB64: text("data_b64").notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),
@@ -210,6 +214,9 @@ export const professionalProfiles = pgTable("professional_profiles", {
   proTermsVersion: text("pro_terms_version"),
   proTermsAcceptedAt: ts("pro_terms_accepted_at"),
   proTermsIp: text("pro_terms_ip"),
+  // Launch campaign free service: "agreed" (new pros tick it at submit; earlier pros opt in from their home card) or "declined".
+  campaignChoice: text("campaign_choice"),
+  campaignChoiceAt: ts("campaign_choice_at"),
   // Membership activates when they accept their first booking request (not at sign-up).
   membershipActivatedAt: ts("membership_activated_at"),
   firstRequestAt: ts("first_request_at"),
@@ -1064,7 +1071,8 @@ export const campaignNotices = pgTable("campaign_notices", {
   sentAt: ts("sent_at").notNull().defaultNow(),
 });
 
-// Reward arrangements: a professional has agreed to provide this service for the campaign, Nearest pays payout_cents.
+// Free-service rewards: one row per participating professional — the service they chose (listed at $25+) and how many
+// free appointments they give. payout_cents is 0 (the professional gives the service free); confirmed_by = the professional.
 export const campaignOffers = pgTable("campaign_offers", {
   id: uuid("id").primaryKey().defaultRandom(),
   campaignKey: text("campaign_key").notNull(),

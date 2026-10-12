@@ -36,14 +36,41 @@ export async function approveStudent(form: FormData) {
 export async function rejectStudent(_: FormState, form: FormData): Promise<FormState> {
   const { user } = await requireAdmin();
   const id = str(form, "userId", 40);
-  const note = str(form, "note");
+  const note = str(form, "other") || str(form, "note");
   if (!note) return { error: "Tell the student what to fix." };
-  await db.update(studentProfiles).set({ verificationStatus: "rejected", reviewNote: note, schoolEmailVerifiedAt: null }).where(and(eq(studentProfiles.userId, id), eq(studentProfiles.verificationStatus, "pending")));
+  // Every photo/document is deleted below, so the student starts over with a new selfie too (selfie_only_at cleared).
+  await db.update(studentProfiles).set({ verificationStatus: "rejected", reviewNote: note, schoolEmailVerifiedAt: null, selfieOnlyAt: null, clearerProofRequestedAt: null }).where(and(eq(studentProfiles.userId, id), eq(studentProfiles.verificationStatus, "pending")));
   await db.delete(studentIdDocs).where(eq(studentIdDocs.userId, id));
   await inbox(id, { kind: "verification", title: "We couldn't verify you yet", body: note, href: "/verify/status" });
   await logActivity({ actorUserId: user.id, action: "student.rejected", targetType: "student", targetId: await studentName(id), before: "pending", after: note });
   revalidatePath("/admin", "layout");
   return { ok: "Sent back. Their photos were deleted." };
+}
+
+/**
+ * Enrollment proof only: ask for a clearer document. The selfie is kept; the student uploads just a new document
+ * (from Finish verifying) and goes straight back into the queue.
+ */
+export async function requestClearerProof(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireAdmin();
+  const id = str(form, "userId", 40);
+  const note = str(form, "other") || str(form, "note");
+  if (!note) return { error: "Tell the student what to change." };
+  const [row] = await db.update(studentProfiles).set({ verificationStatus: "unverified", reviewNote: note, clearerProofRequestedAt: new Date(), selfieOnlyAt: new Date() })
+    .where(and(eq(studentProfiles.userId, id), eq(studentProfiles.verificationStatus, "pending"), eq(studentProfiles.proofType, "enrollment"))).returning();
+  if (!row) return { error: "This student isn't waiting with enrollment proof anymore." };
+  await db.delete(studentIdDocs).where(and(eq(studentIdDocs.userId, id), eq(studentIdDocs.kind, "enrollment_proof")));
+  await inbox(id, { kind: "verification", title: "Please upload a clearer document", body: note, href: "/verify/proof" });
+  try {
+    const u = await db.query.users.findFirst({ where: eq(users.id, id) });
+    if (u?.email) {
+      const { sendEmail } = await import("@/lib/email");
+      await sendEmail({ to: u.email, subject: "Nearest: please upload a clearer enrollment document", eyebrow: "Student verification", heading: "One more step to get verified.", lines: [note, "Your selfie is saved — you only need to upload the document again."], button: { label: "Upload my document", url: `${process.env.APP_URL || "https://www.usenearest.com"}/verify/proof` } });
+    }
+  } catch (e) { console.error("clearer proof email", e); }
+  await logActivity({ actorUserId: user.id, action: "student.clearer_proof_requested", targetType: "student", targetId: await studentName(id), before: "pending", after: note });
+  revalidatePath("/admin", "layout");
+  return { ok: "Sent. Their document was deleted; they'll upload a new one." };
 }
 
 export async function addSchool(_: FormState, form: FormData): Promise<FormState> {

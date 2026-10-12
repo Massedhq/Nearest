@@ -12,6 +12,7 @@ import { chicagoNow, fmtDate, fmtTime, label12, money } from "@/lib/time";
 import { proStanding } from "@/lib/enforcement";
 import { Bell } from "@/components/Inbox";
 import { GoLiveCard } from "@/components/GoLiveCard";
+import { ProCampaignCard } from "@/components/ProCampaignCard";
 import { unreadCount } from "@/lib/inbox";
 
 export const metadata = { title: "Today" };
@@ -103,6 +104,7 @@ export default async function ProHome({ searchParams }: { searchParams: Promise<
         )}
 
         {approved && <GoLiveCard profile={profile} />}
+        <ProCampaignCard profile={profile} />
 
         {upcoming.filter((b) => b.checkedInAt && !b.startedAt).map((b) => (
           <Link key={`ci-${b.id}`} className="card ok" href={`/pro/appointments/${b.id}`} style={{ textDecoration: "none" }}>

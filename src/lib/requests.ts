@@ -73,7 +73,8 @@ export async function acceptRequest(bookingId: string, proId: string): Promise<A
   const p = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, proId) });
   if (!p) return { error: "Not found." };
   const state = membershipState(p, await isOwnerBusiness(proId));
-  if (state === "not_activated") return { needsActivation: true, rateCents: p.monthlyRateCents ?? 1100 };
+  // A free launch-campaign appointment never starts the membership — it activates on their first paid booking.
+  if (state === "not_activated" && !b.campaignEntryId) return { needsActivation: true, rateCents: p.monthlyRateCents ?? 1100 };
   if (state === "payment_issue") return { error: "Your membership payment needs attention before you can accept bookings. Open Subscription to fix it." };
   await acceptForPayment(b);
   return { ok: true };

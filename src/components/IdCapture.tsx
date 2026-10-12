@@ -3,6 +3,8 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { submitIdDocs, submitSelfieOnly, submitSchoolIdOnly } from "@/app/verify-actions";
 import type { FormState } from "./ActionForm";
 import { Icon } from "./Icon";
+import { EnrollmentProofCapture } from "./EnrollmentProofCapture";
+import { NO_ID_LABEL } from "@/lib/enrollment-proof";
 
 /** Shrinks a photo to ~1280px JPEG so it uploads fast and stays small. */
 async function shrink(file: Blob): Promise<string> {
@@ -132,8 +134,11 @@ export function IdCapture({ action = submitIdDocs as IdAction, idName = "school_
   const [later, setLater] = useState(false);
   const [idPhoto, setIdPhoto] = useState("");
   const [selfie, setSelfie] = useState("");
+  // Students whose school doesn't issue IDs (trade schools and similar): proof of current enrollment instead.
+  const [noId, setNoId] = useState(false);
   const busy = pending || pendingLater;
   const err = later ? laterState.error : state.error;
+  if (noId) return <EnrollmentProofCapture needSelfie onBack={() => setNoId(false)} />;
   return (
     <form action={later ? runLater : run} className="col g16">
       {later ? (
@@ -146,6 +151,7 @@ export function IdCapture({ action = submitIdDocs as IdAction, idName = "school_
         <>
           <Shot name={idName} label={idLabel} hint={idHint} facing="environment" value={idPhoto} onPick={setIdPhoto} icon="id" allowUpload />
           {allowLater && !idPhoto && <button type="button" className="btn ghost sm" onClick={() => setLater(true)}>I don&apos;t have my school ID with me</button>}
+          {allowLater && !idPhoto && <button type="button" className="btn ghost sm" onClick={() => setNoId(true)}>{NO_ID_LABEL}</button>}
         </>
       )}
       <Shot name="selfie" label="Selfie" hint="Opens your camera — face it in good light" facing="user" value={selfie} onPick={setSelfie} icon="face" allowUpload={false} />

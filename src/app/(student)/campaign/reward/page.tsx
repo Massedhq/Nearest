@@ -5,6 +5,7 @@ import { ActionForm } from "@/components/ActionForm";
 import { requireStudent } from "@/lib/student";
 import { entryFor, getCampaign } from "@/lib/campaign";
 import { rewardBlocker, rewardOffers } from "@/lib/campaign-reward";
+import { REWARD_DEFAULT_INCLUDES } from "@/lib/campaign";
 import { personName } from "@/lib/pro-name";
 import { chicagoNow, label12 } from "@/lib/time";
 import { bookCampaignReward } from "@/app/campaign-actions";
@@ -33,8 +34,8 @@ export default async function RewardPage({ searchParams }: { searchParams: Promi
       <TopBar title="Free service" back="/campaign" />
       <div className="body">
         <div className="card" style={{ gap: 6 }}>
-          <span className="eyebrow">{c.rewardTitle ?? "Your launch reward"}</span>
-          <span className="small">{c.rewardIncludes}</span>
+          <span className="eyebrow">{c.rewardTitle || "Your free launch service"}</span>
+          <span className="small">{c.rewardIncludes || REWARD_DEFAULT_INCLUDES}</span>
           <span className="small b">You pay $0 — no deposit, no service fee, no travel fee. Appointments are at the professional&apos;s location.</span>
           <span className="xs muted">One-time and non-transferable. If the professional declines, or the booking is cancelled, your free service comes back to you. A no-show uses it.</span>
         </div>
@@ -43,7 +44,7 @@ export default async function RewardPage({ searchParams }: { searchParams: Promi
           <Link key={o.id} className="card" href={`/campaign/reward?offer=${o.id}`} style={{ textDecoration: "none", color: "inherit", gap: 4 }}>
             <span className="b">{service.name}</span>
             <span className="small">{personName(pro.displayName, first, last)}{pro.businessName ? ` • ${pro.businessName}` : ""}{city ? ` • ${city}` : ""}</span>
-            <span className="xs muted">{service.durationMin} min • {o.slotsTotal - o.slotsUsed} reward appointment{o.slotsTotal - o.slotsUsed === 1 ? "" : "s"} left</span>
+            <span className="xs muted">{service.durationMin} min • normally {`$${(service.priceCents / 100).toFixed(service.priceCents % 100 ? 2 : 0)}`}, free for you • {o.slotsTotal - o.slotsUsed} reward appointment{o.slotsTotal - o.slotsUsed === 1 ? "" : "s"} left</span>
           </Link>
         ))}
         {!blocked && pick && (

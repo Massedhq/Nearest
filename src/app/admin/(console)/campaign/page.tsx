@@ -23,6 +23,12 @@ export default async function CampaignAdmin({ searchParams }: { searchParams: Pr
   const c = await getCampaign();
   const sp = await searchParams;
   const [counts, problems] = await Promise.all([campaignCounts(), readinessProblems(c)]);
+  const pc = await db.execute<{ agreed: number; declined: number; waiting: number; offering: number }>(sql`select
+    count(*) filter (where campaign_choice = 'agreed')::int as agreed, count(*) filter (where campaign_choice = 'declined')::int as declined,
+    count(*) filter (where campaign_choice is null)::int as waiting,
+    (select count(*)::int from campaign_offers o where o.campaign_key = ${CAMPAIGN_KEY} and o.active and o.slots_used < o.slots_total) as offering
+    from professional_profiles where entry_paid_at is not null`);
+  const proCount = pc.rows[0] ?? { agreed: 0, declined: 0, waiting: 0, offering: 0 };
   const effSql = sql`case when e.status = 'in_progress' and e.completes_at <= now() then 'ready_for_review' else e.status end`;
   const rows = (await db.execute<Row>(sql`
     select e.id, e.status, u.first_name as first, u.last_name as last, e.platform, e.profile_url, e.started_at, e.completes_at, e.final_proof_at,
@@ -50,26 +56,35 @@ export default async function CampaignAdmin({ searchParams }: { searchParams: Pr
   return (
     <>
       <AdminHead eyebrow={`${CLOCK_LABEL}`} title="Launch campaign" />
-      <div className={`card ${c.status === "open" ? "ok" : c.status === "draft" ? "warn" : ""}`} style={{ gap: 8 }}>
+      <div className={`card ${c.status === "open" ? "ok" : c.status === "draft" ? "warn" : ""}`} style={{ gap: 10 }}>
         <div className="row between" style={{ flexWrap: "wrap", gap: 8 }}>
-          <span className="small"><span className="b">Status: {c.status === "draft" ? "Draft (not visible to students)" : c.status === "open" ? "Open" : c.status === "paused" ? "Paused" : "Closed"}</span> • {c.occupied} of {c.capacity} places taken • {c.market} • Booking opens {c.bookingOpensAt ? fmtWhen(c.bookingOpensAt) : "—"}</span>
-          {role === "OWNER" && <Link className="btn ghost sm" href="/admin/campaign/settings">Settings &amp; rewards</Link>}
+          <span className="disp h1" style={{ letterSpacing: 1 }}>{c.status === "open" ? "LIVE" : c.status === "paused" ? "PAUSED" : c.status === "closed" ? "CLOSED" : "DRAFT"}</span>
+          {role === "OWNER" && <Link className="btn ghost sm" href="/admin/campaign/settings">Settings</Link>}
         </div>
+        <span className="small">{c.status === "open" ? "Students can see the campaign and join." : c.status === "paused" ? "New students can't join. Students already in keep going." : c.status === "closed" ? "Enrollment has stopped. Students already in can finish." : "Students can't see the campaign yet."}</span>
+        <span className="xs muted">{c.occupied} of {c.capacity} places taken • {c.market} • Booking opens {c.bookingOpensAt ? fmtWhen(c.bookingOpensAt) : "—"}</span>
         {role === "OWNER" && (
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-            {c.status !== "open" && <ActionForm action={setCampaignStatus} submitLabel={c.status === "draft" ? "Open the campaign" : "Reopen enrollment"} buttonClass="btn sm" className="row"><input type="hidden" name="to" value="open" /></ActionForm>}
+            {c.status !== "open" && (problems.length > 0
+              ? <button className="btn sm" type="button" disabled style={{ opacity: 0.45 }}>{c.status === "draft" ? "Go live" : "Reopen enrollment"}</button>
+              : <ActionForm action={setCampaignStatus} submitLabel={c.status === "draft" ? "Go live" : "Reopen enrollment"} buttonClass="btn sm" className="row"><input type="hidden" name="to" value="open" /></ActionForm>)}
             {c.status === "open" && <ActionForm action={setCampaignStatus} submitLabel="Pause" buttonClass="btn ghost sm" className="row"><input type="hidden" name="to" value="paused" /></ActionForm>}
-            {(c.status === "open" || c.status === "paused") && <ActionForm action={setCampaignStatus} submitLabel="Close enrollment" buttonClass="btn ghost sm" className="row"><input type="hidden" name="to" value="closed" /></ActionForm>}
+            {(c.status === "open" || c.status === "paused") && <ActionForm action={setCampaignStatus} submitLabel="Stop (close enrollment)" buttonClass="btn ghost sm" className="row"><input type="hidden" name="to" value="closed" /></ActionForm>}
           </div>
         )}
-        {problems.length > 0 && (
+        {problems.length > 0 && c.status !== "open" && (
           <div className="col" style={{ gap: 2 }}>
-            <span className="xs b">Before it can open:</span>
+            <span className="xs b">Finish these in Settings to go live:</span>
             {problems.map((p) => <span key={p} className="xs">• {p}</span>)}
           </div>
         )}
         <span className="xs muted">Approved participants see &ldquo;Qualified—booking opens {bookingOpensLabel(c)}.&rdquo; Nothing here watches social media — the clock measures elapsed time from the server-recorded start; approval is always manual.</span>
       </div>
+
+      <Link className="card" href="/admin/campaign/settings#pros" style={{ textDecoration: "none", color: "inherit", gap: 2 }}>
+        <span className="small b">Participating professionals: {proCount.offering} offering a free service</span>
+        <span className="xs muted">{proCount.agreed} agreed • {proCount.declined} declined • {proCount.waiting} haven&apos;t answered the home-screen card yet — see who and which service</span>
+      </Link>
 
       <div className="kpis k4">
         <div className="card" style={{ gap: 4 }}><span className="xs muted">Reserved (not started)</span><span className="stat">{counts.reserved}</span></div>

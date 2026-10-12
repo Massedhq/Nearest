@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { requireStudent, verifyStep } from "@/lib/student";
 import { Icon } from "@/components/Icon";
 import { VerifyExits } from "@/components/VerifyExits";
+import { NO_ID_EXPLAIN, NO_ID_LABEL } from "@/lib/enrollment-proof";
 import { ActionForm } from "@/components/ActionForm";
 import { sendSchoolCode, confirmSchoolCode, finishVerifyLater } from "@/app/verify-actions";
 
@@ -38,10 +39,23 @@ export default async function FinishVerifying({ searchParams }: { searchParams: 
           <span className="xs muted">Personal emails like Gmail, Yahoo, AOL, Hotmail or Zoho can&apos;t be used.</span>
         </div>
 
+        {profile.clearerProofRequestedAt && profile.reviewNote && (
+          <div className="card warn small" style={{ gap: 8 }}>
+            <span className="b">Nearest needs a clearer document</span>
+            <span>{profile.reviewNote}</span>
+            <Link className="btn sm" href="/verify/proof" style={{ alignSelf: "flex-start" }}>Upload my document</Link>
+          </div>
+        )}
         <div className="card" style={{ gap: 8 }}>
           <span className="eyebrow">Or — your school ID</span>
           <span className="small">Have your school ID now? Take or upload a photo of it — your selfie is already saved.</span>
           <Link className="btn ghost" href="/verify/id">Upload my school ID</Link>
+        </div>
+
+        <div className="card" style={{ gap: 8 }}>
+          <span className="eyebrow">{NO_ID_LABEL}</span>
+          <span className="small">{NO_ID_EXPLAIN}</span>
+          <Link className="btn ghost" href="/verify/proof">Upload proof of enrollment</Link>
         </div>
 
         {!profile.verifyLaterAt && (

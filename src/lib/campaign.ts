@@ -36,7 +36,8 @@ export const STATUS_LABEL: Record<string, string> = {
 /** Places that stay taken. Approved/redeemed are never given back. */
 export const OCCUPYING = ["reserved", "in_progress", "ready_for_review", "needs_correction", "approved", "redeemed"];
 
-export const DEFAULT_INSTRUCTIONS = `1. Download the Nearest profile picture below.
+/** The previous default steps — a campaign still holding them is upgraded to the new seven steps automatically. */
+const LEGACY_INSTRUCTIONS = `1. Download the Nearest profile picture below.
 2. Set it as your profile picture on Instagram, Facebook or TikTok (any one — no follower minimum).
 3. Add this line to your bio while the picture is up: "${DISCLOSURE_LINE}"
 4. Submit your profile link and a screenshot of your profile showing the picture. Your seven days (168 hours) start the moment Nearest accepts it.
@@ -44,10 +45,43 @@ export const DEFAULT_INSTRUCTIONS = `1. Download the Nearest profile picture bel
 6. After the full 168 hours, upload your final screenshot. Nearest then reviews everything by hand.
 Never share your social media password — Nearest will never ask for it.`;
 
+/** Every screenshot (starting, daily and final) must show this. */
+export const SCREENSHOT_RULE = "Every screenshot must clearly show your account username and your profile picture.";
+
+/** "How to participate" — shown in the invitation and kept on the campaign page throughout. One step per line. */
+export const DEFAULT_INSTRUCTIONS = `1. Join the campaign to reserve your place.
+2. Download the Nearest profile picture.
+3. Change your Instagram, Facebook or TikTok profile picture to the Nearest picture, and add this line to your bio: "${DISCLOSURE_LINE}"
+4. Submit your profile link and a screenshot of your profile. Your seven-day clock starts when Nearest accepts them.
+5. Keep the Nearest picture up for seven full consecutive days, and upload a screenshot of your profile each day.
+6. After the countdown ends, upload your final screenshot. Nearest reviews your screenshots and checks your profile.
+7. Once you're approved, your reward appears in your Nearest account. Redeem it after booking opens.`;
+
+/** The invitation shown after registration (and on the campaign page until the student joins). */
+export const INVITE_HEADLINE = "Want to join the Nearest launch campaign?";
+export const inviteBody = (opensLabel: string) => `Complete the seven-day profile-picture promotion to qualify for one free eligible service after booking opens ${opensLabel}.`;
+export const invitePoints = (c: Pick<Campaign, "capacity" | "market">) => [
+  "No minimum follower count.",
+  "One campaign place and reward per verified student.",
+  `${c.capacity} places across ${c.market === "DFW" ? "DFW" : c.market}.`,
+  "Participation is optional and does not affect ordinary Nearest account access.",
+  "Approval requires manual review; completing the countdown alone does not issue a reward.",
+];
+export const AGREE_TEXT = "I have read the campaign directions and reward terms and agree to participate.";
+export const WAITLIST_NOTE = "A waitlist entry does not reserve a reward. If a place opens, it's offered in waitlist order and you're notified.";
+/** What the free service is, when the owner hasn't written their own description. */
+export const REWARD_DEFAULT_INCLUDES = "Each participating professional chooses one of their services listed at $25 or more to give for free. You'll see exactly which service, how long it takes and who provides it before you book.";
+export const REDEMPTION_TERMS = [
+  "One free service per approved student — one time, non-transferable, no cash value.",
+  "Book it on Nearest once booking opens, with a participating professional, at their location. Appointments depend on availability — booking opening doesn't guarantee an appointment that day.",
+  "You pay $0 for the reward service — no deposit and no service fee.",
+  "If the professional declines or the booking is cancelled, the reward comes back to you. A no-show uses it.",
+];
+
 export const DEFAULT_TERMS = `Nearest Launch Campaign — Terms (draft — edit before publishing)
-• Open to verified Nearest students at schools in the campaign market. Students under 18 need parent/guardian approval on Nearest first. One entry and one reward per student.
-• Places are limited. A place is reserved only when you join on Nearest.
-• Your seven days are 168 hours from the moment Nearest's server accepts your profile link and starting screenshot. Submit one screenshot in each daily window and a final screenshot at or after 168 hours.
+• Participation is optional and does not affect ordinary Nearest account access. Open to verified Nearest students at schools in the campaign market. Students under 18 need parent/guardian approval on Nearest first. One entry and one reward per student.
+• Places are limited. A place is reserved only when you join on Nearest. A waitlist entry does not reserve a reward.
+• Your seven days are 168 hours from the moment Nearest's server accepts your profile link and starting screenshot. Submit one screenshot in each daily window and a final screenshot at or after 168 hours. Every screenshot must clearly show your account username and profile picture.
 • Nearest reviews evidence manually and may visit your public profile. Screenshots support the review; they don't prove the picture was never changed. Nearest decides approval.
 • Approved participants receive the reward described on the campaign page. It is one-time, non-transferable, has no cash value, and can be booked once booking opens, subject to available appointments with participating professionals. Booking opening does not guarantee an appointment on that day.
 • If a reward booking is cancelled or declined it's returned to you; a no-show uses the reward.
@@ -57,7 +91,14 @@ export const DEFAULT_TERMS = `Nearest Launch Campaign — Terms (draft — edit 
 /** The campaign row (created with safe defaults — status "draft" — the first time it's read). */
 export async function getCampaign(): Promise<Campaign> {
   const found = await db.query.campaigns.findFirst({ where: eq(campaigns.key, CAMPAIGN_KEY) });
-  if (found) return found;
+  if (found) {
+    // Upgrade a campaign still holding the old default steps to the seven-step directions.
+    if (found.instructions === LEGACY_INSTRUCTIONS) {
+      await db.update(campaigns).set({ instructions: DEFAULT_INSTRUCTIONS }).where(and(eq(campaigns.key, CAMPAIGN_KEY), eq(campaigns.instructions, LEGACY_INSTRUCTIONS)));
+      return { ...found, instructions: DEFAULT_INSTRUCTIONS };
+    }
+    return found;
+  }
   await db.insert(campaigns).values({
     key: CAMPAIGN_KEY, name: "Nearest launch campaign", status: "draft", capacity: 750, market: "DFW",
     bookingOpensAt: chicagoToUtc("2026-11-19", "00:00"), instructions: DEFAULT_INSTRUCTIONS, terms: DEFAULT_TERMS,
@@ -296,9 +337,5 @@ export async function readinessProblems(c: Campaign) {
   if (!c.instructions?.trim()) out.push("Write the student instructions.");
   if (!c.termsPublishedAt) out.push("Review and publish the campaign terms.");
   if (!c.bookingOpensAt) out.push("Set the booking-opening date and time.");
-  if (!c.rewardTitle?.trim() || !c.rewardIncludes?.trim()) out.push("Describe exactly what the free service includes.");
-  const offers = await db.execute<{ n: number; slots: number }>(sql`select count(*)::int as n, coalesce(sum(slots_total),0)::int as slots from campaign_offers where campaign_key = ${CAMPAIGN_KEY} and active and confirmed_at is not null`);
-  if (!offers.rows[0]?.n) out.push("Add at least one confirmed reward arrangement (a participating professional, service, payout and appointment capacity).");
-  if (!c.rewardConfirmedAt) out.push("Confirm that the reward is arranged and funded.");
   return out;
 }

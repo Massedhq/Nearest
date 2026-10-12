@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { marketName } from "@/lib/markets";
 import { asc, eq } from "drizzle-orm";
@@ -28,9 +29,21 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
   const campaignOpen = await (async () => {
     const { getCampaign, entryFor } = await import("@/lib/campaign");
     const [c, e] = await Promise.all([getCampaign(), entryFor(user.id)]);
-    if (e && ["reserved", "in_progress", "needs_correction", "ready_for_review", "approved"].includes(e.status)) return "enrolled" as const;
-    return c.status === "open" && !e ? ("open" as const) : null;
+    if (e && ["reserved", "in_progress", "needs_correction", "ready_for_review"].includes(e.status)) return "enrolled" as const;
+    if (e && e.status === "approved" && !e.rewardBookingId) return "reward" as const;
+    if (c.status !== "open" || e) return null;
+    // The optional invitation after registration: shown automatically once, hidden for good after "Not now".
+    const { campaignNotices } = await import("@/db");
+    const { inArray } = await import("drizzle-orm");
+    const seen = await db.select({ key: campaignNotices.key }).from(campaignNotices).where(inArray(campaignNotices.key, [`invite-shown:${user.id}`, `invite-dismissed:${user.id}`]));
+    if (seen.some((r) => r.key.startsWith("invite-dismissed"))) return null;
+    if (!seen.length && profile.onboardingCompletedAt && !studentSuspendedUntil(profile) && area?.market === c.market) {
+      await db.insert(campaignNotices).values({ key: `invite-shown:${user.id}`, userId: user.id }).onConflictDoNothing();
+      return "invite" as const;
+    }
+    return "open" as const;
   })();
+  if (campaignOpen === "invite") redirect("/campaign?invite=1");
   const until = studentSuspendedUntil(profile);
   if (until) {
     return (
@@ -138,7 +151,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
         {campaignOpen && (
           <Link className="card" href="/campaign" style={{ textDecoration: "none", color: "inherit", gap: 2 }}>
             <span className="b">Nearest launch campaign</span>
-            <span className="small">{campaignOpen === "enrolled" ? "Open your campaign — upload today's screenshot." : "Show the Nearest picture for seven days and earn a free service."}</span>
+            <span className="small">{campaignOpen === "enrolled" ? "Open your campaign — upload today's screenshot." : campaignOpen === "reward" ? "You're approved — your free service is in your account." : "Want to join? Complete the seven-day profile-picture promotion to qualify for one free eligible service."}</span>
           </Link>
         )}
         <p className="eyebrow p">Hi, {user.firstName}</p>

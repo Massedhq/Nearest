@@ -2,12 +2,14 @@ import "server-only";
 import { and, eq, gt, inArray, isNotNull, lt, ne, or, sql } from "drizzle-orm";
 import { db, bookings, campaignEntries, campaignOffers, cities, professionalProfiles, proServices, users } from "@/db";
 import { CAMPAIGN_KEY, getCampaign, recordEvent } from "./campaign";
+import { MIN_REWARD_CENTS } from "./campaign-pro";
+import { liveProWhere } from "./search";
 
 /**
  * The launch campaign's free-service reward. One per approved student, non-transferable, booked only through a
  * confirmed arrangement (campaign_offers) once booking opens. The student pays $0 — no deposit, no service fee,
- * no travel fee (always at the professional's location). Nearest pays the professional the offer's payout when the
- * appointment is completed.
+ * no travel fee (always at the professional's location). Participating professionals agreed to give the service free
+ * (payout $0) — new pros at submit, earlier pros from their home card (src/lib/campaign-pro.ts).
  */
 export async function rewardOffers() {
   return db.select({
@@ -18,7 +20,12 @@ export async function rewardOffers() {
     .innerJoin(professionalProfiles, eq(professionalProfiles.userId, campaignOffers.proId))
     .innerJoin(users, eq(users.id, campaignOffers.proId))
     .leftJoin(cities, eq(cities.id, professionalProfiles.cityId))
-    .where(and(eq(campaignOffers.campaignKey, CAMPAIGN_KEY), eq(campaignOffers.active, true), isNotNull(campaignOffers.confirmedAt), sql`${campaignOffers.slotsUsed} < ${campaignOffers.slotsTotal}`));
+    .where(and(
+      eq(campaignOffers.campaignKey, CAMPAIGN_KEY), eq(campaignOffers.active, true), isNotNull(campaignOffers.confirmedAt), sql`${campaignOffers.slotsUsed} < ${campaignOffers.slotsTotal}`,
+      // Only professionals who agreed to the free service, still live on Nearest, offering an active service listed at $25+.
+      eq(professionalProfiles.campaignChoice, "agreed"), eq(proServices.active, true), sql`${proServices.priceCents} >= ${MIN_REWARD_CENTS}`,
+      isNotNull(professionalProfiles.addressLine), ...liveProWhere(null, "all"),
+    ));
 }
 
 /** Why this approved student can't book the reward right now (null = they can). */
@@ -26,7 +33,6 @@ export async function rewardBlocker(entry: typeof campaignEntries.$inferSelect |
   if (!entry || entry.status !== "approved") return "Your participation must be approved first.";
   if (entry.rewardBookingId) return "Your free service is already booked.";
   const c = await getCampaign();
-  if (!c.rewardConfirmedAt) return "Reward appointments aren't available yet.";
   if (!c.bookingOpensAt || c.bookingOpensAt.getTime() > Date.now()) return "Booking hasn't opened yet.";
   if (!(await rewardOffers()).length) return "No reward appointments are available right now — check back soon.";
   return null;
@@ -37,7 +43,7 @@ export async function bookReward(studentId: string, offerId: string, startsAt: D
   const entry = await db.query.campaignEntries.findFirst({ where: and(eq(campaignEntries.campaignKey, CAMPAIGN_KEY), eq(campaignEntries.studentId, studentId)) });
   const blocked = await rewardBlocker(entry);
   if (blocked) return { error: blocked };
-  const offer = await db.query.campaignOffers.findFirst({ where: and(eq(campaignOffers.id, offerId), eq(campaignOffers.campaignKey, CAMPAIGN_KEY), eq(campaignOffers.active, true), isNotNull(campaignOffers.confirmedAt)) });
+  const offer = (await rewardOffers()).find((r) => r.o.id === offerId)?.o;
   if (!offer) return { error: "That appointment option isn't available." };
   const svc = await db.query.proServices.findFirst({ where: eq(proServices.id, offer.serviceId) });
   const pro = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, offer.proId) });
