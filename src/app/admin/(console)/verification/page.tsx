@@ -11,7 +11,7 @@ import { AdminHead } from "@/components/AdminHead";
 import { RejectForm } from "@/components/RejectForm";
 import { requireAdmin } from "@/lib/admin";
 import { MAX_PRICE_CENTS } from "@/lib/pricing";
-import { instagramHandle, tiktokHandle, instagramUrl, tiktokUrl } from "@/lib/social";
+import { instagramHandle, tiktokHandle, facebookHandle, instagramUrl, tiktokUrl, facebookUrl, facebookLabel, pinterestHandle, pinterestUrl } from "@/lib/social";
 import { approvePro } from "@/app/admin/pro-actions";
 import { money } from "@/lib/time";
 
@@ -148,9 +148,11 @@ export default async function Verification() {
               {details[i].services.map((s) => <div key={s.id} className="row between small"><span>{s.name}</span><span>{s.priceCents > MAX_PRICE_CENTS && <span className="tag bad" style={{ marginRight: 6 }}>Over $150</span>}{money(s.priceCents)} • {s.durationMin} min</span></div>)}
               <span className="lbl">Links</span>
               <span className="small row" style={{ gap: 12, flexWrap: "wrap" }}>
-                {!p.instagram && !p.tiktok && "—"}
+                {!p.instagram && !p.tiktok && !p.facebook && !p.pinterest && "—"}
                 {p.instagram && instagramHandle(p.instagram) && <a className="link small" href={instagramUrl(instagramHandle(p.instagram)!)} target="_blank" rel="noopener noreferrer">Instagram @{instagramHandle(p.instagram)} ↗</a>}
                 {p.tiktok && tiktokHandle(p.tiktok) && <a className="link small" href={tiktokUrl(tiktokHandle(p.tiktok)!)} target="_blank" rel="noopener noreferrer">TikTok @{tiktokHandle(p.tiktok)} ↗</a>}
+                {p.facebook && facebookHandle(p.facebook) && <a className="link small" href={facebookUrl(facebookHandle(p.facebook)!)} target="_blank" rel="noopener noreferrer">Facebook {facebookLabel(facebookHandle(p.facebook)!)} ↗</a>}
+                {p.pinterest && pinterestHandle(p.pinterest) && <a className="link small" href={pinterestUrl(pinterestHandle(p.pinterest)!)} target="_blank" rel="noopener noreferrer">Pinterest {pinterestHandle(p.pinterest)} ↗</a>}
               </span>
             </div>
             <div className="col" style={{ gap: 8 }}>

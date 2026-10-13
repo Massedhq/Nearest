@@ -4,7 +4,7 @@ import { SetupShell } from "@/components/SetupShell";
 import { SocialField } from "@/components/SocialField";
 import { ensureProSlug } from "@/lib/connections";
 import { FollowNearest } from "@/components/FollowNearest";
-import { instagramUrl, tiktokUrl } from "@/lib/social";
+import { instagramUrl, tiktokUrl, facebookUrl, pinterestUrl } from "@/lib/social";
 import { ActionForm } from "@/components/ActionForm";
 import { Uploader } from "@/components/Uploader";
 import { Icon } from "@/components/Icon";
@@ -56,6 +56,8 @@ export default async function ProfileStep({ searchParams }: { searchParams: Prom
         <p className="xs muted p" style={{ margin: 0 }}>Paste the link to each profile. They show on your Nearest profile as icons students can tap to open your page.</p>
         <SocialField kind="instagram" defaultValue={p.instagram ? instagramUrl(p.instagram) : ""} />
         <SocialField kind="tiktok" defaultValue={p.tiktok ? tiktokUrl(p.tiktok) : ""} />
+        <SocialField kind="facebook" defaultValue={p.facebook ? facebookUrl(p.facebook) : ""} />
+        <SocialField kind="pinterest" defaultValue={p.pinterest ? pinterestUrl(p.pinterest) : ""} />
       </ActionForm>
     </SetupShell>
   );

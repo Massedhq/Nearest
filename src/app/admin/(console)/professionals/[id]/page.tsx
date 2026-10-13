@@ -13,7 +13,7 @@ import { setupSteps } from "@/lib/pro";
 import { isOwnerBusiness, ENTRY, type EntryType } from "@/lib/entry";
 import { proStanding } from "@/lib/enforcement";
 import { fmtDate, money } from "@/lib/time";
-import { instagramHandle, tiktokHandle, instagramUrl, tiktokUrl } from "@/lib/social";
+import { instagramHandle, tiktokHandle, facebookHandle, instagramUrl, tiktokUrl, facebookUrl, facebookLabel, pinterestHandle, pinterestUrl } from "@/lib/social";
 import { proLink } from "@/lib/connections";
 import { proBlockers } from "@/lib/live-check";
 
@@ -54,7 +54,7 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
   const subActive = ["active", "trialing"].includes(p.subscriptionStatus ?? "");
   // What's stopping them from being bookable right now — same checks as student search
   const blockers = await proBlockers(p);
-  const ig = instagramHandle(p.instagram), tt = tiktokHandle(p.tiktok);
+  const ig = instagramHandle(p.instagram), tt = tiktokHandle(p.tiktok), fb = facebookHandle(p.facebook), pin = pinterestHandle(p.pinterest);
 
   const { membershipState, MEMBERSHIP_LABEL, profileState } = await import("@/lib/membership");
   const { isOwnerBusiness: ownerBiz } = await import("@/lib/entry");
@@ -115,6 +115,8 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
           <Row k="Booking link" v={p.slug ? `usenearest.com/pro-${p.slug}` : "—"} />
           <Row k="Instagram" v={ig ? <a className="link small" href={instagramUrl(ig)} target="_blank" rel="noopener noreferrer">@{ig} ↗</a> : "—"} />
           <Row k="TikTok" v={tt ? <a className="link small" href={tiktokUrl(tt)} target="_blank" rel="noopener noreferrer">@{tt} ↗</a> : "—"} />
+          <Row k="Facebook" v={fb ? <a className="link small" href={facebookUrl(fb)} target="_blank" rel="noopener noreferrer">{facebookLabel(fb)} ↗</a> : "—"} />
+          <Row k="Pinterest" v={pin ? <a className="link small" href={pinterestUrl(pin)} target="_blank" rel="noopener noreferrer">{pin} ↗</a> : "—"} />
         </div>
 
         <div className="card" style={{ gap: 8 }}>

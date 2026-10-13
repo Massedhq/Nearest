@@ -2,7 +2,7 @@ import Image from "next/image";
 import { PortfolioViewer } from "@/components/PortfolioViewer";
 import { personName } from "@/lib/pro-name";
 import { VerifyToBook } from "@/components/VerifyToBook";
-import { instagramHandle, tiktokHandle, instagramUrl, tiktokUrl } from "@/lib/social";
+import { instagramHandle, tiktokHandle, facebookHandle, instagramUrl, tiktokUrl, facebookUrl, facebookLabel, pinterestHandle, pinterestUrl } from "@/lib/social";
 import Link from "next/link";
 import { getFlag } from "@/lib/settings";
 import { notFound } from "next/navigation";
@@ -51,10 +51,12 @@ export default async function ProProfile({ params, searchParams }: { params: Pro
   const [{ n: favCount }] = await db.select({ n: sql<number>`count(*)::int` }).from(favorites).where(eq(favorites.proId, id));
   const here = await nearPoint();
   const away = here ? miles(here, p) : null;
-  const ig = instagramHandle(p.instagram), tt = tiktokHandle(p.tiktok);
+  const ig = instagramHandle(p.instagram), tt = tiktokHandle(p.tiktok), fb = facebookHandle(p.facebook), pin = pinterestHandle(p.pinterest);
   const social = [
     ig && { icon: "insta", label: "Instagram", text: `@${ig}`, href: instagramUrl(ig) },
     tt && { icon: "tiktok", label: "TikTok", text: `@${tt}`, href: tiktokUrl(tt) },
+    fb && { icon: "facebook", label: "Facebook", text: facebookLabel(fb), href: facebookUrl(fb) },
+    pin && { icon: "pinterest", label: "Pinterest", text: pin, href: pinterestUrl(pin) },
   ].filter(Boolean) as { icon: string; label: string; text: string; href: string }[];
   const revs = await db
     .select({ id: reviews.id, rating: reviews.rating, body: reviews.body, createdAt: reviews.createdAt,

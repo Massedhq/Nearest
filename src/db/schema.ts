@@ -191,6 +191,8 @@ export const professionalProfiles = pgTable("professional_profiles", {
   photoUrl: text("photo_url"),
   instagram: text("instagram"),
   tiktok: text("tiktok"),
+  facebook: text("facebook"), // username, or "id:<number>" for profile.php?id= links
+  pinterest: text("pinterest"), // username
   website: text("website"),
   showInstagram: boolean("show_instagram").notNull().default(false),
   // Phase 2: location (street address is private; never sent to students before appointment day)

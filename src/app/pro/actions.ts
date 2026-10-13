@@ -9,7 +9,7 @@ import { requirePro, setupSteps, nextStep, setupComplete } from "@/lib/pro";
 import { getSettings } from "@/lib/settings";
 import { chicagoNow, chicagoToUtc, toMinutes } from "@/lib/time";
 import { geocode } from "@/lib/geo";
-import { instagramHandle, tiktokHandle } from "@/lib/social";
+import { instagramHandle, tiktokHandle, facebookHandle, pinterestHandle } from "@/lib/social";
 import { slugify, validSlug } from "@/lib/connections";
 import { MAX_PRICE_DOLLARS } from "@/lib/pricing";
 import type { FormState } from "@/components/ActionForm";
@@ -44,7 +44,7 @@ export async function saveProfile(_: FormState, form: FormData): Promise<FormSta
   const bio = str(form, "bio", 1200);
   const yearsRaw = str(form, "years", 3);
   const years = yearsRaw ? Number(yearsRaw) : null;
-  const igRaw = str(form, "instagram", 200), ttRaw = str(form, "tiktok", 200);
+  const igRaw = str(form, "instagram", 200), ttRaw = str(form, "tiktok", 200), fbRaw = str(form, "facebook", 300), pinRaw = str(form, "pinterest", 300);
   const slugRaw = str(form, "slug", 40).toLowerCase().replace(/^pro-/, "");
   if (slugRaw) {
     const slug = slugify(slugRaw);
@@ -57,12 +57,16 @@ export async function saveProfile(_: FormState, form: FormData): Promise<FormSta
   const tiktok = tiktokHandle(ttRaw);
   if (igRaw && !instagram) return { error: "Instagram: enter your @handle or paste your profile link (not a post)." };
   if (ttRaw && !tiktok) return { error: "TikTok: enter your @handle or paste your profile link." };
+  const facebook = facebookHandle(fbRaw);
+  if (fbRaw && !facebook) return { error: "Facebook: paste the link to your page or profile (not a post or group)." };
+  const pinterest = pinterestHandle(pinRaw);
+  if (pinRaw && !pinterest) return { error: "Pinterest: paste your full pinterest.com profile link (not a pin, board or pin.it link)." };
   if (!businessName) return { error: "Add your business or professional name." };
   if (!bio) return { error: "Tell customers a little about your work." };
   if (years !== null && (!Number.isInteger(years) || years < 0 || years > 70)) return { error: "Years of experience should be a whole number." };
   await db
     .update(professionalProfiles)
-    .set({ displayName: displayName || null, businessName, bio, yearsExperience: years, instagram, tiktok, website: null, showInstagram: form.get("showInstagram") === "on" })
+    .set({ displayName: displayName || null, businessName, bio, yearsExperience: years, instagram, tiktok, facebook, pinterest, website: null, showInstagram: form.get("showInstagram") === "on" })
     .where(eq(professionalProfiles.userId, user.id));
   return done(user.id, "profile", form);
 }
