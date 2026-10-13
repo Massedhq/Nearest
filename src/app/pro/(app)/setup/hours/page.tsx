@@ -19,14 +19,16 @@ function DayRows({ kind, rows, defaults }: { kind: "regular" | "after_school"; r
         const weekend = d === 0 || d === 6;
         if (kind === "after_school" && weekend) return null;
         return (
-          <div key={d} className="row" style={{ padding: "4px 0" }}>
-            <label className="row grow small" style={{ gap: 8 }}>
-              <input type="checkbox" name={`${kind}_${d}_on`} defaultChecked={!!r} style={{ width: 20, height: 20, accentColor: "#ECE8E1" }} />
-              {WEEKDAYS[d].slice(0, 3)}
+          <div key={d} className="col" style={{ gap: 6, padding: "8px 0", borderTop: "1px solid #1C1C1F" }}>
+            <label className="row small" style={{ gap: 10, cursor: "pointer" }}>
+              <input type="checkbox" name={`${kind}_${d}_on`} defaultChecked={!!r} style={{ width: 22, height: 22, flex: "none", accentColor: "#ECE8E1" }} />
+              <span className="b">{WEEKDAYS[d]}</span>
             </label>
-            <input className="ainput" type="time" name={`${kind}_${d}_start`} aria-label={`${WEEKDAYS[d]} start`} defaultValue={r?.startTime ?? defaults[0]} style={{ width: 118 }} />
-            <span className="muted xs">to</span>
-            <input className="ainput" type="time" name={`${kind}_${d}_end`} aria-label={`${WEEKDAYS[d]} end`} defaultValue={r?.endTime ?? defaults[1]} style={{ width: 118 }} />
+            <div className="row" style={{ gap: 8 }}>
+              <input className="ainput" type="time" name={`${kind}_${d}_start`} aria-label={`${WEEKDAYS[d]} start`} defaultValue={r?.startTime ?? defaults[0]} style={{ flex: 1, minWidth: 0, padding: "0 8px" }} />
+              <span className="muted xs" style={{ flex: "none" }}>to</span>
+              <input className="ainput" type="time" name={`${kind}_${d}_end`} aria-label={`${WEEKDAYS[d]} end`} defaultValue={r?.endTime ?? defaults[1]} style={{ flex: 1, minWidth: 0, padding: "0 8px" }} />
+            </div>
           </div>
         );
       })}
