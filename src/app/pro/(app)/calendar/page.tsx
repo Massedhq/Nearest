@@ -60,9 +60,11 @@ export default async function Calendar({ searchParams }: { searchParams: Promise
         </div>
         <div className="card">
           <div className="row between"><span className="eyebrow">Weekly hours</span><Link className="link small" href="/pro/setup/hours?edit=1">Edit</Link></div>
-          {[1, 2, 3, 4, 5, 6, 0].map((d) => (
-            <div key={d} className="row between small"><span>{WEEKDAYS[d]}</span><span className={line("regular", d) === "Closed" ? "muted" : ""}>{line("regular", d)}</span></div>
-          ))}
+          {hours.some((x) => x.kind === "regular")
+            ? [1, 2, 3, 4, 5, 6, 0].map((d) => (
+              <div key={d} className="row between small"><span>{WEEKDAYS[d]}</span><span className={line("regular", d) === "Closed" ? "muted" : ""}>{line("regular", d)}</span></div>
+            ))
+            : <span className="xs muted">No regular hours — you offer after-school hours only.</span>}
           {profile.acceptsAfterSchool && (
             <>
               <span className="eyebrow" style={{ marginTop: 6 }}>After school</span>

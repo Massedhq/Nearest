@@ -209,8 +209,12 @@ export async function saveLocation(_: FormState, form: FormData): Promise<FormSt
 // ---------- Hours ----------
 export async function saveHours(_: FormState, form: FormData): Promise<FormState> {
   const { user } = await requirePro();
+  // Regular hours, after-school hours, or both — only the chosen schedule(s) are saved.
+  const mode = String(form.get("hoursMode") ?? "");
+  if (!["regular", "after_school", "both"].includes(mode)) return { error: "Choose regular hours, after-school hours, or both." };
+  const kinds = mode === "both" ? (["regular", "after_school"] as const) : ([mode] as ["regular"] | ["after_school"]);
   const rows: { userId: string; kind: "regular" | "after_school"; weekday: number; startTime: string; endTime: string }[] = [];
-  for (const kind of ["regular", "after_school"] as const) {
+  for (const kind of kinds) {
     for (let d = 0; d < 7; d++) {
       if (form.get(`${kind}_${d}_on`) !== "on") continue;
       const s = str(form, `${kind}_${d}_start`, 5);
@@ -221,7 +225,8 @@ export async function saveHours(_: FormState, form: FormData): Promise<FormState
       rows.push({ userId: user.id, kind, weekday: d, startTime: s, endTime: e });
     }
   }
-  if (!rows.some((r) => r.kind === "regular")) return { error: "Open at least one day in your regular hours." };
+  if (kinds.includes("regular" as never) && !rows.some((r) => r.kind === "regular")) return { error: "Open at least one day in your regular hours." };
+  if (kinds.includes("after_school" as never) && !rows.some((r) => r.kind === "after_school")) return { error: "Check at least one weekday for after-school hours." };
   const afterSchool = rows.some((r) => r.kind === "after_school");
   await db.delete(proHours).where(eq(proHours.userId, user.id));
   await db.insert(proHours).values(rows);

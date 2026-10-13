@@ -5,6 +5,7 @@ import { SetupShell } from "@/components/SetupShell";
 import { ActionForm } from "@/components/ActionForm";
 import { WEEKDAYS } from "@/lib/time";
 import { saveHours } from "@/app/pro/actions";
+import { HoursChoice } from "@/components/HoursChoice";
 
 export const metadata = { title: "Hours" };
 
@@ -37,16 +38,16 @@ export default async function HoursStep({ searchParams }: { searchParams: Promis
   const { user } = await requirePro();
   const edit = (await searchParams).edit === "1";
   const [steps, rows] = await Promise.all([setupSteps(user.id), db.select().from(proHours).where(eq(proHours.userId, user.id))]);
+  const hasRegular = rows.some((r) => r.kind === "regular"), hasAfter = rows.some((r) => r.kind === "after_school");
   return (
     <SetupShell steps={steps} current="hours" title="When can customers book you?" edit={edit}>
       <ActionForm action={saveHours} submitLabel={edit ? "Save hours" : "Save & continue"} laterLabel={edit ? undefined : "Save & finish later"}>
         {edit && <input type="hidden" name="edit" value="1" />}
-        <div className="card"><span className="eyebrow">Regular hours</span><DayRows kind="regular" rows={rows} defaults={["09:00", "17:00"]} /></div>
-        <div className="card">
-          <span className="eyebrow">After-school appointments (optional)</span>
-          <span className="xs muted">Check the weekdays you&apos;ll take students after school.</span>
-          <DayRows kind="after_school" rows={rows} defaults={["15:30", "19:00"]} />
-        </div>
+        <HoursChoice
+          initial={hasRegular && hasAfter ? "both" : hasAfter ? "after_school" : "regular"}
+          regular={<DayRows kind="regular" rows={rows} defaults={["09:00", "17:00"]} />}
+          afterSchool={<DayRows kind="after_school" rows={rows} defaults={["15:30", "19:00"]} />}
+        />
         <p className="xs muted p">Have openings on a given day? Post them from Available Today on your dashboard. Same-day booking closes at 12:00 PM.</p>
       </ActionForm>
     </SetupShell>

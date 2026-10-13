@@ -160,7 +160,7 @@ export default async function ProProfile({ params, searchParams }: { params: Pro
           {[1, 2, 3, 4, 5, 6, 0].map((d) => {
             const h = hours.find((x) => x.kind === "regular" && x.weekday === d);
             const a = hours.find((x) => x.kind === "after_school" && x.weekday === d);
-            return <div key={d} className="row between"><span>{WEEKDAYS[d]}</span><span className={h || a ? "" : "muted"}>{h ? `${label12(h.startTime)} – ${label12(h.endTime)}` : "Closed"}{a ? ` • after school ${label12(a.startTime)}–${label12(a.endTime)}` : ""}</span></div>;
+            return <div key={d} className="row between"><span>{WEEKDAYS[d]}</span><span className={h || a ? "" : "muted"}>{h ? `${label12(h.startTime)} – ${label12(h.endTime)}` : a ? "" : "Closed"}{a ? `${h ? " • a" : "A"}fter school ${label12(a.startTime)}–${label12(a.endTime)}` : ""}</span></div>;
           })}
         </div>
       </div>

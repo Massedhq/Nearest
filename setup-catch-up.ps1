@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Pro profile: Facebook and Pinterest links alongside Instagram and TikTok (setup, profile icons, admin views)"
+git commit -q -m "Pro hours: choose Regular hours, After-school hours or Both; Facebook and Pinterest links"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

@@ -25,7 +25,7 @@ export async function setupSteps(userId: string): Promise<SetupStep[]> {
   const profile = (await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, userId) }))!;
   const [[svc], [hrs], [port]] = await Promise.all([
     db.select({ n: sql<number>`count(*)::int` }).from(proServices).where(and(eq(proServices.userId, userId), eq(proServices.active, true))),
-    db.select({ n: sql<number>`count(*)::int` }).from(proHours).where(and(eq(proHours.userId, userId), eq(proHours.kind, "regular"))),
+    db.select({ n: sql<number>`count(*)::int` }).from(proHours).where(eq(proHours.userId, userId)), // regular, after-school or both
     db.select({ n: sql<number>`count(*)::int` }).from(portfolioItems).where(eq(portfolioItems.userId, userId)),
   ]);
   const steps: SetupStep[] = [
