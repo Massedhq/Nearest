@@ -1087,3 +1087,70 @@ export const campaignOffers = pgTable("campaign_offers", {
   active: boolean("active").notNull().default(true),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
+
+// ---------- Supporter (educator) endorsements — separate from student reviews and pro ratings ----------
+// Invitations an admin creates and shares themselves (copy link). One submission per invitation.
+export const supporterInvites = pgTable("supporter_invites", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  token: text("token").notNull(), // random, unguessable; the admin copies the link
+  label: text("label"), // who it's for (admin note)
+  status: text("status").notNull().default("invited"), // invited | submitted | revoked
+  expiresAt: ts("expires_at").notNull(),
+  createdBy: uuid("created_by"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  usedAt: ts("used_at"),
+  supporterId: uuid("supporter_id"),
+}, (t) => [uniqueIndex("supporter_invites_token_idx").on(t.token)]);
+
+// A supporter's submission. statement_original is never changed; corrections and approved revisions go to other columns.
+export const supporters = pgTable("supporters", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  inviteId: uuid("invite_id").notNull(),
+  status: text("status").notNull().default("submitted"), // submitted | needs_correction | approved | published | declined | withdrawn
+  manageTokenHash: text("manage_token_hash").notNull(), // sha256 of the private management link token
+  name: text("name").notNull(),
+  email: text("email").notNull(), // private — never shown publicly
+  title: text("title").notNull(),
+  organization: text("organization").notNull(),
+  portraitUrl: text("portrait_url"), // Blob reference; served only through /api/supporters/portrait/[id]
+  portraitAccess: text("portrait_access"), // private | public
+  statementOriginal: text("statement_original").notNull(),
+  statementCurrent: text("statement_current").notNull(), // the supporter's own latest wording (after their corrections)
+  statementProposed: text("statement_proposed"), // admin's suggested wording — needs the supporter's approval
+  statementProposedAt: ts("statement_proposed_at"),
+  statementPublished: text("statement_published"), // exactly what's shown publicly
+  experience: text("experience").notNull(), // walkthrough | website | platform_use | other
+  experienceOther: text("experience_other"),
+  endorsementType: text("endorsement_type").notNull(), // personal | organizational
+  orgAuthorityNote: text("org_authority_note"), // their role / how they're authorized (organizational only)
+  orgAuthorityConfirmed: boolean("org_authority_confirmed").notNull().default(false), // supporter confirmed authorization
+  orgAuthorityReviewedBy: uuid("org_authority_reviewed_by"), // admin confirmed it on approval
+  relationships: text("relationships").array(), // compensation | benefit | employment | other (empty = none)
+  relationshipNote: text("relationship_note"),
+  permStatement: boolean("perm_statement").notNull().default(false),
+  permName: boolean("perm_name").notNull().default(false), // name + title
+  permPortrait: boolean("perm_portrait").notNull().default(false),
+  permAffiliation: boolean("perm_affiliation").notNull().default(false),
+  confirmHonest: boolean("confirm_honest").notNull().default(false),
+  confirmPhoto: boolean("confirm_photo").notNull().default(false),
+  adminNote: text("admin_note"), // correction request / decline reason shown to the supporter on the management page
+  submittedAt: ts("submitted_at").notNull().defaultNow(),
+  approvedAt: ts("approved_at"),
+  approvedBy: uuid("approved_by"),
+  publishedAt: ts("published_at"),
+  withdrawnAt: ts("withdrawn_at"),
+  sort: integer("sort").notNull().default(0),
+  version: integer("version").notNull().default(1),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+}, (t) => [index("supporters_status_idx").on(t.status)]);
+
+// Everything that happened to a supporter record (submission, corrections, permission changes, admin decisions).
+export const supporterEvents = pgTable("supporter_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  supporterId: uuid("supporter_id").notNull().references(() => supporters.id, { onDelete: "cascade" }),
+  actor: text("actor").notNull(), // supporter | admin
+  actorId: uuid("actor_id"),
+  kind: text("kind").notNull(),
+  detail: jsonb("detail"),
+  at: ts("at").notNull().defaultNow(),
+}, (t) => [index("supporter_events_idx").on(t.supporterId, t.at)]);

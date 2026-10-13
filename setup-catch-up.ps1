@@ -17,7 +17,7 @@ foreach ($r in $retired) { if (Test-Path $r) { Remove-Item -Recurse -Force $r; W
 Step "1/4  Installing packages"
 npm ci
 Check "Installing packages"
-Step "2/4  Updating Neon (adds the launch campaign choice and enrollment proof columns - nothing is removed)"
+Step "2/4  Updating Neon (adds supporter endorsement tables - nothing is removed)"
 # Neon can be slow to answer "Pulling schema" — retry up to 3 times before giving up.
 $ok = $false
 foreach ($try in 1..3) {
@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Student verification: proof of enrollment for schools that do not issue student IDs (enrollment confirmation, class schedule, portal screenshot or tuition receipt), admin approve / reject with reason / request clearer proof"
+git commit -q -m "Supporter endorsements: admin invitations with copy link, in-app submission form, private management link (corrections, permissions, withdraw), review statuses, homepage section + /supporters (hidden until real supporters are published)"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""
