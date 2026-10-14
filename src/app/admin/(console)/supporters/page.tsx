@@ -7,15 +7,19 @@ import { CopyButton } from "@/components/CopyButton";
 import { requireAdmin } from "@/lib/admin";
 import { INVITE_DAYS_DEFAULT, STATUS_LABEL, SUPPORTER_STATUSES, inviteLink } from "@/lib/supporters";
 import { fmtDate } from "@/lib/time";
-import { createSupporterInvite, revokeSupporterInvite } from "@/app/admin/supporter-actions";
+import { createSupporterInvite, revokeSupporterInvite, saveExplainerLink, saveExplainerUpload, removeExplainer } from "@/app/admin/supporter-actions";
+import { Uploader } from "@/components/Uploader";
+import { explainerEmbed, getExplainerUrl } from "@/lib/supporters";
 
 export const metadata = { title: "Supporters" };
 export const dynamic = "force-dynamic";
 
 /** Educator/supporter endorsements: invitations (copy the link and share it yourself) and every submission by status. */
 export default async function SupportersAdmin({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
-  await requireAdmin();
+  const { user, role } = await requireAdmin();
   const sp = await searchParams;
+  const explainer = await getExplainerUrl();
+  const video = explainerEmbed(explainer);
   const [invites, rows] = await Promise.all([
     db.select().from(supporterInvites).orderBy(desc(supporterInvites.createdAt)).limit(200),
     db.select({ id: supporters.id, name: supporters.name, title: supporters.title, organization: supporters.organization, status: supporters.status, submittedAt: supporters.submittedAt, updatedAt: supporters.updatedAt, proposed: sql<boolean>`${supporters.statementProposed} is not null` })
@@ -45,6 +49,25 @@ export default async function SupportersAdmin({ searchParams }: { searchParams: 
           <input name="label" className="ainput" placeholder="Who it's for (private note, optional)" maxLength={120} />
           <label className="xs muted">Expires after (days)<input name="days" type="number" min={1} max={60} defaultValue={INVITE_DAYS_DEFAULT} className="ainput" style={{ width: 90, marginLeft: 8 }} /></label>
         </ActionForm>
+      </div>
+
+      <div className="card" style={{ gap: 8 }}>
+        <span className="eyebrow">Explainer video on the supporter form</span>
+        <span className="xs muted">A short video at the top of the form shows what Nearest offers students and parents — so supporters don&apos;t need an account to see it. Upload a video file or paste a YouTube or Vimeo link.</span>
+        {video
+          ? (video.kind === "video"
+            ? <video src={video.src} controls preload="metadata" style={{ width: "100%", maxWidth: 420, borderRadius: 12 }} />
+            : <iframe src={video.src} title="Explainer video" style={{ width: "100%", maxWidth: 420, aspectRatio: "16 / 9", border: 0, borderRadius: 12 }} />)
+          : <span className="small">No video yet — the form works without one.</span>}
+        {role === "OWNER" && (
+          <>
+            <Uploader userId={user.id} folder="explainer-video" root="students" save={saveExplainerUpload} multiple={false} accept="video/mp4,video/quicktime,video/webm" label={video ? "Replace with a video file (MP4/MOV, up to 200 MB)" : "Upload a video file (MP4/MOV, up to 200 MB)"} />
+            <ActionForm action={saveExplainerLink} submitLabel="Use this link" buttonClass="btn ghost sm" className="row g8">
+              <input name="url" className="ainput" placeholder="Or paste a YouTube / Vimeo link" defaultValue={video?.kind === "iframe" ? explainer ?? "" : ""} style={{ flex: 1, minWidth: 0 }} />
+            </ActionForm>
+            {video && <form action={removeExplainer}><button className="link xs" type="submit">Remove the video</button></form>}
+          </>
+        )}
       </div>
 
       {(filter === "" || filter === "invited") && (

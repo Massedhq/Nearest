@@ -1,8 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ActionForm } from "@/components/ActionForm";
-import { STATUS_LABEL, supporterByManageToken } from "@/lib/supporters";
-import { answerSupporterRevision, requestSupporterCorrection, updateSupporterPermissions, withdrawSupporter } from "@/app/supporter-actions";
+import { GOOGLE_REVIEW_URL, STATUS_LABEL, affiliationLine, canReviewOnGoogle, supporterByManageToken } from "@/lib/supporters";
+import { answerSupporterRevision, requestSupporterCorrection, withdrawSupporter } from "@/app/supporter-actions";
 
 export const metadata = { title: "Manage your statement", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ const box = { border: "1px solid #2A2A2D", borderRadius: 12, padding: "10px 12px
 const STATUS_TEXT: Record<string, string> = {
   submitted: "Received — Nearest is reviewing it.",
   needs_correction: "Nearest asked for a correction (see below).",
-  approved: "Approved — not published yet.",
+  approved: "Approved — it will be published shortly.",
   published: "Published on Nearest.",
   declined: "Nearest decided not to publish this statement.",
   withdrawn: "You withdrew this statement. It isn't shown anywhere.",
@@ -52,40 +52,42 @@ export default async function ManageSupporter({ params }: { params: Promise<{ to
 
             <div className="card" style={{ gap: 6 }}>
               <span className="eyebrow">What you submitted</span>
-              <span className="small b">{s.name} — {s.title}, {s.organization}</span>
+              <span className="small b">{s.name} — {affiliationLine(s)}</span>
+              <span className="xs muted">Your opinion of Nearest</span>
               <div style={box}>{s.statementCurrent}</div>
+              {s.benefitCurrent && <><span className="xs muted">How Nearest could benefit students and parents</span><div style={box}>{s.benefitCurrent}</div></>}
               {s.statementCurrent !== s.statementOriginal && <details><summary className="link xs">Your original statement</summary><div style={{ ...box, marginTop: 6 }}>{s.statementOriginal}</div></details>}
             </div>
 
             {!closed && (
               <>
                 <div className="card" style={{ gap: 8 }}>
-                  <span className="eyebrow">Publication permissions</span>
-                  <ActionForm action={updateSupporterPermissions} submitLabel="Save permissions" buttonClass="btn ghost sm" className="col g8">
-                    <input type="hidden" name="token" value={token} />
-                    <label className="check xs"><input type="checkbox" name="permStatement" defaultChecked={s.permStatement} /><span>My statement</span></label>
-                    <label className="check xs"><input type="checkbox" name="permName" defaultChecked={s.permName} /><span>My name and professional title</span></label>
-                    {s.portraitUrl && <label className="check xs"><input type="checkbox" name="permPortrait" defaultChecked={s.permPortrait} /><span>My portrait</span></label>}
-                    <label className="check xs"><input type="checkbox" name="permAffiliation" defaultChecked={s.permAffiliation} /><span>My school or organization</span></label>
-                    <span className="xs muted">Removing permission for your statement or name takes it off Nearest&apos;s pages right away.</span>
-                  </ActionForm>
-                </div>
-
-                <div className="card" style={{ gap: 8 }}>
                   <span className="eyebrow">Request a correction</span>
                   <span className="xs muted">Change your statement, title or organization, and/or tell Nearest what to fix. It goes back to review{s.status === "published" ? " and comes off the public page until approved" : ""}.</span>
                   <ActionForm action={requestSupporterCorrection} submitLabel="Send correction" buttonClass="btn sm" className="col g8">
                     <input type="hidden" name="token" value={token} />
-                    <div className="field"><label htmlFor="c-st">Statement</label><textarea id="c-st" name="statement" defaultValue={s.statementCurrent} maxLength={1500} style={{ height: 140 }} /></div>
+                    <div className="field"><label htmlFor="c-st">Your opinion of Nearest</label><textarea id="c-st" name="statement" defaultValue={s.statementCurrent} maxLength={1500} style={{ height: 140 }} /></div>
+                    <div className="field"><label htmlFor="c-be">How Nearest could benefit students and parents</label><textarea id="c-be" name="benefit" defaultValue={s.benefitCurrent ?? ""} maxLength={1500} style={{ height: 120 }} /></div>
                     <div className="field"><label htmlFor="c-ti">Professional title</label><input id="c-ti" name="title" defaultValue={s.title} maxLength={120} /></div>
-                    <div className="field"><label htmlFor="c-or">School or organization</label><input id="c-or" name="organization" defaultValue={s.organization} maxLength={160} /></div>
+                    <div className="field"><label htmlFor="c-af">School or organization</label>
+                      <select id="c-af" name="affiliationStatus" defaultValue={s.affiliationStatus}><option value="current">Currently with</option><option value="former">Previously with (not anymore)</option><option value="none">Not with a school or organization</option></select>
+                      <input name="organization" defaultValue={s.organization} maxLength={160} placeholder="School or organization" />
+                    </div>
                     <div className="field"><label htmlFor="c-msg">Message to Nearest (optional)</label><input id="c-msg" name="message" maxLength={1000} /></div>
                   </ActionForm>
                 </div>
 
+                {canReviewOnGoogle(s.relationships) && (
+                  <div className="card" style={{ gap: 8 }}>
+                    <span className="eyebrow">Share it on Google too (optional)</span>
+                    <span className="xs muted">Google only lets you post reviews yourself, from your own Google account. This opens Nearest&apos;s Google review page — use your own honest words and rating.</span>
+                    <a className="btn ghost sm" href={GOOGLE_REVIEW_URL} target="_blank" rel="noopener noreferrer">Leave a Google review</a>
+                  </div>
+                )}
+
                 <div className="card bad" style={{ gap: 8 }}>
                   <span className="eyebrow">Withdraw</span>
-                  <span className="xs">Withdraw all publication permission. Your statement is removed from Nearest&apos;s pages immediately and won&apos;t be published again.</span>
+                  <span className="xs">Your statement is removed from Nearest&apos;s pages immediately and won&apos;t be published again.</span>
                   <ActionForm action={withdrawSupporter} submitLabel="Withdraw my statement" buttonClass="btn danger sm" className="col g8">
                     <input type="hidden" name="token" value={token} />
                     <label className="check xs"><input type="checkbox" name="confirm" required /><span>Yes, withdraw it.</span></label>

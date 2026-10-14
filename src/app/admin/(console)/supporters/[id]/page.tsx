@@ -56,10 +56,11 @@ export default async function SupporterReview({ params }: { params: Promise<{ id
               // eslint-disable-next-line @next/next/no-img-element
               ? <img src={`/api/supporters/portrait/${s.id}`} alt="" width={72} height={72} style={{ borderRadius: 36, objectFit: "cover", border: "1px solid #ECE8E1" }} />
               : <span style={{ width: 72, height: 72, borderRadius: 36, border: "1px solid #ECE8E1", display: "flex", alignItems: "center", justifyContent: "center" }} className="disp">—</span>}
-            <span className="small"><span className="b">{s.name}</span><br />{s.title}<br />{s.organization}</span>
+            <span className="small"><span className="b">{s.name}</span><br />{s.title}<br />{s.affiliationStatus === "none" ? "Not with a school or organization" : `${s.affiliationStatus === "former" ? "Previously with" : "Currently with"} ${s.organization}`}</span>
           </div>
           <span className="small"><span className="muted">Contact email (private):</span> {s.email}</span>
-          <span className="small b" style={{ marginTop: 6 }}>Original statement (never changed)</span>
+          {s.benefitCurrent && <><span className="small b" style={{ marginTop: 6 }}>How Nearest could benefit students and parents</span><div style={box}>{s.benefitCurrent}</div></>}
+          <span className="small b" style={{ marginTop: 6 }}>Original opinion statement (never changed)</span>
           <div style={box}>{s.statementOriginal}</div>
           {s.statementCurrent !== s.statementOriginal && <><span className="small b">Current wording (supporter-approved)</span><div style={box}>{s.statementCurrent}</div></>}
           {s.statementProposed && <><span className="small b">Your suggested wording (waiting)</span><div style={box}>{s.statementProposed}</div></>}
@@ -68,9 +69,9 @@ export default async function SupporterReview({ params }: { params: Promise<{ id
 
         <div className="col" style={{ gap: 12 }}>
           <div className="card" style={{ gap: 4 }}>
-            <span className="eyebrow">Publication permissions</span>
-            <span className="small">Statement: {yes(s.permStatement)} • Name &amp; title: {yes(s.permName)}</span>
-            <span className="small">Portrait: {s.portraitUrl ? yes(s.permPortrait) : "No photo (initials shown)"} • Affiliation: {yes(s.permAffiliation)}</span>
+            <span className="eyebrow">Publication consent</span>
+            <span className="small">{s.status === "withdrawn" ? "Withdrawn — publication consent removed." : "Agreed to publication when submitting (statement, name, title, affiliation" + (s.portraitUrl ? ", photo" : "") + ")."}</span>
+            {!s.portraitUrl && <span className="small">No photo — initials are shown.</span>}
             <span className="small">Confirmed honest perspective: {yes(s.confirmHonest)}{s.portraitUrl ? ` • Has permission for the photo: ${yes(s.confirmPhoto)}` : ""}</span>
           </div>
           <div className="card" style={{ gap: 4 }}>

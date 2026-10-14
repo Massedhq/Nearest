@@ -28,11 +28,12 @@ export default async function Supporters() {
               <SupporterAvatar id={s.id} portrait={s.portrait} initials={s.initials} size={104} />
               <div className="col" style={{ gap: 6, minWidth: 0 }}>
                 <span className="disp" style={{ fontSize: 24, lineHeight: 1.1 }}>{s.name}</span>
-                <span className="muted small">{s.title}{s.organization ? `, ${s.organization}` : ""}</span>
+                <span className="muted small">{s.affiliation}</span>
                 <span style={{ alignSelf: "flex-start", border: "1px solid #ECE8E1", borderRadius: 999, padding: "3px 12px", fontSize: 12 }}>{s.label}</span>
               </div>
             </div>
             <blockquote className="disp" style={{ margin: 0, fontStyle: "italic", fontSize: 22, lineHeight: 1.3 }}>&ldquo;{s.statement}&rdquo;</blockquote>
+            {s.benefit && <p className="small" style={{ margin: 0, lineHeight: 1.55 }}><span className="muted">How Nearest could help students and parents: </span>{s.benefit}</p>}
             <span className="xs muted">{s.experience}</span>
             {s.disclosure && <span className="xs muted">{s.disclosure}</span>}
           </section>

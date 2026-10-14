@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { openInvite, PERSONAL_DISCLAIMER } from "@/lib/supporters";
+import { BENEFIT_EXAMPLE, PUBLISH_CONSENT, STATEMENT_EXAMPLE, explainerEmbed, getExplainerUrl, openInvite, PERSONAL_DISCLAIMER } from "@/lib/supporters";
 import { SupporterForm } from "@/components/SupporterForm";
 
 export const metadata = { title: "Share your perspective", robots: { index: false, follow: false } };
@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function SupporterInvite({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const open = await openInvite(token);
+  const video = "error" in open ? null : explainerEmbed(await getExplainerUrl());
   return (
     <div className="scr">
       <div className="body" style={{ gap: 18 }}>
@@ -19,9 +20,17 @@ export default async function SupporterInvite({ params }: { params: Promise<{ to
           <div className="card warn small" style={{ gap: 6 }}><span className="b">{open.error}</span><Link className="link small" href="/">Go to Nearest</Link></div>
         ) : (
           <>
-            <p className="small muted p" style={{ margin: 0 }}>Nearest invited you to share why you support it, in your own words. Nearest reviews every statement by hand and publishes only what you give permission for. Your contact email stays private.</p>
+            <p className="small muted p" style={{ margin: 0 }}>Nearest invited you to share your opinion of Nearest and how it could help students and parents, in your own words. Your statement is published on usenearest.com after a quick review. Your contact email stays private. No account needed.</p>
+            {video && (
+              <div className="col" style={{ gap: 6 }}>
+                <span className="eyebrow">See what Nearest offers students and parents</span>
+                {video.kind === "video"
+                  ? <video src={video.src} controls playsInline preload="metadata" style={{ width: "100%", borderRadius: 14, background: "#0A0A0A" }} />
+                  : <iframe src={video.src} title="Nearest explainer video" allow="encrypted-media; picture-in-picture; fullscreen" allowFullScreen style={{ width: "100%", aspectRatio: "16 / 9", border: 0, borderRadius: 14 }} />}
+              </div>
+            )}
             <p className="xs muted p" style={{ margin: 0 }}>{PERSONAL_DISCLAIMER}</p>
-            <SupporterForm token={token} />
+            <SupporterForm token={token} texts={{ statementExample: STATEMENT_EXAMPLE, benefitExample: BENEFIT_EXAMPLE, consent: PUBLISH_CONSENT }} />
           </>
         )}
       </div>

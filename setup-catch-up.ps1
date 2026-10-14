@@ -17,7 +17,7 @@ foreach ($r in $retired) { if (Test-Path $r) { Remove-Item -Recurse -Force $r; W
 Step "1/4  Installing packages"
 npm ci
 Check "Installing packages"
-Step "2/4  Updating Neon (adds supporter tables and the Facebook/Pinterest link columns - nothing is removed)"
+Step "2/4  Updating Neon (adds supporter columns and the Facebook/Pinterest link columns - nothing is removed)"
 # Neon can be slow to answer "Pulling schema" — retry up to 3 times before giving up.
 $ok = $false
 foreach ($try in 1..3) {
@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Pro hours: Regular / After-school / Both choice; day checkbox and name on their own line so they never hide behind the time fields; Facebook and Pinterest links"
+git commit -q -m "Supporters: one publish agreement (no per-item choices), current/former/no affiliation, opinion + benefit answers with examples, explainer video, optional Google review button"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

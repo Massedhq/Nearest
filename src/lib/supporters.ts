@@ -29,6 +29,38 @@ export const RELATIONSHIP_LABEL: Record<string, string> = {
   other: "Other relationship with Nearest",
 };
 
+export const GOOGLE_REVIEW_URL = "https://g.page/r/CTVQM3aF8rY4ECE/review";
+/** Google doesn't allow reviews from people with a paid/benefit/employment tie to the business — no Google button for them. */
+export const canReviewOnGoogle = (relationships: string[] | null | undefined) => !(relationships ?? []).some((r) => ["compensation", "benefit", "employment"].includes(r));
+export const EXPLAINER_SETTING = "supporters.explainer_video";
+export const STATEMENT_EXAMPLE = "Example: \"As a counselor, I talk with students who want help with hair, nails or lashes before big events. Nearest gives them a safe, verified way to find licensed professionals near school, and I like that parents can see who their student is booking.\"";
+export const BENEFIT_EXAMPLE = "Example: \"Students save time and money with after-school appointments close by, and parents get peace of mind knowing every professional is ID-checked.\"";
+export const PUBLISH_CONSENT = "I agree that Nearest may publish my statements with my name, professional title, school or organization (as I described it above) and my photo if I uploaded one, on usenearest.com. I can correct or withdraw it anytime with my private link.";
+export function affiliationLine(s: { title: string; organization: string; affiliationStatus: string }) {
+  if (s.affiliationStatus === "none" || !s.organization) return s.title;
+  return s.affiliationStatus === "former" ? `${s.title} · formerly with ${s.organization}` : `${s.title}, ${s.organization}`;
+}
+
+/** Video shown at the top of the supporter form: an uploaded MP4 or a YouTube/Vimeo link. */
+export function explainerEmbed(url: string | null | undefined): { kind: "video" | "iframe"; src: string } | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:") return null;
+    const yt = u.hostname.includes("youtu.be") ? u.pathname.slice(1) : u.hostname.includes("youtube.com") ? (u.searchParams.get("v") ?? u.pathname.split("/").pop()) : null;
+    if (yt && /^[A-Za-z0-9_-]{6,20}$/.test(yt)) return { kind: "iframe", src: `https://www.youtube-nocookie.com/embed/${yt}` };
+    const vm = u.hostname.includes("vimeo.com") ? u.pathname.split("/").filter(Boolean).pop() : null;
+    if (vm && /^\d+$/.test(vm)) return { kind: "iframe", src: `https://player.vimeo.com/video/${vm}` };
+    if (u.hostname.endsWith(".public.blob.vercel-storage.com")) return { kind: "video", src: url };
+  } catch { /* not a link */ }
+  return null;
+}
+export async function getExplainerUrl() {
+  const { platformSettings } = await import("@/db");
+  const row = await db.query.platformSettings.findFirst({ where: eq(platformSettings.key, EXPLAINER_SETTING) });
+  return typeof row?.value === "string" ? row.value : null;
+}
+
 export const PERSONAL_DISCLAIMER = "Personal endorsements reflect individual views, not school or district endorsements.";
 export const INVITE_DAYS_DEFAULT = 14;
 export const PORTRAIT_MAX_BYTES = 4 * 1024 * 1024;
@@ -85,7 +117,7 @@ export function initials(name: string) {
 }
 
 export type PublicSupporter = {
-  id: string; name: string; title: string; organization: string | null; statement: string;
+  id: string; name: string; title: string; organization: string | null; affiliation: string; statement: string; benefit: string | null;
   portrait: boolean; initials: string; label: string; experience: string; prelaunch: boolean; disclosure: string | null;
 };
 
@@ -98,8 +130,10 @@ export async function publishedSupporters(): Promise<PublicSupporter[]> {
     const rel = (s.relationships ?? []).filter((r) => r in RELATIONSHIP_LABEL);
     return {
       id: s.id, name: s.name, title: s.title,
-      organization: s.permAffiliation || org ? s.organization : null,
+      organization: s.affiliationStatus !== "none" && s.organization && (s.permAffiliation || org) ? s.organization : null,
+      affiliation: s.permAffiliation || org ? affiliationLine(s) : s.title,
       statement: s.statementPublished!,
+      benefit: s.benefitPublished || null,
       portrait: Boolean(s.permPortrait && s.portraitUrl),
       initials: initials(s.name),
       label: org ? `Endorsement on behalf of ${s.organization}` : "Personal endorsement",
@@ -118,8 +152,8 @@ export function previewPlaceholders(): PublicSupporter[] {
   const live = process.env.VERCEL_ENV === "production" || (process.env.NODE_ENV === "production" && !process.env.VERCEL_ENV);
   if (live) return [];
   return ["Sample A", "Sample B", "Sample C"].map((n, i) => ({
-    id: `sample-${i}`, name: `${n} (placeholder)`, title: "Educator title", organization: null,
-    statement: "Their approved statement about Nearest appears here.", portrait: false, initials: `S${String.fromCharCode(65 + i)}`,
+    id: `sample-${i}`, name: `${n} (placeholder)`, title: "Educator title", organization: null, affiliation: "Educator title",
+    statement: "Their approved statement about Nearest appears here.", benefit: null, portrait: false, initials: `S${String.fromCharCode(65 + i)}`,
     label: "Personal endorsement", experience: "Sample only", prelaunch: true, disclosure: null,
   }));
 }

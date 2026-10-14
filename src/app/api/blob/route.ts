@@ -15,6 +15,10 @@ export async function POST(request: Request) {
         // Pros upload portfolio/profile photos; students upload their appointment result photo.
         const ok = u && (((await proAccess(viewer)) && pathname.startsWith(`pros/${u.id}/`)) || ((u.accountType === "student" || viewer?.admin?.role === "OWNER") && pathname.startsWith(`students/${u.id}/`)));
         if (!ok) throw new Error("Invalid upload.");
+        if (viewer?.admin?.role === "OWNER" && pathname.startsWith(`students/${u!.id}/explainer-video/`)) {
+          // Owners: the supporter explainer video (shown on the supporter invitation form).
+          return { allowedContentTypes: ["video/mp4", "video/quicktime", "video/webm"], maximumSizeInBytes: 200 * 1024 * 1024, addRandomSuffix: true };
+        }
         if (pathname.startsWith(`pros/${u!.id}/portfolio-video/`)) {
           // Portfolio videos: 15 seconds max (checked again from the file after upload), MP4 or iPhone MOV.
           return { allowedContentTypes: ["video/mp4", "video/quicktime"], maximumSizeInBytes: 100 * 1024 * 1024, addRandomSuffix: true };

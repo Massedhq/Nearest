@@ -7,7 +7,7 @@ import { Icon } from "./Icon";
 type Save = (urls: string[]) => Promise<{ error?: string }>;
 
 /** Uploads photos straight to Blob storage, then records them with `save`. */
-export function Uploader({ userId, folder, save, multiple = true, label, root = "pros" }: { userId: string; folder: string; save: Save; multiple?: boolean; label: string; root?: "pros" | "students" }) {
+export function Uploader({ userId, folder, save, multiple = true, label, root = "pros", accept = "image/jpeg,image/png,image/webp" }: { userId: string; folder: string; save: Save; multiple?: boolean; label: string; root?: "pros" | "students"; accept?: string }) {
   const input = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const [busy, setBusy] = useState("");
@@ -38,7 +38,7 @@ export function Uploader({ userId, folder, save, multiple = true, label, root = 
 
   return (
     <div className="col" style={{ gap: 6 }}>
-      <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" multiple={multiple} hidden onChange={(e) => onPick(e.target.files)} />
+      <input ref={input} type="file" accept={accept} multiple={multiple} hidden onChange={(e) => onPick(e.target.files)} />
       <button className="btn ghost" type="button" disabled={!!busy} onClick={() => input.current?.click()}>
         <Icon name="upload" /> {busy || label}
       </button>

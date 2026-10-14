@@ -16,21 +16,28 @@ export async function POST(req: Request) {
   const open = await openInvite(token);
   if ("error" in open) return Response.json({ error: open.error }, { status: 410 });
 
-  const name = s("name", 120), email = s("email", 160).toLowerCase(), title = s("title", 120), organization = s("organization", 160);
-  const statement = s("statement", 1500), experience = s("experience", 20), experienceOther = s("experienceOther", 300);
+  const name = s("name", 120), email = s("email", 160).toLowerCase(), title = s("title", 120);
+  const affiliationStatus = s("affiliationStatus", 10);
+  const organization = affiliationStatus === "none" ? "" : s("organization", 160);
+  const statement = s("statement", 1500), benefit = s("benefit", 1500), experience = s("experience", 20), experienceOther = s("experienceOther", 300);
   const endorsementType = s("endorsementType", 20), orgAuthorityNote = s("orgAuthorityNote", 300);
   const relationships = f.getAll("relationships").map(String).filter((r) => r in RELATIONSHIP_LABEL);
   const relationshipNote = s("relationshipNote", 500);
-  if (!name || !title || !organization) return Response.json({ error: "Enter your name, professional title and school or organization." }, { status: 400 });
+  if (!name || !title) return Response.json({ error: "Enter your name and professional title." }, { status: 400 });
+  if (!["current", "former", "none"].includes(affiliationStatus)) return Response.json({ error: "Tell us whether you're currently with a school or organization, were previously, or neither." }, { status: 400 });
+  if (affiliationStatus !== "none" && !organization) return Response.json({ error: "Enter the school or organization." }, { status: 400 });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return Response.json({ error: "Enter a valid contact email (kept private)." }, { status: 400 });
-  if (statement.length < 20) return Response.json({ error: "Write your statement in your own words (at least a sentence)." }, { status: 400 });
+  if (statement.length < 20) return Response.json({ error: "Share your opinion of Nearest in your own words (at least a sentence)." }, { status: 400 });
+  if (benefit.length < 20) return Response.json({ error: "Tell us how Nearest could benefit students and parents (at least a sentence)." }, { status: 400 });
   if (!(experience in EXPERIENCE_LABEL)) return Response.json({ error: "Tell us what you reviewed or experienced." }, { status: 400 });
   if (experience === "other" && !experienceOther) return Response.json({ error: "Describe what you reviewed or experienced." }, { status: 400 });
   if (!["personal", "organizational"].includes(endorsementType)) return Response.json({ error: "Choose personal or organizational endorsement." }, { status: 400 });
+  if (endorsementType === "organizational" && affiliationStatus !== "current") return Response.json({ error: "Only someone currently with an organization can endorse on its behalf — choose personal endorsement." }, { status: 400 });
   if (endorsementType === "organizational" && (!on("orgAuthorityConfirmed") || !orgAuthorityNote)) return Response.json({ error: "For an organizational endorsement, confirm you're authorized and describe your authority — or choose personal endorsement." }, { status: 400 });
   if (f.get("relationshipAnswer") !== "none" && f.get("relationshipAnswer") !== "some") return Response.json({ error: "Tell us whether you have any relationship with Nearest." }, { status: 400 });
   if (f.get("relationshipAnswer") === "some" && !relationships.length) return Response.json({ error: "Choose the relationship you have with Nearest." }, { status: 400 });
   if (!on("confirmHonest")) return Response.json({ error: "Confirm the statement reflects your honest perspective." }, { status: 400 });
+  if (!on("publishConsent")) return Response.json({ error: "Agree that Nearest may publish your statement — that's what this form is for." }, { status: 400 });
 
   // Optional portrait.
   let portraitUrl: string | null = null, portraitAccess: string | null = null;
@@ -56,13 +63,14 @@ export async function POST(req: Request) {
   const manage = newToken();
   const [row] = await db.insert(supporters).values({
     inviteId: claimed.id, status: "submitted", manageTokenHash: hashToken(manage),
-    name, email, title, organization, portraitUrl, portraitAccess,
-    statementOriginal: statement, statementCurrent: statement,
+    name, email, title, organization, affiliationStatus, portraitUrl, portraitAccess,
+    statementOriginal: statement, statementCurrent: statement, benefitCurrent: benefit,
     experience, experienceOther: experience === "other" ? experienceOther : null,
     endorsementType, orgAuthorityNote: endorsementType === "organizational" ? orgAuthorityNote : null,
     orgAuthorityConfirmed: endorsementType === "organizational" && on("orgAuthorityConfirmed"),
     relationships: f.get("relationshipAnswer") === "some" ? relationships : [], relationshipNote: f.get("relationshipAnswer") === "some" ? relationshipNote || null : null,
-    permStatement: on("permStatement"), permName: on("permName"), permPortrait: Boolean(portraitUrl) && on("permPortrait"), permAffiliation: on("permAffiliation"),
+    // Submitting = consent to publish (one agreement box). The individual flags stay so a withdrawal can switch everything off.
+    permStatement: true, permName: true, permPortrait: Boolean(portraitUrl), permAffiliation: affiliationStatus !== "none",
     confirmHonest: true, confirmPhoto: Boolean(portraitUrl) && on("confirmPhoto"),
   }).returning();
   await db.update(supporterInvites).set({ supporterId: row.id }).where(eq(supporterInvites.id, claimed.id));
@@ -71,5 +79,6 @@ export async function POST(req: Request) {
     const { notifyAdmins } = await import("@/lib/outreach");
     await notifyAdmins({ kind: "supporter", title: "New supporter statement to review", body: `${name} — ${title}, ${organization}`, href: `/admin/supporters/${row.id}` });
   } catch (e) { console.error("supporter notify", e); }
-  return Response.json({ ok: true, manageUrl: manageLink(manage) });
+  const { canReviewOnGoogle, GOOGLE_REVIEW_URL } = await import("@/lib/supporters");
+  return Response.json({ ok: true, manageUrl: manageLink(manage), googleReviewUrl: canReviewOnGoogle(row.relationships) ? GOOGLE_REVIEW_URL : null });
 }

@@ -91,7 +91,7 @@ export async function declineSupporter(_: FormState, f: FormData): Promise<FormS
   const note = s(f, "note", 1000);
   if (!note) return { error: "Add a reason (shown to the supporter on their management link)." };
   if (c.row.status === "withdrawn") return { error: "They already withdrew it." };
-  const r = await save(c.row.id, c.row.version, { status: "declined", adminNote: note, statementPublished: null, statementProposed: null });
+  const r = await save(c.row.id, c.row.version, { status: "declined", adminNote: note, statementPublished: null, benefitPublished: null, statementProposed: null });
   if (!r) return { error: "This record just changed. Reload and try again." };
   await logSupporter(c.row.id, "admin", "declined", { note }, user.id);
   await logActivity({ actorUserId: user.id, action: "supporter.declined", targetType: "supporter", targetId: c.row.name, before: c.row.status, after: note });
@@ -105,7 +105,7 @@ export async function publishSupporter(_: FormState, f: FormData): Promise<FormS
   if ("error" in c) return { error: c.error };
   const problems = publishProblems(c.row);
   if (problems.length) return { error: problems.join(" ") };
-  const r = await save(c.row.id, c.row.version, { status: "published", statementPublished: c.row.statementCurrent, publishedAt: new Date() });
+  const r = await save(c.row.id, c.row.version, { status: "published", statementPublished: c.row.statementCurrent, benefitPublished: c.row.benefitCurrent, publishedAt: new Date() });
   if (!r) return { error: "This record just changed. Reload and try again." };
   await logSupporter(c.row.id, "admin", "published", { statement: c.row.statementCurrent }, user.id);
   await logActivity({ actorUserId: user.id, action: "supporter.published", targetType: "supporter", targetId: c.row.name, before: c.row.status, after: "published" });
@@ -164,4 +164,36 @@ export async function newSupporterManageLink(_: FormState, f: FormData): Promise
   await logSupporter(c.row.id, "admin", "manage_link_reissued", null, user.id);
   await logActivity({ actorUserId: user.id, action: "supporter.manage_link_reissued", targetType: "supporter", targetId: c.row.name });
   return { ok: `New management link (the old one no longer works — copy it now, it isn't shown again): ${manageLink(token)}` };
+}
+
+// ---------- Explainer video on the supporter form (uploaded MP4 or a YouTube/Vimeo link) ----------
+async function setExplainer(userId: string, url: string | null) {
+  const { platformSettings } = await import("@/db");
+  const { EXPLAINER_SETTING } = await import("@/lib/supporters");
+  if (url) await db.insert(platformSettings).values({ key: EXPLAINER_SETTING, value: url, updatedBy: userId }).onConflictDoUpdate({ target: platformSettings.key, set: { value: url, updatedBy: userId, updatedAt: new Date() } });
+  else await db.delete(platformSettings).where(eq(platformSettings.key, EXPLAINER_SETTING));
+  await logActivity({ actorUserId: userId, action: "supporter.explainer_video", targetType: "setting", targetId: EXPLAINER_SETTING, after: url });
+  refresh();
+}
+export async function saveExplainerUpload(urls: string[]): Promise<{ error?: string }> {
+  const { user } = await requireAdmin({ owner: true });
+  const url = urls[0];
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:" || !u.hostname.endsWith(".public.blob.vercel-storage.com") || !u.pathname.startsWith(`/students/${user.id}/explainer-video/`)) return { error: "Upload didn't complete." };
+  } catch { return { error: "Upload didn't complete." }; }
+  await setExplainer(user.id, url);
+  return {};
+}
+export async function saveExplainerLink(_: FormState, f: FormData): Promise<FormState> {
+  const { user } = await requireAdmin({ owner: true });
+  const url = s(f, "url", 500);
+  const { explainerEmbed } = await import("@/lib/supporters");
+  if (!explainerEmbed(url)) return { error: "Paste a YouTube or Vimeo link (https://…), or upload a video file instead." };
+  await setExplainer(user.id, url);
+  return { ok: "Saved — it now shows at the top of the supporter form." };
+}
+export async function removeExplainer() {
+  const { user } = await requireAdmin({ owner: true });
+  await setExplainer(user.id, null);
 }
