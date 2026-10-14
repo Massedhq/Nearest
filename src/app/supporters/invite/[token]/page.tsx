@@ -2,6 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { BENEFIT_EXAMPLE, PUBLISH_CONSENT, STATEMENT_EXAMPLE, explainerEmbed, getExplainerUrl, openInvite, PERSONAL_DISCLAIMER } from "@/lib/supporters";
 import { SupporterForm } from "@/components/SupporterForm";
+import { WalkthroughVideo } from "@/components/WalkthroughVideo";
+import { walkthroughPublished } from "@/lib/walkthrough";
 
 export const metadata = { title: "Share your perspective", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
@@ -11,6 +13,7 @@ export default async function SupporterInvite({ params }: { params: Promise<{ to
   const { token } = await params;
   const open = await openInvite(token);
   const video = "error" in open ? null : explainerEmbed(await getExplainerUrl());
+  const showWalkthrough = !("error" in open) && await walkthroughPublished();
   return (
     <div className="scr">
       <div className="body" style={{ gap: 18 }}>
@@ -29,6 +32,7 @@ export default async function SupporterInvite({ params }: { params: Promise<{ to
                   : <iframe src={video.src} title="Nearest explainer video" allow="encrypted-media; picture-in-picture; fullscreen" allowFullScreen style={{ width: "100%", aspectRatio: "16 / 9", border: 0, borderRadius: 14 }} />}
               </div>
             )}
+            {showWalkthrough && <WalkthroughVideo />}
             <p className="xs muted p" style={{ margin: 0 }}>{PERSONAL_DISCLAIMER}</p>
             <SupporterForm token={token} texts={{ statementExample: STATEMENT_EXAMPLE, benefitExample: BENEFIT_EXAMPLE, consent: PUBLISH_CONSENT }} />
           </>

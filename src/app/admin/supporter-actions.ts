@@ -193,6 +193,17 @@ export async function saveExplainerLink(_: FormState, f: FormData): Promise<Form
   await setExplainer(user.id, url);
   return { ok: "Saved — it now shows at the top of the supporter form." };
 }
+/** Publish or hide the narrated walkthrough on the supporter invitation page (owner only). */
+export async function setWalkthroughPublished(f: FormData) {
+  const { user } = await requireAdmin({ owner: true });
+  const on = f.get("publish") === "1";
+  const { platformSettings } = await import("@/db");
+  const { WALKTHROUGH_SETTING } = await import("@/lib/walkthrough");
+  await db.insert(platformSettings).values({ key: WALKTHROUGH_SETTING, value: on, updatedBy: user.id }).onConflictDoUpdate({ target: platformSettings.key, set: { value: on, updatedBy: user.id, updatedAt: new Date() } });
+  await logActivity({ actorUserId: user.id, action: "supporter.walkthrough", targetType: "setting", targetId: WALKTHROUGH_SETTING, after: on });
+  revalidatePath("/supporters/invite", "layout");
+  refresh();
+}
 export async function removeExplainer() {
   const { user } = await requireAdmin({ owner: true });
   await setExplainer(user.id, null);

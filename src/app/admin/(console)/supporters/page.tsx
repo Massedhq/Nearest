@@ -7,7 +7,9 @@ import { CopyButton } from "@/components/CopyButton";
 import { requireAdmin } from "@/lib/admin";
 import { INVITE_DAYS_DEFAULT, STATUS_LABEL, SUPPORTER_STATUSES, inviteLink } from "@/lib/supporters";
 import { fmtDate } from "@/lib/time";
-import { createSupporterInvite, revokeSupporterInvite, saveExplainerLink, saveExplainerUpload, removeExplainer } from "@/app/admin/supporter-actions";
+import { createSupporterInvite, revokeSupporterInvite, saveExplainerLink, saveExplainerUpload, removeExplainer, setWalkthroughPublished } from "@/app/admin/supporter-actions";
+import { WalkthroughVideo } from "@/components/WalkthroughVideo";
+import { walkthroughPublished } from "@/lib/walkthrough";
 import { Uploader } from "@/components/Uploader";
 import { explainerEmbed, getExplainerUrl } from "@/lib/supporters";
 
@@ -20,6 +22,7 @@ export default async function SupportersAdmin({ searchParams }: { searchParams: 
   const sp = await searchParams;
   const explainer = await getExplainerUrl();
   const video = explainerEmbed(explainer);
+  const walkthroughLive = await walkthroughPublished();
   const [invites, rows] = await Promise.all([
     db.select().from(supporterInvites).orderBy(desc(supporterInvites.createdAt)).limit(200),
     db.select({ id: supporters.id, name: supporters.name, title: supporters.title, organization: supporters.organization, status: supporters.status, submittedAt: supporters.submittedAt, updatedAt: supporters.updatedAt, proposed: sql<boolean>`${supporters.statementProposed} is not null` })
@@ -49,6 +52,18 @@ export default async function SupportersAdmin({ searchParams }: { searchParams: 
           <input name="label" className="ainput" placeholder="Who it's for (private note, optional)" maxLength={120} />
           <label className="xs muted">Expires after (days)<input name="days" type="number" min={1} max={60} defaultValue={INVITE_DAYS_DEFAULT} className="ainput" style={{ width: 90, marginLeft: 8 }} /></label>
         </ActionForm>
+      </div>
+
+      <div className="card" style={{ gap: 10 }}>
+        <div className="row between"><span className="eyebrow">Narrated walkthrough on the invitation page</span><span className={`xs b${walkthroughLive ? "" : " muted"}`}>{walkthroughLive ? "PUBLISHED" : "NOT PUBLISHED"}</span></div>
+        <span className="xs muted">A 3:29 narrated tour recorded in the real app with demonstration accounts and sample data (no real students, bookings or payments; booking and appointment-day steps are labeled previews). It covers verification, finding pros, after-school hours, prices, Favorites, Model Calls, Bundle my booking, protected payments, check-in, messages, releasing payment, reporting a problem, Connections, invite rewards and the launch campaign. Preview it here. Supporters only see it — above the feedback form — after you publish it. It never plays sound on its own.</span>
+        <div style={{ maxWidth: 360 }}><WalkthroughVideo heading="Preview" /></div>
+        {role === "OWNER" && (
+          <form action={setWalkthroughPublished}>
+            <input type="hidden" name="publish" value={walkthroughLive ? "0" : "1"} />
+            <button className={`btn sm${walkthroughLive ? " ghost" : ""}`} type="submit">{walkthroughLive ? "Hide it from the invitation page" : "Publish it on the invitation page"}</button>
+          </form>
+        )}
       </div>
 
       <div className="card" style={{ gap: 8 }}>
