@@ -2,14 +2,17 @@
  * The Professional Terms shown (scrollable) on the final Review & submit step — the membership rate is the last section. Bump PRO_TERMS_VERSION whenever the text changes —
  * every professional's accepted version is stored, so Nearest can prove which terms they agreed to.
  */
-export const PRO_TERMS_VERSION = "2026-10-06";
+export const PRO_TERMS_VERSION = "2026-10-14";
+
+/** Label for a pro's locked rate (used when an already-enrolled pro accepts an updated version). */
+export const rateLabel = (entryType: string | null | undefined) => (entryType === "FIRST_IN" ? "First In" : entryType === "DFW_NEXT" ? "DFW membership" : "Market rate");
 
 export function proTermsSections(rate: { cents: number; label: string }) {
   const price = `$${(rate.cents / 100).toFixed(rate.cents % 100 ? 2 : 0)}`;
   return [
     { h: "1. Your profile and services", p: [
       "Everything on your profile must be accurate and your own work — your name, services, prices, photos and videos.",
-      "You may only offer services you are legally permitted to provide. If a service requires a license, you must hold a current license — see section 5.",
+      "You may only offer services you are legally permitted to provide. If a service requires a license, you must hold a current license — see section 5. Your responsibility for your services, insurance and indemnity is in section 6.",
       "Each service is capped at $150. Services marked 18+ can't be booked by students under 18.",
     ] },
     { h: "2. Bookings", p: [
@@ -32,10 +35,19 @@ export function proTermsSections(rate: { cents: number; label: string }) {
       "Nearest's acceptance of your account, profile, service listing, or booking activity does not constitute verification, certification, endorsement, or confirmation of your professional qualifications.",
       "You agree not to list, accept, or perform any service through Nearest that you are not legally authorized to provide.",
     ] },
-    { h: "6. The full Terms", p: [
+    { h: "6. Liability, insurance & indemnity", p: [
+      "Your services are your responsibility. You — not Nearest — are solely responsible for the services you provide, how you provide them, and their results, including any injury, allergic or skin reaction, infection, hair, nail, lash, brow or skin damage, property damage, or other harm to a client. Nearest is a booking platform and does not perform, supervise, control or direct your services.",
+      "Safety and sanitation. You must follow all health, sanitation, sterilization and safety rules that apply to your services (including TDLR rules), use products as directed, ask clients about allergies and sensitivities, do patch tests where appropriate, and refuse any service you can't perform safely.",
+      "Insurance. You agree to carry professional liability (malpractice) insurance and general liability insurance appropriate to your services, in amounts customary for your field, while you provide services through Nearest. If you don't currently have it, you understand you are personally responsible for any claim and you agree to obtain it as soon as reasonably possible. Nearest may ask for proof of insurance at any time.",
+      "Keep your status current. You must tell Nearest within 48 hours if any license, permit or registration you rely on is suspended, revoked, expired, restricted or under investigation, and immediately stop offering any service you're no longer authorized to provide. Nearest may pause or remove your listing until it's resolved.",
+      "Complaints and claims. If a client reports a problem with a service, you agree to respond through Nearest promptly and in good faith and to cooperate with Nearest's review. Nearest may share booking details needed to resolve a dispute or claim.",
+      "Indemnity. To the fullest extent allowed by law, you agree to defend, indemnify and hold harmless Nearest and its owners, employees and agents from and against any claims, damages, losses, fines, penalties, costs and expenses (including reasonable attorneys' fees) arising out of or related to the services you provide, your conduct, your content, your violation of these Professional Terms or the Nearest Terms, or your violation of any law or anyone's rights.",
+      "Limits on Nearest's liability. Nearest provides the platform \"as is.\" To the fullest extent allowed by law, Nearest is not liable for any injury, loss or damage arising from services you provide or from your interactions with clients, and Nearest's total liability to you for any claim is limited as described in the Nearest Terms (section 20).",
+    ] },
+    { h: "7. The full Terms", p: [
       "These Professional Terms are part of the Nearest Terms of Service and Privacy Policy (usenearest.com/terms and /privacy), which also apply to you. If they conflict, these Professional Terms control for your membership and bookings.",
     ] },
-    { h: "7. Your membership", p: [
+    { h: "8. Your membership", p: [
       `Your Nearest membership rate is ${price} per month for your first 12 months (${rate.label}). After your first 12 months, your membership becomes $30 per month (the standard rate) and renews at that price; Nearest will tell you before that change happens.`,
       "You are not charged for creating your account or building your profile.",
       `By accepting these terms, you agree to the ${price}/month membership. Your membership is activated — and your card is charged ${price} — when you accept your first booking through Nearest. You must activate your membership before you can accept a booking.`,

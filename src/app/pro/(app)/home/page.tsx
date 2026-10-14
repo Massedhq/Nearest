@@ -13,6 +13,7 @@ import { proStanding } from "@/lib/enforcement";
 import { Bell } from "@/components/Inbox";
 import { GoLiveCard } from "@/components/GoLiveCard";
 import { ProCampaignCard } from "@/components/ProCampaignCard";
+import { ProTermsUpdateCard } from "@/components/ProTermsUpdateCard";
 import { unreadCount } from "@/lib/inbox";
 
 export const metadata = { title: "Today" };
@@ -58,6 +59,8 @@ export default async function ProHome({ searchParams }: { searchParams: Promise<
       </div>
       <div className="body">
         <div><p className="eyebrow p">{fmtDate(new Date(), { weekday: "long", month: "short", day: "numeric" })}</p><h1 className="disp h1">{greeting(now.minutes)}, {user.firstName}</h1></div>
+
+        <ProTermsUpdateCard profile={profile} owner={viewer.admin?.role === "OWNER" || (await (await import("@/lib/entry")).isOwnerBusiness(profile.userId))} />
 
         {(standing.fines.length > 0 || standing.suspendedUntil) && (
           <Link className={`card ${standing.overdue.length || standing.suspendedUntil ? "bad" : "warn"}`} href="/pro/account-status" style={{ textDecoration: "none" }}>

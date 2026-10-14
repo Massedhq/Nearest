@@ -92,9 +92,10 @@ export function SupporterForm({ token, texts }: { token: string; texts: Texts })
       </div>
 
       <div className="field">
-        <label htmlFor="sp-photo">Your photo (optional)</label>
+        <label htmlFor="sp-photo">Your photo or headshot</label>
         <input id="sp-photo" name="portrait" type="file" accept="image/jpeg,image/png,image/webp" style={{ paddingTop: 12 }} onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
-        <span className="xs muted">JPG, PNG or WebP, up to 4 MB. Without a photo, your initials are shown.</span>
+        <span className="small" style={{ color: "#ECE8E1" }}>Please upload a photo of yourself. A real photo or headshot helps our students and parents feel safe knowing these are real reviews from real people.</span>
+        <span className="xs muted">JPG, PNG or WebP, up to 4 MB. A clear photo of your face works best. If you skip it, your initials are shown instead.</span>
       </div>
 
       <div className="field">
