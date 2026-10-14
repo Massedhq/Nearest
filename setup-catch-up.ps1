@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Professional Terms v2026-10-14: Liability, insurance & indemnity (section 6) with home-screen re-acceptance for enrolled pros; supporter form asks for a real photo"
+git commit -q -m "Homepage shows up to six supporters (Meet all N supporters link); Professional Terms liability section; supporter photo wording"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

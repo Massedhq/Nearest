@@ -11,7 +11,8 @@ export default async function Welcome() {
   // Educator endorsements: only real, published supporters on the live site. None published → the section is hidden.
   // Development / preview builds show labeled initials placeholders so the layout can be checked.
   const real = await publishedSupporters().catch(() => []);
-  const circles = (real.length ? real : previewPlaceholders()).slice(0, 5);
+  const all = real.length ? real : previewPlaceholders();
+  const circles = all.slice(0, 6); // up to six faces on the homepage; everyone is on /supporters
   const sample = !real.length && circles.length > 0;
   return (
     <div className="scr">
@@ -28,14 +29,14 @@ export default async function Welcome() {
         {circles.length > 0 && (
           <section aria-label="Why educators support Nearest" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, margin: "18px 0 6px" }}>
             <h2 className="disp" style={{ fontSize: 22, textAlign: "center" }}>Why educators support Nearest</h2>
-            <div className="row" style={{ gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+            <div className="row" style={{ gap: 6, justifyContent: "center", flexWrap: "nowrap" }}>
               {circles.map((c) => (
                 <Link key={c.id} href={`/supporters#s-${c.id}`} aria-label={`${c.name} — read their statement`} style={{ textDecoration: "none" }}>
-                  <SupporterAvatar id={c.id} portrait={c.portrait} initials={c.initials} size={58} />
+                  <SupporterAvatar id={c.id} portrait={c.portrait} initials={c.initials} size={46} />
                 </Link>
               ))}
             </div>
-            <Link className="small" href="/supporters" style={{ color: "#C9C4BA", textDecoration: "none" }}>Meet our supporters <span aria-hidden="true">→</span></Link>
+            <Link className="small" href="/supporters" style={{ color: "#C9C4BA", textDecoration: "none" }}>{all.length > 6 ? `Meet all ${all.length} supporters` : "Meet our supporters"} <span aria-hidden="true">→</span></Link>
             {sample && <span className="xs muted">Sample profiles · Concept only</span>}
           </section>
         )}
