@@ -117,7 +117,7 @@ export function initials(name: string) {
 }
 
 export type PublicSupporter = {
-  id: string; name: string; title: string; organization: string | null; affiliation: string; statement: string; benefit: string | null;
+  id: string; name: string; title: string; organization: string | null; affiliation: string; statement: string; benefit: string | null; rating: number | null;
   portrait: boolean; initials: string; label: string; experience: string; prelaunch: boolean; disclosure: string | null;
 };
 
@@ -134,6 +134,7 @@ export async function publishedSupporters(): Promise<PublicSupporter[]> {
       affiliation: s.permAffiliation || org ? affiliationLine(s) : s.title,
       statement: s.statementPublished!,
       benefit: s.benefitPublished || null,
+      rating: s.rating && s.rating >= 1 && s.rating <= 5 ? s.rating : null,
       portrait: Boolean(s.permPortrait && s.portraitUrl),
       initials: initials(s.name),
       label: org ? `Endorsement on behalf of ${s.organization}` : "Personal endorsement",
@@ -153,7 +154,7 @@ export function previewPlaceholders(): PublicSupporter[] {
   if (live) return [];
   return ["Sample A", "Sample B", "Sample C"].map((n, i) => ({
     id: `sample-${i}`, name: `${n} (placeholder)`, title: "Educator title", organization: null, affiliation: "Educator title",
-    statement: "Their approved statement about Nearest appears here.", benefit: null, portrait: false, initials: `S${String.fromCharCode(65 + i)}`,
+    statement: "Their approved statement about Nearest appears here.", benefit: null, rating: null, portrait: false, initials: `S${String.fromCharCode(65 + i)}`,
     label: "Personal endorsement", experience: "Sample only", prelaunch: true, disclosure: null,
   }));
 }

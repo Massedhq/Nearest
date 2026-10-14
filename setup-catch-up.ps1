@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Supporters: one publish agreement (no per-item choices), current/former/no affiliation, opinion + benefit answers with examples, explainer video, optional Google review button"
+git commit -q -m "Supporters: 1-5 star rating saved in Nearest and shown on /supporters with the average; copy review and open Google; one publish agreement, affiliation, benefit answer, explainer video"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

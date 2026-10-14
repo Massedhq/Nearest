@@ -1122,6 +1122,7 @@ export const supporters = pgTable("supporters", {
   statementProposed: text("statement_proposed"), // admin's suggested wording — needs the supporter's approval
   statementProposedAt: ts("statement_proposed_at"),
   statementPublished: text("statement_published"), // exactly what's shown publicly
+  rating: integer("rating"), // the supporter's own 1–5 star rating of Nearest
   benefitCurrent: text("benefit_current"), // "How could Nearest benefit students and parents?" in their own words
   benefitPublished: text("benefit_published"),
   experience: text("experience").notNull(), // walkthrough | website | platform_use | other

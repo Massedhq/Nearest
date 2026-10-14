@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
 import { db, supporters, supporterEvents } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
+import { Stars } from "@/components/Stars";
 import { ActionForm } from "@/components/ActionForm";
 import { requireAdmin } from "@/lib/admin";
 import { EXPERIENCE_LABEL, RELATIONSHIP_LABEL, STATUS_LABEL, publishProblems, isOrganizational } from "@/lib/supporters";
@@ -59,6 +60,7 @@ export default async function SupporterReview({ params }: { params: Promise<{ id
             <span className="small"><span className="b">{s.name}</span><br />{s.title}<br />{s.affiliationStatus === "none" ? "Not with a school or organization" : `${s.affiliationStatus === "former" ? "Previously with" : "Currently with"} ${s.organization}`}</span>
           </div>
           <span className="small"><span className="muted">Contact email (private):</span> {s.email}</span>
+          {s.rating ? <span className="row small" style={{ gap: 8, marginTop: 6 }}><span className="b">Rating</span><Stars value={s.rating} /> {s.rating}/5</span> : null}
           {s.benefitCurrent && <><span className="small b" style={{ marginTop: 6 }}>How Nearest could benefit students and parents</span><div style={box}>{s.benefitCurrent}</div></>}
           <span className="small b" style={{ marginTop: 6 }}>Original opinion statement (never changed)</span>
           <div style={box}>{s.statementOriginal}</div>

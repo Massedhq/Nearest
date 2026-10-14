@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { SupporterAvatar } from "@/components/SupporterAvatar";
+import { Stars } from "@/components/Stars";
 import { PERSONAL_DISCLAIMER, previewPlaceholders, publishedSupporters } from "@/lib/supporters";
 
 export const metadata = { title: "Meet our supporters", description: "Why educators support Nearest." };
@@ -20,6 +21,8 @@ export default async function Supporters() {
           <h1 className="disp" style={{ fontSize: 40, lineHeight: 1.05 }}>Meet our supporters</h1>
           <p className="muted" style={{ margin: "8px 0 0", fontSize: 17 }}>Hear why educators support Nearest.</p>
         </div>
+        {(() => { const rated = real.filter((x) => x.rating); if (rated.length < 1) return null; const avg = rated.reduce((a, x) => a + (x.rating ?? 0), 0) / rated.length;
+          return <div className="row" style={{ gap: 10, alignItems: "center" }}><Stars value={Math.round(avg)} size={20} /><span className="small">{avg.toFixed(1)} average from {rated.length} supporter{rated.length === 1 ? "" : "s"}</span></div>; })()}
         {list.length === 0 && <p className="small muted">Supporter statements will appear here once they&apos;re published.</p>}
         {sample && <p className="xs muted" style={{ margin: 0 }}>Sample profiles · Concept only (development preview — never shown on the live site)</p>}
         {list.map((s, i) => (
@@ -32,6 +35,7 @@ export default async function Supporters() {
                 <span style={{ alignSelf: "flex-start", border: "1px solid #ECE8E1", borderRadius: 999, padding: "3px 12px", fontSize: 12 }}>{s.label}</span>
               </div>
             </div>
+            {s.rating && <Stars value={s.rating} size={18} />}
             <blockquote className="disp" style={{ margin: 0, fontStyle: "italic", fontSize: 22, lineHeight: 1.3 }}>&ldquo;{s.statement}&rdquo;</blockquote>
             {s.benefit && <p className="small" style={{ margin: 0, lineHeight: 1.55 }}><span className="muted">How Nearest could help students and parents: </span>{s.benefit}</p>}
             <span className="xs muted">{s.experience}</span>

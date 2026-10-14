@@ -34,14 +34,16 @@ export async function requestSupporterCorrection(_: FormState, f: FormData): Pro
   const message = s(f, "message", 1000);
   const statement = s(f, "statement", 1500);
   const benefit = s(f, "benefit", 1500);
+  const ratingIn = Number(f.get("rating"));
+  const rating = Number.isInteger(ratingIn) && ratingIn >= 1 && ratingIn <= 5 ? ratingIn : row.rating;
   const title = s(f, "title", 120);
   const affiliationStatus = ["current", "former", "none"].includes(s(f, "affiliationStatus", 10)) ? s(f, "affiliationStatus", 10) : row.affiliationStatus;
   const organization = affiliationStatus === "none" ? "" : s(f, "organization", 160) || row.organization;
   if (affiliationStatus !== "none" && !organization) return { error: "Enter the school or organization." };
-  if (!message && statement === row.statementCurrent && benefit === (row.benefitCurrent ?? "") && title === row.title && organization === row.organization && affiliationStatus === row.affiliationStatus) return { error: "Describe the correction or change your answers." };
+  if (!message && statement === row.statementCurrent && benefit === (row.benefitCurrent ?? "") && title === row.title && organization === row.organization && affiliationStatus === row.affiliationStatus && rating === row.rating) return { error: "Describe the correction or change your answers." };
   if ((statement && statement.length < 20) || (benefit && benefit.length < 20)) return { error: "Your answers are too short." };
   const changes = {
-    statementCurrent: statement || row.statementCurrent, benefitCurrent: benefit || row.benefitCurrent, title: title || row.title, organization, affiliationStatus,
+    statementCurrent: statement || row.statementCurrent, benefitCurrent: benefit || row.benefitCurrent, rating, title: title || row.title, organization, affiliationStatus,
     permAffiliation: affiliationStatus !== "none",
     ...(row.endorsementType === "organizational" && affiliationStatus !== "current" ? { endorsementType: "personal", orgAuthorityReviewedBy: null } : {}),
   };

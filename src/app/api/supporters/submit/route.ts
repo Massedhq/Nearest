@@ -28,6 +28,8 @@ export async function POST(req: Request) {
   if (affiliationStatus !== "none" && !organization) return Response.json({ error: "Enter the school or organization." }, { status: 400 });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return Response.json({ error: "Enter a valid contact email (kept private)." }, { status: 400 });
   if (statement.length < 20) return Response.json({ error: "Share your opinion of Nearest in your own words (at least a sentence)." }, { status: 400 });
+  const rating = Number(f.get("rating"));
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) return Response.json({ error: "Choose your star rating (1 to 5)." }, { status: 400 });
   if (benefit.length < 20) return Response.json({ error: "Tell us how Nearest could benefit students and parents (at least a sentence)." }, { status: 400 });
   if (!(experience in EXPERIENCE_LABEL)) return Response.json({ error: "Tell us what you reviewed or experienced." }, { status: 400 });
   if (experience === "other" && !experienceOther) return Response.json({ error: "Describe what you reviewed or experienced." }, { status: 400 });
@@ -64,7 +66,7 @@ export async function POST(req: Request) {
   const [row] = await db.insert(supporters).values({
     inviteId: claimed.id, status: "submitted", manageTokenHash: hashToken(manage),
     name, email, title, organization, affiliationStatus, portraitUrl, portraitAccess,
-    statementOriginal: statement, statementCurrent: statement, benefitCurrent: benefit,
+    statementOriginal: statement, statementCurrent: statement, benefitCurrent: benefit, rating,
     experience, experienceOther: experience === "other" ? experienceOther : null,
     endorsementType, orgAuthorityNote: endorsementType === "organizational" ? orgAuthorityNote : null,
     orgAuthorityConfirmed: endorsementType === "organizational" && on("orgAuthorityConfirmed"),

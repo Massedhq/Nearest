@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { StarRating } from "./StarRating";
 
 const EXPERIENCES: [string, string][] = [
   ["walkthrough", "I watched the explainer video or a walkthrough of Nearest"],
@@ -25,7 +26,8 @@ type Texts = { statementExample: string; benefitExample: string; consent: string
 export function SupporterForm({ token, texts }: { token: string; texts: Texts }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [done, setDone] = useState<{ manageUrl: string; googleReviewUrl: string | null } | null>(null);
+  const [done, setDone] = useState<{ manageUrl: string; googleReviewUrl: string | null; review: string } | null>(null);
+  const [copiedReview, setCopiedReview] = useState(false);
   const [copied, setCopied] = useState(false);
   const [experience, setExperience] = useState("");
   const [type, setType] = useState("");
@@ -42,9 +44,10 @@ export function SupporterForm({ token, texts }: { token: string; texts: Texts })
         </div>
         {done.googleReviewUrl && (
           <div className="card" style={{ gap: 8 }}>
-            <span className="eyebrow">Share it on Google too (optional)</span>
-            <span className="small">Google reviews help parents and students find Nearest. Google only lets you post it yourself, from your own Google account — tap below and Google opens Nearest&apos;s review page. Use your own honest words and rating.</span>
-            <a className="btn sm" href={done.googleReviewUrl} target="_blank" rel="noopener noreferrer">Leave a Google review</a>
+            <span className="eyebrow">Post the same review on Google (optional)</span>
+            <span className="small">Your review is saved on Nearest. To share it on Google too, tap below: we copy your review, then Google&apos;s review page for Nearest opens — paste it, choose your stars, and post. Google only lets you post from your own Google account.</span>
+            <a className="btn sm" href={done.googleReviewUrl} target="_blank" rel="noopener noreferrer" onClick={async () => { try { await navigator.clipboard.writeText(done.review); setCopiedReview(true); } catch { setCopiedReview(false); } }}>Copy my review &amp; open Google</a>
+            {copiedReview && <span className="xs muted">Copied — paste it into Google&apos;s review box.</span>}
           </div>
         )}
         <div className="card" style={{ gap: 8 }}>
@@ -64,12 +67,13 @@ export function SupporterForm({ token, texts }: { token: string; texts: Texts })
       setErr(""); setBusy(true);
       try {
         const fd = new FormData(e.currentTarget);
+        const review = [String(fd.get("statement") ?? "").trim(), String(fd.get("benefit") ?? "").trim()].filter(Boolean).join("\n\n");
         fd.set("token", token);
         if (!photo) fd.delete("portrait");
         const r = await fetch("/api/supporters/submit", { method: "POST", body: fd });
         const j = await r.json().catch(() => ({}));
         if (!r.ok || !j.ok) { setErr(j.error || "Something went wrong. Try again."); return; }
-        setDone({ manageUrl: j.manageUrl, googleReviewUrl: j.googleReviewUrl ?? null });
+        setDone({ manageUrl: j.manageUrl, googleReviewUrl: j.googleReviewUrl ?? null, review });
         window.scrollTo({ top: 0 });
       } catch { setErr("Couldn't send — check your connection and try again."); } finally { setBusy(false); }
     }}>
@@ -91,6 +95,11 @@ export function SupporterForm({ token, texts }: { token: string; texts: Texts })
         <label htmlFor="sp-photo">Your photo (optional)</label>
         <input id="sp-photo" name="portrait" type="file" accept="image/jpeg,image/png,image/webp" style={{ paddingTop: 12 }} onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
         <span className="xs muted">JPG, PNG or WebP, up to 4 MB. Without a photo, your initials are shown.</span>
+      </div>
+
+      <div className="field">
+        <label>Your rating of Nearest</label>
+        <StarRating />
       </div>
 
       <div className="field">

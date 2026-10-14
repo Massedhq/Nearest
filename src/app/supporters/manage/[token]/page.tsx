@@ -1,6 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ActionForm } from "@/components/ActionForm";
+import { StarRating } from "@/components/StarRating";
+import { CopyText } from "@/components/CopyText";
+import { Stars } from "@/components/Stars";
 import { GOOGLE_REVIEW_URL, STATUS_LABEL, affiliationLine, canReviewOnGoogle, supporterByManageToken } from "@/lib/supporters";
 import { answerSupporterRevision, requestSupporterCorrection, withdrawSupporter } from "@/app/supporter-actions";
 
@@ -53,6 +56,7 @@ export default async function ManageSupporter({ params }: { params: Promise<{ to
             <div className="card" style={{ gap: 6 }}>
               <span className="eyebrow">What you submitted</span>
               <span className="small b">{s.name} — {affiliationLine(s)}</span>
+              {s.rating ? <Stars value={s.rating} size={20} /> : null}
               <span className="xs muted">Your opinion of Nearest</span>
               <div style={box}>{s.statementCurrent}</div>
               {s.benefitCurrent && <><span className="xs muted">How Nearest could benefit students and parents</span><div style={box}>{s.benefitCurrent}</div></>}
@@ -66,6 +70,7 @@ export default async function ManageSupporter({ params }: { params: Promise<{ to
                   <span className="xs muted">Change your statement, title or organization, and/or tell Nearest what to fix. It goes back to review{s.status === "published" ? " and comes off the public page until approved" : ""}.</span>
                   <ActionForm action={requestSupporterCorrection} submitLabel="Send correction" buttonClass="btn sm" className="col g8">
                     <input type="hidden" name="token" value={token} />
+                    <div className="field"><label>Your rating</label><StarRating defaultValue={s.rating ?? 0} required={false} /></div>
                     <div className="field"><label htmlFor="c-st">Your opinion of Nearest</label><textarea id="c-st" name="statement" defaultValue={s.statementCurrent} maxLength={1500} style={{ height: 140 }} /></div>
                     <div className="field"><label htmlFor="c-be">How Nearest could benefit students and parents</label><textarea id="c-be" name="benefit" defaultValue={s.benefitCurrent ?? ""} maxLength={1500} style={{ height: 120 }} /></div>
                     <div className="field"><label htmlFor="c-ti">Professional title</label><input id="c-ti" name="title" defaultValue={s.title} maxLength={120} /></div>
@@ -79,9 +84,10 @@ export default async function ManageSupporter({ params }: { params: Promise<{ to
 
                 {canReviewOnGoogle(s.relationships) && (
                   <div className="card" style={{ gap: 8 }}>
-                    <span className="eyebrow">Share it on Google too (optional)</span>
-                    <span className="xs muted">Google only lets you post reviews yourself, from your own Google account. This opens Nearest&apos;s Google review page — use your own honest words and rating.</span>
-                    <a className="btn ghost sm" href={GOOGLE_REVIEW_URL} target="_blank" rel="noopener noreferrer">Leave a Google review</a>
+                    <span className="eyebrow">Post the same review on Google (optional)</span>
+                    <span className="xs muted">Google only lets you post reviews yourself, from your own Google account. Copy your review below, then paste it on Nearest&apos;s Google review page with your stars.</span>
+                    <CopyText text={[s.statementCurrent, s.benefitCurrent].filter(Boolean).join("\n\n")} label="Copy my review" />
+                    <a className="btn ghost sm" href={GOOGLE_REVIEW_URL} target="_blank" rel="noopener noreferrer">Open Google reviews</a>
                   </div>
                 )}
 
