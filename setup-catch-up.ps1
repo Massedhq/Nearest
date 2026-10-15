@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Expanded narrated walkthrough (3:29): Model Calls, Bundle, protected payments, check-in, release, report a problem, Connections, invite rewards, campaign"
+git commit -q -m "Supporter form wording: former employee or affiliate, thoughts and overall impressions, examples guidance"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

@@ -71,7 +71,7 @@ export default async function ManageSupporter({ params }: { params: Promise<{ to
                   <ActionForm action={requestSupporterCorrection} submitLabel="Send correction" buttonClass="btn sm" className="col g8">
                     <input type="hidden" name="token" value={token} />
                     <div className="field"><label>Your rating</label><StarRating defaultValue={s.rating ?? 0} required={false} /></div>
-                    <div className="field"><label htmlFor="c-st">Your opinion of Nearest</label><textarea id="c-st" name="statement" defaultValue={s.statementCurrent} maxLength={1500} style={{ height: 140 }} /></div>
+                    <div className="field"><label htmlFor="c-st">In your own words, please share your thoughts and overall impressions of Nearest.</label><textarea id="c-st" name="statement" defaultValue={s.statementCurrent} maxLength={1500} style={{ height: 140 }} /></div>
                     <div className="field"><label htmlFor="c-be">How Nearest could benefit students and parents</label><textarea id="c-be" name="benefit" defaultValue={s.benefitCurrent ?? ""} maxLength={1500} style={{ height: 120 }} /></div>
                     <div className="field"><label htmlFor="c-ti">Professional title</label><input id="c-ti" name="title" defaultValue={s.title} maxLength={120} /></div>
                     <div className="field"><label htmlFor="c-af">School or organization</label>

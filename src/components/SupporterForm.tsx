@@ -16,7 +16,7 @@ const RELATIONSHIPS: [string, string][] = [
 ];
 const AFFILIATION: [string, string][] = [
   ["current", "I'm currently with a school or organization"],
-  ["former", "I was previously with a school or organization (not anymore)"],
+  ["former", "I am a former employee or affiliate of a school or organization"],
   ["none", "I'm not with a school or organization"],
 ];
 
@@ -104,13 +104,13 @@ export function SupporterForm({ token, texts }: { token: string; texts: Texts })
       </div>
 
       <div className="field">
-        <label htmlFor="sp-statement">Your opinion of Nearest, in your own words</label>
+        <label htmlFor="sp-statement">In your own words, please share your thoughts and overall impressions of Nearest.</label>
         <textarea id="sp-statement" name="statement" required minLength={20} maxLength={1500} placeholder={texts.statementExample} style={{ height: 160 }} />
       </div>
       <div className="field">
         <label htmlFor="sp-benefit">How could Nearest benefit students and parents?</label>
         <textarea id="sp-benefit" name="benefit" required minLength={20} maxLength={1500} placeholder={texts.benefitExample} style={{ height: 130 }} />
-        <span className="xs muted">The examples are only ideas — please write what you actually think.</span>
+        <span className="xs muted">The examples provided are intended solely as a guide. We encourage you to share your genuine thoughts, opinions, and experiences in your own words.</span>
       </div>
 
       <div className="field">
