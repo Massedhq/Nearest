@@ -6,9 +6,9 @@ import { TopBar } from "@/components/TopBar";
 
 export const metadata = { title: "Sign in" };
 
-/** Only the sales-rep pages may send someone back after sign-in; everyone else goes to /go as before. */
+/** Only the sales-rep and Lead Contributor pages may send someone back after sign-in; everyone else goes to /go as before. */
 function repNext(raw: string | undefined) {
-  return raw && /^\/(rep(\/|$|\?)|api\/rep\/accept\?token=[0-9a-f]{48}$)/.test(raw) ? raw : "/go";
+  return raw && /^\/(rep(\/|$|\?)|api\/rep\/accept\?token=[0-9a-f]{48}$|leads$|api\/leads\/accept\?token=[0-9a-f]{48}$)/.test(raw) ? raw : "/go";
 }
 
 export default async function SignInPage({ searchParams }: { searchParams: Promise<{ redirect_url?: string }> }) {

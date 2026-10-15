@@ -79,10 +79,15 @@ export async function onProRegistered(userId: string) {
   const u = await db.query.users.findFirst({ where: eq(users.id, userId) });
   if (!u) return;
   const em = normEmail(u.email);
-  const hit = em ? await db.query.prospects.findFirst({ where: eq(prospects.emailNorm, em) }) : null;
+  const ph = normPhone(u.phone);
+  // Contributor leads may only have a phone number, so they also match by phone.
+  const hit = (em ? await db.query.prospects.findFirst({ where: eq(prospects.emailNorm, em) }) : null)
+    ?? (ph ? await db.query.prospects.findFirst({ where: and(eq(prospects.phoneNorm, ph), sql`${prospects.enteredBy} is not null`) }) : null);
   if (hit) {
     await db.update(prospects).set({ status: "registered", registeredUserId: userId, updatedAt: new Date() }).where(eq(prospects.id, hit.id));
     await logProspect(hit.id, "registered", "Created a Nearest professional account — recruiting stopped.", null);
+    // Lead Contributor leads keep Avy's AVY referral attribution (flagged, never overwritten, if another code was used).
+    if (hit.enteredBy) { try { await (await import("./lead-contributors")).keepContributorAttribution(userId, hit); } catch (e) { console.error("lead attribution", e); } }
   }
   const p = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, userId) });
   const recruiterId = p?.referredBy ?? hit?.recruiterId ?? null;
@@ -123,9 +128,10 @@ export async function checkCapacity(cityId: number | null, categoryId: number | 
 }
 
 export const PROSPECT_STATUSES: Record<string, string> = {
-  new: "New", approved: "Ready", scheduled: "Scheduled", contacted: "Contacted", conversation: "Conversation", interested: "Interested",
-  link_sent: "Link sent", link_clicked: "Link clicked", registered: "Registered", profile_complete: "Profile complete",
-  declined: "Declined", no_response: "No response", opted_out: "Opted out", needs_review: "Needs review", ineligible: "Ineligible", market_full: "Market full",
+  new: "New", approved: "Ready for outreach", scheduled: "Scheduled", contacted: "Contacted", conversation: "Conversation", interested: "Interested",
+  link_sent: "Invited to register", link_clicked: "Link clicked", registered: "Registered", profile_complete: "Profile complete",
+  declined: "Not interested", no_response: "No response", opted_out: "Opted out", needs_review: "Needs review", ineligible: "Ineligible", market_full: "Market full",
+  needs_info: "Needs information", duplicate: "Duplicate",
 };
 export const SOURCES = ["Instagram", "Facebook", "Google", "Website", "Event", "Referral", "Beauty Supply Store", "Salon", "Barber Shop", "Beauty School", "Trade School", "Other"];
 

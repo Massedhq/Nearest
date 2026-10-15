@@ -833,9 +833,54 @@ export const prospects = pgTable("prospects", {
   reviewQuestion: text("review_question"),
   lastMessageAt: ts("last_message_at"),
   lastContactAt: ts("last_contact_at"),
+  county: text("county"),
+  socialUrl: text("social_url"), // social profile or business website
+  socialNorm: text("social_norm"),
+  // Lead Contributor entries (internal only). recruiterId stays the referral owner (Avy → AVY code); enteredBy is
+  // who typed it in or whose invitation link it came through — never referral ownership, partner credit or pay.
+  enteredBy: uuid("entered_by").references(() => users.id, { onDelete: "set null" }),
+  entryMethod: text("entry_method"), // manual | invitation (contributor entries only)
+  leadInviteId: uuid("lead_invite_id"),
+  duplicateOf: uuid("duplicate_of"), // status "duplicate": the earlier record this one matched (its contact fields aren't normalized, so it never matches anything)
+  conflictNote: text("conflict_note"), // another recruiter's attribution was found — flagged for review, never overwritten
+  conflictAt: ts("conflict_at"),
+  conflictReviewedAt: ts("conflict_reviewed_at"),
+  conflictReviewedBy: uuid("conflict_reviewed_by"),
   createdAt: ts("created_at").notNull().defaultNow(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
-}, (t) => [index("prospects_recruiter_idx").on(t.recruiterId, t.status), index("prospects_email_idx").on(t.emailNorm), index("prospects_phone_idx").on(t.phoneNorm), index("prospects_city_idx").on(t.cityId, t.categoryId)]);
+}, (t) => [index("prospects_recruiter_idx").on(t.recruiterId, t.status), index("prospects_email_idx").on(t.emailNorm), index("prospects_phone_idx").on(t.phoneNorm), index("prospects_city_idx").on(t.cityId, t.categoryId), index("prospects_social_idx").on(t.socialNorm), index("prospects_entered_by_idx").on(t.enteredBy)]);
+
+// Lead Contributors: hired people who may ONLY add professional prospects (manually or through their invitation links).
+// They are not admins and get no referral ownership, partner credit or compensation — every lead they add is
+// attributed to recruiterId (Avy's existing recruiter account / AVY code), set on the server.
+export const leadContributors = pgTable("lead_contributors", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  email: text("email").notNull(), // lowercase — their login must use this exact email
+  token: text("token").notNull(), // invitation to create their login
+  status: text("status").notNull().default("invited"), // invited | active | removed
+  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+  recruiterId: uuid("recruiter_id").notNull().references(() => users.id), // whose referral attribution their leads carry
+  invitedBy: uuid("invited_by").references(() => users.id, { onDelete: "set null" }),
+  inviteExpiresAt: ts("invite_expires_at").notNull(),
+  acceptedAt: ts("accepted_at"),
+  removedAt: ts("removed_at"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("lead_contributors_user_idx").on(t.userId), index("lead_contributors_token_idx").on(t.token)]);
+
+// A contributor's invitation link: opens a Nearest-hosted professional interest form. One submission per link.
+export const leadInvites = pgTable("lead_invites", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  token: text("token").notNull(),
+  contributorId: uuid("contributor_id").notNull().references(() => leadContributors.id, { onDelete: "cascade" }),
+  label: text("label"), // contributor's own reminder ("Jas — nail tech at the mall"); private
+  source: text("source"), // where the contributor found them
+  status: text("status").notNull().default("active"), // active | submitted | revoked
+  expiresAt: ts("expires_at").notNull(),
+  submittedAt: ts("submitted_at"),
+  prospectId: uuid("prospect_id"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("lead_invites_token_idx").on(t.token), index("lead_invites_contributor_idx").on(t.contributorId, t.createdAt)]);
 
 // Everything that happens to a prospect: added, imported, emailed, replied, link clicked, registered, notes…
 export const prospectEvents = pgTable("prospect_events", {

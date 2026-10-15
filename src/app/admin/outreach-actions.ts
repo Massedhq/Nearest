@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, prospects, prospectImports, outreachSuppression } from "@/db";
 import { requireAdmin } from "@/lib/admin";
+import { normSocial } from "@/lib/lead-contributors";
 import { checkProspect, normEmail, normPhone, resolvePlace, resolveCategory, logProspect, notifyAdmins, outreachScope, type ProspectInput, type CheckResult } from "@/lib/outreach";
 
 type FormState = { error?: string; ok?: string };
@@ -124,7 +125,11 @@ export async function updateProspect(_: FormState, form: FormData): Promise<Form
   const recruiter = (await outreachScope(user.id)).isMain && s(form, "recruiter", 40) ? s(form, "recruiter", 40) : p.recruiterId;
   await db.update(prospects).set({
     name: s(form, "name", 120) || p.name, business: s(form, "business", 120) || null, city: city || null, state: s(form, "state", 20) || p.state, cityId,
-    category: cat?.name ?? (category || null), categoryId: cat?.id ?? null, email: email || null, emailNorm: normEmail(email), phone: phone || null, phoneNorm: normPhone(phone),
+    category: cat?.name ?? (category || null), categoryId: cat?.id ?? null, email: email || null, phone: phone || null,
+    // A "Duplicate" record never matches anything, so its contact fields stay un-normalized.
+    emailNorm: status === "duplicate" ? null : normEmail(email), phoneNorm: status === "duplicate" ? null : normPhone(phone),
+    ...(form.has("county") ? { county: s(form, "county", 80) || null } : {}),
+    ...(form.has("social") ? { socialUrl: s(form, "social", 300) || null, socialNorm: status === "duplicate" ? null : normSocial(s(form, "social", 300)) } : {}),
     source: s(form, "source", 60) || null, status, recruiterId: recruiter, updatedAt: new Date(),
   }).where(eq(prospects.id, p.id));
   if (status !== p.status) await logProspect(p.id, "status", `Status: ${p.status} → ${status}`, user.id);

@@ -77,6 +77,7 @@ export async function clerkContact() {
     phoneVerifiedAt: phone?.verification?.status === "verified" ? now : null,
     door: (cu.unsafeMetadata?.door as string | undefined) ?? null,
     repToken: (cu.unsafeMetadata?.repToken as string | undefined) ?? null,
+    contributorToken: (cu.unsafeMetadata?.contributorToken as string | undefined) ?? null,
     invite: (cu.unsafeMetadata?.invite as string | undefined) ?? null,
     dob: (cu.unsafeMetadata?.dob as string | undefined) ?? null,
     ref: (cu.unsafeMetadata?.ref as string | undefined) ?? null,
@@ -131,10 +132,12 @@ export async function destinationFor(viewer: Viewer | null): Promise<string> {
   if (admin) return "/admin";
   if (user?.accountType === "professional") return "/pro/home";
   if (user?.accountType === "student") return "/home";
+  if (user?.accountType === "staff" && (await (await import("./lead-contributors")).contributorForUser(user.id))) return "/leads";
   if (user?.accountType === "staff" && (await (await import("./reps")).repForUser(user.id))) return "/rep";
   if (!user) {
     const c = await clerkContact();
     if (c?.door === "rep" && c.repToken) return `/api/rep/accept?token=${encodeURIComponent(c.repToken)}`;
+    if (c?.door === "contributor" && c.contributorToken) return `/api/leads/accept?token=${encodeURIComponent(c.contributorToken)}`;
     if (c?.door === "pro") return c.invite ? `/pro/onboarding?invite=${encodeURIComponent(c.invite)}` : "/pro/onboarding";
     if (c?.door === "admin") return "/not-authorized";
     return "/onboarding";

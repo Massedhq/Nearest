@@ -9,7 +9,7 @@ export default function Privacy() {
   return (
     <LegalPage
       title="Privacy Policy"
-      updated="September 2026"
+      updated="October 2026"
       other={{ href: "/terms", label: "Terms of Service" }}
       intro={[
         `This Privacy Policy explains how ${ENTITY}, doing business as Nearest ("Nearest," "we," "us"), collects, uses, shares and protects personal information when you use usenearest.com and the Nearest app (the "Service"), and the choices and rights you have.`,
@@ -25,6 +25,7 @@ export default function Privacy() {
               "Students: school, graduation year, optional interests and communication preferences (for example, text communication or ASL).",
               "Professionals: business name, profile photo, bio, years of experience, services and prices, hours, city, ZIP code, service address, travel radius, languages and ASL level, portfolio photos, Instagram, TikTok, Facebook and Pinterest links, and license information (type, number, state and expiration).",
               "Supporters (educators who share a statement through an invitation): name, contact email, professional title, current or former school or organization, an optional portrait, their star rating and statements, what they reviewed, any relationship with Nearest, and their agreement to publish. Their statements, name, title, affiliation and photo are published after Nearest reviews them; the contact email is never published. Supporters can correct or withdraw their statement at any time with their private link, and a withdrawn statement is removed right away.",
+              "Professional interest: when a professional sends Nearest's interest form (from a link someone shared with them), or someone working with Nearest adds them as a prospect, we keep their name, business name, service, city, county and state, email, phone, social profile or website, where they were found and any message — used only to contact them about joining Nearest. It does not create an account. They can ask us to delete it or not contact them at any time.",
               "Verification: Students provide a school ID photo (or, if their school doesn't issue IDs, a proof-of-enrollment document) and a selfie for review; Professionals provide a photo of a government ID (driver's license or state ID) and a live selfie for review (see Section 3).",
               "Connections: verified students get a username and can Connect with other verified students. Other students see only your first name, last initial and school. Students under 18 can be found by name only by students at their own school (anyone else needs your exact username). Only accepted connections can send you professionals, and you can remove a connection anytime.",
               "Problem reports: if something in the app breaks, you can send an automatic report that includes the error details, the page, your device type and a screenshot of your screen at that moment. It goes only to Nearest support and is used only to fix the problem.",

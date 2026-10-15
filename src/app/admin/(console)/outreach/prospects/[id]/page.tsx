@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, desc, eq, asc } from "drizzle-orm";
-import { db, prospects, prospectEvents, users, adminMembers, prospectMessages } from "@/db";
+import { db, prospects, prospectEvents, users, adminMembers, prospectMessages, leadInvites } from "@/db";
+import { canSeeContributorLeads, CONTRIBUTOR_REFERRAL_CODE } from "@/lib/lead-contributors";
+import { reviewLeadConflict } from "@/app/admin/lead-contributor-actions";
 import { AdminHead } from "@/components/AdminHead";
 import { OutreachNav } from "@/components/OutreachNav";
 import { ActionForm } from "@/components/ActionForm";
@@ -12,14 +14,21 @@ import { updateProspect, doNotContact, setProspectPaused, replyToProspect, setAi
 export const metadata = { title: "Prospect" };
 
 export default async function ProspectDetail({ params }: { params: Promise<{ id: string }> }) {
-  const { user } = await requireAdmin();
+  const { user, role } = await requireAdmin();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const p = await db.query.prospects.findFirst({ where: eq(prospects.id, id) });
   const thread = p ? await db.select().from(prospectMessages).where(eq(prospectMessages.prospectId, p.id)).orderBy(asc(prospectMessages.createdAt)) : [];
   const when = (d: Date | null) => d ? d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Chicago" }) : "—";
   if (!p) notFound();
+  // Lead Contributor records and outcomes: only the lead's recruiter (Avy) and the main owner.
+  if (p.enteredBy && !(await canSeeContributorLeads(user.id, role, p.recruiterId))) notFound();
   const { isMain } = await outreachScope(user.id);
+  const [enteredBy, invite, original] = await Promise.all([
+    p.enteredBy ? db.query.users.findFirst({ where: eq(users.id, p.enteredBy) }) : null,
+    p.leadInviteId ? db.query.leadInvites.findFirst({ where: eq(leadInvites.id, p.leadInviteId) }) : null,
+    p.duplicateOf ? db.query.prospects.findFirst({ where: eq(prospects.id, p.duplicateOf), columns: { id: true, name: true, recruiterId: true } }) : null,
+  ]);
   const mine = p.recruiterId === user.id || isMain;
   const [recruiter, events, partners] = await Promise.all([
     p.recruiterId ? db.query.users.findFirst({ where: eq(users.id, p.recruiterId) }) : null,
@@ -35,6 +44,25 @@ export default async function ProspectDetail({ params }: { params: Promise<{ id:
         <span className="small muted">Partner: {recruiter?.firstName ?? "—"} • Source: {p.source ?? "—"} • Added {p.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Chicago" })}</span>
         {p.registeredUserId && <Link className="link small" href={`/admin/professionals/${p.registeredUserId}`}>Open their Nearest account →</Link>}
       </div>
+      {(p.enteredBy || p.conflictNote || p.duplicateOf) && (
+        <div className={`card${p.conflictNote && !p.conflictReviewedAt ? " warn" : ""}`} style={{ gap: 6 }}>
+          <span className="eyebrow">Attribution</span>
+          <div className="row between small"><span className="muted">Referral attribution</span><span>{recruiter?.firstName ?? "—"}{p.enteredBy ? ` (${CONTRIBUTOR_REFERRAL_CODE} code)` : ""}</span></div>
+          {p.enteredBy && <div className="row between small"><span className="muted">Entered by (internal only — no referral credit)</span><span>{[enteredBy?.firstName, enteredBy?.lastName].filter(Boolean).join(" ") || "Lead Contributor"}</span></div>}
+          {p.entryMethod && <div className="row between small"><span className="muted">Submission method</span><span>{p.entryMethod === "invitation" ? `Invitation link${invite?.label ? ` — "${invite.label}"` : ""}` : "Manual entry"}</span></div>}
+          {invite && <div className="row between small"><span className="muted">Invitation</span><span className="xs">{invite.id.slice(0, 8).toUpperCase()} • created {invite.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Chicago" })}{invite.submittedAt ? ` • submitted ${invite.submittedAt.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Chicago" })}` : ""}</span></div>}
+          <div className="row between small"><span className="muted">Prospect ID</span><span className="xs">{p.id}</span></div>
+          {p.duplicateOf && <div className="small">{p.status === "duplicate" ? "Duplicate of " : "Possible duplicate of "}{original ? <Link className="link" href={`/admin/outreach/prospects/${original.id}`}>{original.name}</Link> : "an earlier record"}. The original lead and its history were not changed.</div>}
+          {p.conflictNote && (
+            <div className="col" style={{ gap: 6 }}>
+              <span className="small"><span className="b">Attribution conflict:</span> {p.conflictNote}</span>
+              {p.conflictReviewedAt
+                ? <span className="xs muted">Reviewed {p.conflictReviewedAt.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Chicago" })}.</span>
+                : <form action={reviewLeadConflict} className="row" style={{ gap: 6, flexWrap: "wrap" }}><input type="hidden" name="id" value={p.id} /><input name="note" className="ainput" placeholder="What you decided (optional)" maxLength={500} style={{ flex: 1, minWidth: 160 }} /><button className="btn sm" type="submit">Mark reviewed</button></form>}
+            </div>
+          )}
+        </div>
+      )}
       <div className="acols">
         <div className="card">
           {mine ? (
@@ -44,11 +72,13 @@ export default async function ProspectDetail({ params }: { params: Promise<{ id:
                 <div className="field"><label htmlFor="pd-name">Name</label><input id="pd-name" name="name" defaultValue={p.name} maxLength={120} /></div>
                 <div className="field"><label htmlFor="pd-bus">Business</label><input id="pd-bus" name="business" defaultValue={p.business ?? ""} maxLength={120} /></div>
                 <div className="field"><label htmlFor="pd-city">City</label><input id="pd-city" name="city" defaultValue={p.city ?? ""} maxLength={80} /></div>
+                <div className="field"><label htmlFor="pd-county">County</label><input id="pd-county" name="county" defaultValue={p.county ?? ""} maxLength={80} /></div>
                 <div className="field"><label htmlFor="pd-state">State</label><input id="pd-state" name="state" defaultValue={p.state ?? "TX"} maxLength={20} /></div>
                 <div className="field"><label htmlFor="pd-cat">Category</label><input id="pd-cat" name="category" defaultValue={p.category ?? ""} maxLength={80} /></div>
                 <div className="field"><label htmlFor="pd-src">Source</label><select id="pd-src" name="source" defaultValue={p.source ?? ""}><option value="">—</option>{SOURCES.map((x) => <option key={x}>{x}</option>)}</select></div>
                 <div className="field"><label htmlFor="pd-email">Email</label><input id="pd-email" name="email" defaultValue={p.email ?? ""} maxLength={120} /></div>
                 <div className="field"><label htmlFor="pd-phone">Phone</label><input id="pd-phone" name="phone" defaultValue={p.phone ?? ""} maxLength={30} /></div>
+                <div className="field"><label htmlFor="pd-social">Social profile or website</label><input id="pd-social" name="social" defaultValue={p.socialUrl ?? ""} maxLength={300} /></div>
                 <div className="field"><label htmlFor="pd-status">Status</label><select id="pd-status" name="status" defaultValue={p.status}>{Object.entries(PROSPECT_STATUSES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
                 {isMain && <div className="field"><label htmlFor="pd-rec">Partner</label><select id="pd-rec" name="recruiter" defaultValue={p.recruiterId ?? ""}>{partners.map((x) => <option key={x.id} value={x.id}>{x.first}</option>)}</select></div>}
               </div>
