@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { db, prospectDrafts } from "@/db";
 import { requireAdmin } from "@/lib/admin";
 import { deleteEvidence } from "@/lib/campaign-storage";
-import { approveDraft, canSeeDraft, cleanFields, draftProblems, type DraftFields } from "@/lib/screenshot-leads";
+import { DRAFT_KEYS, approveDraft, canSeeDraft, cleanFields, draftProblems, type DraftFields } from "@/lib/screenshot-leads";
 
 type FormState = { error?: string; ok?: string };
 const s = (f: FormData, k: string, max = 300) => String(f.get(k) ?? "").trim().slice(0, max);
@@ -15,7 +15,7 @@ async function load(f: FormData, userId: string) {
   if (!d || !(await canSeeDraft(userId, d.recruiterId))) return null;
   return d;
 }
-const fromForm = (f: FormData) => cleanFields(Object.fromEntries(["name", "business", "categoryId", "otherServices", "address", "city", "county", "state", "zip", "email", "phone", "instagram", "website", "bookingLink", "source", "credentials", "hours", "notes"].map((k) => [k, s(f, k, k === "notes" ? 1500 : 300)])));
+const fromForm = (f: FormData) => cleanFields(Object.fromEntries(DRAFT_KEYS.map((k) => [k, s(f, k, k === "notes" ? 1500 : k === "prices" ? 500 : 300)])));
 
 /** Save the checked/fixed details (stays in the queue). With approve=1, also approves it into a prospect. */
 export async function saveScreenshotDraft(_: FormState, f: FormData): Promise<FormState> {

@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
-import { neon } from "@neondatabase/serverless";
+import { neon, neonConfig } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import { sql } from "drizzle-orm";
 import * as schema from "./schema";
@@ -9,7 +9,20 @@ import { SETTINGS } from "../lib/settings-defaults";
 import { DFW_CITIES } from "./dfw-cities";
 import { TEXAS_COUNTIES } from "./texas-counties";
 
+// Every request to Neon gets a 30-second limit and up to 3 tries, so a stalled connection can't hang the installer.
+neonConfig.fetchFunction = async (url: string, init?: RequestInit) => {
+  let last: unknown;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try { return await fetch(url, { ...init, signal: AbortSignal.timeout(30000) }); }
+    catch (e) { last = e; if (attempt < 3) { console.log(`  Neon didn't answer (try ${attempt} of 3) - retrying...`); await new Promise((r) => setTimeout(r, 2000)); } }
+  }
+  throw last;
+};
 const db = drizzle({ client: neon(process.env.DATABASE_URL!), schema });
+// Show it's still working while Neon answers, and never sit for more than 3 minutes in total.
+const started = Date.now();
+setInterval(() => console.log(`  ...still waiting for Neon (${Math.round((Date.now() - started) / 1000)}s)`), 15000).unref();
+setTimeout(() => { console.error("  Neon didn't finish within 3 minutes - stopped. Nothing was removed; run npm run db:seed again later."); process.exit(1); }, 180000).unref();
 const { counties, cities, cityCounties, platformSettings, categories, catalogServices, schools } = schema;
 
 const COUNTIES = ["Collin", "Dallas", "Denton", "Ellis", "Hunt", "Johnson", "Kaufman", "Parker", "Rockwall", "Tarrant", "Wise"];
@@ -78,23 +91,28 @@ const SCHOOLS: { city: string; type: "high_school" | "college" | "trade"; names:
 
 async function main() {
   // All 254 Texas counties; only missing ones are added, and an existing county's market is never overwritten.
+  console.log("  Checking counties...");
   const haveCounties = await db.select().from(counties);
   const missingCounties = TEXAS_COUNTIES.filter((c) => !haveCounties.some((h) => h.state === "TX" && h.name === c.name));
   if (missingCounties.length) await db.insert(counties).values(missingCounties.map((c) => ({ name: c.name, state: "TX", market: c.market })));
   void COUNTIES;
+  console.log("  Checking cities...");
   await db.insert(cities).values(CITIES.map((c) => ({ name: c.name, abbreviation: c.abbr }))).onConflictDoNothing();
   // Full DFW starter list: generate a unique 3-letter code for each new city (used in invite codes).
   const all = await db.select().from(cities);
   const have = all.filter((c) => c.state === "TX");
   const usedAbbr = new Set(all.map((c) => c.abbreviation)); // codes are unique across every state
+  const newCities: { name: string; abbreviation: string }[] = [];
   for (const c of DFW_CITIES) {
     if (have.some((h) => h.name === c.name)) continue;
     const letters = c.name.toUpperCase().replace(/[^A-Z]/g, "");
     let abbr = (letters[0] + (letters.slice(1).replace(/[AEIOU]/g, "") + letters.slice(1)).slice(0, 2)).padEnd(3, "X");
     for (let i = 0; usedAbbr.has(abbr); i++) abbr = letters.slice(0, 2) + String.fromCharCode(65 + (i % 26));
     usedAbbr.add(abbr);
-    await db.insert(cities).values({ name: c.name, abbreviation: abbr }).onConflictDoNothing();
+    newCities.push({ name: c.name, abbreviation: abbr });
   }
+  if (newCities.length) await db.insert(cities).values(newCities).onConflictDoNothing(); // one request, not one per city
+  console.log(`  ${newCities.length ? `Added ${newCities.length} cities` : "All DFW cities already loaded"} - linking counties...`);
 
   const countyRows = await db.select().from(counties);
   const cityRows = await db.select().from(cities);
@@ -105,6 +123,7 @@ async function main() {
   });
   await db.insert(cityCounties).values(links).onConflictDoNothing();
 
+  console.log("  Categories, schools and settings...");
   await db
     .insert(categories)
     .values(CATEGORIES.map((c, i) => ({ name: c.name, licenseRequired: !!c.license, licenseLabel: c.license, sort: i })))

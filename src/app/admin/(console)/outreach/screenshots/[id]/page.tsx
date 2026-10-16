@@ -6,20 +6,21 @@ import { AdminHead } from "@/components/AdminHead";
 import { OutreachNav } from "@/components/OutreachNav";
 import { ActionForm } from "@/components/ActionForm";
 import { requireAdmin } from "@/lib/admin";
-import { canSeeDraft, draftDuplicate, draftProblems, SCREENSHOT_SOURCES, type DraftFields } from "@/lib/screenshot-leads";
+import { canSeeDraft, draftDuplicate, draftProblems, EMPTY_FIELDS, MAX_SCREENSHOTS, SCREENSHOT_SOURCES, type DraftFields } from "@/lib/screenshot-leads";
 import { discardScreenshotDraft, saveScreenshotDraft } from "@/app/admin/screenshot-lead-actions";
+import { ScreenshotLeadUpload } from "@/components/ScreenshotLeadUpload";
 
 export const metadata = { title: "Check screenshot lead" };
 export const dynamic = "force-dynamic";
 
-/** Screenshots on one side, the details the AI read on the other. Fix anything, then approve into a prospect. */
+/** Screenshots on one side, the details read from them (in the browser) on the other. Fix anything, then approve into a prospect. */
 export default async function ScreenshotDraft({ params }: { params: Promise<{ id: string }> }) {
   const { user } = await requireAdmin();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const d = await db.query.prospectDrafts.findFirst({ where: eq(prospectDrafts.id, id) });
   if (!d || !(await canSeeDraft(user.id, d.recruiterId))) notFound();
-  const f = d.fields as DraftFields;
+  const f = { ...EMPTY_FIELDS, ...(d.fields as Partial<DraftFields>) }; // drafts saved before newer fields existed
   const [cats, dup] = await Promise.all([
     db.select({ id: categories.id, name: categories.name }).from(categories).where(eq(categories.active, true)).orderBy(asc(categories.sort), asc(categories.name)),
     d.status === "review" ? draftDuplicate(f) : null,
@@ -46,6 +47,7 @@ export default async function ScreenshotDraft({ params }: { params: Promise<{ id
               <a key={i} href={`/api/admin/lead-screenshots/${d.id}/${i}`} target="_blank" rel="noreferrer"><img src={`/api/admin/lead-screenshots/${d.id}/${i}`} alt={`Screenshot ${i + 1}`} style={{ width: "100%", borderRadius: 10, border: "1px solid #2A2A2D" }} /></a>
             ))}
             <span className="xs muted">Tap a screenshot to open it full size.</span>
+            <ScreenshotLeadUpload draftId={d.id} room={MAX_SCREENSHOTS - images.length} />
           </div>
 
           <div className="card" style={{ gap: 12 }}>
@@ -87,15 +89,19 @@ export default async function ScreenshotDraft({ params }: { params: Promise<{ id
               {field("email", "Email", { type: "email", maxLength: 160 })}
               {field("phone", "Phone", { type: "tel", maxLength: 30 })}
               {field("instagram", "Instagram handle (without @)", { maxLength: 80 })}
+              {field("facebook", "Facebook page", { maxLength: 120 })}
+              {field("profileLink", "Profile link", { maxLength: 200 })}
               {field("website", "Website or link in bio", { maxLength: 200 })}
               {field("bookingLink", "Booking link", { maxLength: 200 })}
               <span className="xs muted" style={{ marginTop: -8 }}>Without an email, the prospect is saved as &ldquo;Needs information&rdquo; and isn&apos;t used for email outreach.</span>
 
               <span className="eyebrow" style={{ marginBottom: -6 }}>More</span>
               <div className="field"><label htmlFor="sd-src">Where the screenshots are from</label>
-                <select id="sd-src" name="source" defaultValue={f.source || "Instagram"}>{SCREENSHOT_SOURCES.map((x) => <option key={x}>{x}</option>)}</select>
+                <select id="sd-src" name="source" defaultValue={f.source}><option value="">Not sure — choose where they were found</option>{SCREENSHOT_SOURCES.map((x) => <option key={x}>{x}</option>)}</select>
               </div>
               {field("hours", "Business hours", { maxLength: 300 })}
+              {field("prices", "Listed service prices", { maxLength: 500, placeholder: "e.g. Classic full set $85; Brow lamination $60" })}
+              {field("deposit", "Deposit (kept separate from service prices)", { maxLength: 60, placeholder: "e.g. $25" })}
               <div className="field"><label htmlFor="sd-notes">Notes</label><textarea id="sd-notes" name="notes" defaultValue={f.notes} maxLength={1500} rows={3} /></div>
               {!dup && <button className="btn" type="submit" name="approve" value="1">Approve and add to my prospects</button>}
             </ActionForm>

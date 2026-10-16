@@ -9,6 +9,7 @@ import { fmtDate } from "@/lib/time";
 import { ActionForm } from "@/components/ActionForm";
 import { CopyText } from "@/components/CopyText";
 import { LeadEntryForm } from "@/components/LeadEntryForm";
+import { ContributorNav } from "@/components/ContributorNav";
 import { addLead, createLeadLink, revokeLeadLink } from "./actions";
 
 export const metadata = { title: "Professional Prospect Entry", robots: { index: false, follow: false } };
@@ -57,14 +58,11 @@ export default async function LeadWorkspace({ searchParams }: { searchParams: Pr
   return (
     <div className="scr">
       <div className="body" style={{ maxWidth: 760, margin: "0 auto", width: "100%", gap: 20 }}>
-        <div className="row between">
-          <Image src="/brand/nearest-monogram.png" alt="Nearest" width={44} height={44} />
-          <SignOutButton redirectUrl="/"><button className="btn ghost sm" type="button">Sign out</button></SignOutButton>
-        </div>
+        <ContributorNav at="entry" />
         <div className="col" style={{ gap: 6 }}>
           <span className="eyebrow">Signed in as {contributor.name}</span>
           <h1 className="disp h1" style={{ margin: 0 }}>Professional Prospect Entry</h1>
-          <p className="small muted p" style={{ margin: 0 }}>Add beauty and wellness professionals you&apos;ve found, or send them a link to share their own details. Nearest reviews every lead and handles all contact — nothing is sent to them automatically.</p>
+          <p className="small muted p" style={{ margin: 0 }}>Add beauty and wellness professionals you&apos;ve found, or send them a link to share their own details. Not sure where to look? Open Where to recruit for the DFW cities and categories that still need professionals. Nearest reviews every lead and handles all contact — nothing is sent to them automatically.</p>
         </div>
 
         <section className="card" style={{ gap: 16 }} aria-labelledby="add-h">

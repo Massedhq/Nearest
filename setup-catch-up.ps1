@@ -27,9 +27,8 @@ foreach ($try in 1..3) {
   Start-Sleep -Seconds 5
 }
 if (-not $ok) { Write-Host "STOPPED: Updating the database failed 3 times. Run: npx drizzle-kit push   then run this installer again." -ForegroundColor Red; exit 1 }
-Step "3/4  Loading all 254 Texas counties (existing counties, cities and markets are left as they are)"
-npm run db:seed
-Check "Loading counties"
+# Counties and the 199 DFW cities were loaded by the previous update, so this update doesn't touch them.
+# (To re-check them any time: npm run db:seed - it only adds what's missing.)
 Step "3/4  Production build"
 # Clear leftovers from earlier builds or "Start the app" runs — they can point at removed pages and break the build.
 if (Test-Path ".\.next") { Remove-Item -Recurse -Force ".\.next" -ErrorAction SilentlyContinue }
@@ -37,7 +36,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Add prospects from screenshots: AI reads the details, review queue, approve into prospects"
+git commit -q -m "Screenshot leads: read screenshots in the browser with self-hosted OCR (no AI key), new fields, add-more screenshots; seed can no longer hang the installer"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

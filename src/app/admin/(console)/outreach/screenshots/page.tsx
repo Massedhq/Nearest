@@ -12,7 +12,7 @@ import { fmtDate } from "@/lib/time";
 export const metadata = { title: "Add from screenshots" };
 export const dynamic = "force-dynamic";
 
-/** Upload screenshots → AI reads them → a queue of drafts you check and approve into prospects. */
+/** Upload screenshots → their text is read in the browser (self-hosted OCR, no AI key) → a queue of drafts you check and approve into prospects. */
 export default async function ScreenshotLeads() {
   const { user } = await requireAdmin();
   const { isMain } = await outreachScope(user.id);
@@ -28,7 +28,7 @@ export default async function ScreenshotLeads() {
       <OutreachNav at="screenshots" />
       <div className="card" style={{ gap: 10, maxWidth: 640, width: "100%", boxSizing: "border-box" }}>
         <span className="eyebrow">Upload screenshots</span>
-        <span className="small muted">Nearest&apos;s AI reads the name, business, service, location and contact details from the screenshots and puts them in the review queue below. Nothing is added to your prospects or contacted until you check the details and approve.</span>
+        <span className="small muted">Nearest reads the name, business, service, location, contact details and listed prices from the screenshots right here in your browser (no AI service or API key) and puts them in the review queue below. Nothing is added to your prospects or contacted until you check the details and approve.</span>
         <ScreenshotLeadUpload />
       </div>
 

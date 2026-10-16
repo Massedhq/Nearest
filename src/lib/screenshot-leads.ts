@@ -6,7 +6,8 @@ import { normSocial } from "./lead-contributors";
 
 /**
  * Screenshot leads: an owner uploads screenshots of a professional's Instagram / booking page / business flyer.
- * AI reads what's visible into a draft; the owner checks every field against the screenshots, fixes anything, and
+ * The text is read in the owner's own browser (Tesseract OCR, self-hosted under /ocr — no AI service or API key) and
+ * sorted into fields by lead-parse.ts; the owner checks every field against the screenshots, fixes anything, and
  * approves it into a real prospect (their own recruiting, their own referral attribution). Drafts are never contacted.
  */
 
@@ -16,13 +17,15 @@ export const MAX_SCREENSHOT_BYTES = 4 * 1024 * 1024; // all screenshots together
 export type DraftFields = {
   name: string; business: string; categoryId: number | null; otherServices: string;
   address: string; city: string; county: string; state: string; zip: string;
-  email: string; phone: string; instagram: string; website: string; bookingLink: string;
-  source: string; credentials: string; hours: string; notes: string;
+  email: string; phone: string; instagram: string; facebook: string; profileLink: string; website: string; bookingLink: string;
+  source: string; credentials: string; hours: string; prices: string; deposit: string; notes: string;
 };
 export const EMPTY_FIELDS: DraftFields = {
   name: "", business: "", categoryId: null, otherServices: "", address: "", city: "", county: "", state: "TX", zip: "",
-  email: "", phone: "", instagram: "", website: "", bookingLink: "", source: "Instagram", credentials: "", hours: "", notes: "",
+  email: "", phone: "", instagram: "", facebook: "", profileLink: "", website: "", bookingLink: "", source: "", credentials: "", hours: "", prices: "", deposit: "", notes: "",
 };
+/** Field keys a person can edit on the draft form. */
+export const DRAFT_KEYS: (keyof DraftFields)[] = ["name", "business", "categoryId", "otherServices", "address", "city", "county", "state", "zip", "email", "phone", "instagram", "facebook", "profileLink", "website", "bookingLink", "source", "credentials", "hours", "prices", "deposit", "notes"];
 export const SCREENSHOT_SOURCES = ["Instagram", "Facebook", "TikTok", "Google", "Website", "Booking site", "Flyer", "Other"];
 
 const clip = (v: unknown, max = 300) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "");
@@ -37,6 +40,11 @@ export function igHandle(raw: string) {
 export function prettyPhone(raw: string) {
   const d = normPhone(raw);
   return d ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : raw.trim();
+}
+/** "facebook.com/KNZBeautyBar" or "KNZ Beauty Bar" → as shown, without the https:// */
+function fbPage(raw: string) {
+  const v = raw.trim().replace(/^https?:\/\//i, "").replace(/^(www|m)\./i, "").replace(/\/+$/, "");
+  return v;
 }
 const webish = (raw: string) => {
   const v = raw.trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "");
@@ -56,9 +64,9 @@ export async function cleanFields(raw: Record<string, unknown>): Promise<DraftFi
     address: clip(raw.address, 200), city: clip(raw.city, 80), county: clip(raw.county, 80).replace(/\s+county$/i, ""),
     state: /^[A-Z]{2}$/.test(state) ? state : state === "TEXAS" ? "TX" : state.slice(0, 2) || "TX", zip: (clip(raw.zip, 10).match(/\d{5}/)?.[0]) ?? "",
     email: normEmail(email) ?? email, phone: prettyPhone(clip(raw.phone, 30)),
-    instagram: igHandle(clip(raw.instagram, 80)), website: webish(clip(raw.website, 200)) || clip(raw.website, 200), bookingLink: webish(clip(raw.bookingLink, 200)) || clip(raw.bookingLink, 200),
-    source: SCREENSHOT_SOURCES.includes(clip(raw.source, 40)) ? clip(raw.source, 40) : "Instagram",
-    credentials: clip(raw.credentials, 200), hours: clip(raw.hours, 300), notes: clip(raw.notes, 1500),
+    instagram: igHandle(clip(raw.instagram, 80)), facebook: fbPage(clip(raw.facebook, 120)), profileLink: webish(clip(raw.profileLink, 200)) || clip(raw.profileLink, 200), website: webish(clip(raw.website, 200)) || clip(raw.website, 200), bookingLink: webish(clip(raw.bookingLink, 200)) || clip(raw.bookingLink, 200),
+    source: SCREENSHOT_SOURCES.includes(clip(raw.source, 40)) ? clip(raw.source, 40) : "", // unclear → left for review
+    credentials: clip(raw.credentials, 200), hours: clip(raw.hours, 300), prices: clip(raw.prices, 500), deposit: clip(raw.deposit, 60), notes: clip(raw.notes, 1500),
   };
 }
 
@@ -86,13 +94,14 @@ export function draftProblems(f: DraftFields) {
   if (!f.city) out.push("City");
   if (!f.county) out.push("County");
   if (!f.state) out.push("State");
+  if (!f.source) out.push("Where they were found (the screenshots didn't clearly show Instagram or Facebook)");
   if (f.email && !normEmail(f.email)) out.push("Email (doesn't look complete)");
   if (f.phone && !normPhone(f.phone)) out.push("Phone (needs 10 digits)");
-  if (!normEmail(f.email) && !normPhone(f.phone) && !f.instagram && !normSocial(f.website)) out.push("At least one way to reach them (email, phone, Instagram or website)");
+  if (!normEmail(f.email) && !normPhone(f.phone) && !f.instagram && !f.facebook && !normSocial(f.profileLink) && !normSocial(f.website)) out.push("At least one way to reach them (email, phone, Instagram, Facebook or website)");
   return out;
 }
 
-const socialOf = (f: DraftFields) => (f.instagram ? `instagram.com/${f.instagram}` : f.website || f.bookingLink || "");
+const socialOf = (f: DraftFields) => (f.instagram ? `instagram.com/${f.instagram}` : f.facebook ? (/facebook\.com\//i.test(f.facebook) ? f.facebook : "") || f.profileLink || f.website || f.bookingLink : f.profileLink || f.website || f.bookingLink || "");
 
 /** Someone already in Nearest with the same email, phone or social link (a prospect or a professional account). */
 export async function draftDuplicate(f: DraftFields): Promise<{ kind: "prospect"; id: string; name: string; owner: string | null } | { kind: "professional"; id: string } | { kind: "suppressed" } | null> {
@@ -130,16 +139,17 @@ export async function approveDraft(draftId: string, actorId: string): Promise<{ 
   const em = normEmail(f.email), ph = normPhone(f.phone), social = socialOf(f);
   const details = [
     f.otherServices && `Also offers: ${f.otherServices}`, f.credentials && `Credentials (as shown): ${f.credentials}`, f.address && `Address: ${f.address}${f.zip && !f.address.includes(f.zip) ? ` ${f.zip}` : ""}`,
-    f.instagram && `Instagram: @${f.instagram}`, f.website && `Website: ${f.website}`, f.bookingLink && f.bookingLink !== f.website && `Booking link: ${f.bookingLink}`, f.hours && `Hours: ${f.hours}`, f.notes,
+    f.instagram && `Instagram: @${f.instagram}`, f.facebook && `Facebook: ${f.facebook}`, f.profileLink && f.profileLink !== `instagram.com/${f.instagram}` && `Profile link: ${f.profileLink}`, f.website && `Website: ${f.website}`, f.bookingLink && f.bookingLink !== f.website && `Booking link: ${f.bookingLink}`, f.hours && `Hours: ${f.hours}`,
+    f.prices && `Service prices (as listed): ${f.prices}`, f.deposit && `Deposit (separate from service prices): ${f.deposit}`, f.notes,
   ].filter(Boolean).join("\n");
   const [row] = await db.insert(prospects).values({
     recruiterId: d.recruiterId ?? actorId, name: f.name, business: f.business || null, city: f.city, county: f.county, state: f.state, cityId: await resolvePlace(f.city, f.state),
     category: cat?.name ?? null, categoryId: cat?.id ?? null, email: em ? f.email : null, emailNorm: em, phone: ph ? f.phone : null, phoneNorm: ph,
-    socialUrl: social || null, socialNorm: normSocial(social), source: f.source || "Instagram", notes: details || null,
+    socialUrl: social || null, socialNorm: normSocial(social), source: f.source || null, notes: details || null,
     status: em ? "approved" : "needs_info", // never ready for email outreach without an email
   }).returning();
   await db.update(prospectDrafts).set({ status: "approved", prospectId: row.id, decidedBy: actorId, decidedAt: new Date(), updatedAt: new Date() }).where(and(eq(prospectDrafts.id, d.id), eq(prospectDrafts.status, "review")));
-  await logProspect(row.id, "added", `Added from ${(d.images as unknown[]).length === 1 ? "a screenshot" : "screenshots"} (read by AI, checked and approved).`, actorId);
+  await logProspect(row.id, "added", `Added from ${(d.images as unknown[]).length === 1 ? "a screenshot" : "screenshots"} (read in the browser, checked and approved).`, actorId);
   return { prospectId: row.id };
 }
 
@@ -148,56 +158,4 @@ export async function canSeeDraft(userId: string, recruiterId: string | null) {
   if (recruiterId === userId) return true;
   const { mainOwnerId } = await import("./partner");
   return (await mainOwnerId()) === userId;
-}
-
-// ---------------------------------------------------------------- AI reading
-
-type Img = { data: Buffer; mime: string };
-
-/** Asks the AI to read the screenshots. Only what's visible — never guesses contact details. */
-export async function readScreenshots(images: Img[]): Promise<{ fields: Record<string, unknown>; unsure: string } | { error: string }> {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) return { error: "The AI reader isn't set up (ANTHROPIC_API_KEY is missing in Vercel), so fill in the details by hand." };
-  const { AI_MODEL } = await import("./outreach-ai");
-  const cats = (await db.select({ name: categories.name }).from(categories).where(eq(categories.active, true))).map((c) => c.name);
-  const system = `You read screenshots of a beauty or wellness professional's public profile, booking page or business flyer, and pull out their business contact details for a recruiting list.
-Rules:
-- Use ONLY text that is visible in the screenshots. Never guess or invent an email, phone number, handle, address or name. If something isn't shown, use "".
-- name: the professional's own name (e.g. "Kenzie Williams"; if only a first name is shown, use it). business: the business or brand name.
-- category: the ONE best match from this list: ${cats.join(", ")}. An esthetician doing lashes and brows → "Lashes" (put the rest in otherServices).
-- address/city/state/zip: from a street address or location line. Prefer the street address's city over a general area ("Dallas, TX" banner vs "Farmers Branch" address → city "Farmers Branch"). state as 2 letters. county only if it's written.
-- instagram: the handle without @ (from the profile header, @mentions or the browser/app title). website: a business website or link-in-bio. bookingLink: a booking site (e.g. *.as.me, booksy, vagaro, glossgenius, square).
-- source: where the screenshot is from: Instagram, Facebook, TikTok, Google, Website, Booking site, Flyer or Other.
-- credentials: licensing exactly as they state it (e.g. "Licensed Esthetician") — their own claim, not verified.
-- hours: business hours, short. otherServices: other services they mention. notes: one or two short lines of useful context (deposit/policies, specialties, follower count).
-- unsure: list any field you weren't sure about or that looked cut off.
-Reply with JSON only: {"name":"","business":"","category":"","otherServices":"","address":"","city":"","county":"","state":"","zip":"","email":"","phone":"","instagram":"","website":"","bookingLink":"","source":"","credentials":"","hours":"","notes":"","unsure":""}`;
-  const content = [
-    ...images.map((im) => ({ type: "image", source: { type: "base64", media_type: im.mime, data: im.data.toString("base64") } })),
-    { type: "text", text: `These ${images.length} screenshot${images.length === 1 ? " is" : "s are"} all of the same professional. Read their details.` },
-  ];
-  let lastError = "";
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-        body: JSON.stringify({ model: AI_MODEL, max_tokens: 1200, system, messages: [{ role: "user", content }] }),
-        signal: AbortSignal.timeout(60000),
-      });
-      if (!r.ok) {
-        const t = (await r.text()).slice(0, 200);
-        lastError = r.status === 401 ? "The AI key was rejected (401)" : r.status === 404 ? `AI model "${AI_MODEL}" not found` : r.status === 400 && /credit|billing/i.test(t) ? "The AI account has no credit" : `AI service error ${r.status}`;
-        if ([400, 401, 404].includes(r.status)) break;
-      } else {
-        const data = (await r.json()) as { content?: { type: string; text?: string }[] };
-        const text = (data.content ?? []).filter((c) => c.type === "text").map((c) => c.text).join("").trim();
-        const json = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)) as Record<string, unknown>;
-        return { fields: json, unsure: clip(json.unsure, 500) };
-      }
-    } catch (e) { lastError = `AI request failed: ${(e as Error).message}`; }
-    if (attempt === 0) await new Promise((res) => setTimeout(res, 1500));
-  }
-  console.error("screenshot reader", lastError);
-  return { error: `${lastError} — fill in the details by hand.` };
 }
