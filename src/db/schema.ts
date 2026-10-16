@@ -850,6 +850,23 @@ export const prospects = pgTable("prospects", {
   updatedAt: ts("updated_at").notNull().defaultNow(),
 }, (t) => [index("prospects_recruiter_idx").on(t.recruiterId, t.status), index("prospects_email_idx").on(t.emailNorm), index("prospects_phone_idx").on(t.phoneNorm), index("prospects_city_idx").on(t.cityId, t.categoryId), index("prospects_social_idx").on(t.socialNorm), index("prospects_entered_by_idx").on(t.enteredBy)]);
 
+// Screenshot leads: an owner uploads screenshots of a professional's profile / business page; AI reads them into a draft
+// the owner checks and fixes, then approves into a real prospect. Nothing here is contacted or counted until approved.
+export const prospectDrafts = pgTable("prospect_drafts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  recruiterId: uuid("recruiter_id").references(() => users.id, { onDelete: "set null" }), // whose prospect it becomes (the uploader)
+  createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+  status: text("status").notNull().default("review"), // review | approved | discarded
+  images: jsonb("images").notNull(), // [{ url, access, mime }] — private storage, served only through the admin route
+  fields: jsonb("fields").notNull(), // the editable lead details (see src/lib/screenshot-leads.ts DraftFields)
+  aiNote: text("ai_note"), // what the reader wasn't sure about, or why it couldn't read the screenshots
+  prospectId: uuid("prospect_id"),
+  decidedBy: uuid("decided_by"),
+  decidedAt: ts("decided_at"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+}, (t) => [index("prospect_drafts_status_idx").on(t.status, t.createdAt), index("prospect_drafts_recruiter_idx").on(t.recruiterId)]);
+
 // Lead Contributors: hired people who may ONLY add professional prospects (manually or through their invitation links).
 // They are not admins and get no referral ownership, partner credit or compensation — every lead they add is
 // attributed to recruiterId (Avy's existing recruiter account / AVY code), set on the server.

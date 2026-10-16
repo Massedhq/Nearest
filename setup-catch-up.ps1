@@ -17,7 +17,7 @@ foreach ($r in $retired) { if (Test-Path $r) { Remove-Item -Recurse -Force $r; W
 Step "1/4  Installing packages"
 npm ci
 Check "Installing packages"
-Step "2/4  Updating Neon (adds the Lead Contributor tables and prospect attribution columns - nothing is removed)"
+Step "2/4  Updating Neon (adds the screenshot lead queue, Lead Contributor tables and prospect attribution columns - nothing is removed)"
 # Neon can be slow to answer "Pulling schema" — retry up to 3 times before giving up.
 $ok = $false
 foreach ($try in 1..3) {
@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Lead contributors page: invite form and list fit the screen (no running off the page)"
+git commit -q -m "Add prospects from screenshots: AI reads the details, review queue, approve into prospects"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { asc, eq, and } from "drizzle-orm";
 import { db, adminMembers, users, categories } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
@@ -18,6 +19,10 @@ export default async function AddProspect() {
     <>
       <AdminHead eyebrow="Professional Outreach" title="Add prospect" />
       <OutreachNav at="add" />
+      <Link className="card small" href="/admin/outreach/screenshots" style={{ maxWidth: 640, textDecoration: "none", color: "inherit", gap: 2 }}>
+        <span className="b">Have a screenshot of their profile?</span>
+        <span className="muted">Add from screenshots — Nearest reads the details for you, and you approve them. →</span>
+      </Link>
       <div className="card" style={{ maxWidth: 640 }}>
         <ActionForm action={addProspect} submitLabel="Add prospect">
           <div className="grid2">
