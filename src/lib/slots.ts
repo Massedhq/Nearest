@@ -34,6 +34,7 @@ export async function slotCount(cityId: number, categoryId: number, excludeUserI
     where (${excludeUserId ?? null}::uuid is null or p.user_id <> ${excludeUserId ?? null}::uuid)
       and p.placement_released_at is null
       and (p.entry_paid_at is not null or p.subscription_status in ('active','trialing','past_due') or p.entry_hold_until > now()
+           or (p.review_status = 'approved' and p.searchable) -- live on Nearest always holds a spot
            or exists (select 1 from admin_members a where a.user_id = p.user_id and a.role = 'OWNER' and a.active))
       and ((p.slot_city_id = ${cityId} and p.slot_category_id = ${categoryId})
            or (p.city_id = ${cityId} and exists (select 1 from pro_services s where s.user_id = p.user_id and s.active and s.category_id = ${categoryId})))`);

@@ -24,10 +24,18 @@ export async function dfwTargets() {
       .innerJoin(cityCounties, eq(cityCounties.cityId, cities.id)).innerJoin(counties, eq(counties.id, cityCounties.countyId))
       .where(and(eq(counties.market, "DFW"), eq(counties.state, "TX"), eq(cities.state, "TX"), eq(cities.active, true))).orderBy(asc(cities.name), asc(counties.name)),
     db.execute<{ city_id: number; category_id: number; n: number }>(sql`
-      with joined as (
-        select p.user_id, p.slot_city_id, p.slot_category_id, p.city_id from professional_profiles p
+      with dfw as (
+        select distinct c.id, lower(c.name) as lname from cities c join city_counties cc on cc.city_id = c.id join counties k on k.id = cc.county_id
+        where k.market = 'DFW' and k.state = 'TX' and c.state = 'TX'
+      ), joined as (
+        -- a professional's city is matched to the DFW city with the same name, so a differently-linked record still counts
+        select p.user_id, p.slot_category_id,
+          coalesce((select d.id from dfw d join cities pc on pc.id = p.slot_city_id where d.lname = lower(pc.name) limit 1), p.slot_city_id) as slot_city_id,
+          coalesce((select d.id from dfw d join cities pc on pc.id = p.city_id where d.lname = lower(pc.name) limit 1), p.city_id) as city_id
+        from professional_profiles p
         where p.placement_released_at is null
           and (p.entry_paid_at is not null or p.subscription_status in ('active','trialing','past_due') or p.entry_hold_until > now()
+               or (p.review_status = 'approved' and p.searchable) -- live on Nearest always counts
                or exists (select 1 from admin_members a where a.user_id = p.user_id and a.role = 'OWNER' and a.active))
       ), pairs as (
         select user_id, slot_city_id as city_id, slot_category_id as category_id from joined where slot_city_id is not null and slot_category_id is not null
@@ -68,9 +76,15 @@ export async function whoCounts() {
     user_id: string; display_name: string | null; first_name: string | null; last_name: string | null; business_name: string | null;
     city_id: number | null; city: string | null; dfw: boolean; joined: boolean; released: boolean; cats: string[] | null; planned: string[] | null;
   }>(sql`
-    select p.user_id, p.display_name, u.first_name, u.last_name, p.business_name, p.city_id, c.name as city,
-      exists (select 1 from city_counties cc join counties k on k.id = cc.county_id where cc.city_id = p.city_id and k.market = 'DFW') as dfw,
+    with dfw as (
+      select distinct c.id, lower(c.name) as lname from cities c join city_counties cc on cc.city_id = c.id join counties k on k.id = cc.county_id
+      where k.market = 'DFW' and k.state = 'TX' and c.state = 'TX'
+    )
+    select p.user_id, p.display_name, u.first_name, u.last_name, p.business_name,
+      coalesce((select d.id from dfw d where d.lname = lower(c.name) limit 1), p.city_id) as city_id, c.name as city,
+      exists (select 1 from dfw d where d.lname = lower(c.name)) as dfw,
       (p.entry_paid_at is not null or p.subscription_status in ('active','trialing','past_due') or p.entry_hold_until > now()
+        or (p.review_status = 'approved' and p.searchable)
         or exists (select 1 from admin_members a where a.user_id = p.user_id and a.role = 'OWNER' and a.active)) as joined,
       p.placement_released_at is not null as released,
       (select array_agg(distinct k.name order by k.name) from categories k

@@ -25,7 +25,8 @@ export default async function ServiceCoverage({ searchParams }: { searchParams: 
   const target = Math.max(firstInSpots, Number(s["growth.cap_per_category"] ?? 10)); // total spots, then waitlist
   const goal = Number(s["growth.market_goal"] ?? 1500);
 
-  const joined = sql`(${professionalProfiles.entryPaidAt} is not null or ${professionalProfiles.subscriptionStatus} in ('active','trialing','past_due') or exists (select 1 from admin_members a where a.user_id = ${professionalProfiles.userId} and a.role = 'OWNER' and a.active))`;
+  // Same rule as the spot limits and Where to recruit: joined, an active member, live on Nearest, or an owner.
+  const joined = sql`(${professionalProfiles.entryPaidAt} is not null or ${professionalProfiles.subscriptionStatus} in ('active','trialing','past_due') or (${professionalProfiles.reviewStatus} = 'approved' and ${professionalProfiles.searchable}) or exists (select 1 from admin_members a where a.user_id = ${professionalProfiles.userId} and a.role = 'OWNER' and a.active))`;
   const live = sql.join(liveProWhere(null, "all"), sql` and `);
 
   const next750 = await nextEntryStats();

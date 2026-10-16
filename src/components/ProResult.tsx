@@ -9,7 +9,7 @@ const ASL: Record<string, string> = { basic: "Basic", conversational: "Conversat
 
 type P = {
   userId: string; businessName: string | null; photoUrl: string | null; aslLevel: string; city: string | null;
-  minPrice: number | null; firstService: string | null; openings: string[] | null; photos: string[]; rating?: number | null; reviewCount?: number;
+  minPrice: number | null; firstService: string | null; cats?: string[] | null; openings: string[] | null; photos: string[]; rating?: number | null; reviewCount?: number;
   miles?: number | null; serviceMode?: string | null; favCount?: number;
   displayName?: string | null; logoUrl?: string | null; firstName?: string | null; lastName?: string | null;
 };
@@ -23,6 +23,7 @@ export function ProResult({ p, fav = false }: { p: P; fav?: boolean }) {
         {p.photoUrl ? <Image src={p.photoUrl} alt="" width={52} height={52} style={{ borderRadius: 26, objectFit: "cover" }} /> : <div className="avatar">{initials}</div>}
         <div className="col g4 grow">
           <div className="row between"><span className="h3 row" style={{ gap: 5 }}>{who}<span className="badge" role="img" aria-label="Approved by Nearest" title="Approved by Nearest"><Icon name="shield" size="s" /></span></span><FavButton proId={p.userId} on={fav} count={p.favCount ?? 0} /></div>
+          {p.cats && p.cats.length > 0 && <span className="small" style={{ color: "#D8D2C6" }}>{p.cats.join(" • ")}</span>}
           {p.businessName && p.businessName !== who && (
             <span className="row small muted" style={{ gap: 6 }}>{p.logoUrl && <Image src={p.logoUrl} alt="" width={18} height={18} style={{ borderRadius: 4, objectFit: "cover" }} />}{p.businessName}</span>
           )}

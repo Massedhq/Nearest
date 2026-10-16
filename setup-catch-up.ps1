@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Green shield next to pro names with their service categories underneath; Skincare renamed Esthetician/Skincare; Where to recruit lists every professional (counted or signing up, with reasons)"
+git commit -q -m "Live pros always count toward city spots (all boards, matched by city name); categories under the name on profiles and search cards with the green shield; Esthetician/Skincare"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

@@ -112,6 +112,8 @@ export async function searchPros(f: Filters, area: Area, place?: Place | null) {
       city: cities.name,
       minPrice: sql<number | null>`(select min(price_cents) from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.price_cents <= 15000)`,
       firstService: sql<string | null>`(select name from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.price_cents <= 15000 order by s.sort limit 1)`,
+      // every kind of service they offer, in Nearest's category order (shown under their name on the card)
+      cats: sql<string[] | null>`(select array_agg(k.name order by k.sort, k.name) from categories k where k.id in (select s.category_id from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.price_cents <= 15000))`,
       favCount: sql<number>`(select count(*)::int from ${favorites} fv where fv.pro_id = ${professionalProfiles.userId})`,
       rating: sql<number | null>`(select round(avg(r.rating)::numeric, 1)::float from ${reviews} r where r.pro_id = ${professionalProfiles.userId} and not r.hidden)`,
       reviewCount: sql<number>`(select count(*)::int from ${reviews} r where r.pro_id = ${professionalProfiles.userId} and not r.hidden)`,
