@@ -40,44 +40,40 @@ export default async function LeadContributors() {
       <p className="xs muted p">A Lead Contributor can only add professional prospects (by hand or through their own invitation links) on a separate page, /leads. They can&apos;t open any admin page, student information, payments, supporter submissions, exports or the prospect list. Every lead they add is attributed on the server to {recruiter?.firstName ?? "the owner"}&apos;s recruiter account and the {CONTRIBUTOR_REFERRAL_CODE} referral code; the contributor is recorded only as &ldquo;Entered by&rdquo; — no referral ownership, partner credit or compensation.</p>
       {!recruiterId && <div className="card warn small"><span>The {CONTRIBUTOR_REFERRAL_CODE} referral code isn&apos;t on an active owner account, so contributors can&apos;t be invited yet.</span></div>}
 
-      <div className="card" style={{ gap: 10 }}>
+      <div className="card" style={{ gap: 10, maxWidth: 640, width: "100%", boxSizing: "border-box" }}>
         <span className="eyebrow">Invite a Lead Contributor</span>
-        <ActionForm action={inviteLeadContributor} submitLabel="Create invitation" buttonClass="btn sm" className="row g8" >
-          <input name="name" className="ainput" placeholder="Full name" maxLength={120} required style={{ flex: 1, minWidth: 160 }} />
-          <input name="email" type="email" className="ainput" placeholder="Their email (their login must use it)" maxLength={160} required style={{ flex: 1, minWidth: 200 }} />
+        <ActionForm action={inviteLeadContributor} submitLabel="Create invitation" buttonClass="btn sm" className="col g8">
+          <div className="field"><label htmlFor="lc-name">Full name</label><input id="lc-name" name="name" maxLength={120} required style={{ width: "100%" }} /></div>
+          <div className="field"><label htmlFor="lc-email">Email (their login must use it)</label><input id="lc-email" name="email" type="email" maxLength={160} required style={{ width: "100%" }} /></div>
         </ActionForm>
         <span className="xs muted">Nothing is emailed — copy the invitation link below and send it yourself. It works for 14 days.</span>
       </div>
 
-      <div className="card" style={{ overflowX: "auto" }}>
-        <table className="tbl">
-          <thead><tr><th>Contributor</th><th>Status</th><th>Leads entered</th><th>Invitation links</th><th>Since</th><th></th></tr></thead>
-          <tbody>
-            {rows.length === 0 && <tr><td className="empty" colSpan={6}>No Lead Contributors yet.</td></tr>}
-            {rows.map((c) => {
-              const n = c.userId ? byUser.get(c.userId) : undefined;
-              const l = byLinks.get(c.id);
-              const expired = c.status === "invited" && c.inviteExpiresAt.getTime() < now;
-              return (
-                <tr key={c.id}>
-                  <td><div className="b">{c.name}</div><div className="xs muted">{c.email}</div>
-                    {c.status === "invited" && !expired && <div className="row" style={{ gap: 6, marginTop: 6 }}><CopyText text={`${origin}/leads/join/${c.token}`} label="Copy invitation link" /></div>}
-                  </td>
-                  <td><span className={`tag${c.status === "active" ? " ok" : c.status === "removed" ? " bad" : ""}`}>{c.status === "active" ? "Active" : c.status === "removed" ? "Removed" : expired ? "Invitation expired" : "Invited"}</span></td>
-                  <td>{n ? <Link className="link" href={`/admin/outreach/prospects?all=1&by=${c.userId}`}>{n.n} ({n.manual} manual, {n.invite} by link)</Link> : "0"}</td>
-                  <td>{l ? `${l.n} created • ${l.done} submitted` : "—"}</td>
-                  <td className="xs">{fmtDate(c.acceptedAt ?? c.createdAt, { month: "short", day: "numeric", year: "numeric" })}</td>
-                  <td className="xs">
-                    {c.status === "invited" && <form action={newLeadContributorLink}><input type="hidden" name="id" value={c.id} /><button className="link xs" type="submit">New invitation link</button></form>}
-                    {c.status !== "removed"
-                      ? <form action={removeLeadContributor}><input type="hidden" name="id" value={c.id} /><button className="link xs" type="submit" style={{ color: "#E08A8A" }}>Revoke access</button></form>
-                      : <form action={restoreLeadContributor}><input type="hidden" name="id" value={c.id} /><button className="link xs" type="submit">Restore access</button></form>}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      <div className="col" style={{ gap: 10, minWidth: 0, maxWidth: 640, width: "100%" }}>
+        {rows.length === 0 && <div className="card small"><span className="muted">No Lead Contributors yet.</span></div>}
+        {rows.map((c) => {
+          const n = c.userId ? byUser.get(c.userId) : undefined;
+          const l = byLinks.get(c.id);
+          const expired = c.status === "invited" && c.inviteExpiresAt.getTime() < now;
+          return (
+            <div key={c.id} className="card" style={{ gap: 8, minWidth: 0 }}>
+              <div className="row between" style={{ gap: 8, flexWrap: "wrap" }}>
+                <div style={{ minWidth: 0 }}><div className="b">{c.name}</div><div className="xs muted" style={{ overflowWrap: "anywhere" }}>{c.email}</div></div>
+                <span className={`tag${c.status === "active" ? " ok" : c.status === "removed" ? " bad" : ""}`}>{c.status === "active" ? "Active" : c.status === "removed" ? "Removed" : expired ? "Invitation expired" : "Invited"}</span>
+              </div>
+              <div className="row between small" style={{ gap: 8, flexWrap: "wrap" }}><span className="muted">Leads entered</span>{n ? <Link className="link" href={`/admin/outreach/prospects?all=1&by=${c.userId}`}>{n.n} ({n.manual} manual, {n.invite} by link)</Link> : <span>0</span>}</div>
+              <div className="row between small" style={{ gap: 8, flexWrap: "wrap" }}><span className="muted">Invitation links</span><span>{l ? `${l.n} created • ${l.done} submitted` : "—"}</span></div>
+              <div className="row between small" style={{ gap: 8, flexWrap: "wrap" }}><span className="muted">{c.acceptedAt ? "Joined" : "Invited"}</span><span>{fmtDate(c.acceptedAt ?? c.createdAt, { month: "short", day: "numeric", year: "numeric" })}</span></div>
+              <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                {c.status === "invited" && !expired && <CopyText text={`${origin}/leads/join/${c.token}`} label="Copy invitation link" />}
+                {c.status === "invited" && <form action={newLeadContributorLink}><input type="hidden" name="id" value={c.id} /><button className="link xs" type="submit">New invitation link</button></form>}
+                {c.status !== "removed"
+                  ? <form action={removeLeadContributor}><input type="hidden" name="id" value={c.id} /><button className="link xs" type="submit" style={{ color: "#E08A8A" }}>Revoke access</button></form>
+                  : <form action={restoreLeadContributor}><input type="hidden" name="id" value={c.id} /><button className="link xs" type="submit">Restore access</button></form>}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </>
   );

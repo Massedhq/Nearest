@@ -37,7 +37,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Lead Contributor workspace (Professional Prospect Entry): AVY attribution, Entered by, invitation links, duplicates and conflicts"
+git commit -q -m "Lead contributors page: invite form and list fit the screen (no running off the page)"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""
