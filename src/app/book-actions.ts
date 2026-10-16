@@ -71,6 +71,7 @@ async function createAndPay(opts: {
   serviceName: string; startsAt: Date; durationMin: number; priceCents: number; where: Where; travelFeeCents?: number;
   serviceFeeCents?: number; // Nearest's service fee inside priceCents (kept when the booking completes; none on Model Calls)
   bundleId?: string;
+  addons?: { id: string; name: string; priceCents: number; extraMin: number }[]; // included in priceCents and durationMin
 }): Promise<FormState> {
   if (opts.priceCents > MAX_PRICE_CENTS) return { error: `This is priced above Nearest's $${MAX_PRICE_CENTS / 100} student limit, so it can't be booked.` };
   // The $150 cap is on the service; a travel fee ($35–$55) is added only when the pro travels to the student.
@@ -94,6 +95,7 @@ async function createAndPay(opts: {
   const [b] = await db.insert(bookings).values({
     studentId: opts.studentId, proId: opts.proId, serviceId: opts.serviceId ?? null, modelCallId: opts.modelCallId ?? null,
     serviceName: opts.serviceName, startsAt: opts.startsAt, endsAt, priceCents: opts.priceCents, travelFeeCents: travelFee, depositCents: deposit,
+    addons: opts.addons?.length ? opts.addons : null, addonsCents: (opts.addons ?? []).reduce((t, a) => t + a.priceCents, 0),
     creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge, inviteDiscountCents: inv?.cents ?? 0, bundleId: opts.bundleId ?? null, isRequest, serviceFeeCents: opts.serviceFeeCents ?? 0,
     status: "requested", holdExpiresAt: null, requestExpiresAt: requestDeadline(opts.startsAt),
     locationType: opts.where.locationType, locationAddress: opts.where.locationAddress, lat: opts.where.lat, lng: opts.where.lng,
@@ -153,7 +155,11 @@ export async function bookService(_: FormState, form: FormData): Promise<FormSta
   if (svc.adultsOnly && !isAdult(user.dateOfBirth)) return { error: "This service is 18+ only. You must be 18 or older to book it." };
   const pro = await livePro(svc.userId);
   if (!pro) return { error: "This professional isn't taking bookings right now." };
-  if (!(await openSlots(svc.userId, svc.durationMin, day)).includes(time)) return { error: "That time was just taken or is no longer available. Please pick another." };
+  // Add-ons: price added to the service, time added to the appointment; the $150 limit covers both together.
+  const { pickAddons, addonIds, withAddons } = await import("@/lib/addons");
+  const picked = pickAddons(svc, addonIds(form.getAll("addon").map(String)));
+  if (picked.overCap) return { error: `With those add-ons this would be over Nearest's $${MAX_PRICE_CENTS / 100} limit. Remove an add-on and try again.` };
+  if (!(await openSlots(svc.userId, svc.durationMin + picked.minutes, day)).includes(time)) return { error: "That time was just taken or is no longer available. Please pick another." };
   const where = await resolveLocation(pro, form);
   if ("error" in where) return { error: where.error };
   // From a bundle: the day must be inside the bundle's week.
@@ -167,8 +173,8 @@ export async function bookService(_: FormState, form: FormData): Promise<FormSta
   }
   return createAndPay({ where, travelFeeCents: pro.travelFeeCents ?? 3500, bundleId,
     studentId: user.id, email: user.email, proId: svc.userId, proName: pro.businessName ?? "your professional", serviceId: svc.id,
-    serviceName: svc.name, startsAt: chicagoToUtc(day, time), durationMin: svc.durationMin, priceCents: svc.priceCents,
-    serviceFeeCents: svc.proPriceCents == null ? 0 : svc.serviceFeeCents,
+    serviceName: withAddons(svc.name, picked.list), startsAt: chicagoToUtc(day, time), durationMin: svc.durationMin + picked.minutes, priceCents: svc.priceCents + picked.cents,
+    serviceFeeCents: svc.proPriceCents == null ? 0 : svc.serviceFeeCents, addons: picked.list,
   });
 }
 

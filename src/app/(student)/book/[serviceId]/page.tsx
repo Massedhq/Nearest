@@ -10,10 +10,13 @@ import { getFlag } from "@/lib/settings";
 import { label12, money } from "@/lib/time";
 import { TopBar } from "@/components/TopBar";
 import { Icon } from "@/components/Icon";
+import { AddonPicker } from "@/components/AddonPicker";
+import { addonIds, pickAddons } from "@/lib/addons";
+import { MAX_PRICE_CENTS } from "@/lib/pricing";
 
 export const metadata = { title: "Choose a time" };
 
-export default async function ChooseTime({ params, searchParams }: { params: Promise<{ serviceId: string }>; searchParams: Promise<{ day?: string; bundle?: string }> }) {
+export default async function ChooseTime({ params, searchParams }: { params: Promise<{ serviceId: string }>; searchParams: Promise<{ day?: string; bundle?: string; a?: string | string[] }> }) {
   const { user: me } = await requireVerifiedStudent();
   const { serviceId } = await params;
   if (!/^[0-9a-f-]{36}$/.test(serviceId)) notFound();
@@ -35,15 +38,24 @@ export default async function ChooseTime({ params, searchParams }: { params: Pro
   const bundleItemId = (await searchParams).bundle;
   const bundleItem = bundleItemId ? await (await import("@/lib/bundles")).bundleItemFor(bundleItemId, me.id, svc.id) : null;
   const days = bundleItem ? bundleItem.days : nextDays(14);
-  const q = bundleItem ? `&bundle=${bundleItemId}` : "";
+  // Add-ons the student ticked: their extra time changes which start times fit; they ride along in every link.
+  const picked = pickAddons(svc, addonIds((await searchParams).a));
+  const aq = picked.list.length ? `&a=${picked.list.map((x) => x.id).join(",")}` : "";
+  const q = (bundleItem ? `&bundle=${bundleItemId}` : "") + aq;
   const day = days.includes((await searchParams).day ?? "") ? (await searchParams).day! : days[0];
-  const slots = open && day ? await openSlots(svc.userId, svc.durationMin, day) : [];
+  const length = svc.durationMin + picked.minutes;
+  const slots = open && day ? await openSlots(svc.userId, length, day) : [];
   const d = (s: string) => new Date(`${s}T12:00:00Z`);
   return (
     <div className="scr">
       <TopBar title="Choose your appointment" back={`/p/${svc.userId}`} />
       <div className="body">
-        <div className="card"><div className="row between"><div><div className="b">{svc.name}</div><div className="small muted">{pro.businessName} • {svc.durationMin} min</div></div><span className="b">{money(svc.priceCents)}</span></div></div>
+        <div className="card"><div className="row between"><div><div className="b">{svc.name}</div><div className="small muted">{pro.businessName} • {length} min</div></div><span className="b">{money(svc.priceCents + picked.cents)}</span></div>
+          {picked.list.length > 0 && <span className="xs muted">{money(svc.priceCents)} service + {picked.list.map((x) => `${x.name} ${money(x.priceCents)}`).join(" + ")}</span>}</div>
+        {(svc.addons ?? []).length > 0 && (
+          <AddonPicker action={`/book/${svc.id}`} addons={svc.addons} chosen={picked.list.map((x) => x.id)} baseCents={svc.priceCents} capCents={MAX_PRICE_CENTS}
+            hidden={{ ...(day ? { day } : {}), ...(bundleItem ? { bundle: bundleItemId! } : {}) }} />
+        )}
         {!open && <div className="card warn small"><span>Booking is paused right now. Please check back soon.</span></div>}
         {bundleItem && <div className="card small"><span><span className="b">Bundle booking</span> — choose a day during your bundle week.</span></div>}
         <div className="scrollx" style={{ marginRight: 0, overflowX: "auto" }}>

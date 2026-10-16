@@ -4,7 +4,28 @@ import { MAX_PRICE_DOLLARS } from "@/lib/pricing";
 import { cleanPrice, underCap } from "./PriceInput";
 
 export type Cat = { id: number; name: string; suggestions: string[] };
-export type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; photo?: string | null; addFee?: boolean };
+export type AddonRow = { id?: string; name: string; price: string; minutes: string };
+export type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; photo?: string | null; addFee?: boolean; addons?: AddonRow[] };
+
+/** Optional add-ons under one service: name, extra price, extra time. The student picks any when booking. */
+function AddonsEditor({ serviceName, list, onChange, room }: { serviceName: string; list: AddonRow[]; onChange: (l: AddonRow[]) => void; room: number | null }) {
+  const set = (i: number, patch: Partial<AddonRow>) => onChange(list.map((a, j) => (j === i ? { ...a, ...patch } : a)));
+  return (
+    <div className="col" style={{ gap: 6, padding: "8px 10px", border: "1px dashed #2A2A2D", borderRadius: 12 }}>
+      <span className="xs b">Add-ons for {serviceName || "this service"} <span className="muted" style={{ fontWeight: 400 }}>(optional — e.g. rhinestones, charms, extra length)</span></span>
+      {list.map((a, i) => (
+        <div key={a.id ?? i} className="row" style={{ gap: 6 }}>
+          <input className="ainput grow" aria-label="Add-on name" placeholder="Add-on (e.g. Rhinestones)" value={a.name} maxLength={60} onChange={(e) => set(i, { name: e.target.value })} />
+          <input className="ainput" style={{ width: 64 }} aria-label={`${a.name || "Add-on"} price in dollars`} placeholder="+$" inputMode="decimal" value={a.price} onChange={(e) => set(i, { price: cleanPrice(e.target.value) })} />
+          <input className="ainput" style={{ width: 58 }} aria-label={`${a.name || "Add-on"} extra minutes`} placeholder="+min" inputMode="numeric" value={a.minutes} onChange={(e) => set(i, { minutes: e.target.value.replace(/\D/g, "").slice(0, 3) })} />
+          <button type="button" className="iconbtn" style={{ width: 32, height: 32 }} aria-label={`Remove ${a.name || "add-on"}`} onClick={() => onChange(list.filter((_, j) => j !== i))}>×</button>
+        </div>
+      ))}
+      {list.length < 10 && <button type="button" className="link xs" style={{ alignSelf: "flex-start" }} onClick={() => onChange([...list, { name: "", price: "", minutes: "0" }])}>+ Add an add-on</button>}
+      <span className="xs muted">Price is added to the service; minutes are added to the appointment so your calendar blocks the right time. No Nearest fee on add-ons.{room != null ? ` A booking can't go over $${MAX_PRICE_DOLLARS} — this service leaves $${room.toFixed(2).replace(/\.00$/, "")} for add-ons.` : ""}</span>
+    </div>
+  );
+}
 
 /** Pick categories, then list each service with a price and length. Sends everything as one JSON field. */
 /** Optional photo of one service: uploads straight to storage and keeps the link on that row. */
@@ -99,6 +120,7 @@ export function ServicesEditor({ categories, initial, userId, feeCents = 500 }: 
                 <span>Add the {fmt(feeD)} Nearest service fee to my price{studentPrice(r) != null ? <> — <span className="b">students see {fmt(studentPrice(r)!)}</span>{r.addFee === false ? `, you receive ${fmt(Math.max(0, studentPrice(r)! - feeD))}` : ""}</> : ""}</span>
               </label>
               <ServicePhoto userId={userId} url={r.photo} onChange={(u) => update(i, { photo: u })} />
+              <AddonsEditor serviceName={r.name} list={r.addons ?? []} onChange={(l) => update(i, { addons: l })} room={studentPrice(r) != null ? Math.max(0, MAX_PRICE_DOLLARS - studentPrice(r)!) : null} />
               <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} onClick={() => close(i)}>Minimize</button>
             </div>
               ) : (
@@ -107,7 +129,7 @@ export function ServicesEditor({ categories, initial, userId, feeCents = 500 }: 
                 {r.photo ? <span style={{ width: 40, height: 40, borderRadius: 8, overflow: "hidden", flex: "none" }}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={r.photo} alt="" width={40} height={40} style={{ objectFit: "cover", width: 40, height: 40 }} /></span> : null}
                 <div className="grow col" style={{ gap: 2, minWidth: 0 }}>
                   <span className="b" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name || "Untitled service"}{r.adultsOnly ? <span className="tag warn" style={{ marginLeft: 6 }}>18+</span> : null}</span>
-                  <span className="xs muted">{studentPrice(r) != null ? `Students see ${fmt(studentPrice(r)!)}` : "No price yet"} • {r.duration || "?"} min</span>
+                  <span className="xs muted">{studentPrice(r) != null ? `Students see ${fmt(studentPrice(r)!)}` : "No price yet"} • {r.duration || "?"} min{(r.addons ?? []).filter((a) => a.name.trim()).length ? ` • ${(r.addons ?? []).filter((a) => a.name.trim()).length} add-on${(r.addons ?? []).filter((a) => a.name.trim()).length === 1 ? "" : "s"}` : ""}</span>
                 </div>
                 <button type="button" className="btn ghost sm" style={{ flex: "none" }} onClick={() => openRow(i)}>Edit</button>
               </div>

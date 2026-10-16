@@ -17,7 +17,7 @@ foreach ($r in $retired) { if (Test-Path $r) { Remove-Item -Recurse -Force $r; W
 Step "1/4  Installing packages"
 npm ci
 Check "Installing packages"
-Step "2/4  Updating Neon (adds the optional Professional Protection answer to professional profiles - nothing is removed)"
+Step "2/4  Updating Neon (adds service add-ons and the optional Professional Protection answer - nothing is removed)"
 # Neon can be slow to answer "Pulling schema" — retry up to 3 times before giving up.
 $ok = $false
 foreach ($try in 1..3) {
@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Professional Protection: optional insurance preference at registration + home card for registered pros, Business page to change it, admin Insurance interest report (no documents, no payments); live pros count toward spots; categories under names"
+git commit -q -m "Service add-ons (pros list extras; students pick them when booking; price and time added; $150 limit on the total); Professional Protection; live pros count toward spots; categories under names"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

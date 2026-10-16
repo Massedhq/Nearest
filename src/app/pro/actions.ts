@@ -91,7 +91,7 @@ export async function saveAvatar(urls: string[]): Promise<{ error?: string }> {
 }
 
 // ---------- Services ----------
-type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; photo?: string | null; addFee?: boolean };
+type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; photo?: string | null; addFee?: boolean; addons?: unknown };
 
 export async function saveServices(_: FormState, form: FormData): Promise<FormState> {
   const { user, profile } = await requirePro();
@@ -127,7 +127,10 @@ export async function saveServices(_: FormState, form: FormData): Promise<FormSt
     if (!addFee && proCents <= fee) return { error: `${name} needs to be more than the $${(fee / 100).toFixed(0)} service fee.` };
     if (!Number.isInteger(duration) || duration < 10 || duration > 600) return { error: `Enter ${name}'s length in minutes (10–600).` };
     const photo = typeof r.photo === "string" && blobUrlOk(r.photo, user.id) ? r.photo : null; // optional photo of this service
-    values.push({ userId: user.id, categoryId: Number(r.categoryId), name, priceCents: studentCents, proPriceCents: addFee ? proCents : proCents - fee, serviceFeeCents: fee, feeAdded: addFee, durationMin: duration, sort: i, adultsOnly: Boolean(r.adultsOnly), photoUrl: photo });
+    // Optional add-ons: the service + any add-on must stay within the $150 student limit.
+    const addons = (await import("@/lib/addons")).cleanAddons(r.addons, name, studentCents);
+    if ("error" in addons) return { error: addons.error };
+    values.push({ userId: user.id, categoryId: Number(r.categoryId), name, priceCents: studentCents, proPriceCents: addFee ? proCents : proCents - fee, serviceFeeCents: fee, feeAdded: addFee, durationMin: duration, sort: i, adultsOnly: Boolean(r.adultsOnly), photoUrl: photo, addons });
   }
   // Spots are limited per city, per category — nobody can add a category that's full where they work.
   const full = await (await import("@/lib/slots")).wouldOverfill(profile, profile.cityId ?? profile.slotCityId, values.map((v) => v.categoryId));

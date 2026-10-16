@@ -302,6 +302,9 @@ export const proServices = pgTable("pro_services", {
   priceCents: integer("price_cents").notNull(),
   durationMin: integer("duration_min").notNull(),
   adultsOnly: boolean("adults_only").notNull().default(false), // "18+ only" — students under 18 can't book it
+  // Optional extras on this service (e.g. "Rhinestones +$10, +15 min"): [{ id, name, priceCents, extraMin }]. The student
+  // picks any when booking; the $150 student cap applies to the service + chosen add-ons together. No service fee on add-ons.
+  addons: jsonb("addons").$type<{ id: string; name: string; priceCents: number; extraMin: number }[]>().notNull().default([]),
   active: boolean("active").notNull().default(true),
   sort: integer("sort").notNull().default(0),
   createdAt: ts("created_at").notNull().defaultNow(),
@@ -447,6 +450,9 @@ export const bookings = pgTable("bookings", {
   endsAt: ts("ends_at").notNull(),
   priceCents: integer("price_cents").notNull(),
   travelFeeCents: integer("travel_fee_cents").notNull().default(0), // included in priceCents when the pro travels
+  // Add-ons the student chose (snapshot at booking): included in priceCents, and their time is included in endsAt.
+  addons: jsonb("addons").$type<{ id: string; name: string; priceCents: number; extraMin: number }[]>(),
+  addonsCents: integer("addons_cents").notNull().default(0),
   depositCents: integer("deposit_cents").notNull(),
   creditProCents: integer("credit_pro_cents").notNull().default(0),
   creditGeneralCents: integer("credit_general_cents").notNull().default(0),
