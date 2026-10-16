@@ -1,7 +1,8 @@
 import Link from "next/link";
-import type { CityTarget } from "@/lib/recruit-targets";
+import type { CityTarget, CountedPro, UncountedPro } from "@/lib/recruit-targets";
 
 type Data = { cap: number; cats: { id: number; name: string }[]; cities: CityTarget[]; counties: string[] };
+type People = { counted: Record<number, CountedPro[]>; uncounted: Record<number, UncountedPro[]>; noCity: UncountedPro[] };
 type Params = { county?: string; cat?: string; show?: string; q?: string; sort?: string };
 
 const stat = { flex: "1 1 140px", minWidth: 0, gap: 2 } as const;
@@ -21,11 +22,16 @@ const CSS = `
  * "Where to recruit" dashboard for DFW: totals, every category, and every city with what it still needs.
  * Filled cities drop to a closed list so nobody keeps working them. No prospect or recruiting data is shown.
  */
-export function RecruitTargets({ data, sp, basePath }: { data: Data; sp: Params; basePath: string }) {
+export function RecruitTargets({ data, sp, basePath, people }: { data: Data; sp: Params; basePath: string; people?: People }) {
   const catId = Number(sp.cat) || null;
   const cat = data.cats.find((c) => c.id === catId) ?? null;
   const show = sp.show === "filled" || sp.show === "all" ? sp.show : "open";
   const q = (sp.q ?? "").trim().toLowerCase();
+  // Everyone sees who's already on Nearest so nobody recruits them twice; only admins get a link to the account.
+  const admin = basePath.startsWith("/admin");
+  const who = (p: { userId: string; name: string; business: string | null }) => (
+    <>{admin ? <Link className="link" href={`/admin/professionals/${p.userId}`}>{p.name}</Link> : <span className="b">{p.name}</span>}{p.business ? ` (${p.business})` : ""}</>
+  );
   const isFilled = (c: CityTarget) => (cat ? c.cats.find((x) => x.id === cat.id)!.open === 0 : c.status === "filled");
   const openOf = (c: CityTarget) => (cat ? c.cats.find((x) => x.id === cat.id)!.open : c.openSpots);
   const inScope = data.cities.filter((c) => (!sp.county || c.counties.includes(sp.county)) && (!q || c.name.toLowerCase().includes(q)));
@@ -60,6 +66,15 @@ export function RecruitTargets({ data, sp, basePath }: { data: Data; sp: Params;
         <div className="field"><label htmlFor="rt-q">Find a city</label><input id="rt-q" name="q" defaultValue={sp.q ?? ""} placeholder="City name" /></div>
         <button className="btn sm" type="submit">Apply</button>
       </form>
+
+      {people && people.noCity.length > 0 && (
+        <details className="card warn small" style={{ gap: 6 }}>
+          <summary style={{ cursor: "pointer" }}><span className="b">{people.noCity.length} professional{people.noCity.length === 1 ? " isn't" : "s aren't"} counted in any city yet</span> — they haven&apos;t chosen their city. Tap to see who.</summary>
+          <div className="col" style={{ gap: 4, marginTop: 6 }}>
+            {people.noCity.map((p) => <span key={p.userId}>{who(p)} — {p.reason}</span>)}
+          </div>
+        </details>
+      )}
 
       <section className="card" style={{ gap: 10 }} aria-labelledby="rt-cats">
         <h2 id="rt-cats" className="eyebrow" style={{ margin: 0 }}>Categories{sp.county ? ` — ${sp.county} County` : " — all of DFW"}</h2>
@@ -121,6 +136,15 @@ export function RecruitTargets({ data, sp, basePath }: { data: Data; sp: Params;
                       </div>
                     ))}
                   </div>
+                  {people && (
+                    <div className="col small" style={{ gap: 4, padding: "0 10px 14px" }}>
+                      <span className="eyebrow" style={{ margin: 0 }}>Already on Nearest here — don&apos;t recruit again</span>
+                      {(people.counted[c.id] ?? []).length === 0 && <span className="xs muted">No professionals count in {c.name} yet.</span>}
+                      {(people.counted[c.id] ?? []).map((p) => <span key={p.userId}>{who(p)} — takes a spot in {p.cats.join(", ")}</span>)}
+                      {(people.uncounted[c.id] ?? []).length > 0 && <span className="eyebrow" style={{ margin: "6px 0 0" }}>Signed up in {c.name}, still finishing — not counted yet, don&apos;t recruit again</span>}
+                      {(people.uncounted[c.id] ?? []).map((p) => <span key={p.userId}>{who(p)} — {p.reason}</span>)}
+                    </div>
+                  )}
                 </details>
               );
             })}

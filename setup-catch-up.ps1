@@ -36,7 +36,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Screenshot leads: read screenshots in the browser with self-hosted OCR (no AI key), new fields, add-more screenshots; seed can no longer hang the installer"
+git commit -q -m "Where to recruit: 5 per category per city; everyone sees who is already counted in each city; screenshot leads OCR (no AI key)"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""
