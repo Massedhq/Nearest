@@ -52,7 +52,7 @@ export async function resolvePlace(city?: string | null, state?: string | null) 
 }
 const CAT_WORDS: [RegExp, string][] = [
   [/nail|manicur|pedicur|acrylic|gel/i, "Nails"], [/lash/i, "Lashes"], [/brow|microblad/i, "Brows"], [/braid/i, "Braids"], [/\blocs?\b|loctician/i, "Locs"],
-  [/barber|fade|shave/i, "Barber"], [/makeup|mua\b|glam/i, "Makeup"], [/esthetic|facial|skin/i, "Skincare"], [/wax|sugar|laser hair/i, "Hair Removal"],
+  [/barber|fade|shave/i, "Barber"], [/makeup|mua\b|glam/i, "Makeup"], [/esthetic|facial|skin/i, "Esthetician/Skincare"], [/wax|sugar|laser hair/i, "Hair Removal"],
   [/massage/i, "Massage"], [/tattoo|pierc/i, "Tattoos & Piercings"], [/trainer|fitness|pilates|yoga/i, "Fitness"], [/stylist|hair|silk press|wig/i, "Hair"], [/photo/i, "Photography"],
 ];
 export async function resolveCategory(text?: string | null) {

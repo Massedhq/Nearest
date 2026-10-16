@@ -23,7 +23,7 @@ export function ProCard({ p, services, photos, city, first: firstName, last: las
         <div className="col g4 grow">
           <div className="row between">
             <span className="col" style={{ gap: 2 }}>
-              <span className="h3">{who}</span>
+              <span className="h3 row" style={{ gap: 5 }}>{who}<span className="badge" role="img" aria-label="Approved by Nearest" title="Approved by Nearest"><Icon name="shield" size="s" /></span></span>
               {p.businessName && p.businessName !== who && <span className="row small muted" style={{ gap: 6 }}>{p.logoUrl && <Image src={p.logoUrl} alt="" width={18} height={18} style={{ borderRadius: 4, objectFit: "cover" }} />}{p.businessName}</span>}
             </span>
             {/* Same heart students see (preview only — tapping it here does nothing) */}
@@ -37,7 +37,6 @@ export function ProCard({ p, services, photos, city, first: firstName, last: las
               <svg className="i s" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round"><path d="M12 15V3M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" /></svg>
             </span>
           </div>
-          <span className="badge"><Icon name="shield" size="s" /> Approved by Nearest</span>
           {p.aslLevel !== "none" && <span className="badge pearl"><Icon name="hand" size="s" /> ASL — {ASL_LABEL[p.aslLevel]}</span>}
           <div className="row small" style={{ gap: 12 }}>
             <span className="muted row" style={{ gap: 4 }}><Icon name="pin" size="s" /> {city ?? "Your city"}</span>

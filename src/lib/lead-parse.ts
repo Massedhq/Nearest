@@ -32,7 +32,7 @@ const CATEGORY_WORDS: [RegExp, string][] = [
   [/\blocs?\b|loctician|retwist|starter locs/gi, "Locs"],
   [/silk press|\bwigs?\b|sew-?in|stylist|cosmetolog|hair ?stylist|blowout|\bhair\b/gi, "Hair"],
   [/makeup|\bmua\b|\bglam\b/gi, "Makeup"],
-  [/esthetic|facials?\b|skin ?care|dermaplan|hydrafacial|chemical peel/gi, "Skincare"],
+  [/esthetic|facials?\b|skin ?care|dermaplan|hydrafacial|chemical peel/gi, "Esthetician/Skincare"],
   [/\bwax(ing)?\b|sugaring|laser hair/gi, "Hair Removal"],
   [/massage/gi, "Massage"],
   [/tattoo|pierc/gi, "Tattoos & Piercings"],
@@ -223,7 +223,7 @@ export function parseLeadText(input: (string | string[])[]): { fields: ParsedLea
         for (const [re, cat] of CATEGORY_WORDS) {
           const ms = [...line.matchAll(re)];
           if (!ms.length) continue;
-          const w = (cat === "Skincare" && /esthetic/i.test(line) && !/facial|skin/i.test(line) ? 0.5 : 1) * (headline ? 3 : 1);
+          const w = (cat === "Esthetician/Skincare" && /esthetic/i.test(line) && !/facial|skin/i.test(line) ? 0.5 : 1) * (headline ? 3 : 1);
           score.set(cat, (score.get(cat) ?? 0) + ms.length * w);
           const at = pos * 1000 + (ms[0].index ?? 0);
           if (!catFirst.has(cat) || at < catFirst.get(cat)!) catFirst.set(cat, at);

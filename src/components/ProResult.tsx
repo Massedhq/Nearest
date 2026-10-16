@@ -22,12 +22,11 @@ export function ProResult({ p, fav = false }: { p: P; fav?: boolean }) {
       <div className="row top-a">
         {p.photoUrl ? <Image src={p.photoUrl} alt="" width={52} height={52} style={{ borderRadius: 26, objectFit: "cover" }} /> : <div className="avatar">{initials}</div>}
         <div className="col g4 grow">
-          <div className="row between"><span className="h3">{who}</span><FavButton proId={p.userId} on={fav} count={p.favCount ?? 0} /></div>
+          <div className="row between"><span className="h3 row" style={{ gap: 5 }}>{who}<span className="badge" role="img" aria-label="Approved by Nearest" title="Approved by Nearest"><Icon name="shield" size="s" /></span></span><FavButton proId={p.userId} on={fav} count={p.favCount ?? 0} /></div>
           {p.businessName && p.businessName !== who && (
             <span className="row small muted" style={{ gap: 6 }}>{p.logoUrl && <Image src={p.logoUrl} alt="" width={18} height={18} style={{ borderRadius: 4, objectFit: "cover" }} />}{p.businessName}</span>
           )}
           <div className="row" style={{ flexWrap: "wrap", gap: "4px 12px" }}>
-            <span className="badge"><Icon name="shield" size="s" /> Approved by Nearest</span>
             {p.aslLevel !== "none" && <span className="badge pearl"><Icon name="hand" size="s" /> ASL — {ASL[p.aslLevel]}</span>}
           </div>
           <div className="row small" style={{ gap: 12 }}>

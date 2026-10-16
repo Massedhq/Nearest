@@ -9,7 +9,8 @@ const TITLES: Record<string, string> = {
   "Nails": "nail techs",
   "Makeup": "makeup artists",
   "Photography": "photographers",
-  "Skincare": "estheticians",
+  "Esthetician/Skincare": "estheticians",
+  "Skincare": "estheticians", // name before 2026-10-16
   "Hair Removal": "waxing & sugaring specialists",
   "Massage": "massage therapists",
   "Body & Wellness": "body & wellness professionals",

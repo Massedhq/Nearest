@@ -71,7 +71,7 @@ export function RecruitTargets({ data, sp, basePath, people }: { data: Data; sp:
         <details className="card warn small" style={{ gap: 6 }}>
           <summary style={{ cursor: "pointer" }}><span className="b">{people.noCity.length} professional{people.noCity.length === 1 ? " isn't" : "s aren't"} counted in any city yet</span> — they haven&apos;t chosen their city. Tap to see who.</summary>
           <div className="col" style={{ gap: 4, marginTop: 6 }}>
-            {people.noCity.map((p) => <span key={p.userId}>{who(p)} — {p.reason}</span>)}
+            {people.noCity.map((p) => <span key={p.userId}>{who(p)}{p.cats.length ? ` — signing up for ${p.cats.join(", ")}` : ""} — {p.reason}</span>)}
           </div>
         </details>
       )}
@@ -142,7 +142,7 @@ export function RecruitTargets({ data, sp, basePath, people }: { data: Data; sp:
                       {(people.counted[c.id] ?? []).length === 0 && <span className="xs muted">No professionals count in {c.name} yet.</span>}
                       {(people.counted[c.id] ?? []).map((p) => <span key={p.userId}>{who(p)} — takes a spot in {p.cats.join(", ")}</span>)}
                       {(people.uncounted[c.id] ?? []).length > 0 && <span className="eyebrow" style={{ margin: "6px 0 0" }}>Signed up in {c.name}, still finishing — not counted yet, don&apos;t recruit again</span>}
-                      {(people.uncounted[c.id] ?? []).map((p) => <span key={p.userId}>{who(p)} — {p.reason}</span>)}
+                      {(people.uncounted[c.id] ?? []).map((p) => <span key={p.userId}>{who(p)}{p.cats.length ? ` — signing up for ${p.cats.join(", ")}` : ""} — {p.reason}</span>)}
                     </div>
                   )}
                 </details>

@@ -60,7 +60,7 @@ const CATEGORIES: { name: string; license: string | null; services: string[] }[]
   { name: "Nails", license: "Manicurist Specialty license (TDLR)", services: ["Gel Manicure", "Acrylic Full Set", "Pedicure", "Manicure", "Acrylic Fill", "Gel-X", "Builder Gel", "Dip Powder", "Nail Art", "Nail Repair", "Soak-Off", "Gel Pedicure", "Spa Pedicure", "French Pedicure", "Toe Acrylic", "Polish Change", "Callus Care"] },
   { name: "Makeup", license: null, services: ["Soft Glam", "Full Glam", "Prom Makeup", "Natural Makeup", "Bridal Makeup", "Event Makeup", "Editorial Makeup", "Strip-Lash Application"] },
   { name: "Photography", license: null, services: ["Portrait Session", "Graduation Photos"] },
-  { name: "Skincare", license: "Esthetician license (TDLR)", services: ["Facial", "Deep Cleansing Facial", "Hydration Facial", "Acne Facial", "Extractions", "Exfoliation", "Mask Treatment", "Dermaplaning", "Chemical Peel", "Skin Consultation", "Skin Maintenance Treatment", "Facial Massage", "Gua Sha", "Facial Sculpting", "Lymphatic Facial Massage"] },
+  { name: "Esthetician/Skincare", license: "Esthetician license (TDLR)", services: ["Facial", "Deep Cleansing Facial", "Hydration Facial", "Acne Facial", "Extractions", "Exfoliation", "Mask Treatment", "Dermaplaning", "Chemical Peel", "Skin Consultation", "Skin Maintenance Treatment", "Facial Massage", "Gua Sha", "Facial Sculpting", "Lymphatic Facial Massage"] },
   { name: "Hair Removal", license: "Esthetician license (TDLR)", services: ["Lip Wax", "Chin Wax", "Underarm Wax", "Arm Wax", "Leg Wax", "Bikini Wax", "Brazilian Wax", "Back/Chest Wax", "Brazilian Sugaring", "Bikini Sugaring", "Leg Sugaring", "Arm Sugaring", "Underarm Sugaring", "Face Sugaring", "Back/Chest Sugaring"] },
   { name: "Massage", license: "Massage Therapist license (TDLR)", services: ["Swedish Massage", "Deep-Tissue Massage", "Sports Massage", "Chair Massage", "Prenatal Massage", "Hot-Stone Massage"] },
   { name: "Body & Wellness", license: null, services: ["Full-Body Spray Tan", "Partial Spray Tan", "Contour Tan", "Express Tan", "Teeth Whitening", "Teeth Whitening Touch-Up", "Tooth Gems", "Tooth Gem Design", "Tooth Gem Removal", "Henna Tattoo", "Henna Hand Design", "Henna Feet Design", "Bridal Henna", "Custom Henna", "Cavitation", "Radiofrequency Treatment", "Vacuum Therapy", "Body Sculpting", "Wood Therapy", "Lymphatic Treatment"] },
@@ -124,6 +124,8 @@ async function main() {
   await db.insert(cityCounties).values(links).onConflictDoNothing();
 
   console.log("  Categories, schools and settings...");
+  // Renamed categories keep their id, services and professionals — only the name changes.
+  await db.execute(sql`update categories set name = 'Esthetician/Skincare' where name = 'Skincare' and not exists (select 1 from categories where name = 'Esthetician/Skincare')`);
   await db
     .insert(categories)
     .values(CATEGORIES.map((c, i) => ({ name: c.name, licenseRequired: !!c.license, licenseLabel: c.license, sort: i })))

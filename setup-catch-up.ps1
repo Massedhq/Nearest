@@ -27,6 +27,9 @@ foreach ($try in 1..3) {
   Start-Sleep -Seconds 5
 }
 if (-not $ok) { Write-Host "STOPPED: Updating the database failed 3 times. Run: npx drizzle-kit push   then run this installer again." -ForegroundColor Red; exit 1 }
+Write-Host "  Renaming the Skincare category to Esthetician/Skincare (same category - nothing else changes)..."
+npx tsx src/db/rename-categories.ts
+if ($LASTEXITCODE -ne 0) { Write-Host "  Rename skipped for now - the rest of the update continues. Run this installer again later to finish it." -ForegroundColor Yellow; $global:LASTEXITCODE = 0 }
 # Counties and the 199 DFW cities were loaded by the previous update, so this update doesn't touch them.
 # (To re-check them any time: npm run db:seed - it only adds what's missing.)
 Step "3/4  Production build"
@@ -36,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Where to recruit: 5 per category per city; everyone sees who is already counted in each city; screenshot leads OCR (no AI key)"
+git commit -q -m "Green shield next to pro names with their service categories underneath; Skincare renamed Esthetician/Skincare; Where to recruit lists every professional (counted or signing up, with reasons)"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

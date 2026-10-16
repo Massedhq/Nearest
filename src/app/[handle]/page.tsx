@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
 import { and, asc, desc, eq, lte, sql } from "drizzle-orm";
-import { db, professionalProfiles, proServices, portfolioItems, cities, reviews, users } from "@/db";
+import { db, professionalProfiles, proServices, portfolioItems, cities, reviews, users, categories } from "@/db";
 import { getViewer } from "@/lib/viewer";
 import { liveProWhere } from "@/lib/search";
 import { money } from "@/lib/time";
@@ -55,6 +55,9 @@ export default async function ProLink({ params }: { params: Promise<{ handle: st
     db.select({ avg: sql<number | null>`avg(${reviews.rating})::float`, n: sql<number>`count(*)::int` }).from(reviews).where(eq(reviews.proId, id)),
     db.query.users.findFirst({ where: eq(users.id, id) }),
   ]);
+  const allCats = await db.selectDistinct({ name: categories.name, sort: categories.sort }).from(proServices).innerJoin(categories, eq(categories.id, proServices.categoryId))
+    .where(and(eq(proServices.userId, id), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS))).orderBy(asc(categories.sort), asc(categories.name));
+  const offers = allCats.map((c) => c.name); // every service category they offer, under their name
   const next = encodeURIComponent(`/p/${id}`);
   return (
     <div className="scr">
@@ -64,8 +67,8 @@ export default async function ProLink({ params }: { params: Promise<{ handle: st
           <div className="row" style={{ gap: 12 }}>
             {r.p.photoUrl ? <Image src={r.p.photoUrl} alt="" width={64} height={64} style={{ borderRadius: 32, objectFit: "cover" }} /> : <div className="avatar">{(r.p.businessName ?? owner?.firstName ?? "N").slice(0, 2).toUpperCase()}</div>}
             <div className="col g4">
-              <h1 className="disp h2" style={{ margin: 0 }}>{r.p.businessName}</h1>
-              <span className="badge"><Icon name="shield" size="s" /> Approved by Nearest</span>
+              <h1 className="disp h2 row" style={{ margin: 0, gap: 6 }}>{r.p.businessName}<span className="badge" role="img" aria-label="Approved by Nearest" title="Approved by Nearest"><Icon name="shield" /></span></h1>
+              {offers.length > 0 && <span className="small" style={{ color: "#D8D2C6" }}>{offers.join(" • ")}</span>}
               <span className="small muted row" style={{ gap: 6 }}><Icon name="pin" size="s" /> {r.city ?? "Texas"}{rating.n ? ` • ★ ${Number(rating.avg).toFixed(1)} (${rating.n})` : ""}</span>
             </div>
           </div>

@@ -8,7 +8,7 @@ import { getFlag } from "@/lib/settings";
 import { notFound } from "next/navigation";
 import { and, asc, desc, eq, lte, sql } from "drizzle-orm";
 import { MAX_PRICE_CENTS } from "@/lib/pricing";
-import { db, users, bookings, professionalProfiles, proServices, portfolioItems, proHours, proOpenings, cities, reviews, favorites } from "@/db";
+import { db, users, bookings, professionalProfiles, proServices, portfolioItems, proHours, proOpenings, cities, reviews, favorites, categories } from "@/db";
 import { FavButton } from "@/components/FavButton";
 import { ShareProButton } from "@/components/ShareProButton";
 import { ensureProSlug, proLink } from "@/lib/connections";
@@ -66,6 +66,9 @@ export default async function ProProfile({ params, searchParams }: { params: Pro
     .where(and(eq(reviews.proId, id), eq(reviews.hidden, false))).orderBy(desc(reviews.createdAt)).limit(20);
   const avg = revs.length ? Math.round((revs.reduce((a, r) => a + r.rating, 0) / revs.length) * 10) / 10 : null;
   const proUser = await db.query.users.findFirst({ where: eq(users.id, p.userId) });
+  // Every service category they offer, in Nearest's category order (shown under their name).
+  const offers = (await db.selectDistinct({ name: categories.name, sort: categories.sort }).from(proServices).innerJoin(categories, eq(categories.id, proServices.categoryId))
+    .where(and(eq(proServices.userId, id), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS))).orderBy(asc(categories.sort), asc(categories.name))).map((c) => c.name);
   const who = personName(p.displayName, proUser?.firstName, proUser?.lastName);
   const initials = who.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
   const langs = (p.languages ?? []).filter((l) => l !== "ASL");
@@ -78,9 +81,9 @@ export default async function ProProfile({ params, searchParams }: { params: Pro
         <div className="row">
           {p.photoUrl ? <Image src={p.photoUrl} alt="" width={84} height={84} style={{ borderRadius: 42, objectFit: "cover" }} /> : <div className="avatar lg">{initials}</div>}
           <div className="col g4 grow">
-            <h1 className="disp h2">{who}</h1>
+            <h1 className="disp h2 row" style={{ gap: 6 }}>{who}<span className="badge" role="img" aria-label="Approved by Nearest" title="Approved by Nearest"><Icon name="shield" /></span></h1>
+            {offers.length > 0 && <span className="small" style={{ color: "#D8D2C6" }}>{offers.join(" • ")}</span>}
             {p.businessName && p.businessName !== who && <span className="row small" style={{ gap: 8 }}>{p.logoUrl && <Image src={p.logoUrl} alt={`${p.businessName} logo`} width={24} height={24} style={{ borderRadius: 5, objectFit: "cover" }} />}<span className="b">{p.businessName}</span></span>}
-            <span className="badge"><Icon name="shield" size="s" /> Approved by Nearest</span>
           </div>
           <FavButton proId={id} on={isFav} size={44} count={favCount} />
           <ShareProButton proId={id} proName={p.businessName ?? "This professional"} link={proLink((await ensureProSlug(id)) ?? id)} compact />
