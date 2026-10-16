@@ -14,6 +14,7 @@ import { Bell } from "@/components/Inbox";
 import { GoLiveCard } from "@/components/GoLiveCard";
 import { ProCampaignCard } from "@/components/ProCampaignCard";
 import { ProTermsUpdateCard } from "@/components/ProTermsUpdateCard";
+import { ProProtectionCard } from "@/components/ProProtectionCard";
 import { unreadCount } from "@/lib/inbox";
 
 export const metadata = { title: "Today" };
@@ -108,6 +109,7 @@ export default async function ProHome({ searchParams }: { searchParams: Promise<
 
         {approved && <GoLiveCard profile={profile} />}
         <ProCampaignCard profile={profile} />
+        <ProProtectionCard profile={profile} />
 
         {upcoming.filter((b) => b.checkedInAt && !b.startedAt).map((b) => (
           <Link key={`ci-${b.id}`} className="card ok" href={`/pro/appointments/${b.id}`} style={{ textDecoration: "none" }}>

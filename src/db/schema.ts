@@ -219,6 +219,11 @@ export const professionalProfiles = pgTable("professional_profiles", {
   // Launch campaign free service: "agreed" (new pros tick it at submit; earlier pros opt in from their home card) or "declined".
   campaignChoice: text("campaign_choice"),
   campaignChoiceAt: ts("campaign_choice_at"),
+  // Professional Protection (self-reported only — no insurer, policy number, dates or documents are ever collected):
+  // has | interested | not_now, and when interested: per_booking | annual | more_info. Null = not answered yet.
+  insuranceChoice: text("insurance_choice"),
+  insuranceInterest: text("insurance_interest"),
+  insuranceChoiceAt: ts("insurance_choice_at"),
   // Membership activates when they accept their first booking request (not at sign-up).
   membershipActivatedAt: ts("membership_activated_at"),
   firstRequestAt: ts("first_request_at"),

@@ -12,6 +12,7 @@ import { proTermsSections, PRO_TERMS_VERSION } from "@/lib/pro-terms";
 import { enrollmentQuote } from "@/lib/enroll";
 import { ProCampaignFields } from "@/components/ProCampaignFields";
 import { rewardEligibleServices } from "@/lib/campaign-pro";
+import { ProProtectionFields } from "@/components/ProProtectionFields";
 
 export const metadata = { title: "Review & submit" };
 
@@ -66,7 +67,9 @@ export default async function ReviewStep() {
                     <ProCampaignFields services={rewardServices} />
                   </div>
                 </>
-              ) : <span />}
+              ) : null}
+              {/* Optional: answering never blocks submitting (unanswered pros are asked again on their home screen). */}
+              {!p.insuranceChoiceAt && <div className="card" style={{ gap: 8 }}><ProProtectionFields /></div>}
             </ActionForm>
           )
         )}

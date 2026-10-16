@@ -332,6 +332,9 @@ export async function submitForReview(_: FormState, form: FormData): Promise<For
   const { user, profile, viewer } = await requirePro();
   if (profile.reviewStatus === "approved") return { ok: "You're already approved." };
   if (!setupComplete(await setupSteps(user.id))) return { error: "Finish the remaining setup steps first." };
+  // Professional Protection is optional: saved when answered, never required to submit.
+  const protection = (await import("@/lib/insurance")).readProtection(form);
+  if (protection && "error" in protection) return { error: protection.error };
   // First submit: accept the Professional Terms and join — their spot and membership rate are set now (no payment).
   if (!profile.entryPaidAt && viewer.admin?.role !== "OWNER") {
     const { PRO_TERMS_VERSION } = await import("@/lib/pro-terms");
@@ -361,7 +364,8 @@ export async function submitForReview(_: FormState, form: FormData): Promise<For
   }
   await db
     .update(professionalProfiles)
-    .set({ reviewStatus: "submitted", submittedAt: new Date(), reviewNote: null })
+    .set({ reviewStatus: "submitted", submittedAt: new Date(), reviewNote: null,
+      ...(protection && !("error" in protection) ? { insuranceChoice: protection.choice, insuranceInterest: protection.interest, insuranceChoiceAt: new Date() } : {}) })
     .where(eq(professionalProfiles.userId, user.id));
   try { await (await import("@/lib/outreach")).onProProfileSubmitted(user.id); } catch (e) { console.error("outreach submitted", e); }
   revalidatePath("/pro", "layout");
