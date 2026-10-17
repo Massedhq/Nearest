@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { desc, eq, isNotNull, and, inArray } from "drizzle-orm";
-import { db, users, professionalProfiles, prospects } from "@/db";
+import { db, users, professionalProfiles, prospects, prospectDrafts } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
 import { OutreachNav } from "@/components/OutreachNav";
 import { ActionForm } from "@/components/ActionForm";
@@ -8,6 +8,8 @@ import { requireAdmin } from "@/lib/admin";
 import { outreachScope } from "@/lib/outreach";
 import { buildStatus } from "@/lib/build-status";
 import { createBuiltProfile } from "@/app/admin/build-actions";
+import { ScreenshotLeadUpload } from "@/components/ScreenshotLeadUpload";
+import { BuildScreenshots } from "@/components/BuildScreenshots";
 
 export const metadata = { title: "Build a profile" };
 export const dynamic = "force-dynamic";
@@ -23,6 +25,7 @@ export default async function BuildProfiles({ searchParams }: { searchParams: Pr
   const pid = (await searchParams).prospect ?? "";
   const pr = /^[0-9a-f-]{36}$/.test(pid) ? await db.query.prospects.findFirst({ where: eq(prospects.id, pid) }) : null;
   const [first, ...rest] = (pr?.name ?? "").trim().split(/\s+/);
+  const draft = pr ? await db.query.prospectDrafts.findFirst({ where: and(eq(prospectDrafts.prospectId, pr.id), eq(prospectDrafts.status, "approved")) }) : null;
   const rows = await db.select({ p: professionalProfiles, u: users }).from(professionalProfiles).innerJoin(users, eq(users.id, professionalProfiles.userId))
     .where(isMain ? isNotNull(professionalProfiles.builtBy) : and(isNotNull(professionalProfiles.builtBy), eq(professionalProfiles.builtBy, user.id)))
     .orderBy(desc(professionalProfiles.builtAt)).limit(200);
@@ -36,8 +39,16 @@ export default async function BuildProfiles({ searchParams }: { searchParams: Pr
         <span className="b">For professionals who said yes to you setting them up.</span>
         <span>Create their account, then fill in their profile on the same setup pages they&apos;d use — services, prices, location, hours, photos. When it&apos;s ready, send their claim link: they create a password (8+ characters), accept the Professional Terms, and their profile goes live. They verify their own ID and set up their own payouts.</span>
       </div>
+      {!pr && (
+        <div className="card" style={{ maxWidth: 720, gap: 8 }}>
+          <span className="eyebrow">Start from screenshots</span>
+          <span className="small">Same as Add from screenshots: upload 1–5 screenshots of their profile, link-in-bio, booking page or flyer. The details are read on this device, you check them against the screenshots and approve, and this form opens with their name, email, phone and business filled in. The screenshots stay with their record so you can copy services, prices and hours into their profile.</span>
+          <ScreenshotLeadUpload build />
+        </div>
+      )}
+      {draft && <BuildScreenshots draft={draft} />}
       <div className="card" style={{ maxWidth: 720 }}>
-        <span className="eyebrow">New profile{pr ? ` — from prospect ${pr.name}` : ""}</span>
+        <span className="eyebrow">{pr ? "" : "Or type it in — "}New profile{pr ? ` — from prospect ${pr.name}` : ""}</span>
         <ActionForm action={createBuiltProfile} submitLabel="Create and start building">
           {pr && <input type="hidden" name="prospectId" value={pr.id} />}
           <div className="grid2">

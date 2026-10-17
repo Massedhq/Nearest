@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
-import { db, users, professionalProfiles } from "@/db";
+import { db, users, professionalProfiles, prospects, prospectDrafts } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
 import { OutreachNav } from "@/components/OutreachNav";
 import { ActionForm } from "@/components/ActionForm";
@@ -12,6 +12,8 @@ import { setupSteps } from "@/lib/pro";
 import { enrollmentQuote } from "@/lib/enroll";
 import { buildStatus } from "@/lib/build-status";
 import { editBuiltProfile, sendClaimLink } from "@/app/admin/build-actions";
+import { BuildScreenshots } from "@/components/BuildScreenshots";
+import { and } from "drizzle-orm";
 
 export const metadata = { title: "Built profile" };
 export const dynamic = "force-dynamic";
@@ -33,6 +35,9 @@ export default async function BuiltProfile({ params }: { params: Promise<{ id: s
     open ? enrollmentQuote(p) : null,
     db.query.users.findFirst({ where: eq(users.id, p.builtBy!), columns: { firstName: true } }),
   ]);
+  // Screenshots collected for them (Add from screenshots / Build a profile) — kept beside their profile while building.
+  const pros = await db.select({ id: prospects.id }).from(prospects).where(eq(prospects.registeredUserId, id));
+  const draft = pros.length ? (await db.select().from(prospectDrafts).where(and(eq(prospectDrafts.status, "approved"), eq(prospectDrafts.prospectId, pros[0].id))).limit(1))[0] ?? null : null;
   const left = steps.filter((s) => !s.done && !s.optional && s.key !== "identity");
   const s = buildStatus(p);
   const stepForm = (key: string, label: string) => (
@@ -62,7 +67,8 @@ export default async function BuiltProfile({ params }: { params: Promise<{ id: s
             ))}
             <form action={editBuiltProfile}><input type="hidden" name="userId" value={id} /><input type="hidden" name="step" value={left[0]?.key ?? "profile"} /><button className="btn" type="submit">{left.length ? "Continue building" : "Open their profile"}</button></form>
           </div>
-          {quote && !quote.ok && <div className="card warn small" style={{ maxWidth: 720 }}><span className="b">Check their city before sending the link</span><span>{quote.reason.replace(/^Your city/, "Their city")}</span></div>}
+          {draft && <BuildScreenshots draft={draft} />}
+          {quote && !quote.ok && left.length === 0 && <div className="card warn small" style={{ maxWidth: 720 }}><span className="b">Check their city before sending the link</span><span>{quote.reason.replace(/^Your city/, "Their city")}</span></div>}
           <div className="card" style={{ gap: 8, maxWidth: 720 }}>
             <span className="eyebrow">Claim link</span>
             <span className="small">They get an email with a button to create their password. Then they accept the Professional Terms and their profile goes live (students see them once their ID is verified). The link works once and lasts 14 days; sending again replaces it.</span>

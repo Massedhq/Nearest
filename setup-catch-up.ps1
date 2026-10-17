@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Admin: Build a profile for professionals (with permission) + one-time claim link; set an 8+ character password, accept Terms, go live; sign in with password or emailed code; payout reminder when accepting bookings"
+git commit -q -m "Admin: Build a profile (start from screenshots like Add from screenshots, screenshots kept beside the profile) + one-time claim link; 8+ character password, accept Terms, go live; sign in with password or emailed code; payout reminder when accepting bookings"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""
