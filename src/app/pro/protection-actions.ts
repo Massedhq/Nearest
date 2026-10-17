@@ -8,7 +8,7 @@ import { readProtection } from "@/lib/insurance";
 
 /** Saves (or changes) a professional's self-reported Professional Protection preference. Nothing is charged. */
 export async function saveProtection(_: FormState, form: FormData): Promise<FormState> {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ self: true });
   const v = readProtection(form);
   if (!v) return { error: "Choose one of the three options." };
   if ("error" in v) return { error: v.error };

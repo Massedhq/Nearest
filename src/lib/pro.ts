@@ -2,20 +2,24 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { and, eq, sql, ne } from "drizzle-orm";
 import { db, professionalProfiles, proServices, proHours, portfolioItems } from "@/db";
-import { getViewer, destinationFor, proAccess } from "./viewer";
+import { destinationFor, proAccess } from "./viewer";
+import { getProViewer } from "./build-mode";
 
 /**
  * Use at the top of every pro page and pro server action. Professionals build their whole profile first and accept
  * the Professional Terms on the last step (no payment to join). `allowUnpaid` is kept for older callers; it has no effect.
+ * While a Nearest owner is building a profile for a professional (Admin → Build a profile), this returns that
+ * professional's account. `self: true` marks things only the professional can do themselves (accept Terms, ID selfie,
+ * payouts, bookings) — an owner who is building is sent back to the profile instead.
  */
-export async function requirePro(_opts: { allowUnpaid?: boolean } = {}) {
-  void _opts;
-  const viewer = await getViewer();
+export async function requirePro(opts: { allowUnpaid?: boolean; self?: boolean } = {}) {
+  const viewer = await getProViewer();
   if (!viewer) redirect("/pro/sign-in");
   if (!viewer.user || !(await proAccess(viewer))) redirect(await destinationFor(viewer));
+  if (opts.self && viewer.building) redirect("/pro/setup/review");
   const profile = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, viewer.user!.id) });
   if (!profile) redirect("/pro/onboarding");
-  return { viewer, user: viewer.user!, profile };
+  return { viewer, user: viewer.user!, profile, building: Boolean(viewer.building) };
 }
 
 export type SetupStep = { key: string; label: string; href: string; done: boolean; optional?: boolean };

@@ -7,6 +7,8 @@ export type Viewer = {
   clerkUserId: string;
   user: User | null;
   admin: { role: string; active: boolean } | null;
+  /** Set only while a Nearest owner is building a professional's profile for them (see lib/build-mode.ts). */
+  building?: { adminUserId: string };
 };
 
 export async function getViewer(): Promise<Viewer | null> {

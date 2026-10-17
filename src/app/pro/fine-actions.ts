@@ -6,7 +6,7 @@ import { requirePro } from "@/lib/pro";
 import { stripe, origin } from "@/lib/stripe";
 
 export async function payFine(form: FormData) {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ self: true });
   const f = await db.query.fines.findFirst({ where: and(eq(fines.id, String(form.get("id"))), eq(fines.proId, user.id), eq(fines.status, "outstanding")) });
   if (!f) redirect("/pro/account-status");
   const base = await origin();

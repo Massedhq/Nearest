@@ -1,6 +1,7 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
-import { getViewer, proAccess } from "@/lib/viewer";
+import { proAccess } from "@/lib/viewer";
+import { getProViewer } from "@/lib/build-mode";
 
 // Issues short-lived upload tokens so photos go straight from the phone to Blob storage.
 export async function POST(request: Request) {
@@ -10,7 +11,7 @@ export async function POST(request: Request) {
       body,
       request,
       onBeforeGenerateToken: async (pathname) => {
-        const viewer = await getViewer();
+        const viewer = await getProViewer();
         const u = viewer?.user;
         // Pros upload portfolio/profile photos; students upload their appointment result photo.
         const ok = u && (((await proAccess(viewer)) && pathname.startsWith(`pros/${u.id}/`)) || ((u.accountType === "student" || viewer?.admin?.role === "OWNER") && pathname.startsWith(`students/${u.id}/`)));

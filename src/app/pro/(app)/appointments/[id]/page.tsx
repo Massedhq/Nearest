@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ProAppointment({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ accepted?: string; activated?: string; activation?: string }> }) {
   const sp2 = await searchParams;
-  const { user } = await requirePro();
+  const { user, profile } = await requirePro();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const row = (await db.select({ b: bookings, first: users.firstName, last: users.lastName, sp: studentProfiles }).from(bookings)
@@ -40,6 +40,13 @@ export default async function ProAppointment({ params, searchParams }: { params:
       <TopBar title={`${fmtTime(b.startsAt)} appointment`} back="/pro/appointments" />
       <div className="body">
         {sp2.accepted && b.status === "confirmed" && <div className="card ok small"><span className="b">{sp2.activated ? "Membership active — booking accepted! 🎉" : "Booking accepted!"}</span><span>Your client has been notified that you confirmed.</span></div>}
+        {!profile.payoutsEnabled && ["pending_payment", "confirmed", "completed"].includes(b.status) && (
+          <div className="card warn small" style={{ gap: 6 }}>
+            <span className="b">Set up payouts so you get paid</span>
+            <span>You don&apos;t have a payout account yet. Nearest holds your money from this booking safely until you add one.</span>
+            <Link className="btn sm" href="/pro/payments" style={{ alignSelf: "flex-start" }}>Set up payouts</Link>
+          </div>
+        )}
         {sp2.activation === "cancelled" && b.status === "requested" && <div className="card small"><span>No payment was made — the request is still waiting for you.</span></div>}
         {b.status === "requested" && (
           <div className="card warn" style={{ gap: 8 }}>

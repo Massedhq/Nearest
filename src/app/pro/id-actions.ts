@@ -9,7 +9,7 @@ const DATA_URL = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/;
 
 /** Professionals: photo of a driver's license or state ID + live selfie, reviewed by Nearest (no third-party screens). */
 export async function submitProIdDocs(_: FormState, form: FormData): Promise<FormState> {
-  const { user, profile } = await requirePro();
+  const { user, profile } = await requirePro({ self: true });
   if (profile.identityStatus === "verified") return { ok: "Your ID is already verified." };
   const docs: { kind: string; b64: string }[] = [];
   for (const kind of ["gov_id", "selfie"]) {

@@ -17,7 +17,7 @@ async function origin() {
 
 /** Accept a booking request. If the membership isn't active yet, the activation screen opens instead (booking stays pending). */
 export async function acceptBookingRequest(_: AcceptState, form: FormData): Promise<AcceptState> {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ self: true });
   const id = String(form.get("id") ?? "");
   const r = await acceptRequest(id, user.id);
   if ("needsActivation" in r) return { needsActivation: true, rateCents: r.rateCents };
@@ -27,7 +27,7 @@ export async function acceptBookingRequest(_: AcceptState, form: FormData): Prom
 }
 
 export async function declineBookingRequest(form: FormData) {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ self: true });
   const id = String(form.get("id") ?? "");
   await declineRequest(id, user.id);
   revalidatePath("/pro", "layout");
@@ -36,7 +36,7 @@ export async function declineBookingRequest(form: FormData) {
 
 /** "ACTIVATE & ACCEPT BOOKING": start the membership in Stripe, then come straight back to this booking and accept it. */
 export async function activateAndAccept(form: FormData) {
-  const { user, profile } = await requirePro();
+  const { user, profile } = await requirePro({ self: true });
   const id = String(form.get("id") ?? "");
   const b = await db.query.bookings.findFirst({ where: and(eq(bookings.id, id), eq(bookings.proId, user.id)) });
   if (!b || b.status !== "requested") redirect(`/pro/appointments/${id}`);

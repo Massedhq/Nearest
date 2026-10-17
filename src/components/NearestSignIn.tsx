@@ -195,9 +195,10 @@ export function NearestSignIn({ signUpHref, signUpLabel = "Create an account", a
       <div className="field"><label htmlFor="si-email">Email</label><input id="si-email" name="email" type="email" autoComplete="email" key={email} defaultValue={email} required /></div>
       <div className="field"><label htmlFor="si-password">Password</label><PasswordInput id="si-password" name="password" autoComplete="current-password" /></div>
       {error && <p className="err" role="alert">{error}</p>}
-      <button className="btn" type="submit" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
+      <button className="btn" type="submit" disabled={busy}>{busy ? "Signing in…" : "Sign in with password"}</button>
+      <button type="button" className="btn ghost" onClick={sendLoginCode} disabled={busy}>Email me a 6-digit code instead</button>
       <div className="row between small" style={{ flexWrap: "wrap", gap: 8 }}>
-        <button type="button" className="link small" onClick={sendLoginCode} disabled={busy}>Email me a code instead</button>
+        <span className="xs muted">No password needed with a code.</span>
         <button type="button" className="link small" onClick={startReset} disabled={busy}>Forgot password?</button>
       </div>
       {signUpHref && <p className="small muted" style={{ textAlign: "center", margin: 0 }}>{signUpHref.startsWith("/admin") ? "First time here?" : "New to Nearest?"} <Link className="link" href={signUpHref}>{signUpLabel}</Link></p>}

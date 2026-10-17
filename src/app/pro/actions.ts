@@ -332,7 +332,7 @@ export async function finishPortfolio(_: FormState, form: FormData): Promise<For
 
 // ---------- Submit for review ----------
 export async function submitForReview(_: FormState, form: FormData): Promise<FormState> {
-  const { user, profile, viewer } = await requirePro();
+  const { user, profile, viewer } = await requirePro({ self: true });
   if (profile.reviewStatus === "approved") return { ok: "You're already approved." };
   if (!setupComplete(await setupSteps(user.id))) return { error: "Finish the remaining setup steps first." };
   // Professional Protection is optional: saved when answered, never required to submit.
@@ -505,7 +505,7 @@ export async function deleteModelCall(form: FormData) {
 // ---------- Go live ----------
 /** The professional's own switch: Go live (show in search) or Go offline. Payouts are never required. */
 export async function setGoLive(form: FormData) {
-  const { user, profile } = await requirePro();
+  const { user, profile } = await requirePro({ self: true });
   const on = form.get("on") === "1";
   if (on && (await proReadiness(profile)).length > 0) return; // the card lists what's left instead
   await db.update(professionalProfiles).set({ searchable: on }).where(eq(professionalProfiles.userId, user.id));

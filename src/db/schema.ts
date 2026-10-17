@@ -233,6 +233,15 @@ export const professionalProfiles = pgTable("professional_profiles", {
   // out a week before a not-live profile's spot is released.
   spotClockAt: ts("spot_clock_at"),
   spotWarnedAt: ts("spot_warned_at"),
+  // Built by Nearest: an owner/partner set this profile up for the professional (with their permission). Until they
+  // claim it (set a password from the emailed link) the account has no sign-in of its own. claimTokenHash = sha256
+  // of the one-time link; cleared once used.
+  builtBy: uuid("built_by"),
+  builtAt: ts("built_at"),
+  claimTokenHash: text("claim_token_hash"),
+  claimSentAt: ts("claim_sent_at"),
+  claimExpiresAt: ts("claim_expires_at"),
+  claimedAt: ts("claimed_at"),
   // Setup "save & finish later": half-finished services are kept as a draft; reminders after 1/3/7 days.
   servicesDraft: jsonb("services_draft"),
   setupReminders: integer("setup_reminders").notNull().default(0),

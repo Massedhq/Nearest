@@ -43,6 +43,7 @@ export default async function ProspectDetail({ params }: { params: Promise<{ id:
         <span className="tag">{PROSPECT_STATUSES[p.status] ?? p.status}</span>
         <span className="small muted">Partner: {recruiter?.firstName ?? "—"} • Source: {p.source ?? "—"} • Added {p.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Chicago" })}</span>
         {p.registeredUserId && <Link className="link small" href={`/admin/professionals/${p.registeredUserId}`}>Open their Nearest account →</Link>}
+        {!p.registeredUserId && role === "OWNER" && mine && <Link className="link small" href={`/admin/outreach/build?prospect=${p.id}`}>Build their profile for them →</Link>}
       </div>
       {(p.enteredBy || p.conflictNote || p.duplicateOf) && (
         <div className={`card${p.conflictNote && !p.conflictReviewedAt ? " warn" : ""}`} style={{ gap: 6 }}>

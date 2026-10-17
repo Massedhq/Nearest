@@ -77,6 +77,11 @@ export async function acceptRequest(bookingId: string, proId: string): Promise<A
   if (state === "not_activated" && !b.campaignEntryId) return { needsActivation: true, rateCents: p.monthlyRateCents ?? 1100 };
   if (state === "payment_issue") return { error: "Your membership payment needs attention before you can accept bookings. Open Subscription to fix it." };
   await acceptForPayment(b);
+  // No payout account yet: remind them every time they accept, so the money from this booking can reach them.
+  if (!p.payoutsEnabled) {
+    await tell(proId, "Set up payouts so you get paid", `You accepted ${b.serviceName}. Add your payout account so Nearest can send you your money — it's held safely until you do.`, "/pro/payments",
+      { subject: "Set up payouts so you get paid for your booking", heading: "Add your payout account.", lines: [`You accepted ${b.serviceName} • ${when(b.startsAt)}.`, "To receive your money, set up payouts — it takes a few minutes. Nearest holds your earnings safely until you do."], button: "Set up payouts" });
+  }
   return { ok: true };
 }
 

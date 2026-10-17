@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "No monthly membership; $5 fee incl. Model Calls inside Terms section 2; Business > Updates for existing pros (locked until acknowledged); 30-day spot rule; card-processing leaks closed; add-ons; Professional Protection"
+git commit -q -m "Admin: Build a profile for professionals (with permission) + one-time claim link; set an 8+ character password, accept Terms, go live; sign in with password or emailed code; payout reminder when accepting bookings"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

@@ -12,7 +12,7 @@ import { cancelAsProFault } from "@/lib/bookings";
 import type { FormState } from "@/components/ActionForm";
 
 export async function startMembership() {
-  const { user, profile } = await requirePro();
+  const { user, profile } = await requirePro({ self: true });
   if (!(await import("@/lib/membership")).MEMBERSHIP_ENABLED) redirect("/pro/payments"); // no monthly membership to start
   if (profile.entryType === "AMBASSADOR" || profile.entryType === "BOOKING_PAID") redirect("/pro/payments"); // Nearest-managed: no card, no Stripe subscription
   if (profile.placementReleasedAt && profile.slotCityId && profile.slotCategoryId) {
@@ -40,14 +40,14 @@ export async function startMembership() {
 }
 
 export async function finishMembership(sessionId: string) {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ self: true });
   const session = await stripe().checkout.sessions.retrieve(sessionId, { expand: ["subscription"] });
   if (session.client_reference_id !== user.id || !session.subscription) return;
   await saveSubscription(user.id, session.subscription as Stripe.Subscription);
 }
 
 export async function startIdentity() {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ self: true });
   const base = await origin();
   const vs = await stripe().identity.verificationSessions.create({
     type: "document",
@@ -60,7 +60,7 @@ export async function startIdentity() {
 }
 
 export async function startPayouts() {
-  const { user, profile } = await requirePro();
+  const { user, profile } = await requirePro({ self: true });
   const base = await origin();
   let acct = profile.stripeAccountId;
   // Everything Nearest already knows, so Stripe doesn't ask for a website or "what you sell".
@@ -86,7 +86,7 @@ export async function startPayouts() {
 }
 
 export async function proCancelBooking(_: FormState, form: FormData): Promise<FormState> {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ self: true });
   const res = await cancelAsProFault(String(form.get("id")), "Professional cancelled", user.id);
   revalidatePath("/pro", "layout");
   return res.error ? { error: res.error } : { ok: res.ok };

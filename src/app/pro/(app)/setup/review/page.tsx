@@ -17,7 +17,7 @@ import { ProProtectionFields } from "@/components/ProProtectionFields";
 export const metadata = { title: "Review & submit" };
 
 export default async function ReviewStep() {
-  const { user, profile: p, viewer } = await requirePro();
+  const { user, profile: p, viewer, building } = await requirePro();
   const [steps, services, photos, city] = await Promise.all([
     setupSteps(user.id),
     db.select().from(proServices).where(eq(proServices.userId, user.id)).orderBy(asc(proServices.sort)),
@@ -51,7 +51,13 @@ export default async function ReviewStep() {
         {p.reviewStatus === "submitted" && <div className="card ok small"><span className="b">Submitted — Nearest is reviewing your profile.</span><span className="muted">We&apos;ll let you know when you&apos;re approved.</span></div>}
         {p.reviewStatus === "approved" && <div className="card ok small"><span className="b">You&apos;re approved.</span></div>}
         {p.reviewStatus === "rejected" && <div className="card bad small"><span className="b">Changes needed</span><span>{p.reviewNote}</span></div>}
-        {(p.reviewStatus === "draft" || p.reviewStatus === "rejected") && (
+        {building && (
+          <div className="card warn small" style={{ gap: 6 }}>
+            <span className="b">You&apos;re building this profile for them.</span>
+            <span>They accept the Professional Terms, verify their ID and set up payouts themselves after they open their claim link. When the steps above are done (ID is theirs), go back to admin and send the link.</span>
+          </div>
+        )}
+        {!building && (p.reviewStatus === "draft" || p.reviewStatus === "rejected") && (
           !ready ? (
             <div className="card warn small"><span>Finish the steps marked &ldquo;To do&rdquo; above, then come back here to submit your profile.</span></div>
           ) : needsTerms && quote && !quote.ok ? (
