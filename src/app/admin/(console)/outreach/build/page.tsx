@@ -1,14 +1,12 @@
 import Link from "next/link";
-import { desc, eq, isNotNull, and, inArray } from "drizzle-orm";
-import { db, users, professionalProfiles, prospects, prospectDrafts } from "@/db";
+import { asc, desc, eq, isNotNull, and, inArray } from "drizzle-orm";
+import { db, users, professionalProfiles, prospects, prospectDrafts, categories, cities } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
 import { OutreachNav } from "@/components/OutreachNav";
-import { ActionForm } from "@/components/ActionForm";
 import { requireAdmin } from "@/lib/admin";
 import { outreachScope } from "@/lib/outreach";
 import { buildStatus } from "@/lib/build-status";
-import { createBuiltProfile } from "@/app/admin/build-actions";
-import { ScreenshotLeadUpload } from "@/components/ScreenshotLeadUpload";
+import { BuildProfileForm } from "@/components/BuildProfileForm";
 import { BuildScreenshots } from "@/components/BuildScreenshots";
 
 export const metadata = { title: "Build a profile" };
@@ -25,6 +23,10 @@ export default async function BuildProfiles({ searchParams }: { searchParams: Pr
   const pid = (await searchParams).prospect ?? "";
   const pr = /^[0-9a-f-]{36}$/.test(pid) ? await db.query.prospects.findFirst({ where: eq(prospects.id, pid) }) : null;
   const [first, ...rest] = (pr?.name ?? "").trim().split(/\s+/);
+  const [cats, cityList] = await Promise.all([
+    db.select({ id: categories.id, name: categories.name }).from(categories).where(eq(categories.active, true)).orderBy(asc(categories.sort), asc(categories.name)),
+    db.select({ id: cities.id, name: cities.name, state: cities.state }).from(cities).where(eq(cities.active, true)).orderBy(asc(cities.state), asc(cities.name)),
+  ]);
   const draft = pr ? await db.query.prospectDrafts.findFirst({ where: and(eq(prospectDrafts.prospectId, pr.id), eq(prospectDrafts.status, "approved")) }) : null;
   const rows = await db.select({ p: professionalProfiles, u: users }).from(professionalProfiles).innerJoin(users, eq(users.id, professionalProfiles.userId))
     .where(isMain ? isNotNull(professionalProfiles.builtBy) : and(isNotNull(professionalProfiles.builtBy), eq(professionalProfiles.builtBy, user.id)))
@@ -37,29 +39,15 @@ export default async function BuildProfiles({ searchParams }: { searchParams: Pr
       <OutreachNav at="build" />
       <div className="card small" style={{ maxWidth: 720, gap: 6 }}>
         <span className="b">For professionals who said yes to you setting them up.</span>
-        <span>Create their account, then fill in their profile on the same setup pages they&apos;d use — services, prices, location, hours, photos. When it&apos;s ready, send their claim link: they create a password (8+ characters), accept the Professional Terms, and their profile goes live. They verify their own ID and set up their own payouts.</span>
+        <span>Fill in what you have — screenshots, their photo and logo are optional. Category and city come from the screenshots when you add them. Then finish their profile on the same setup pages they&apos;d use. When it&apos;s ready, send their claim link: they create a password (8+ characters), accept the Professional Terms, and their profile goes live. They verify their own ID and set up their own payouts.</span>
       </div>
-      {!pr && (
-        <div className="card" style={{ maxWidth: 720, gap: 8 }}>
-          <span className="eyebrow">Start from screenshots</span>
-          <span className="small">Same as Add from screenshots: upload 1–5 screenshots of their profile, link-in-bio, booking page or flyer. The details are read on this device, you check them against the screenshots and approve, and this form opens with their name, email, phone and business filled in. The screenshots stay with their record so you can copy services, prices and hours into their profile.</span>
-          <ScreenshotLeadUpload build />
-        </div>
-      )}
       {draft && <BuildScreenshots draft={draft} />}
       <div className="card" style={{ maxWidth: 720 }}>
-        <span className="eyebrow">{pr ? "" : "Or type it in — "}New profile{pr ? ` — from prospect ${pr.name}` : ""}</span>
-        <ActionForm action={createBuiltProfile} submitLabel="Create and start building">
-          {pr && <input type="hidden" name="prospectId" value={pr.id} />}
-          <div className="grid2">
-            <div className="field"><label htmlFor="bp-first">Legal first name</label><input id="bp-first" name="firstName" required maxLength={60} defaultValue={first ?? ""} /></div>
-            <div className="field"><label htmlFor="bp-last">Legal last name</label><input id="bp-last" name="lastName" required maxLength={60} defaultValue={rest.join(" ")} /></div>
-            <div className="field"><label htmlFor="bp-email">Their email (their sign-in)</label><input id="bp-email" name="email" type="email" required maxLength={160} defaultValue={pr?.email ?? ""} /></div>
-            <div className="field"><label htmlFor="bp-phone">Their phone (optional)</label><input id="bp-phone" name="phone" maxLength={30} defaultValue={pr?.phone ?? ""} /></div>
-            <div className="field"><label htmlFor="bp-bus">Business name (optional)</label><input id="bp-bus" name="businessName" maxLength={80} defaultValue={pr?.business ?? ""} /></div>
-          </div>
-          <label className="check small" style={{ alignItems: "flex-start" }}><input type="checkbox" name="permission" required /><span>They gave me permission to create their Nearest account and set up their profile for them.</span></label>
-        </ActionForm>
+        <span className="eyebrow">New profile{pr ? ` — from prospect ${pr.name}` : ""}</span>
+        <BuildProfileForm categories={cats} cities={cityList} initial={{
+          firstName: first ?? "", lastName: rest.join(" "), email: pr?.email ?? "", phone: pr?.phone ?? "", businessName: pr?.business ?? "",
+          categoryId: pr?.categoryId ?? null, cityId: pr?.cityId ?? null, prospectId: pr?.id ?? null,
+        }} />
       </div>
       <div className="card" style={{ gap: 8 }}>
         <span className="eyebrow">{isMain ? "Built profiles (everyone)" : "Profiles I built"}</span>

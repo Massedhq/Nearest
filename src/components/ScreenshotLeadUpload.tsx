@@ -23,9 +23,8 @@ async function shrink(file: File): Promise<Blob> {
  * Upload screenshots of one professional → their text is read here in the browser (self-hosted OCR, no AI service)
  * → sorted into the draft's fields → the screenshots and details are saved and the draft opens to check.
  * With draftId, the screenshots are added to that draft (only its empty fields get filled).
- * With build, the draft opens ready to approve straight into building their profile (Outreach → Build a profile).
  */
-export function ScreenshotLeadUpload({ draftId, room = MAX, build = false }: { draftId?: string; room?: number; build?: boolean }) {
+export function ScreenshotLeadUpload({ draftId, room = MAX }: { draftId?: string; room?: number }) {
   const router = useRouter();
   const max = Math.max(0, Math.min(MAX, room));
   const [files, setFiles] = useState<File[]>([]);
@@ -53,7 +52,7 @@ export function ScreenshotLeadUpload({ draftId, room = MAX, build = false }: { d
         const j = await r.json().catch(() => ({}));
         if (!r.ok || !j.ok) { setErr(j.error || "Upload failed. Try again."); setBusy(""); return; }
         if (draftId) { setFiles([]); setBusy(""); (e.target as HTMLFormElement).reset(); router.refresh(); }
-        else router.push(`/admin/outreach/screenshots/${j.id}${build ? "?build=1" : ""}`);
+        else router.push(`/admin/outreach/screenshots/${j.id}`);
       } catch (x) { console.error(x); setErr("Upload failed — check your connection and try again."); setBusy(""); }
     }}>
       <div className="field">

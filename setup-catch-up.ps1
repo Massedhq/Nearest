@@ -18,7 +18,7 @@ Step "1/4  Installing packages"
 npm ci
 Check "Installing packages"
 Step "2/4  Updating Neon (adds fields for Model Call fees, the 30-day spot rule, add-ons and Professional Protection - nothing is removed)"
-# Neon can be slow to answer "Pulling schema" — retry up to 3 times before giving up.
+# Neon can be slow to answer "Pulling schema" - retry up to 3 times before giving up.
 $ok = $false
 foreach ($try in 1..3) {
   npx drizzle-kit push
@@ -33,13 +33,13 @@ if ($LASTEXITCODE -ne 0) { Write-Host "  Rename skipped for now - the rest of th
 # Counties and the 199 DFW cities were loaded by the previous update, so this update doesn't touch them.
 # (To re-check them any time: npm run db:seed - it only adds what's missing.)
 Step "3/4  Production build"
-# Clear leftovers from earlier builds or "Start the app" runs — they can point at removed pages and break the build.
+# Clear leftovers from earlier builds or "Start the app" runs - they can point at removed pages and break the build.
 if (Test-Path ".\.next") { Remove-Item -Recurse -Force ".\.next" -ErrorAction SilentlyContinue }
 npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Admin: Build a profile (start from screenshots like Add from screenshots, screenshots kept beside the profile) + one-time claim link; 8+ character password, accept Terms, go live; sign in with password or emailed code; payout reminder when accepting bookings"
+git commit -q -m "Admin: Build a profile - one form; optional screenshots fill in contact, category, city, address, Instagram, prices; optional photo and logo; one-time claim link; 8+ character password; accept Terms, go live; sign in with password or emailed code; payout reminder on accept"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

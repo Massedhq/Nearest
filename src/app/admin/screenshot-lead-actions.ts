@@ -17,7 +17,7 @@ async function load(f: FormData, userId: string) {
 }
 const fromForm = (f: FormData) => cleanFields(Object.fromEntries(DRAFT_KEYS.map((k) => [k, s(f, k, k === "notes" ? 1500 : k === "prices" ? 500 : 300)])));
 
-/** Save the checked/fixed details (stays in the queue). With approve=1, also approves it into a prospect; approve=build then opens Build a profile. */
+/** Save the checked/fixed details (stays in the queue). With approve=1, also approves it into a prospect. */
 export async function saveScreenshotDraft(_: FormState, f: FormData): Promise<FormState> {
   const { user } = await requireAdmin();
   const d = await load(f, user.id);
@@ -26,15 +26,13 @@ export async function saveScreenshotDraft(_: FormState, f: FormData): Promise<Fo
   const fields: DraftFields = await fromForm(f);
   await db.update(prospectDrafts).set({ fields, updatedAt: new Date() }).where(and(eq(prospectDrafts.id, d.id), eq(prospectDrafts.status, "review")));
   revalidatePath("/admin/outreach/screenshots", "layout");
-  const approve = String(f.get("approve") ?? "");
-  if (approve !== "1" && approve !== "build") {
+  if (f.get("approve") !== "1") {
     const missing = draftProblems(fields);
     return { ok: missing.length ? `Saved. Still needed before approving: ${missing.join(", ")}.` : "Saved — everything required is filled in. Approve it when you've checked it." };
   }
   const r = await approveDraft(d.id, user.id);
   if ("error" in r) return { error: r.error };
-  // "Approve and build their profile": the new prospect opens in Build a profile with their details filled in.
-  redirect(approve === "build" ? `/admin/outreach/build?prospect=${r.prospectId}` : `/admin/outreach/prospects/${r.prospectId}`);
+  redirect(`/admin/outreach/prospects/${r.prospectId}`);
 }
 
 /** Not a lead after all: the draft and its screenshots are removed. */

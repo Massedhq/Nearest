@@ -14,10 +14,9 @@ export const metadata = { title: "Check screenshot lead" };
 export const dynamic = "force-dynamic";
 
 /** Screenshots on one side, the details read from them (in the browser) on the other. Fix anything, then approve into a prospect. */
-export default async function ScreenshotDraft({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ build?: string }> }) {
+export default async function ScreenshotDraft({ params }: { params: Promise<{ id: string }> }) {
   const { user } = await requireAdmin();
   const { id } = await params;
-  const build = (await searchParams).build === "1";
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const d = await db.query.prospectDrafts.findFirst({ where: eq(prospectDrafts.id, id) });
   if (!d || !(await canSeeDraft(user.id, d.recruiterId))) notFound();
@@ -35,8 +34,7 @@ export default async function ScreenshotDraft({ params, searchParams }: { params
     <>
       <AdminHead eyebrow="Add from screenshots" title={f.name || f.business || "Screenshot lead"} />
       <OutreachNav at="screenshots" />
-      <Link className="link small" href={build ? "/admin/outreach/build" : "/admin/outreach/screenshots"}>{build ? "← Back to Build a profile" : "← Back to the review queue"}</Link>
-      {build && d.status === "review" && <div className="card small"><span>Check the details against their screenshots, then tap <span className="b">Approve and build their profile</span> — they&apos;re saved as your prospect (screenshots kept with them) and Build a profile opens with their name, email, phone and business filled in.</span></div>}
+      <Link className="link small" href="/admin/outreach/screenshots">← Back to the review queue</Link>
       {d.status !== "review" ? (
         <div className="card small"><span>{d.status === "approved" ? <>Approved — <Link className="link" href={`/admin/outreach/prospects/${d.prospectId}`}>open the prospect</Link> or <Link className="link" href={`/admin/outreach/build?prospect=${d.prospectId}`}>build their profile</Link>.</> : "This draft was discarded."}</span></div>
       ) : (
@@ -58,7 +56,7 @@ export default async function ScreenshotDraft({ params, searchParams }: { params
             {dup && (
               <div className="card warn small" style={{ gap: 4 }}>
                 <span className="b">{dup.kind === "prospect" ? "Already in Outreach" : dup.kind === "professional" ? "Already a Nearest professional" : "On the do-not-contact list"}</span>
-                {dup.kind === "prospect" && <span>{dup.name}{dup.owner ? ` (with ${dup.owner})` : ""} — <Link className="link" href={`/admin/outreach/prospects/${dup.id}`}>open it</Link>{build ? <> or <Link className="link" href={`/admin/outreach/build?prospect=${dup.id}`}>build their profile from it</Link></> : null}. This draft can&apos;t be approved; discard it.</span>}
+                {dup.kind === "prospect" && <span>{dup.name}{dup.owner ? ` (with ${dup.owner})` : ""} — <Link className="link" href={`/admin/outreach/prospects/${dup.id}`}>open it</Link>. This draft can&apos;t be approved; discard it.</span>}
                 {dup.kind === "professional" && <span><Link className="link" href={`/admin/professionals/${dup.id}`}>Open their account</Link>. No need to recruit them — discard this draft.</span>}
                 {dup.kind === "suppressed" && <span>They asked not to be contacted, so they can&apos;t be added.</span>}
               </div>
@@ -105,8 +103,7 @@ export default async function ScreenshotDraft({ params, searchParams }: { params
               {field("prices", "Listed service prices", { maxLength: 500, placeholder: "e.g. Classic full set $85; Brow lamination $60" })}
               {field("deposit", "Deposit (kept separate from service prices)", { maxLength: 60, placeholder: "e.g. $25" })}
               <div className="field"><label htmlFor="sd-notes">Notes</label><textarea id="sd-notes" name="notes" defaultValue={f.notes} maxLength={1500} rows={3} /></div>
-              {!dup && build && <button className="btn" type="submit" name="approve" value="build">Approve and build their profile</button>}
-              {!dup && <button className={build ? "btn ghost" : "btn"} type="submit" name="approve" value="1">Approve and add to my prospects</button>}
+              {!dup && <button className="btn" type="submit" name="approve" value="1">Approve and add to my prospects</button>}
             </ActionForm>
             <form action={discardScreenshotDraft}><input type="hidden" name="id" value={d.id} /><button className="link xs" type="submit" style={{ color: "#E08A8A" }}>Discard — not a lead (removes the screenshots)</button></form>
           </div>
