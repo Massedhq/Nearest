@@ -25,10 +25,30 @@ export default async function Money() {
   const paying = subs.filter((s) => s.status === "active" || s.status === "trialing");
   const mrr = paying.reduce((a, s) => a + s.n * s.rate, 0);
   const pastDue = subs.filter((s) => s.status === "past_due" || s.status === "unpaid").reduce((a, s) => a + s.n, 0);
+  const { MEMBERSHIP_ENABLED } = await import("@/lib/membership");
+  // No monthly membership: Nearest's revenue is the service fee kept on completed bookings (services + Model Calls).
+  const [[svcFees], [mcFees], [oldSubs]] = await Promise.all([
+    db.select({ v: sql<number>`coalesce(sum(${bookings.serviceFeeCents}),0)::int`, n }).from(bookings).where(and(eq(bookings.status, "completed"), gte(bookings.releasedAt, since), isNull(bookings.modelCallId))),
+    db.select({ v: sql<number>`coalesce(sum(${bookings.serviceFeeCents}),0)::int`, n }).from(bookings).where(and(eq(bookings.status, "completed"), gte(bookings.releasedAt, since), sql`${bookings.modelCallId} is not null`)),
+    db.select({ n }).from(professionalProfiles).where(and(sql`${professionalProfiles.subscriptionId} is not null`, isNull(professionalProfiles.membershipEndsAt), inArray(professionalProfiles.subscriptionStatus, ["active", "trialing", "past_due", "unpaid", "incomplete", "paused"]))),
+  ]);
   return (
     <>
       <AdminHead eyebrow="Kept separate: Nearest's revenue vs. professionals' money" title="Money" />
       <div className="acols even">
+        {!MEMBERSHIP_ENABLED ? (
+        <div className="card" style={{ gap: 12 }}>
+          <div className="row between"><span className="eyebrow">Service fees — Nearest revenue</span><span className="tag solid">Nearest</span></div>
+          <div className="kpis k3">
+            <div className="card" style={{ gap: 6 }}><span className="xs muted">Kept (30d)</span><span className="stat">{money(svcFees.v + mcFees.v)}</span></div>
+            <div className="card" style={{ gap: 6 }}><span className="xs muted">Services</span><span className="stat">{money(svcFees.v)}</span><span className="xs muted">{svcFees.n} completed</span></div>
+            <div className="card" style={{ gap: 6 }}><span className="xs muted">Model Calls</span><span className="stat">{money(mcFees.v)}</span><span className="xs muted">{mcFees.n} completed</span></div>
+          </div>
+          <span className="xs muted">No monthly membership — Nearest earns the service fee on each completed booking. The fee is added on top of the pro&apos;s price, and card processing comes out of the pro&apos;s payout.</span>
+          <div className="row between small"><span className="muted">Old memberships still being cancelled</span><span>{oldSubs.n === 0 ? "None — all done" : `${oldSubs.n} (the hourly job cancels them; no further charges)`}</span></div>
+          <div className="row between small"><span className="muted">Old membership payments collected (30d)</span><span>{money(collected[0].v)}</span></div>
+        </div>
+        ) : (
         <div className="card" style={{ gap: 12 }}>
           <div className="row between"><span className="eyebrow">Memberships — Nearest revenue</span><span className="tag solid">Nearest</span></div>
           <div className="kpis k3">
@@ -46,6 +66,7 @@ export default async function Money() {
           <div className="row between small"><span className="muted">Membership payments collected (30d)</span><span>{money(collected[0].v)}</span></div>
           {pastDue > 0 && <span className="tag bad" style={{ alignSelf: "flex-start" }}>{pastDue} past due</span>}
         </div>
+        )}
         <div className="card" style={{ gap: 12 }}>
           <div className="row between"><span className="eyebrow">Bookings — professionals&apos; money</span><span className="tag">Pass-through</span></div>
           <div className="kpis k3">

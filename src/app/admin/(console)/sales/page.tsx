@@ -45,6 +45,12 @@ export default async function Sales({ searchParams }: { searchParams: Promise<{ 
   return (
     <>
       <AdminHead eyebrow={isMain ? "Main owner view — all partners" : "Your earnings and the group total"} title="Sales Track" />
+      {!(await import("@/lib/membership")).MEMBERSHIP_ENABLED && (
+        <div className="card warn small" style={{ gap: 4 }}>
+          <span className="b">No monthly membership since October 17, 2026</span>
+          <span>Partner earnings here are shares of professionals&apos; membership payments, so they stop as old memberships end. Nearest&apos;s income is now the service fee on each completed booking (Money page). Sharing service fees with partners isn&apos;t set up yet.</span>
+        </div>
+      )}
       <div className="card" style={{ gap: 12 }}>
         <div className="row between"><span className="eyebrow">Group progress</span><span className={`tag ${count.n >= pool ? "ok" : ""}`}>{count.n >= pool ? "Personal codes phase" : "Shared pool phase"}</span></div>
         <div className="row" style={{ gap: 18 }}><span className="stat" style={{ fontSize: 48 }}>{count.n.toLocaleString()} / {pool.toLocaleString()}</span><span className="small muted">professionals signed up</span></div>

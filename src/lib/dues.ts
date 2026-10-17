@@ -25,6 +25,7 @@ export async function duesStatus(p: Pro) {
  * A month with no bookings costs nothing; nothing carries over.
  */
 export async function collectDues(p: Pro | null | undefined, bookingId: string, payoutCents: number): Promise<number> {
+  if (!(await import("./membership")).MEMBERSHIP_ENABLED) return 0; // no monthly membership: nothing is ever kept for dues
   if (!p || !isBookingPaid(p) || payoutCents <= 0) return 0;
   const earlier = await db.query.membershipDues.findFirst({ where: eq(membershipDues.bookingId, bookingId) });
   if (earlier) return earlier.amountCents;

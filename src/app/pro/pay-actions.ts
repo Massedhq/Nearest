@@ -13,6 +13,7 @@ import type { FormState } from "@/components/ActionForm";
 
 export async function startMembership() {
   const { user, profile } = await requirePro();
+  if (!(await import("@/lib/membership")).MEMBERSHIP_ENABLED) redirect("/pro/payments"); // no monthly membership to start
   if (profile.entryType === "AMBASSADOR" || profile.entryType === "BOOKING_PAID") redirect("/pro/payments"); // Nearest-managed: no card, no Stripe subscription
   if (profile.placementReleasedAt && profile.slotCityId && profile.slotCategoryId) {
     const { slotCount, slotLimits, isCapExempt } = await import("@/lib/slots");

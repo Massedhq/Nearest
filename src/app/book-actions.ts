@@ -69,7 +69,7 @@ async function checkout(b: typeof bookings.$inferSelect, email: string | null, p
 async function createAndPay(opts: {
   studentId: string; email: string | null; proId: string; proName: string; serviceId?: string; modelCallId?: string;
   serviceName: string; startsAt: Date; durationMin: number; priceCents: number; where: Where; travelFeeCents?: number;
-  serviceFeeCents?: number; // Nearest's service fee inside priceCents (kept when the booking completes; none on Model Calls)
+  serviceFeeCents?: number; // Nearest's service fee inside priceCents (kept when the booking completes; Model Calls too, except ones published before the fee)
   bundleId?: string;
   addons?: { id: string; name: string; priceCents: number; extraMin: number }[]; // included in priceCents and durationMin
 }): Promise<FormState> {
@@ -202,6 +202,7 @@ export async function bookModelCall(_: FormState, form: FormData): Promise<FormS
   return createAndPay({ where, travelFeeCents: pro.travelFeeCents ?? 3500,
     studentId: user.id, email: user.email, proId: call.userId, proName: pro.businessName ?? "your professional", modelCallId: call.id,
     serviceName: `${call.serviceName} (Model Call)`, startsAt, durationMin: call.durationMin, priceCents: call.priceCents,
+    serviceFeeCents: call.serviceFeeCents, // Nearest's service fee (0 on Model Calls published before the fee)
   });
 }
 

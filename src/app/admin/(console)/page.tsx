@@ -32,10 +32,13 @@ export default async function CommandCenter() {
     count(db.select({ n: sql<number>`count(*)::int` }).from(studentProfiles).where(eq(studentProfiles.verificationStatus, "pending"))),
   ]);
   // Today (Chicago) and monthly membership income
-  const [[{ n: bookingsToday }], [{ cents: mrr, n: payingPros }]] = await Promise.all([
+  const [[{ n: bookingsToday }], [{ cents: mrr, n: payingPros }], [{ cents: feeIncome, n: feeBookings }]] = await Promise.all([
     db.select({ n: sql<number>`count(*)::int` }).from(bookings).where(sql`(${bookings.startsAt} at time zone 'America/Chicago')::date = (now() at time zone 'America/Chicago')::date and ${bookings.status} in ('confirmed','completed')`),
     db.select({ cents: sql<number>`coalesce(sum(coalesce(${professionalProfiles.monthlyRateCents}, 3000)), 0)::int`, n: sql<number>`count(*)::int` }).from(professionalProfiles).where(sql`${professionalProfiles.subscriptionStatus} in ('active','trialing')`),
+    // Nearest's revenue with no monthly membership: the service fee kept on completed bookings, last 30 days.
+    db.select({ cents: sql<number>`coalesce(sum(${bookings.serviceFeeCents}), 0)::int`, n: sql<number>`count(*)::int` }).from(bookings).where(sql`${bookings.status} = 'completed' and ${bookings.releasedAt} > now() - interval '30 days'`),
   ]);
+  const { MEMBERSHIP_ENABLED } = await import("@/lib/membership");
   const [{ n: proIdsToVerify }] = await db.select({ n: sql<number>`count(*)::int` }).from(professionalProfiles).where(eq(professionalProfiles.identityStatus, "pending"));
   const capacity = Number(settings["growth.founding_capacity"]);
   const pct = Math.min(100, Math.round((founding / capacity) * 100));
@@ -50,7 +53,9 @@ export default async function CommandCenter() {
         <div className="card" style={{ gap: 6 }}><span className="xs muted">Professionals</span><span className="stat">{pros}</span></div>
         <div className="card" style={{ gap: 6 }}><span className="xs muted">Students</span><span className="stat">{students}</span></div>
         <Link className="card" href="/admin/bookings" style={{ gap: 6, textDecoration: "none", color: "inherit" }}><span className="xs muted">Bookings today</span><span className="stat">{bookingsToday}</span><span className="xs muted">confirmed or done</span></Link>
-        <Link className="card" href="/admin/money" style={{ gap: 6, textDecoration: "none", color: "inherit" }}><span className="xs muted">Professional MRR</span><span className="stat">{money(mrr)}</span><span className="xs muted">{payingPros} paying professional{payingPros === 1 ? "" : "s"}</span></Link>
+        <Link className="card" href="/admin/money" style={{ gap: 6, textDecoration: "none", color: "inherit" }}>{MEMBERSHIP_ENABLED
+          ? <><span className="xs muted">Professional MRR</span><span className="stat">{money(mrr)}</span><span className="xs muted">{payingPros} paying professional{payingPros === 1 ? "" : "s"}</span></>
+          : <><span className="xs muted">Service fees (30 days)</span><span className="stat">{money(feeIncome)}</span><span className="xs muted">{feeBookings} completed booking{feeBookings === 1 ? "" : "s"}</span></>}</Link>
       </div>
       <div className="acols">
         <div className="col g16">

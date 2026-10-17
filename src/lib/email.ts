@@ -38,7 +38,12 @@ export async function sendEmail(opts: { to: string | null | undefined; subject: 
 export async function sendInviteEmail(opts: { to: string; name: string; city?: string | null; code: string; link: string; expires: string; kind?: string; rateCents?: number | null }) {
   if (!emailEnabled()) return { sent: false as const, reason: "Email isn't set up yet (no RESEND_API_KEY)." };
   const rate = `$${((opts.rateCents ?? 1500) / 100).toFixed(0)}`;
-  const offer = opts.kind === "AMBASSADOR"
+  const noFee = !(await import("./membership")).MEMBERSHIP_ENABLED;
+  const offer = noFee
+    ? opts.kind === "AMBASSADOR"
+      ? { subject: "You're invited to join Nearest as an Ambassador", eyebrow: "Ambassador Invitation", heading: `${opts.name}, you're invited to join Nearest as an Ambassador.`, line: "Your professional account is free — no sign-up fee and no monthly fee. Share Nearest with other professionals and help them get on board." }
+      : { subject: opts.kind === "BOOKING_PAID" ? "You're invited to join Nearest" : "You're invited to join Nearest First In", eyebrow: opts.kind === "BOOKING_PAID" ? "Special Invitation" : "First In Invitation", heading: opts.kind === "BOOKING_PAID" ? `${opts.name}, you're invited to join Nearest.` : `${opts.name}, you're invited to join Nearest First In.`, line: "It's free to join — no sign-up fee and no monthly fee. Nearest only earns its small service fee on each completed booking, added on top of your price, so you receive your full price." }
+    : opts.kind === "AMBASSADOR"
     ? { subject: "You're invited to join Nearest as an Ambassador", eyebrow: "Ambassador Invitation", heading: `${opts.name}, you're invited to join Nearest as an Ambassador.`, line: "Your professional account is free — no sign-up fee and no monthly membership. Share Nearest with other professionals and help them get on board." }
     : opts.kind === "BOOKING_PAID"
       ? { subject: "You're invited to join Nearest", eyebrow: "Special Invitation", heading: `${opts.name}, you're invited to join Nearest.`, line: `Nothing to pay up front. Your membership is ${rate}/month, collected from your bookings — once ${rate} is covered for the month, the rest of that month's earnings are all yours. A month with no bookings costs nothing.` }

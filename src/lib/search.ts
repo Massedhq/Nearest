@@ -15,10 +15,12 @@ export function liveProWhere(area: Area, areaMode: string | undefined) {
     // Live when membership is trialing/active and ID is verified. Payouts can come later — Nearest holds their money until then.
     // Membership: active members, owners, Nearest-managed accounts — AND professionals who joined but haven't activated
     // yet (their membership activates when they accept their first booking). Hidden: a membership with a payment problem.
+    // No monthly membership (MEMBERSHIP_ENABLED off): every professional who joined is live-eligible, including anyone
+    // whose old membership was cancelled — a past subscription never hides them.
     sql`(${professionalProfiles.subscriptionStatus} in ('trialing', 'active')
       or exists (select 1 from admin_members a where a.user_id = ${professionalProfiles.userId} and a.role = 'OWNER' and a.active)
       or ${professionalProfiles.entryType} in ('AMBASSADOR', 'BOOKING_PAID')
-      or (${professionalProfiles.subscriptionId} is null and ${professionalProfiles.entryPaidAt} is not null))`,
+      or ${professionalProfiles.entryPaidAt} is not null)`,
     sql`${professionalProfiles.placementReleasedAt} is null`,
     eq(professionalProfiles.identityStatus, "verified"),
     // Not paused by Nearest, not suspended, and no fine past its due date.

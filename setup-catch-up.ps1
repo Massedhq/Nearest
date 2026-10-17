@@ -11,13 +11,13 @@ Write-Host "Owner emails in .env.local (should be ONLY your three owner emails):
 Get-Content .\.env.local | Where-Object { $_ -match "^(OWNER_EMAILS|MAIN_OWNER_EMAIL)=" } | ForEach-Object { Write-Host "  $_" }
 
 # Files removed from Nearest (unzipping never deletes old files, so remove them here).
-$retired = @(".\Claude outputs", ".\src\app\how-it-works", ".\src\app\(student)\verify\later", ".\src\components\FillingMarketBook.tsx", ".\src\app\admin\city-actions.ts", ".\src\lib\city-activation.ts")
+$retired = @(".\Claude outputs", ".\src\app\how-it-works", ".\src\app\(student)\verify\later", ".\src\components\FillingMarketBook.tsx", ".\src\app\admin\city-actions.ts", ".\src\lib\city-activation.ts", ".\src\components\ProTermsUpdateCard.tsx")
 foreach ($r in $retired) { if (Test-Path $r) { Remove-Item -Recurse -Force $r; Write-Host "Removed $r" -ForegroundColor DarkGray } }
 
 Step "1/4  Installing packages"
 npm ci
 Check "Installing packages"
-Step "2/4  Updating Neon (adds service add-ons and the optional Professional Protection answer - nothing is removed)"
+Step "2/4  Updating Neon (adds fields for Model Call fees, the 30-day spot rule, add-ons and Professional Protection - nothing is removed)"
 # Neon can be slow to answer "Pulling schema" — retry up to 3 times before giving up.
 $ok = $false
 foreach ($try in 1..3) {
@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Service add-ons (pros list extras; students pick them when booking; price and time added; $150 limit on the total); Professional Protection; live pros count toward spots; categories under names"
+git commit -q -m "No monthly membership; $5 fee incl. Model Calls inside Terms section 2; Business > Updates for existing pros (locked until acknowledged); 30-day spot rule; card-processing leaks closed; add-ons; Professional Protection"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

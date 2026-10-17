@@ -113,7 +113,7 @@ export default async function ProAppointment({ params, searchParams }: { params:
                 );
               })}
             </div>
-            <div className="card"><div className="row between"><span>When released</span><span className="b">{money(Math.max(0, b.priceCents - b.inviteDiscountCents - b.serviceFeeCents - (b.stripeFeeCents ?? 0)))} → Available</span></div></div>
+            <div className="card"><div className="row between"><span>When released</span><span className="b">{money(Math.max(0, b.priceCents - b.inviteDiscountCents - b.serviceFeeCents - (await import("@/lib/bookings")).processingFeeCents(b)))} → Available</span></div></div>
             <p className="xs muted p" style={{ margin: 0 }}>If the customer leaves without finishing, Nearest applies its completion policy automatically.</p>
           </>
         )}

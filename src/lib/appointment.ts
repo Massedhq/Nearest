@@ -69,7 +69,8 @@ export async function markNoShow(b: Booking) {
   await db.update(studentProfiles).set({ noShowCount: sql`${studentProfiles.noShowCount} + 1` }).where(eq(studentProfiles.userId, b.studentId));
   await checkNoShowLimit(b.studentId);
   const pro = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, b.proId) });
-  const toPro = forfeit - (await collectDues(pro, b.id, forfeit)); // pay-from-bookings membership comes out first
+  const afterFee = forfeit - (await import("./bookings")).processingShare(b, forfeit); // the deposit's share of card processing
+  const toPro = afterFee - (await collectDues(pro, b.id, afterFee)); // pay-from-bookings membership comes out first
   // No payouts connected yet: Nearest holds the deposit and sends it once they connect.
   if (toPro > 0 && (!pro?.stripeAccountId || !pro.payoutsEnabled)) await db.update(bookings).set({ payoutOwedCents: toPro }).where(eq(bookings.id, b.id));
   if (toPro > 0 && pro?.stripeAccountId && pro.payoutsEnabled) {

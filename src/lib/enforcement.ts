@@ -130,6 +130,7 @@ export async function sendReminders() {
 
 /** After the first 12 months, First In ($11; earlier members $10), Professional + Student ($16) and General ($21) move to the standard price. */
 export async function stepUpPrices() {
+  if (!(await import("./membership")).MEMBERSHIP_ENABLED) return 0; // no monthly membership: no 12-month price step-up
   const { stripe, stripeEnabled, priceFor } = await import("./stripe");
   if (!stripeEnabled()) return 0;
   const due = await db.select().from(professionalProfiles).where(and(

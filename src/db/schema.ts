@@ -229,6 +229,10 @@ export const professionalProfiles = pgTable("professional_profiles", {
   firstRequestAt: ts("first_request_at"),
   // Spot given up (profile not submitted when the city opened, or card failed for 7 days). Not counted, not shown.
   placementReleasedAt: ts("placement_released_at"),
+  // 30-day spot rule (no membership): the clock starts at joining (or at reclaiming a released spot); a warning goes
+  // out a week before a not-live profile's spot is released.
+  spotClockAt: ts("spot_clock_at"),
+  spotWarnedAt: ts("spot_warned_at"),
   // Setup "save & finish later": half-finished services are kept as a draft; reminders after 1/3/7 days.
   servicesDraft: jsonb("services_draft"),
   setupReminders: integer("setup_reminders").notNull().default(0),
@@ -375,7 +379,9 @@ export const modelCalls = pgTable("model_calls", {
   serviceName: text("service_name").notNull(),
   startsAt: ts("starts_at").notNull(),
   durationMin: integer("duration_min").notNull(),
-  priceCents: integer("price_cents").notNull(),
+  priceCents: integer("price_cents").notNull(), // what students pay (the pro's price + Nearest's service fee)
+  proPriceCents: integer("pro_price_cents"), // what the pro entered (null = published before Model Calls had the fee)
+  serviceFeeCents: integer("service_fee_cents").notNull().default(0), // kept by Nearest when the booking completes
   spots: integer("spots").notNull().default(1),
   spotsTaken: integer("spots_taken").notNull().default(0),
   requirements: text("requirements").array(),

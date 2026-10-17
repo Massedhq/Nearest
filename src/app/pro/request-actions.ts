@@ -40,6 +40,11 @@ export async function activateAndAccept(form: FormData) {
   const id = String(form.get("id") ?? "");
   const b = await db.query.bookings.findFirst({ where: and(eq(bookings.id, id), eq(bookings.proId, user.id)) });
   if (!b || b.status !== "requested") redirect(`/pro/appointments/${id}`);
+  // No monthly membership: never start a subscription — just accept.
+  if (!(await import("@/lib/membership")).MEMBERSHIP_ENABLED) {
+    const r = await acceptRequest(id, user.id);
+    redirect("ok" in r ? `/pro/appointments/${id}?accepted=1` : `/pro/appointments/${id}`);
+  }
   const base = await origin();
   const type = (profile.entryType && !["AMBASSADOR", "BOOKING_PAID"].includes(profile.entryType) ? profile.entryType : "FIRST_IN") as PlanKey;
   // Saved a card when they joined (earlier sign-up flow): activate in one tap on that card — no Stripe page.

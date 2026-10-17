@@ -92,15 +92,15 @@ export default async function ServiceCoverage({ searchParams }: { searchParams: 
     <>
       <AdminHead eyebrow="Recruiting" title="Service coverage" />
       <p className="small muted" style={{ maxWidth: 820 }}>
-        How many professionals Nearest has in each category, city by city. Each city has <b>{target} spots per category</b>: the first {firstInSpots} are First In ($11), spots {firstInSpots + 1}–{target} pay the next entry rate, and after {target} new professionals join a waitlist (change both numbers in Rules &amp; Settings → Growth).
+        How many professionals Nearest has in each category, city by city. Each city has <b>{target} spots per category</b>: the first {firstInSpots} are First In, spots {firstInSpots + 1}–{target} are the next entry, and after {target} new professionals join a waitlist — nobody pays to join or a monthly fee; Nearest earns its service fee on bookings (change both numbers in Rules &amp; Settings → Growth).
         Counts include everyone who has joined; <b>live</b> means students can book them right now. A pro who offers services in more than one category counts in each.
       </p>
 
       <div className="kpis k4">
-        <div className="card" style={{ gap: 6 }}><span className="xs muted">First In (paid)</span><span className="stat">{fi.registered} / {fi.capacity}</span><div className="bar"><i style={{ width: `${pct(fi.registered, fi.capacity)}%` }} /></div></div>
+        <div className="card" style={{ gap: 6 }}><span className="xs muted">First In joined</span><span className="stat">{fi.registered} / {fi.capacity}</span><div className="bar"><i style={{ width: `${pct(fi.registered, fi.capacity)}%` }} /></div></div>
         <div className="card" style={{ gap: 6 }}><span className="xs muted">{marketName(market)} professionals</span><span className="stat">{marketPros} / {goal.toLocaleString()}</span><div className="bar"><i style={{ width: `${pct(marketPros, goal)}%` }} /></div></div>
         <div className="card" style={{ gap: 6 }}><span className="xs muted">Category spots filled</span><span className="stat">{seatsFilled.toLocaleString()} / {seatsTotal.toLocaleString()}</span><span className="xs muted">{working.length} cities × {cats.length} categories × {target}</span></div>
-        <div className="card" style={{ gap: 6 }}><span className="xs muted">The next {next750.capacity} (DFW, $17)</span><span className="stat">{next750.registered} / {next750.capacity}</span><div className="bar"><i style={{ width: `${next750.capacity ? Math.min(100, Math.round((next750.registered / next750.capacity) * 100)) : 0}%` }} /></div></div>
+        <div className="card" style={{ gap: 6 }}><span className="xs muted">The next {next750.capacity} (DFW)</span><span className="stat">{next750.registered} / {next750.capacity}</span><div className="bar"><i style={{ width: `${next750.capacity ? Math.min(100, Math.round((next750.registered / next750.capacity) * 100)) : 0}%` }} /></div></div>
       </div>
 
       <form className="card row" style={{ gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>

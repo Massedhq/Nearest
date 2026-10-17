@@ -12,7 +12,16 @@ type Profile = typeof professionalProfiles.$inferSelect;
  */
 export type MembershipState = "not_activated" | "active" | "payment_issue";
 
+/**
+ * No monthly membership (2026-10-17): Nearest earns only its per-booking service fee (services AND Model Calls).
+ * With this off, nobody is asked to activate, nobody is billed, pay-from-bookings dues aren't collected, and a past
+ * membership's payment status never hides a professional. Kept as one switch so a paid plan could return later —
+ * turning it back on would also need new Terms.
+ */
+export const MEMBERSHIP_ENABLED = false as boolean;
+
 export function membershipState(p: Profile, owner = false): MembershipState {
+  if (!MEMBERSHIP_ENABLED) return "active";
   if (owner || isManagedEntry(p.entryType)) return "active";
   if (["active", "trialing"].includes(p.subscriptionStatus ?? "")) return "active";
   if (!p.subscriptionId) return "not_activated";
@@ -21,7 +30,7 @@ export function membershipState(p: Profile, owner = false): MembershipState {
 
 export const MEMBERSHIP_LABEL: Record<MembershipState, string> = {
   not_activated: "Membership not yet activated",
-  active: "Active member",
+  active: MEMBERSHIP_ENABLED ? "Active member" : "Joined — no monthly fee",
   payment_issue: "Membership payment issue",
 };
 

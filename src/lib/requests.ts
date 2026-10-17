@@ -115,6 +115,7 @@ export async function expireRequests() {
 
 /** Cron: a professional who got a request but hasn't activated within 7 days gives up their spot (and their open requests expire). */
 export async function releaseUnactivated() {
+  if (!(await import("./membership")).MEMBERSHIP_ENABLED) return 0; // no membership to activate (30-day rule in no-membership.ts instead)
   const rows = await db.select().from(professionalProfiles).where(and(
     sql`${professionalProfiles.firstRequestAt} < now() - interval '7 days'`, isNull(professionalProfiles.placementReleasedAt),
     isNull(professionalProfiles.subscriptionId), sql`coalesce(${professionalProfiles.entryType}, '') not in ('AMBASSADOR','BOOKING_PAID')`,

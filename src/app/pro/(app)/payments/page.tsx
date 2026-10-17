@@ -10,8 +10,10 @@ import { startMembership, startPayouts, finishMembership } from "@/app/pro/pay-a
 import { submitProIdDocs } from "@/app/pro/id-actions";
 import { IdCapture } from "@/components/IdCapture";
 import { SubscriptionDetails } from "@/components/SubscriptionDetails";
+import { MEMBERSHIP_ENABLED } from "@/lib/membership";
+import { getSettings } from "@/lib/settings";
 
-export const metadata = { title: "Membership & payments" };
+export const metadata = { title: MEMBERSHIP_ENABLED ? "Membership & payments" : "Fees & payouts" };
 
 const SUB: Record<string, [string, string]> = {
   trialing: ["Active", "ok"], active: ["Active", "ok"], past_due: ["Past due", "bad"], unpaid: ["Unpaid", "bad"],
@@ -28,17 +30,29 @@ export default async function Payments({ searchParams }: { searchParams: Promise
     return (<div className="scr"><TopBar title="Membership & payments" back="/pro/business" /><div className="body"><div className="card warn small"><span>Payments aren&apos;t set up yet.</span></div></div></div>);
   }
   const subState = p.subscriptionStatus ? SUB[p.subscriptionStatus] ?? [p.subscriptionStatus, ""] : ["Not started", "warn"];
-  const live = (owner || ["trialing", "active"].includes(p.subscriptionStatus ?? "")) && !p.membershipPausedAt && p.identityStatus === "verified";
+  const live = (!MEMBERSHIP_ENABLED || owner || ["trialing", "active"].includes(p.subscriptionStatus ?? "")) && !p.membershipPausedAt && p.identityStatus === "verified";
+  const fee = money(Math.max(0, Number((await getSettings())["fees.service_fee_cents"] ?? 500)));
+  // An old membership that Nearest is cancelling (no monthly fee anymore): show that no further charge will happen.
+  const oldSub = Boolean(p.subscriptionId) && ["active", "trialing", "past_due"].includes(p.subscriptionStatus ?? "");
   const rate = money(planCents(p.cohort));
   const managed = !owner && isManagedEntry(p.entryType); // Ambassador (free) or pay-from-bookings — no card, no Stripe subscription
   const dues = managed && p.entryType === "BOOKING_PAID" ? await duesStatus(p) : null;
   return (
     <div className="scr">
-      <TopBar title="Membership & payments" back="/pro/business" />
+      <TopBar title={MEMBERSHIP_ENABLED ? "Membership & payments" : "Fees & payouts"} back="/pro/business" />
       <div className="body">
-        <div className={`card ${live ? "ok" : "warn"} small`}><span className="b">{live ? "You're all set to take bookings." : "Finish your membership and ID check to take bookings."}</span>{live && !p.payoutsEnabled && <span className="muted">Set up payouts whenever you're ready — anything you earn before then is held for you and sent automatically once you connect.</span>}{p.reviewStatus !== "approved" && <span className="muted">Your profile also needs Nearest&apos;s approval.</span>}</div>
+        <div className={`card ${live ? "ok" : "warn"} small`}><span className="b">{live ? "You're all set to take bookings." : MEMBERSHIP_ENABLED ? "Finish your membership and ID check to take bookings." : "Finish your ID check to take bookings."}</span>{live && !p.payoutsEnabled && <span className="muted">Set up payouts whenever you're ready — anything you earn before then is held for you and sent automatically once you connect.</span>}{p.reviewStatus !== "approved" && <span className="muted">Your profile also needs Nearest&apos;s approval.</span>}</div>
 
-        {owner ? (
+        {!MEMBERSHIP_ENABLED ? (
+          <div className="card">
+            <div className="row between"><span className="eyebrow">Fees</span><span className="tag ok">No monthly fee</span></div>
+            <span className="disp h2">$0 a month</span>
+            <span className="small">There&apos;s no membership and nothing to pay to be on Nearest. Nearest only earns its {fee} service fee on each completed booking — services and Model Calls — and it&apos;s added on top of your price, so you receive your full price. Card processing comes out of each payment.</span>
+            {oldSub && <span className="small b">{p.membershipEndsAt ? `Your old membership ends ${fmtDate(p.membershipEndsAt, { month: "short", day: "numeric", year: "numeric" })} and you won't be charged again.` : "Your old monthly membership is being cancelled — you won't be charged again."}</span>}
+            {p.entryPaidAt && <span className="xs muted">Joined {fmtDate(p.entryPaidAt, { month: "short", day: "numeric", year: "numeric" })}</span>}
+            {p.membershipPausedAt && <span className="small b">Your account is paused by Nearest — students can&apos;t book you while it&apos;s paused. Questions? hello@usenearest.com</span>}
+          </div>
+        ) : owner ? (
           <div className="card">
             <div className="row between"><span className="eyebrow">Membership</span><span className="tag ok">Owner — free</span></div>
             <span className="disp h2">Nearest owner business</span>
@@ -89,7 +103,7 @@ export default async function Payments({ searchParams }: { searchParams: Promise
             <form action={startMembership}><button className="btn sm" type="submit" style={{ width: "100%" }}>{p.subscriptionId && p.subscriptionStatus !== "canceled" ? "Manage billing" : "Restart membership"}</button></form>
           </div>
           )}
-        {!owner && !managed && p.stripeCustomerId && <SubscriptionDetails customerId={p.stripeCustomerId} subscriptionId={p.subscriptionId} planLabel={p.entryType && p.entryType in ENTRY ? ENTRY[p.entryType as EntryType].label : "Standard"} standardCents={3000} />}
+        {MEMBERSHIP_ENABLED && !owner && !managed && p.stripeCustomerId && <SubscriptionDetails customerId={p.stripeCustomerId} subscriptionId={p.subscriptionId} planLabel={p.entryType && p.entryType in ENTRY ? ENTRY[p.entryType as EntryType].label : "Standard"} standardCents={3000} />}
 
         <div className="card">
           <div className="row between"><span className="eyebrow">Identity</span><span className={`tag ${p.identityStatus === "verified" ? "ok" : p.identityStatus === "rejected" ? "bad" : "warn"}`}>{p.identityStatus === "verified" ? "Verified" : p.identityStatus === "pending" ? "Checking" : p.identityStatus === "rejected" ? "Try again" : "To do"}</span></div>

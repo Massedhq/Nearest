@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { createSpecialInvite, type FormState } from "@/app/admin/actions";
 
 /** Main owner only: free Ambassador accounts and pay-from-bookings accounts. */
-export function SpecialInviteForm() {
+export function SpecialInviteForm({ membership = false }: { membership?: boolean }) {
   const [state, action, pending] = useActionState<FormState, FormData>(createSpecialInvite, {});
   const [kind, setKind] = useState("AMBASSADOR");
   return (
@@ -14,12 +14,12 @@ export function SpecialInviteForm() {
         <label htmlFor="sp-kind">Type of account</label>
         <select id="sp-kind" name="kind" value={kind} onChange={(e) => setKind(e.target.value)}>
           <option value="AMBASSADOR">Ambassador — free account</option>
-          <option value="BOOKING_PAID">Pay from bookings — monthly rate collected from their bookings</option>
+          {membership && <option value="BOOKING_PAID">Pay from bookings — monthly rate collected from their bookings</option>}
         </select>
       </div>
       <span className="xs muted">
         {kind === "AMBASSADOR"
-          ? "Free forever — no sign-up fee, no monthly membership. They share your link, so pros they bring in are credited to you."
+          ? membership ? "Free forever — no sign-up fee, no monthly membership. They share your link, so pros they bring in are credited to you." : "Ambassador badge and a guaranteed spot even when their city and category is full. (Every professional is free to join now — Nearest only earns its service fee on bookings.) They share your link, so pros they bring in are credited to you."
           : "Nothing up front. Each month, Nearest keeps this rate out of their booking earnings before paying them the rest. A month with no bookings costs nothing."}
       </span>
       <div className="grid2">

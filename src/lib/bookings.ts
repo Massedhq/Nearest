@@ -98,6 +98,26 @@ export async function confirmFromCheckout(sessionId: string) {
 
 const total = (b: typeof bookings.$inferSelect) => b.chargedCents + b.creditProCents + b.creditGeneralCents;
 
+/**
+ * Card processing on this booking — always paid from the pro's side, never absorbed by Nearest:
+ *  - the part paid by card: Stripe's actual fee on this payment (stripe_fee_cents);
+ *  - the part paid with Nearest credit: that money came from an earlier card payment whose fee Stripe already kept,
+ *    so its share of processing is carried over (standard card rate: 2.9%, plus 30¢ when credit pays the whole booking).
+ * A free launch-campaign booking has none.
+ */
+const CARD_RATE = 0.029, CARD_FIXED_CENTS = 30;
+export function processingFeeCents(b: typeof bookings.$inferSelect) {
+  if (b.campaignEntryId) return 0;
+  const creditPart = b.creditProCents + b.creditGeneralCents;
+  const creditFee = creditPart > 0 ? Math.round(creditPart * CARD_RATE) + (b.chargedCents === 0 ? CARD_FIXED_CENTS : 0) : 0;
+  return (b.stripeFeeCents ?? 0) + creditFee;
+}
+/** The processing fee that belongs to part of a booking (e.g. a forfeited deposit), in proportion to the whole. */
+export function processingShare(b: typeof bookings.$inferSelect, amountCents: number) {
+  const t = total(b);
+  return t > 0 ? Math.min(amountCents, Math.round((processingFeeCents(b) * amountCents) / t)) : 0;
+}
+
 async function freeSpot(b: typeof bookings.$inferSelect) {
   if (!b.modelCallId) return;
   await db.update(modelCalls).set({ spotsTaken: sql`greatest(${modelCalls.spotsTaken} - 1, 0)`, status: "open" }).where(and(eq(modelCalls.id, b.modelCallId), inArray(modelCalls.status, ["open", "full"])));
@@ -122,7 +142,8 @@ export async function cancelByStudent(bookingId: string, studentId: string) {
   await freeSpot(b);
 
   const proRow = forfeit > 0 ? await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, b.proId) }) : null;
-  const toPro = forfeit - (await collectDues(proRow, b.id, forfeit)); // pay-from-bookings membership comes out first
+  const afterFee = forfeit - processingShare(b, forfeit); // the deposit's share of card processing isn't absorbed by Nearest
+  const toPro = afterFee - (await collectDues(proRow, b.id, afterFee)); // pay-from-bookings membership comes out first
   if (toPro > 0) {
     const pro = proRow;
     if (!pro?.stripeAccountId || !pro.payoutsEnabled) {
@@ -164,7 +185,8 @@ export async function releasePayment(bookingId: string, studentId: string) {
   if (!b.finishedAt && b.startsAt.getTime() > Date.now()) return { error: "You can release payment once your appointment has started." };
   const pro = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, b.proId) });
   // Launch campaign reward: the student paid $0 and Nearest pays the agreed campaign payout (no fees taken from it).
-  const gross = b.campaignEntryId ? b.campaignPayoutCents : Math.max(0, total(b) - b.serviceFeeCents - (b.stripeFeeCents ?? 0)); // Nearest keeps its service fee
+  // Nearest keeps its service fee; card processing (including on any credit used) comes out of the pro's side.
+  const gross = b.campaignEntryId ? b.campaignPayoutCents : Math.max(0, total(b) - b.serviceFeeCents - processingFeeCents(b));
   const amount = gross - (await collectDues(pro, b.id, gross)); // pay-from-bookings membership comes out first
   let transferId: string | null = null;
   if (amount > 0) {

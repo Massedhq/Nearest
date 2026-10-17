@@ -33,7 +33,12 @@ export default async function InvitePage({ params }: { params: Promise<{ code: s
   const days = Math.max(0, Math.ceil((invite.expiresAt.getTime() - Date.now()) / 86400000));
   const accept = `/pro/sign-up?invite=${encodeURIComponent(invite.code)}`;
   const rate = `$${((invite.rateCents ?? 1500) / 100).toFixed(0)}`;
-  const offer = invite.kind === "AMBASSADOR"
+  const noFee = !(await import("@/lib/membership")).MEMBERSHIP_ENABLED;
+  const offer = noFee
+    ? invite.kind === "AMBASSADOR"
+      ? { tag: "Ambassador Invitation", title: "You're invited to join Nearest as an Ambassador.", price: "Free", line: "No sign-up fee and no monthly fee.", note: "Share Nearest with other professionals and help them get on board." }
+      : { tag: invite.kind === "BOOKING_PAID" ? "Special Invitation" : "First In Invitation", title: invite.kind === "BOOKING_PAID" ? "You're invited to join Nearest." : "You're invited to join Nearest First In.", price: "Free to join", line: "No sign-up fee and no monthly fee.", note: "Nearest only earns its small service fee on each completed booking — added on top of your price, so you receive your full price." }
+    : invite.kind === "AMBASSADOR"
     ? { tag: "Ambassador Invitation", title: "You're invited to join Nearest as an Ambassador.", price: "Free", line: "No sign-up fee and no monthly membership.", note: "Share Nearest with other professionals and help them get on board." }
     : invite.kind === "BOOKING_PAID"
       ? { tag: "Special Invitation", title: "You're invited to join Nearest.", price: `${rate}/month`, line: "Nothing to pay up front — it's collected from your bookings.", note: `Once ${rate} is covered for the month, the rest is all yours. A month with no bookings costs nothing.` }

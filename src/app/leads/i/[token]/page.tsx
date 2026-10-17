@@ -27,7 +27,7 @@ export default async function ProfessionalInterest({ params }: { params: Promise
             <p className="small muted p" style={{ margin: 0 }}>Nearest connects verified students with beauty and wellness professionals near them. Share a few details and someone from Nearest may reach out.</p>
             <div className="card small" style={{ gap: 6 }}>
               <span className="b">What this form does</span>
-              <span>It only lets Nearest know you&apos;re interested. It does <span className="b">not</span> create a professional account, start or activate a membership, or reserve a spot in your city. You&apos;re not agreeing to anything by sending it.</span>
+              <span>It only lets Nearest know you&apos;re interested. It does <span className="b">not</span> create a professional account or reserve a spot in your city. You&apos;re not agreeing to anything by sending it.</span>
             </div>
             <ActionForm action={submitInterest} submitLabel="Send my information" className="col g16">
               <input type="hidden" name="token" value={token} />
@@ -49,7 +49,7 @@ export default async function ProfessionalInterest({ params }: { params: Promise
               <span className="xs muted" style={{ marginTop: -8 }}>Add at least an email or a phone number.</span>
               <div className="field"><label htmlFor="pi-social">Social profile or business website</label><input id="pi-social" name="social" maxLength={300} placeholder="instagram.com/yourbusiness or @handle" /></div>
               <div className="field"><label htmlFor="pi-msg">Anything you&apos;d like us to know (optional)</label><textarea id="pi-msg" name="message" maxLength={1000} rows={3} /></div>
-              <label className="check" style={{ alignItems: "flex-start" }}><input type="checkbox" name="understand" required /><span>I understand this only shares my interest — it doesn&apos;t create an account, activate a membership, or reserve a spot.</span></label>
+              <label className="check" style={{ alignItems: "flex-start" }}><input type="checkbox" name="understand" required /><span>I understand this only shares my interest — it doesn&apos;t create an account or reserve a spot.</span></label>
             </ActionForm>
             <p className="xs muted p" style={{ margin: 0 }}>Nearest uses these details only to contact you about joining Nearest. See our <a className="link" href="/privacy">Privacy Policy</a>.</p>
           </>

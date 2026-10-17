@@ -15,7 +15,7 @@ export function InviteForm({ disabled }: { disabled: boolean }) {
       </div>
       {state.error && <p className="err" role="alert">{state.error}</p>}
       <div className="row between small">
-        <span className="muted">Private code • First In ($11/month)</span>
+        <span className="muted">Private code • First In (guaranteed spot, free to join)</span>
         <button className="btn sm" type="submit" disabled={pending || disabled}>{pending ? "Generating…" : "Generate invitation"}</button>
       </div>
     </form>

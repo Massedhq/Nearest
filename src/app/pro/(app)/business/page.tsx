@@ -23,7 +23,7 @@ const LINKS: [string, string, string][] = [
   ["hand", "Communication & accessibility", "/pro/setup/communication?edit=1"],
   ["id", "Professional status", "/pro/setup/credentials?edit=1"],
   ["shield", "Professional Protection", "/pro/protection"],
-  ["card", "Subscription", "/pro/payments"],
+  ["card", "Fees & payouts", "/pro/payments"],
   ["sparkle", "Model calls", "/pro/model-calls"],
   ["cal", "Appointments", "/pro/appointments"],
   ["star", "Client photos", "/pro/client-photos"],
@@ -33,6 +33,7 @@ const LINKS: [string, string, string][] = [
 export default async function Business() {
   const { viewer, user, profile } = await requirePro();
   const [standing, blocked] = await Promise.all([proStanding(user.id), selfDeleteBlocker(user.id)]);
+  const updateCount = (await import("@/lib/pro-updates")).pendingUpdates(profile, viewer.admin?.role === "OWNER" || (await (await import("@/lib/entry")).isOwnerBusiness(profile.userId))).length;
   const live = profile.reviewStatus === "approved" && profile.searchable && !profile.listingPausedAt && !profile.membershipPausedAt;
   const status = live ? ["Active • Searchable", "ok"] : profile.reviewStatus === "submitted" ? ["In review", "warn"] : profile.reviewStatus === "rejected" ? ["Changes needed", "bad"] : profile.reviewStatus === "approved" ? ["Approved • Offline", "warn"] : ["Setting up", ""];
   const fineCount = standing.fines.length;
@@ -49,6 +50,7 @@ export default async function Business() {
           {LINKS.map(([icon, text, href]) => (
             <Link key={href} className="item" href={href}><Icon name={icon} /><span className="grow">{text}</span><Icon name="right" size="s" /></Link>
           ))}
+          <Link className="item" href="/pro/updates"><Icon name="bell" /><span className="grow">Updates</span>{updateCount > 0 && <span className="tag warn">{updateCount} to review</span>}<Icon name="right" size="s" /></Link>
           <Link className="item" href="/pro/account-status"><Icon name="shield" /><span className="grow">Account status</span>{fineCount > 0 && <span className="tag warn">{fineCount} fine{fineCount === 1 ? "" : "s"}</span>}{standing.suspendedUntil && <span className="tag bad">Suspended</span>}<Icon name="right" size="s" /></Link>
           {viewer.admin && <Link className="item" href="/workspace"><Icon name="switch" /><span className="grow">Switch workspace</span><Icon name="right" size="s" /></Link>}
         </div>

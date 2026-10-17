@@ -56,7 +56,7 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
   const blockers = await proBlockers(p);
   const ig = instagramHandle(p.instagram), tt = tiktokHandle(p.tiktok), fb = facebookHandle(p.facebook), pin = pinterestHandle(p.pinterest);
 
-  const { membershipState, MEMBERSHIP_LABEL, profileState } = await import("@/lib/membership");
+  const { membershipState, MEMBERSHIP_LABEL, profileState, MEMBERSHIP_ENABLED: membershipOn } = await import("@/lib/membership");
   const { isOwnerBusiness: ownerBiz } = await import("@/lib/entry");
   const mstate = membershipState(p, await ownerBiz(p.userId));
   const { bookings: bk } = await import("@/db");
@@ -71,7 +71,7 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
         <span className="eyebrow">Membership &amp; terms</span>
         <div className="row between small"><span className="muted">Profile</span><span>{profileState(p)}</span></div>
         <div className="row between small"><span className="muted">Membership</span><span className={`tag ${mstate === "active" ? "ok" : mstate === "payment_issue" ? "bad" : ""}`}>{MEMBERSHIP_LABEL[mstate]}</span></div>
-        <div className="row between small"><span className="muted">Rate</span><span>{p.entryType ?? "—"}{p.monthlyRateCents ? ` • $${(p.monthlyRateCents / 100).toFixed(0)}/mo` : ""}{p.cohort === "FOUNDING" ? " • First In pricing" : ""}</span></div>
+        <div className="row between small"><span className="muted">Rate</span><span>{p.entryType ?? "—"}{p.monthlyRateCents && membershipOn ? ` • $${(p.monthlyRateCents / 100).toFixed(0)}/mo` : !membershipOn ? " • no monthly fee" : ""}{p.cohort === "FOUNDING" ? " • First In pricing" : ""}</span></div>
         <div className="row between small"><span className="muted">Membership activated</span><span>{p.membershipActivatedAt ? p.membershipActivatedAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Chicago" }) : "—"}</span></div>
         <div className="row between small"><span className="muted">Professional Terms</span><span>{p.proTermsAcceptedAt ? `Accepted • v${p.proTermsVersion} • ${p.proTermsAcceptedAt.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Chicago" })}` : "Not accepted yet"}</span></div>
         <div className="row between small"><span className="muted">Pending booking requests</span><span className="b">{pendingRequests}</span></div>
@@ -121,7 +121,7 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
 
         <div className="card" style={{ gap: 8 }}>
           <span className="eyebrow">Money & checks</span>
-          <Row k="Entry" v={owner ? "Owner business — free" : p.entryType && p.entryType in ENTRY ? `${ENTRY[p.entryType as EntryType].label} • ${money(p.monthlyRateCents ?? 0)}/mo` : "Not paid"} />
+          <Row k="Entry" v={owner ? "Owner business — free" : p.entryType && p.entryType in ENTRY ? (membershipOn ? `${ENTRY[p.entryType as EntryType].label} • ${money(p.monthlyRateCents ?? 0)}/mo` : `${ENTRY[p.entryType as EntryType].label} • no monthly fee`) : "Not paid"} />
           <Row k="Paid entry on" v={p.entryPaidAt ? fmtDate(p.entryPaidAt) : "—"} />
           <Row k="Membership" v={<Tag ok={subActive && !p.membershipPausedAt}>{p.membershipPausedAt ? "Paused" : p.membershipEndsAt ? `Ends ${fmtDate(p.membershipEndsAt, { month: "short", day: "numeric" })}` : p.subscriptionStatus ?? "Not started"}</Tag>} />
           {p.currentPeriodEnd && <Row k="Paid through" v={fmtDate(p.currentPeriodEnd)} />}

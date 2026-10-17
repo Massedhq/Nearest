@@ -420,7 +420,10 @@ export async function createModelCall(_: FormState, form: FormData): Promise<For
   const photoUrl = photoRaw && blobUrlOk(photoRaw, user.id) ? photoRaw : null;
   const price = Number(str(form, "price", 10).replace(/[$,\s]/g, ""));
   if (!Number.isFinite(price) || price < 0) return { error: "Enter the model price (0 for free)." };
-  if (price > MAX_PRICE_DOLLARS) return { error: `Student prices can't be more than $${MAX_PRICE_DOLLARS}.` };
+  // Model Calls are bookings too: Nearest's service fee is added on top, so students see one total (your price + the fee).
+  const mcFee = Math.max(0, Number((await getSettings())["fees.service_fee_cents"] ?? 500));
+  const studentCents = Math.round(price * 100) + mcFee;
+  if (studentCents > MAX_PRICE_DOLLARS * 100) return { error: `Students can't be charged more than $${MAX_PRICE_DOLLARS} — with the $${(mcFee / 100).toFixed(0)} service fee, a model price can be up to $${(MAX_PRICE_DOLLARS - mcFee / 100).toFixed(0)}.` };
   const spots = Number(str(form, "spots", 3));
   if (!Number.isInteger(spots) || spots < 1 || spots > 20) return { error: "Spots should be between 1 and 20." };
   const duration = Number(str(form, "duration", 4)) || service.durationMin;
@@ -433,7 +436,9 @@ export async function createModelCall(_: FormState, form: FormData): Promise<For
     serviceName: service.name,
     startsAt,
     durationMin: duration,
-    priceCents: Math.round(price * 100),
+    priceCents: studentCents,
+    proPriceCents: Math.round(price * 100),
+    serviceFeeCents: mcFee,
     spots,
     requirements,
     about: str(form, "about", 2000) || null,

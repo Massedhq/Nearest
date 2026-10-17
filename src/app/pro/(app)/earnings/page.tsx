@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { processingFeeCents } from "@/lib/bookings";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, bookings, membershipDues } from "@/db";
 import { duesStatus, isBookingPaid } from "@/lib/dues";
@@ -11,7 +12,10 @@ export const metadata = { title: "Earnings" };
 
 export default async function Earnings() {
   const { user, profile } = await requirePro();
-  const value = sql<number>`coalesce(sum(${bookings.chargedCents} + ${bookings.creditProCents} + ${bookings.creditGeneralCents} - ${bookings.serviceFeeCents} - coalesce(${bookings.stripeFeeCents},0)),0)::int`;
+  // Same math as releasePayment: price − Nearest's service fee − card processing (credit-paid parts carry their share).
+  const credit = sql`(${bookings.creditProCents} + ${bookings.creditGeneralCents})`;
+  const cardFee = sql`case when ${bookings.campaignEntryId} is not null then 0 else coalesce(${bookings.stripeFeeCents},0) + case when ${credit} > 0 then round(${credit} * 0.029) + case when ${bookings.chargedCents} = 0 then 30 else 0 end else 0 end end`;
+  const value = sql<number>`coalesce(sum(${bookings.chargedCents} + ${credit} - ${bookings.serviceFeeCents} - ${cardFee}),0)::int`;
   const [[pending], [released], [held], recent] = await Promise.all([
     db.select({ n: value }).from(bookings).where(and(eq(bookings.proId, user.id), eq(bookings.status, "confirmed"))),
     db.select({ n: value }).from(bookings).where(and(eq(bookings.proId, user.id), eq(bookings.status, "completed"))),
@@ -51,7 +55,7 @@ export default async function Earnings() {
         {recent.length === 0 && <p className="small muted p">No bookings yet.</p>}
         {recent.map((b) => (
           <div key={b.id} className="item"><div className="grow small"><div>{b.serviceName}</div><div className="xs muted">{fmtDate(b.startsAt)}</div></div>
-            <div className="col g4" style={{ alignItems: "flex-end" }}><span className="num b">{money(b.chargedCents + b.creditProCents + b.creditGeneralCents - (b.stripeFeeCents ?? 0))}</span><span className={`tag ${b.status === "completed" && !b.payoutOwedCents ? "ok" : b.payoutOwedCents ? "warn" : ""}`}>{b.payoutOwedCents ? "Held — set up payouts" : b.status === "completed" ? "Released" : "Pending"}</span></div></div>
+            <div className="col g4" style={{ alignItems: "flex-end" }}><span className="num b">{money(b.chargedCents + b.creditProCents + b.creditGeneralCents - b.serviceFeeCents - processingFeeCents(b))}</span><span className={`tag ${b.status === "completed" && !b.payoutOwedCents ? "ok" : b.payoutOwedCents ? "warn" : ""}`}>{b.payoutOwedCents ? "Held — set up payouts" : b.status === "completed" ? "Released" : "Pending"}</span></div></div>
         ))}
       </div>
       <Tabs kind="pro" active="Earnings" />

@@ -45,7 +45,7 @@ export default async function Founding({ searchParams }: { searchParams: Promise
   const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
   const fi = await firstInStats();
   const pct = Math.min(100, Math.round((fi.registered / fi.capacity) * 100));
-  const STATE_LABEL = { FIRST_IN_OPEN: "First In open", FIRST_IN_CLOSED: "First In closed — enrollment paused", NEXT_ENTRY_OPEN: "Next entry open (DFW $17 / $21)" } as const;
+  const STATE_LABEL = { FIRST_IN_OPEN: "First In open", FIRST_IN_CLOSED: "First In closed — enrollment paused", NEXT_ENTRY_OPEN: "Next entry open" } as const; // no monthly membership: these only control enrollment, not prices
 
   return (
     <>
@@ -77,7 +77,7 @@ export default async function Founding({ searchParams }: { searchParams: Promise
         </div>
         <InviteForm disabled={!f.open} />
       </div>
-      {isMain && <SpecialInviteForm />}
+      {isMain && <SpecialInviteForm membership={(await import("@/lib/membership")).MEMBERSHIP_ENABLED} />}
       <div className="card" style={{ gap: 12, overflowX: "auto" }}>
         <span className="eyebrow">Invitations</span>
         <table className="tbl">
@@ -117,7 +117,7 @@ export default async function Founding({ searchParams }: { searchParams: Promise
               <form key={st} action={changeEntryState}>
                 <input type="hidden" name="state" value={st} />
                 <button className={`btn ${fi.state === st ? "" : "ghost "}sm`} type="submit" disabled={fi.state === st || (st === "FIRST_IN_OPEN" && fi.registered >= fi.capacity)}>
-                  {st === "FIRST_IN_OPEN" ? "Open First In ($11)" : st === "FIRST_IN_CLOSED" ? "Pause enrollment" : "Open next entry (DFW $17)"}
+                  {st === "FIRST_IN_OPEN" ? "Open First In" : st === "FIRST_IN_CLOSED" ? "Pause enrollment" : "Open next entry"}
                 </button>
               </form>
             ))}

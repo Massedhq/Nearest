@@ -110,7 +110,9 @@ export async function allowedEntries(profile: typeof professionalProfiles.$infer
   if (slot.tier === "first_in" && state === "FIRST_IN_OPEN" && (await firstInStats()).open) return { allowed: ["FIRST_IN"] };
   // DFW after First In ($17), or skipping the waitlist in a full city — only while the next 750 has room.
   if (!(await nextEntryStats()).open) return { allowed: [], reason: slot.tier === "full" ? "full" : "next_full" };
-  if (slot.tier === "full") return { allowed: next, reason: "full", bypass: true };
+  // Skipping the waitlist was a paid option ($17/month). With no monthly membership it would be free, so a full city
+  // + category always means the waitlist.
+  if (slot.tier === "full") return (await import("./membership")).MEMBERSHIP_ENABLED ? { allowed: next, reason: "full", bypass: true } : { allowed: [], reason: "full" };
   return { allowed: next };
 }
 

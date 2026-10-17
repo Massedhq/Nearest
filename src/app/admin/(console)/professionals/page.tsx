@@ -3,7 +3,7 @@ import { desc, eq, sql } from "drizzle-orm";
 import { db, users, professionalProfiles, proServices, categories, cities, adminMembers, bookings, reviews, fines, incidents, proStudentLinks } from "@/db";
 import { ENTRY, type EntryType } from "@/lib/entry";
 import { AdminHead } from "@/components/AdminHead";
-import { membershipState, MEMBERSHIP_LABEL } from "@/lib/membership";
+import { membershipState, MEMBERSHIP_LABEL, MEMBERSHIP_ENABLED } from "@/lib/membership";
 import { ActionForm } from "@/components/ActionForm";
 import { remindAllProSetup } from "@/app/admin/reminder-actions";
 import { decideTransfer } from "@/app/admin/transfer-actions";
@@ -89,7 +89,7 @@ export default async function Professionals({ searchParams }: { searchParams: Pr
         <td><span className={`tag ${identity === "verified" ? "ok" : identity === "rejected" ? "bad" : "warn"}`}>{identity === "unverified" ? "Not started" : identity}</span></td>
         <td>{complete ? "Complete" : "Incomplete"}</td>
         <td className="small">{r.services ?? "—"}</td>
-        <td className="small">{r.p.entryType && r.p.entryType in ENTRY ? `${ENTRY[r.p.entryType as EntryType].short} · ${money(r.p.monthlyRateCents ?? ENTRY[r.p.entryType as EntryType].cents)}` : "—"}</td>
+        <td className="small">{r.p.entryType && r.p.entryType in ENTRY ? (MEMBERSHIP_ENABLED ? `${ENTRY[r.p.entryType as EntryType].short} · ${money(r.p.monthlyRateCents ?? ENTRY[r.p.entryType as EntryType].cents)}` : ENTRY[r.p.entryType as EntryType].short) : "—"}</td>
         <td>{r.p.entryPaidAt ? fmtDate(r.p.entryPaidAt, { month: "short", day: "numeric", year: "numeric" }) : "—"}</td>
         <td>
           {r.fineCents > 0 && r.fineDue && r.fineDue.getTime() < now ? <span className="tag bad">Past due {money(r.fineCents)}</span>
@@ -247,7 +247,7 @@ export default async function Professionals({ searchParams }: { searchParams: Pr
                 <span><span className="muted">Review:</span> {selected.p.reviewStatus}</span>
                 <span><span className="muted">Identity:</span> {selected.p.identityStatus}</span>
                 <span><span className="muted">Payouts:</span> {selected.p.payoutsEnabled ? "Set up" : "Not set up"}</span>
-                <span><span className="muted">Entry:</span> {selected.p.entryType && selected.p.entryType in ENTRY ? `${ENTRY[selected.p.entryType as EntryType].label} — ${money(selected.p.monthlyRateCents ?? 0)}/month for the first 12 months` : "Not paid yet"}</span>
+                <span><span className="muted">Entry:</span> {selected.p.entryType && selected.p.entryType in ENTRY ? (MEMBERSHIP_ENABLED ? `${ENTRY[selected.p.entryType as EntryType].label} — ${money(selected.p.monthlyRateCents ?? 0)}/month for the first 12 months` : `${ENTRY[selected.p.entryType as EntryType].label} — no monthly fee`) : "Not paid yet"}</span>
                 <span><span className="muted">Registered:</span> {selected.p.entryPaidAt ? fmtDate(selected.p.entryPaidAt) : "—"}</span>
                 <span><span className="muted">Membership:</span> {selected.p.subscriptionStatus ?? "Not started"}</span>
                 {selected.student && <span><span className="muted">Registered student:</span> {selected.student}</span>}

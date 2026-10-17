@@ -33,7 +33,7 @@ export default async function ModelCalls() {
             <div key={c.id} className="card">
               <div className="row between"><span className="b">{c.serviceName}</span><span className={`tag ${TAG[status]}`}>{status}</span></div>
               <div className="small muted">{c.flexible ? `Open time • through ${fmtDate(c.startsAt, { month: "short", day: "numeric" })}` : `${fmtDate(c.startsAt)} • ${fmtTime(c.startsAt)}`} • {c.durationMin} min</div>
-              <div className="row between small"><span>{money(c.priceCents)} model price</span><span>{c.spotsTaken} of {c.spots} spots taken</span></div>
+              <div className="row between small"><span>{c.proPriceCents != null ? <>Your price {money(c.proPriceCents)} • models pay {money(c.priceCents)}</> : <>{money(c.priceCents)} model price</>}</span><span>{c.spotsTaken} of {c.spots} spots taken</span></div>
               {c.requirements && c.requirements.length > 0 && <div className="chips">{c.requirements.map((r) => <span key={r} className="tag">{r}</span>)}</div>}
               {!past && (c.status === "open" || c.status === "full") && (
                 <form action={cancelModelCall}><input type="hidden" name="id" value={c.id} /><button className="btn danger sm" type="submit" style={{ width: "100%" }}>Cancel model call</button></form>
