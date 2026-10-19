@@ -104,6 +104,28 @@ export async function cancelRequest(bookingId: string, studentId: string) {
   return true;
 }
 
+/**
+ * Cron (every 15 min): a request the pro hasn't answered yet gets ONE reminder — notification + phone alert + email —
+ * after booking.request_reminder_minutes (60), or booking.request_reminder_same_day_minutes (30) when the appointment
+ * is within 12 hours of the request. Never after the request expired.
+ */
+export async function remindPendingRequests() {
+  const { getSettings } = await import("./settings");
+  const s = await getSettings();
+  const normal = Math.max(5, Number(s["booking.request_reminder_minutes"] ?? 60));
+  const soon = Math.max(5, Number(s["booking.request_reminder_same_day_minutes"] ?? 30));
+  const due = await db.update(bookings).set({ requestRemindedAt: new Date() }).where(and(
+    eq(bookings.status, "requested"), isNull(bookings.requestRemindedAt), sql`${bookings.requestExpiresAt} > now()`,
+    sql`now() >= ${bookings.createdAt} + make_interval(mins => case when ${bookings.startsAt} - ${bookings.createdAt} <= interval '12 hours' then ${soon}::int else ${normal}::int end)`,
+  )).returning();
+  for (const b of due) {
+    const left = b.requestExpiresAt ? `It expires ${fmtDate(b.requestExpiresAt, { month: "short", day: "numeric" })} at ${fmtTime(b.requestExpiresAt)}` : "It expires soon";
+    await tell(b.proId, "Reminder: a client is waiting", `${b.serviceName} • ${when(b.startsAt)}. ${left} — tap to accept.`, `/pro/appointments/${b.id}`,
+      { subject: `Reminder: booking request for ${b.serviceName} is waiting`, heading: "A client is still waiting for you.", lines: [`${b.serviceName} • ${when(b.startsAt)}.`, `${left}. If it isn't accepted in time, the client is told to book someone else.`], button: "Accept the request" });
+  }
+  return due.length;
+}
+
 /** Cron: requests nobody answered in time, and accepted requests the student didn't pay for in time, expire. */
 export async function expireRequests() {
   const unanswered = await db.update(bookings).set({ status: "expired" }).where(and(eq(bookings.status, "requested"), lt(bookings.requestExpiresAt, new Date()))).returning();

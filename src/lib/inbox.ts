@@ -2,7 +2,7 @@ import "server-only";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db, notifications } from "@/db";
 
-/** Adds a notification to someone's bell. Never throws. */
+/** Adds a notification to someone's bell — and, if they turned on phone alerts, buzzes their phone. Never throws. */
 export async function inbox(userId: string | null | undefined, n: { kind: string; title: string; body?: string; href?: string; refId?: string }) {
   if (!userId) return;
   try {
@@ -10,6 +10,7 @@ export async function inbox(userId: string | null | undefined, n: { kind: string
   } catch (e) {
     console.error("Inbox insert failed", e);
   }
+  await (await import("./push")).pushTo(userId, { title: n.title, body: n.body, href: n.href, tag: n.refId ?? undefined });
 }
 
 /** For chat: one unread "new message" per conversation, so the bell doesn't fill up. */

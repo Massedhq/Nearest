@@ -32,6 +32,7 @@
     "stripe": "^22.6.2",
     "tesseract.js": "7.0.0",
     "unpdf": "^1.8.1",
+    "web-push": "^3.6.7",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
@@ -39,6 +40,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/web-push": "^3.6.4",
     "dotenv": "^18.0.3",
     "drizzle-kit": "^0.31.11",
     "eslint": "^9",

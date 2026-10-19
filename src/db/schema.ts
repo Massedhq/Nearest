@@ -486,6 +486,7 @@ export const bookings = pgTable("bookings", {
   requestExpiresAt: ts("request_expires_at"),
   paymentIntentId: text("payment_intent_id"),
   respondedAt: ts("responded_at"),
+  requestRemindedAt: ts("request_reminded_at"), // "still waiting" reminder sent to the pro (once per request)
   chargedCents: integer("charged_cents").notNull().default(0),
   status: bookingStatus("status").notNull().default("pending_payment"),
   holdExpiresAt: ts("hold_expires_at"),
@@ -645,6 +646,26 @@ export const notifications = pgTable("notifications", {
   readAt: ts("read_at"),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("notifications_user_idx").on(t.userId, t.createdAt)]);
+
+// Phone alerts (web push): one row per phone/browser that turned alerts on. Removed when the browser says it's gone.
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  endpoint: text("endpoint").notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  userAgent: text("user_agent"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  lastSentAt: ts("last_sent_at"),
+}, (t) => [uniqueIndex("push_subscriptions_endpoint_idx").on(t.endpoint), index("push_subscriptions_user_idx").on(t.userId)]);
+
+// Keys Nearest makes for itself (the phone-alert signing key). Never shown in Admin; never sent to a browser except
+// the public half.
+export const appKeys = pgTable("app_keys", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
 
 // Atomic counters (First In seats held + paid). One row per counter.
 export const entryCounters = pgTable("entry_counters", {

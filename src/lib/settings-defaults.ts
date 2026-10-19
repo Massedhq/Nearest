@@ -14,6 +14,8 @@ export const SETTINGS: Record<string, SettingDef> = {
   "booking.advance_hours": { label: "Advance booking", group: "Booking", type: "number", unit: "hours", value: 24 },
   "booking.same_day_cutoff": { label: "Same-day cutoff", group: "Booking", type: "time", value: "12:00" },
   "booking.same_day_min_notice_hours": { label: "Minimum same-day notice", group: "Booking", type: "number", unit: "hours", value: 4 },
+  "booking.request_reminder_minutes": { label: "Remind the pro about an unanswered request after", group: "Booking", type: "number", unit: "min", value: 60 },
+  "booking.request_reminder_same_day_minutes": { label: "Remind sooner when the appointment is within 12 hours", group: "Booking", type: "number", unit: "min", value: 30 },
   "appt.grace_minutes": { label: "Late grace period", group: "Appointment", type: "number", unit: "min", value: 15 },
   "appt.checkin_radius_ft": { label: "Check-in geofence", group: "Appointment", type: "number", unit: "ft", value: 100 },
   "appt.messaging_days": { label: "Messaging window", group: "Appointment", type: "number", unit: "days", value: 90 },

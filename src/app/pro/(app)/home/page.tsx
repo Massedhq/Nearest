@@ -14,6 +14,7 @@ import { Bell } from "@/components/Inbox";
 import { GoLiveCard } from "@/components/GoLiveCard";
 import { ProCampaignCard } from "@/components/ProCampaignCard";
 import { ProProtectionCard } from "@/components/ProProtectionCard";
+import { PhoneAlerts } from "@/components/PhoneAlerts";
 import { ProSpotCard } from "@/components/ProSpotCard";
 import { unreadCount } from "@/lib/inbox";
 
@@ -37,7 +38,7 @@ export default async function ProHome({ searchParams }: { searchParams: Promise<
     const state = membershipState(p, await isOwnerBusiness(p.userId));
     return { requests: n, state, rate: `$${((p.monthlyRateCents ?? 1100) / 100).toFixed(0)}`, released: Boolean(p.placementReleasedAt), city: "", };
   })();
-  const { viewer, user, profile } = await requirePro();
+  const { viewer, user, profile, building } = await requirePro();
   const now = chicagoNow();
   const [steps, calls, openings, upcoming] = await Promise.all([
     setupSteps(user.id),
@@ -107,6 +108,7 @@ export default async function ProHome({ searchParams }: { searchParams: Promise<
           <div className="card pearl"><span className="tag solid" style={{ background: "#0A0A0A", color: "#ECE8E1", alignSelf: "flex-start" }}>First In</span><span className="small">Your First In rate is locked to your account.</span></div>
         )}
 
+        {!building && <PhoneAlerts compact />}
         {approved && <GoLiveCard profile={profile} />}
         <ProCampaignCard profile={profile} />
         <ProProtectionCard profile={profile} />
