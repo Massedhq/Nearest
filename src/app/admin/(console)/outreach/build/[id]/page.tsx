@@ -9,7 +9,7 @@ import { Icon } from "@/components/Icon";
 import { requireAdmin } from "@/lib/admin";
 import { outreachScope } from "@/lib/outreach";
 import { setupSteps } from "@/lib/pro";
-import { enrollmentQuote } from "@/lib/enroll";
+import { builtEnrollmentQuote } from "@/lib/enroll";
 import { buildStatus } from "@/lib/build-status";
 import { editBuiltProfile, sendClaimLink } from "@/app/admin/build-actions";
 import { BuildScreenshots } from "@/components/BuildScreenshots";
@@ -32,7 +32,7 @@ export default async function BuiltProfile({ params }: { params: Promise<{ id: s
   const open = !p.claimedAt && !p.entryPaidAt; // still Nearest's to edit
   const [steps, quote, builder] = await Promise.all([
     setupSteps(id),
-    open ? enrollmentQuote(p) : null,
+    open ? builtEnrollmentQuote(p) : null,
     db.query.users.findFirst({ where: eq(users.id, p.builtBy!), columns: { firstName: true } }),
   ]);
   // Screenshots collected for them (Add from screenshots / Build a profile) — kept beside their profile while building.
@@ -49,6 +49,8 @@ export default async function BuiltProfile({ params }: { params: Promise<{ id: s
       <OutreachNav at="build" />
       <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
         <span className={`tag ${s.tone}`}>{s.label}</span>
+        {quote?.ok && <span className={`tag${quote.type === "FIRST_IN" ? " ok" : ""}`}>{quote.type === "FIRST_IN" ? "Joins as First In" : `Joins as ${quote.label}`}</span>}
+        {p.entryPaidAt && p.entryType === "FIRST_IN" && <span className="tag ok">First In</span>}
         <span className="small muted">{u.email}{u.phone ? ` • ${u.phone}` : ""} • Built by {builder?.firstName ?? "—"} {day(p.builtAt)}</span>
         <Link className="link small" href="/admin/outreach/build">← All built profiles</Link>
       </div>

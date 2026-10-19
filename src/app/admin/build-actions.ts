@@ -180,8 +180,8 @@ export async function sendClaimLink(_: FormState, form: FormData): Promise<FormS
   const { setupSteps } = await import("@/lib/pro");
   const left = (await setupSteps(id)).filter((s) => !s.done && !s.optional && s.key !== "identity");
   if (left.length) return { error: `Finish these steps first: ${left.map((s) => s.label).join(", ")}.` };
-  const { enrollmentQuote } = await import("@/lib/enroll");
-  const q = await enrollmentQuote(t.p);
+  const { builtEnrollmentQuote } = await import("@/lib/enroll");
+  const q = await builtEnrollmentQuote(t.p);
   if (!q.ok) return { error: q.reason.replace(/^Your city/, "Their city").replace(/Join the waitlist and we'll tell you/, "They'd join the waitlist —") };
   const { token, hash } = newClaimToken();
   const expires = new Date(Date.now() + CLAIM_DAYS * 86400_000);

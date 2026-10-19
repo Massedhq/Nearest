@@ -32,3 +32,16 @@ export async function enrollmentQuote(p: Profile): Promise<
   const type = allowed[0];
   return { ok: true, type, cents: ENTRY[type].cents, label: type === "FIRST_IN" ? "First In" : type === "DFW_NEXT" ? "DFW membership" : "Market rate", cityId, categoryId };
 }
+
+/**
+ * Profiles Nearest built (Admin → Outreach → Build a profile) join as First In whenever First In's 750 still has
+ * room — even past the first spots in their city and category — so they get every First In benefit. The city +
+ * category limit (cap_per_category) still applies: a full city stays full.
+ */
+export async function builtEnrollmentQuote(p: Profile): ReturnType<typeof enrollmentQuote> {
+  const q = await enrollmentQuote(p);
+  if (!q.ok || q.type === "FIRST_IN" || !p.builtBy) return q;
+  const { firstInStats } = await import("./entry");
+  if (!(await firstInStats()).open) return q;
+  return { ...q, type: "FIRST_IN", cents: ENTRY.FIRST_IN.cents, label: "First In" };
+}

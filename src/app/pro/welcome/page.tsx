@@ -10,7 +10,7 @@ import { ProTermsAgreement } from "@/components/ProTermsAgreement";
 import { ProCampaignFields } from "@/components/ProCampaignFields";
 import { ProProtectionFields } from "@/components/ProProtectionFields";
 import { proTermsSections, PRO_TERMS_VERSION } from "@/lib/pro-terms";
-import { enrollmentQuote } from "@/lib/enroll";
+import { builtEnrollmentQuote } from "@/lib/enroll";
 import { rewardEligibleServices } from "@/lib/campaign-pro";
 import { acceptBuiltProfile } from "@/app/pro/claim-actions";
 
@@ -32,7 +32,7 @@ export default async function WelcomeBuilt() {
     db.select({ url: portfolioItems.url }).from(portfolioItems).where(and(eq(portfolioItems.userId, user.id), eq(portfolioItems.kind, "image"))).orderBy(desc(portfolioItems.featured), asc(portfolioItems.sort)).limit(3),
     p.cityId ? db.query.cities.findFirst({ where: eq(cities.id, p.cityId) }) : null,
     db.query.users.findFirst({ where: eq(users.id, p.builtBy!), columns: { firstName: true } }),
-    enrollmentQuote(p),
+    builtEnrollmentQuote(p),
     rewardEligibleServices(user.id),
   ]);
   return (

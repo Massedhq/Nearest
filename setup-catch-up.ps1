@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Phone alerts (web push) for new booking requests and all notices; one reminder for unanswered requests (60 min, 30 min within 12 hours); guides updated"
+git commit -q -m "Build a profile: built profiles join as First In while the 750 has room (city + category limit still applies)"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

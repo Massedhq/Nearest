@@ -57,7 +57,7 @@ export default async function BuildProfiles({ searchParams }: { searchParams: Pr
           return (
             <Link key={u.id} href={`/admin/outreach/build/${u.id}`} className="row between small" style={{ textDecoration: "none", color: "inherit", gap: 8, flexWrap: "wrap" }}>
               <span><span className="b">{[u.firstName, u.lastName].filter(Boolean).join(" ")}</span>{p.businessName ? ` • ${p.businessName}` : ""} <span className="xs muted">{u.email}{isMain ? ` • built by ${builders.get(p.builtBy!) ?? "—"}` : ""}</span></span>
-              <span className={`tag ${s.tone}`}>{s.label}</span>
+              <span className="row" style={{ gap: 6 }}>{p.entryPaidAt && p.entryType === "FIRST_IN" && <span className="tag ok">First In</span>}<span className={`tag ${s.tone}`}>{s.label}</span></span>
             </Link>
           );
         })}
