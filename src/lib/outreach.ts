@@ -121,10 +121,10 @@ export async function onProProfileSubmitted(userId: string) {
 /** After a pro claims a spot: tell owners when a city + category is nearly full or full. */
 export async function checkCapacity(cityId: number | null, categoryId: number | null) {
   if (!cityId || !categoryId) return;
-  const { slotCount, slotLimits } = await import("./slots");
-  const [n, { cap }, city, cat] = await Promise.all([slotCount(cityId, categoryId), slotLimits(), db.query.cities.findFirst({ where: eq(cities.id, cityId) }), db.query.categories.findFirst({ where: eq(categories.id, categoryId) })]);
-  if (n === cap - 1) await notifyAdmins({ kind: "market_near", title: "Market near capacity", body: `${cat?.name} in ${city?.name} has ${n}/${cap} professionals.`, href: "/admin/outreach/markets" });
-  if (n >= cap) await notifyAdmins({ kind: "market_full", title: "Market full", body: `${cat?.name} in ${city?.name} reached ${cap}/${cap}. New professionals there join the waitlist.`, href: "/admin/outreach/markets" });
+  const { slotCount, slotLimits, categoryCap } = await import("./slots");
+  const [n, cap, { cap: max }, city, cat] = await Promise.all([slotCount(cityId, categoryId), categoryCap(cityId, categoryId), slotLimits(), db.query.cities.findFirst({ where: eq(cities.id, cityId) }), db.query.categories.findFirst({ where: eq(categories.id, categoryId) })]);
+  if (n === cap - 1) await notifyAdmins({ kind: "market_near", title: "Market near capacity", body: `${cat?.name} in ${city?.name} has ${n}/${cap} professionals.`, href: `/admin/outreach/markets?city=${cityId}` });
+  if (n >= cap) await notifyAdmins({ kind: "market_full", title: "Enrollment closed", body: `${cat?.name} in ${city?.name} reached ${cap}/${cap} — enrollment is closed there and new professionals join the waitlist.${cap < max ? " You can authorize one additional opening of 5 from Markets." : ""}`, href: `/admin/outreach/markets?city=${cityId}` });
 }
 
 export const PROSPECT_STATUSES: Record<string, string> = {

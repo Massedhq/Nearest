@@ -8,12 +8,17 @@ import { and, asc, eq, inArray, sql } from "drizzle-orm";
  */
 export type ActiveCity = { id: number; name: string; state: string; stateSlug: string; slug: string; county: string | null; market: string | null; categories: string[] };
 
-export const STATE_NAMES: Record<string, string> = { TX: "Texas", NM: "New Mexico", OK: "Oklahoma", LA: "Louisiana", AR: "Arkansas" };
+export const STATE_NAMES: Record<string, string> = {
+  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California", CO: "Colorado", CT: "Connecticut", DE: "Delaware", DC: "District of Columbia",
+  FL: "Florida", GA: "Georgia", HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa", KS: "Kansas", KY: "Kentucky", LA: "Louisiana",
+  ME: "Maine", MD: "Maryland", MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri", MT: "Montana", NE: "Nebraska",
+  NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey", NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio",
+  OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina", SD: "South Dakota", TN: "Tennessee", TX: "Texas",
+  UT: "Utah", VT: "Vermont", VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming", PR: "Puerto Rico",
+};
 export const citySlug = (name: string) => name.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 export const stateSlug = (st: string) => (STATE_NAMES[st] ?? st).toLowerCase().replace(/\s+/g, "-");
 
-/** Markets announced but not live. Shown as "planned" only — never as bookable. Owner-confirmed date. */
-export const PLANNED_MARKETS = [{ state: "New Mexico", when: "January 2027" }];
 
 export async function activeCities(): Promise<ActiveCity[]> {
   try {
@@ -47,12 +52,12 @@ export async function activeCities(): Promise<ActiveCity[]> {
 export async function cityOpenings(cityId: number) {
   try {
     const { db, categories } = await import("@/db");
-    const { slotCount, slotLimits } = await import("@/lib/slots");
-    const [{ firstIn, cap }, cats] = await Promise.all([slotLimits(), db.select({ id: categories.id, name: categories.name }).from(categories).where(eq(categories.active, true)).orderBy(asc(categories.sort))]);
+    const { slotCount, slotLimits, categoryCap } = await import("@/lib/slots");
+    const [{ firstIn }, cats] = await Promise.all([slotLimits(), db.select({ id: categories.id, name: categories.name }).from(categories).where(eq(categories.active, true)).orderBy(asc(categories.sort))]);
     const out: { name: string; status: "first_in" | "open" | "full" }[] = [];
     for (const c of cats) {
       if (c.name === "Other") continue;
-      const n = await slotCount(cityId, c.id);
+      const [n, cap] = await Promise.all([slotCount(cityId, c.id), categoryCap(cityId, c.id)]);
       out.push({ name: c.name, status: n < firstIn ? "first_in" : n < cap ? "open" : "full" });
     }
     return out;

@@ -11,7 +11,7 @@ export function GET() {
   const body = [
     `# Nearest — ${SITE_TAGLINE}`,
     "",
-    "> Nearest (usenearest.com) is a booking platform that connects verified students with independent beauty, wellness and self-care professionals in cities where it is live (it started in Dallas–Fort Worth, Texas; New Mexico is planned for January 2027 and is not live yet). New professionals list free with no monthly membership fee. Nearest is not affiliated with any school or school district.",
+    "> Nearest (usenearest.com) is a booking platform that connects verified students with independent beauty, wellness and self-care professionals — high school, college, trade school and online students — at student-friendly prices. It is open to professionals and students nationwide and activates city by city: appointments are bookable only in cities where professionals are live, and each service category opens with a limited number of professional spots per city. New professionals list free with no monthly membership fee. Nearest is not affiliated with any school or school district.",
     "",
     "## Key pages",
     ...PUBLIC_PAGES.map((p) => `- [${p.slice(1).replace(/-/g, " ")}](${SITE_URL}${p})`),

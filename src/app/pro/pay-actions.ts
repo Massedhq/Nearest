@@ -16,8 +16,8 @@ export async function startMembership() {
   if (!(await import("@/lib/membership")).MEMBERSHIP_ENABLED) redirect("/pro/payments"); // no monthly membership to start
   if (profile.entryType === "AMBASSADOR" || profile.entryType === "BOOKING_PAID") redirect("/pro/payments"); // Nearest-managed: no card, no Stripe subscription
   if (profile.placementReleasedAt && profile.slotCityId && profile.slotCategoryId) {
-    const { slotCount, slotLimits, isCapExempt } = await import("@/lib/slots");
-    if (!(await isCapExempt(profile)) && (await slotCount(profile.slotCityId, profile.slotCategoryId, user.id)) >= (await slotLimits()).cap) redirect("/pro/payments?full=1");
+    const { slotCount, categoryCap, isCapExempt } = await import("@/lib/slots");
+    if (!(await isCapExempt(profile)) && (await slotCount(profile.slotCityId, profile.slotCategoryId, user.id)) >= (await categoryCap(profile.slotCityId, profile.slotCategoryId))) redirect("/pro/payments?full=1");
   }
   const base = await origin();
   if (profile.stripeCustomerId && profile.subscriptionStatus && !["canceled", "incomplete_expired"].includes(profile.subscriptionStatus)) {

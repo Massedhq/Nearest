@@ -89,9 +89,9 @@ export async function createBuiltProfile(form: FormData): Promise<{ error: strin
     return { error: "This email already has a Nearest account. Look them up under Professionals instead." };
   }
   // Their city must have room in their category (same spot rules as a professional who signs up).
-  const { slotCount, slotLimits } = await import("@/lib/slots");
-  const [n0, { cap }] = await Promise.all([slotCount(city.id, cat.id), slotLimits()]);
-  if (n0 >= cap) return { error: `${city.name} is full for ${cat.name} right now (${cap} of ${cap}), so they can't be listed there yet.` };
+  const { slotCount, categoryCap } = await import("@/lib/slots");
+  const [n0, cap] = await Promise.all([slotCount(city.id, cat.id), categoryCap(city.id, cat.id)]);
+  if (n0 >= cap) return { error: `Enrollment for ${cat.name} in ${city.name} is closed (${cap} of ${cap} spots taken), so they can't be listed there${cap < 10 ? " unless an owner authorizes the additional opening (Outreach → Markets)" : ""}.` };
 
   // Details read from the screenshots (cleaned again here — nothing from the browser is trusted as-is).
   let extra: Record<string, unknown> = {};

@@ -3,6 +3,7 @@
 // and add the slug to `related` lists where it helps. No invented statistics, testimonials or ratings.
 import { GUIDES_A } from "./guides-a";
 import { GUIDES_B } from "./guides-b";
+import { GUIDES_C } from "./guides-c";
 
 export type Block =
   | string
@@ -18,7 +19,7 @@ export type Guide = {
   h1: string;
   description: string; // meta description, ~150 characters
   intent: string; // the search intent this page answers (internal)
-  topic: "Getting clients" | "Marketing" | "Pricing & operations" | "Listings & visibility" | "Student seasons";
+  topic: "Getting clients" | "Marketing" | "Pricing & operations" | "Listings & visibility" | "Student seasons" | "For students & parents";
   audience: "pro" | "student";
   published: string; // ISO date the guide first went live
   updated: string;
@@ -28,6 +29,6 @@ export type Guide = {
   related: string[];
 };
 
-export const GUIDES: Guide[] = [...GUIDES_A, ...GUIDES_B];
+export const GUIDES: Guide[] = [...GUIDES_A, ...GUIDES_B, ...GUIDES_C];
 export const guideBySlug = (slug: string) => GUIDES.find((g) => g.slug === slug) ?? null;
-export const TOPICS = ["Getting clients", "Marketing", "Pricing & operations", "Listings & visibility", "Student seasons"] as const;
+export const TOPICS = ["For students & parents", "Getting clients", "Marketing", "Pricing & operations", "Listings & visibility", "Student seasons"] as const;

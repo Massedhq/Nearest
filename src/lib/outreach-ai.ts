@@ -45,10 +45,10 @@ async function marketFacts(p: typeof prospects.$inferSelect) {
     lines.push(`Their city/category isn't matched in Nearest yet (city: ${p.city ?? "unknown"}, category: ${p.category ?? "unknown"}). Don't state spots or prices for their area — say availability is confirmed when they claim a spot with their invite link.`);
     return lines;
   }
-  const { slotCount, slotLimits } = await import("./slots");
+  const { slotCount, slotLimits, categoryCap } = await import("./slots");
   const { marketOfCity } = await import("./city-booking");
   const { firstInStats, nextEntryStats, getEntryState } = await import("./entry");
-  const [taken, { firstIn, cap }, market, fi, next, state] = await Promise.all([slotCount(city.id, cat.id), slotLimits(), marketOfCity(city.id), firstInStats(), nextEntryStats(), getEntryState()]);
+  const [taken, { firstIn }, cap, market, fi, next, state] = await Promise.all([slotCount(city.id, cat.id), slotLimits(), categoryCap(city.id, cat.id), marketOfCity(city.id), firstInStats(), nextEntryStats(), getEntryState()]);
   const left = Math.max(0, cap - taken);
   lines.push(`${cat.name} in ${city.name}: ${taken} of ${cap} spots taken, ${left} left.`);
   if (state === "FIRST_IN_CLOSED") lines.push("New professional enrollment is paused right now — escalate if they want to join.");
@@ -60,7 +60,7 @@ async function marketFacts(p: typeof prospects.$inferSelect) {
     lines.push("After the first 12 months the standard rate applies. Nearest takes no commission on bookings.");
   } else {
     const fee = `$${(Number((await (await import("./settings")).getSettings())["fees.service_fee_cents"] ?? 500) / 100).toFixed(0)}`;
-    if (left === 0) lines.push("That category is full there: they can join the free waitlist.");
+    if (left === 0) lines.push("Enrollment for that category is closed there: they can join the free waitlist. Never promise it will reopen.");
     else if (taken < firstIn && fi.open && state === "FIRST_IN_OPEN") lines.push(`They'd be First In: spot ${taken + 1} of ${firstIn} in this category and city.`);
     lines.push(`Cost: free to join and free to stay listed — no sign-up fee, no monthly fee, no card needed. Nearest only earns a ${fee} service fee on each completed booking (services and Model Calls), added on top of their price so students see one total and they receive their full price. Card processing comes out of each payment. No other commission.`);
   }

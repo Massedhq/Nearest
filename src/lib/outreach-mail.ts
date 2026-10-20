@@ -96,8 +96,8 @@ export async function cantEmail(p: typeof prospects.$inferSelect): Promise<strin
   if ((await db.select({ id: outreachSuppression.id }).from(outreachSuppression).where(eq(outreachSuppression.emailNorm, em)).limit(1)).length) return "do not contact";
   if (await db.query.users.findFirst({ where: sql`lower(${users.email}) = ${em}` })) return "already has an account";
   if (p.cityId && p.categoryId) {
-    const { slotCount, slotLimits } = await import("./slots");
-    if ((await slotCount(p.cityId, p.categoryId)) >= (await slotLimits()).cap) return "market_full";
+    const { slotCount, categoryCap } = await import("./slots");
+    if ((await slotCount(p.cityId, p.categoryId)) >= (await categoryCap(p.cityId, p.categoryId))) return "market_full";
   }
   return null;
 }
@@ -112,8 +112,8 @@ export async function sendOutreach(p: typeof prospects.$inferSelect, key: Templa
   const link = testTo ? `${base()}/go/sample-invite-link` : await makeInviteLink(p.id);
   let spotsLeft = "";
   if (p.cityId && p.categoryId) {
-    const { slotCount, slotLimits } = await import("./slots");
-    spotsLeft = String(Math.max(0, (await slotLimits()).cap - (await slotCount(p.cityId, p.categoryId))));
+    const { slotCount, categoryCap } = await import("./slots");
+    spotsLeft = String(Math.max(0, (await categoryCap(p.cityId, p.categoryId)) - (await slotCount(p.cityId, p.categoryId))));
   }
   const v = { first_name: p.name.split(" ")[0] || "there", name: p.name, city: p.city ?? "your city", category: (p.category ?? "your service").toLowerCase(), recruiter: recruiterName, link, spots_left: spotsLeft || "a few" };
   const t = templates[key];

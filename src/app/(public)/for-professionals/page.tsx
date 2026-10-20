@@ -23,7 +23,7 @@ export default async function ForProfessionals() {
       <Breadcrumbs items={[{ name: "For professionals", href: "/for-professionals" }]} />
       <p className="pub-eyebrow">Nearest for beauty professionals</p>
       <h1>Reach verified students in your city — free to list</h1>
-      <p className="pub-lede">Nearest is a student beauty, wellness and self-care booking platform. Independent professionals list their services, verified students in their city find them and request appointments, and the booking, payment and appointment-day steps happen in one app.</p>
+      <p className="pub-lede">Nearest is a student beauty, grooming, wellness and self-care booking platform. Independent professionals list their services, verified high school, college, trade school and online students in their city find them and request appointments, and the booking, payment and appointment-day steps happen in one app.</p>
       <div className="pub-cta-row"><Link className="pub-btn" href={ROUTES.proSignUp}>Join as a professional</Link><Link className="pub-btn ghost" href="/locations">Where Nearest is live</Link></div>
 
       <h2 id="fees">What it costs</h2>
@@ -60,7 +60,9 @@ export default async function ForProfessionals() {
       <p>You don&apos;t have to leave the platform you use today. Students who find you on Nearest book through Nearest; everyone else keeps booking the way they do now. Block time across calendars as bookings come in so you never double-book.</p>
 
       <h2 id="capacity">Limited spots in each city</h2>
-      <p>To keep each market balanced, every city has a limited number of spots per service category. The first {f.firstInPerCategory} professionals in a city and category join as First In; up to {f.capPerCategory} can join in total. After that, new professionals join a waitlist and are told when a spot opens. Spots are for professionals who take bookings: if your profile isn&apos;t live within 30 days of joining for reasons on your side, your spot may be released after a reminder.</p>
+      <p>Nearest is open to professionals nationwide, and every city works the same way: each service category opens with <strong>{f.firstInPerCategory} professional spots</strong> (First In). When those are taken, enrollment closes for that category in that city. Nearest may authorize one additional opening of {f.capPerCategory - f.firstInPerCategory} later — never more than <strong>{f.capPerCategory} professionals per category per city</strong>, and it never reopens automatically. You can join the waitlist for a closed category.</p>
+      <p>Spots are for professionals who take bookings: if your profile isn&apos;t live within 30 days of joining for reasons on your side, your spot may be released after a reminder.</p>
+      <p>Your city isn&apos;t open yet? <Link href="/locations#check">Check your city</Link> and leave your details — interest from professionals and students is how Nearest decides where to open next.</p>
 
       <h2 id="profile-help">Want help setting up?</h2>
       <p>With your permission, the Nearest team can build your profile from the details you share. You get an email link, create your own password (8 or more characters), review everything and accept the Professional Terms — then it&apos;s yours to edit. You verify your own ID and connect your own payouts.</p>

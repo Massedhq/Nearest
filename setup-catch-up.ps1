@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Public resource center and SEO: 11 public pages, 12 guides, 120 FAQs, live locations, robots, sitemap, llms.txt, Organization/WebSite/Breadcrumb/Article schema"
+git commit -q -m "Nationwide SEO: 16 guides, 120 FAQs, city checker + opt-in city interest, growth report, Search Console tag; capacity: 5 per category per city, one owner-authorized opening of 5, max 10"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

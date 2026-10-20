@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/public/Breadcrumbs";
 import { ProCta } from "@/components/public/Cta";
-import { activeCities, PLANNED_MARKETS, STATE_NAMES } from "@/lib/public/locations";
+import { activeCities, STATE_NAMES } from "@/lib/public/locations";
+import { CityChecker } from "@/components/public/CityChecker";
 import { pageMeta } from "@/lib/public/meta";
 
 export const revalidate = 3600;
@@ -13,18 +14,26 @@ export const metadata = pageMeta(
 
 export default async function Locations() {
   const list = await activeCities();
+  let cats: { id: number; name: string }[] = [];
+  try {
+    const { db, categories } = await import("@/db");
+    const { asc, eq } = await import("drizzle-orm");
+    cats = (await db.select({ id: categories.id, name: categories.name }).from(categories).where(eq(categories.active, true)).orderBy(asc(categories.sort))).filter((c) => c.name !== "Other");
+  } catch { /* the checker still works without the list */ }
   const byState = new Map<string, typeof list>();
   for (const c of list) byState.set(c.state, [...(byState.get(c.state) ?? []), c]);
   return (
     <div className="pub-article">
       <Breadcrumbs items={[{ name: "Locations", href: "/locations" }]} />
       <h1>Where Nearest is live</h1>
-      <p className="pub-lede">Students can book only in cities where at least one professional is live. This list updates from the platform as professionals join.</p>
+      <p className="pub-lede">Nearest is growing nationwide, one city at a time. Students can book in cities where at least one professional is live; professionals can enroll wherever their city is open. Check any U.S. city below.</p>
+      <CityChecker categories={cats} />
+      <h2>Live for student bookings</h2>
       {list.length === 0 ? (
-        <p className="pub-box">The city list is updating — please check back shortly. Nearest started in the Dallas–Fort Worth area of Texas.</p>
+        <p className="pub-box">No cities are listed right now — check back shortly, or use the city checker above.</p>
       ) : [...byState.entries()].map(([st, cities]) => (
         <section key={st} aria-labelledby={`st-${st}`}>
-          <h2 id={`st-${st}`}>{STATE_NAMES[st] ?? st}</h2>
+          <h3 id={`st-${st}`}>{STATE_NAMES[st] ?? st}</h3>
           <div className="pub-grid">
             {cities.map((c) => (
               <Link key={c.id} className="pub-card" href={`/locations/${c.stateSlug}/${c.slug}`}>
@@ -35,10 +44,8 @@ export default async function Locations() {
           </div>
         </section>
       ))}
-      <h2>Planned</h2>
-      <ul>{PLANNED_MARKETS.map((m) => <li key={m.state}><strong>{m.state}</strong> — planned for {m.when}. Not live yet: students can&apos;t book there until launch.</li>)}</ul>
       <h2>Not seeing your city?</h2>
-      <p>Nearest isn&apos;t available nationwide. If you&apos;re a professional in a city that isn&apos;t listed, see <Link href="/for-professionals">how joining works</Link> — city availability is limited and depends on location. Students can check back as new professionals join.</p>
+      <p>Nearest opens city by city, nationwide. Use the city checker to see whether your city is open for professionals, and leave your details if it isn&apos;t — that tells Nearest where students and professionals want it next. See <Link href="/for-professionals">how joining works</Link>.</p>
       <ProCta />
     </div>
   );

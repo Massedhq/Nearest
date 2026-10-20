@@ -23,8 +23,8 @@ export default async function StudentServices() {
       <Breadcrumbs items={[{ name: "Student beauty services", href: "/student-beauty-services" }]} />
       <p className="pub-eyebrow">Nearest for students</p>
       <h1>Student beauty, wellness and self-care services</h1>
-      <p className="pub-lede">Nearest helps verified students find independent professionals near them — hair, braids, barbers, nails, lashes, brows, makeup and more — at student-friendly prices, with booking, payment and appointment day handled in one app.</p>
-      <p className="pub-box note">Nearest is live in select cities. Check <Link href="/locations">Locations</Link> to see where students can book today.</p>
+      <p className="pub-lede">Students get discounts on food, clothes, tech and entertainment — beauty, grooming and self-care should be student-priced too. Nearest helps high school, college, trade school and online students find independent professionals near them — haircuts, braids, barbers, nails, lashes, brows, makeup, skincare and more — with booking, payment and appointment day handled in one app.</p>
+      <p className="pub-box note">Bookings are available in cities where professionals are live. <Link href="/locations#check">Check your city</Link> — if it isn&apos;t open yet, you can ask to be told when it is.</p>
 
       <h2>Student-friendly prices</h2>
       <ul>
@@ -65,6 +65,14 @@ export default async function StudentServices() {
 
       <h2>Not affiliated with schools</h2>
       <p>Nearest checks that you&apos;re a student, but it&apos;s an independent company — not affiliated with, endorsed by or partnered with any school or school district. Appointments happen at the professional&apos;s location or at an address you provide; Nearest doesn&apos;t arrange appointments at schools.</p>
+
+      <h2>Guides for students and parents</h2>
+      <ul>
+        <li><Link href="/resources/save-on-beauty-and-grooming-as-a-student">How students can save on beauty, grooming and self-care</Link></li>
+        <li><Link href="/resources/student-grooming-on-a-budget">Student grooming on a budget: haircuts, fades and beard care</Link></li>
+        <li><Link href="/resources/prom-homecoming-beauty-budget">Prom and homecoming beauty budget planner</Link></li>
+        <li><Link href="/resources/parents-guide-teen-beauty-appointments">A parent&apos;s guide to teen beauty appointments</Link></li>
+      </ul>
 
       <h2>Common questions</h2>
       <FaqList items={faqs} />

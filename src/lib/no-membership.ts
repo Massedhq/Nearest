@@ -104,9 +104,8 @@ export async function reclaimProblem(p: typeof professionalProfiles.$inferSelect
   if (!p.placementReleasedAt) return null;
   const cityId = p.cityId ?? p.slotCityId;
   if (!cityId) return "Add your location first.";
-  const { slotLimits, slotCount } = await import("./slots");
-  const { cap } = await slotLimits();
-  for (const c of await spotCategories(p)) if ((await slotCount(cityId, c, p.userId)) >= cap) return "Your city is full in one of your categories right now. Join the waitlist from the Join page and we'll tell you when a spot opens.";
+  const { categoryCap, slotCount } = await import("./slots");
+  for (const c of await spotCategories(p)) if ((await slotCount(cityId, c, p.userId)) >= (await categoryCap(cityId, c))) return "Your city is full in one of your categories right now. Join the waitlist from the Join page and we'll tell you when a spot opens.";
   return null;
 }
 

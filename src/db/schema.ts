@@ -647,6 +647,38 @@ export const notifications = pgTable("notifications", {
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("notifications_user_idx").on(t.userId, t.createdAt)]);
 
+// Public city checker (/locations): people who asked to hear when Nearest opens (or opens for professionals) in their
+// city. Opt-in only (consent text stored). Never used for automatic marketing; owners follow up by hand.
+export const locationInterest = pgTable("location_interest", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  role: text("role").notNull(), // professional | student | parent
+  name: text("name"),
+  email: text("email").notNull(),
+  emailNorm: text("email_norm").notNull(),
+  city: text("city").notNull(),
+  state: text("state").notNull(),
+  zip: text("zip"),
+  cityId: integer("city_id"), // when the city is already in Nearest
+  categoryId: integer("category_id"), // professionals: their main service
+  status: text("status").notNull(), // what the checker showed: live | enrolling | closed | not_open
+  consent: text("consent").notNull(),
+  source: text("source"), // landing page / ?ref code, when known
+  contactedAt: ts("contacted_at"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [uniqueIndex("location_interest_unique_idx").on(t.emailNorm, t.role, t.city, t.state), index("location_interest_place_idx").on(t.state, t.city)]);
+
+// Enrollment capacity: each city + category opens with 5 spots (growth.target_per_category). When they're taken,
+// enrollment closes there. An owner may authorize ONE more opening of 5 for that city + category (row here) —
+// never automatic, and never more than 10 in total.
+export const slotOpenings = pgTable("slot_openings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  cityId: integer("city_id").notNull(),
+  categoryId: integer("category_id").notNull(),
+  authorizedBy: uuid("authorized_by").references(() => users.id, { onDelete: "set null" }),
+  authorizedAt: ts("authorized_at").notNull().defaultNow(),
+  note: text("note"),
+}, (t) => [uniqueIndex("slot_openings_city_category_idx").on(t.cityId, t.categoryId)]);
+
 // Phone alerts (web push): one row per phone/browser that turned alerts on. Removed when the browser says it's gone.
 export const pushSubscriptions = pgTable("push_subscriptions", {
   id: uuid("id").primaryKey().defaultRandom(),

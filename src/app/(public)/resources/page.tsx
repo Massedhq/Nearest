@@ -5,8 +5,8 @@ import { ProCta } from "@/components/public/Cta";
 import { pageMeta } from "@/lib/public/meta";
 
 export const metadata = pageMeta(
-  "Beauty Business Resources & Guides",
-  "Free, practical guides for beauty and wellness professionals: getting clients, pricing, marketing, listings and student event seasons — from Nearest.",
+  "Student Beauty & Beauty Business Guides",
+  "Free, practical guides for students, parents and beauty professionals: saving on self-care, teen appointment safety, getting clients, pricing and marketing.",
   "/resources",
 );
 
@@ -23,8 +23,8 @@ export default function Resources() {
     <div>
       <Breadcrumbs items={[{ name: "Resources", href: "/resources" }]} />
       <p className="pub-eyebrow">Nearest resource center</p>
-      <h1>Resources for beauty and wellness professionals</h1>
-      <p className="pub-lede">Practical, free guides for independent professionals — written to be useful whether or not you ever use Nearest.</p>
+      <h1>Resources for students, parents and beauty professionals</h1>
+      <p className="pub-lede">Practical, free guides — saving on self-care as a student, keeping teen appointments safe, and growing an independent beauty business. Written to be useful whether or not you ever use Nearest.</p>
       <h2>Start here</h2>
       <div className="pub-grid">{HUBS.map((h) => <Link key={h.href} className="pub-card" href={h.href}><strong>{h.title}</strong><span>{h.text}</span></Link>)}</div>
       {TOPICS.map((t) => {

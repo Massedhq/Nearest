@@ -20,6 +20,12 @@ export const metadata: Metadata = {
   applicationName: "Nearest",
   appleWebApp: { capable: true, title: "Nearest", statusBarStyle: "black-translucent" },
   icons: { icon: "/icons/icon-192.png", apple: "/icons/apple-touch-icon.png" },
+  // Search Console / Bing ownership (HTML-tag method). Set GOOGLE_SITE_VERIFICATION / BING_SITE_VERIFICATION in Vercel;
+  // the DNS method (docs/SEO-AND-AI-DISCOVERY.md) needs nothing here.
+  ...(process.env.GOOGLE_SITE_VERIFICATION || process.env.BING_SITE_VERIFICATION ? { verification: {
+    ...(process.env.GOOGLE_SITE_VERIFICATION ? { google: process.env.GOOGLE_SITE_VERIFICATION } : {}),
+    ...(process.env.BING_SITE_VERIFICATION ? { other: { "msvalidate.01": process.env.BING_SITE_VERIFICATION } } : {}),
+  } } : {}),
 };
 
 export const viewport: Viewport = {

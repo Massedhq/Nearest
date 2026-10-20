@@ -22,7 +22,12 @@ export default async function ServiceCoverage({ searchParams }: { searchParams: 
   const sp = await searchParams;
   const s = await getSettings();
   const firstInSpots = Number(s["growth.target_per_category"] ?? 5); // First In spots per category, per city
-  const target = Math.max(firstInSpots, Number(s["growth.cap_per_category"] ?? 10)); // total spots, then waitlist
+  // Each category opens with firstInSpots; it closes there until an owner authorizes the one additional opening (max 10).
+  const target = firstInSpots;
+  const { slotOpenings: so } = await import("@/db");
+  const maxSpots = Math.min(10, Math.max(firstInSpots, Number(s["growth.cap_per_category"] ?? 10)));
+  const opened = new Set((await db.select({ c: so.cityId, k: so.categoryId }).from(so)).map((o) => `${o.c}:${o.k}`));
+  const capOf = (cityId: number, catId: number) => (opened.has(`${cityId}:${catId}`) ? maxSpots : firstInSpots);
   const goal = Number(s["growth.market_goal"] ?? 1500);
 
   // Same rule as the spot limits and Where to recruit: joined, an active member, live on Nearest, or an owner.
@@ -92,7 +97,7 @@ export default async function ServiceCoverage({ searchParams }: { searchParams: 
     <>
       <AdminHead eyebrow="Recruiting" title="Service coverage" />
       <p className="small muted" style={{ maxWidth: 820 }}>
-        How many professionals Nearest has in each category, city by city. Each city has <b>{target} spots per category</b>: the first {firstInSpots} are First In, spots {firstInSpots + 1}–{target} are the next entry, and after {target} new professionals join a waitlist — nobody pays to join or a monthly fee; Nearest earns its service fee on bookings (change both numbers in Rules &amp; Settings → Growth).
+        How many professionals Nearest has in each category, city by city. Every city, in every state, opens each category with <b>{firstInSpots} spots</b> (First In). When they&apos;re taken, enrollment closes there and new professionals join a waitlist. An owner can authorize <b>one</b> additional opening of {maxSpots - firstInSpots} for a city and category in Outreach → Markets, for at most {maxSpots}. Nothing reopens automatically. Nobody pays to join or a monthly fee; Nearest earns its service fee on bookings.
         Counts include everyone who has joined; <b>live</b> means students can book them right now. A pro who offers services in more than one category counts in each.
       </p>
 
@@ -131,14 +136,15 @@ export default async function ServiceCoverage({ searchParams }: { searchParams: 
               <tbody>
                 {cats.map((k) => {
                   const c = cell(city.id, k.id);
-                  const need = Math.max(0, target - c.signed);
+                  const cap = capOf(city.id, k.id);
+                  const need = Math.max(0, cap - c.signed);
                   return (
                     <tr key={k.id}>
                       <td>{k.name}</td>
-                      <td className="num">{c.signed} / {target}</td>
+                      <td className="num">{c.signed} / {cap}</td>
                       <td className="num">{c.live}</td>
                       <td className="num b">{need || "—"}</td>
-                      <td><span className={`tag ${tone(c.signed)}`}>{c.signed >= target ? "Full — waitlist" : c.signed >= firstInSpots ? "First In taken" : c.signed === 0 ? "None yet" : "First In open"}</span></td>
+                      <td><span className={`tag ${tone(c.signed)}`}>{c.signed >= cap ? (cap < maxSpots ? "Closed — owner may authorize 5 more" : "Closed at 10") : c.signed >= firstInSpots ? "Additional opening — spots left" : c.signed === 0 ? "None yet" : "First In open"}</span></td>
                     </tr>
                   );
                 })}
