@@ -4,6 +4,16 @@ import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { SupporterAvatar } from "@/components/SupporterAvatar";
 import { previewPlaceholders, publishedSupporters } from "@/lib/supporters";
+import { JsonLd } from "@/components/public/JsonLd";
+import { pageMeta } from "@/lib/public/meta";
+import { SITE_URL, SITE_NAME, SITE_TAGLINE, LOGO_PATH, INSTAGRAM_URL, SUPPORT_EMAIL, abs } from "@/lib/public/site";
+
+export const metadata = pageMeta(
+  "Nearest — Student Beauty, Wellness & Self-Care Booking Platform",
+  "Nearest (usenearest.com) helps high school, college, trade school and online students book independent beauty, grooming, wellness and self-care professionals near them at student-friendly prices.",
+  "/",
+  { title: { absolute: "Nearest — Student Beauty, Wellness & Self-Care Booking Platform" } },
+);
 
 export default async function Welcome() {
   const { userId } = await auth();
@@ -16,8 +26,16 @@ export default async function Welcome() {
   const sample = !real.length && circles.length > 0;
   return (
     <div className="scr">
+      <JsonLd data={[
+        { "@context": "https://schema.org", "@type": "Organization", "@id": `${SITE_URL}/#organization`, name: SITE_NAME, alternateName: `Nearest — ${SITE_TAGLINE}`, url: SITE_URL, logo: abs(LOGO_PATH), sameAs: [INSTAGRAM_URL],
+          contactPoint: [{ "@type": "ContactPoint", contactType: "customer support", email: SUPPORT_EMAIL }] },
+        { "@context": "https://schema.org", "@type": "WebSite", "@id": `${SITE_URL}/#website`, name: SITE_NAME, alternateName: "usenearest.com", url: SITE_URL, publisher: { "@id": `${SITE_URL}/#organization` } },
+      ]} />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", padding: "0 22px" }}>
-        <Image src="/brand/nearest-wordmark.png" alt="Nearest" width={380} height={253} priority style={{ width: "100%", maxWidth: 380, height: "auto" }} />
+        <h1 style={{ margin: 0, width: "100%", display: "flex", justifyContent: "center" }}>
+          <Image src="/brand/nearest-wordmark.png" alt="Nearest" width={380} height={253} priority style={{ width: "100%", maxWidth: 380, height: "auto" }} />
+          <span className="sr-only"> — Student Beauty, Wellness &amp; Self-Care Booking Platform</span>
+        </h1>
         <p className="disp" style={{ fontSize: 24, textAlign: "center", margin: "-8px 0 0", fontStyle: "italic" }}>Find who&apos;s available near you.</p>
         <p className="muted small" style={{ textAlign: "center", margin: "14px 0 0", maxWidth: 290 }}>
           Book, pay and finish your appointment in one place.
@@ -41,6 +59,13 @@ export default async function Welcome() {
           </section>
         )}
         <p className="xs muted" style={{ textAlign: "center", margin: "6px 0 0" }}>By continuing you agree to the Nearest <Link className="link" href="/terms" style={{ fontSize: "inherit" }}>Terms</Link> and <Link className="link" href="/privacy" style={{ fontSize: "inherit" }}>Privacy Policy</Link>.</p>
+        <nav aria-label="Learn about Nearest" className="xs" style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "4px 14px", margin: "2px 0 0" }}>
+          <Link className="link" href="/student-beauty-services" style={{ fontSize: "inherit" }}>For students</Link>
+          <Link className="link" href="/for-professionals" style={{ fontSize: "inherit" }}>For professionals</Link>
+          <Link className="link" href="/locations" style={{ fontSize: "inherit" }}>Locations</Link>
+          <Link className="link" href="/resources" style={{ fontSize: "inherit" }}>Resources</Link>
+          <Link className="link" href="/faq" style={{ fontSize: "inherit" }}>FAQ</Link>
+        </nav>
       </div>
     </div>
   );

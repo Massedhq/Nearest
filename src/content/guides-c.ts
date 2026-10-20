@@ -50,9 +50,13 @@ export const GUIDES_C: Guide[] = [
           "If something feels wrong, you can leave — no deal is worth feeling unsafe.",
         ] },
       ] },
-      { id: "nearest", h: "How Nearest fits", blocks: ["Nearest is built so self-care can be student-priced: every service on Nearest is capped for students, the price shown includes Nearest's fee, and you book and pay inside the app with verified professionals. It's available in cities where professionals are live — check your city on the Locations page."] },
+      { id: "nearest", h: "How Nearest helps", blocks: [
+        "Nearest is built so self-care can be student-priced: no service costs more than $150, add-ons included, the price you see already includes Nearest's $5 booking fee, and you request, pay and check in inside the app with verified professionals.",
+        { cta: "student", title: "Find student-friendly professionals near you", text: "Create a free student account, verify you're a student, and compare haircuts, braids, nails, lashes and more by price in your city." },
+      ] },
     ],
     faq: [{ q: "Is it OK to ask a professional for a cheaper option?", a: "Yes — ask what changes the price (length, size, design) and whether there's a simpler version. Most professionals would rather adjust the service than lose a client." }],
+    endCta: { title: "Make self-care student-priced", text: "Sign up free, verify you're a student, and book with professionals near you. If Nearest isn't open in your city yet, check your city and ask to be told when it is." },
     related: ["student-grooming-on-a-budget", "prom-homecoming-beauty-budget", "parents-guide-teen-beauty-appointments"],
   },
   {
@@ -82,8 +86,12 @@ export const GUIDES_C: Guide[] = [
       { id: "save", h: "Ways to spend less", blocks: [
         { ul: ["Book a standing appointment so you're not paying for rush slots.", "Ask about a lineup-only price between full cuts.", "Try a newer barber's practice or model appointment with clear expectations."] },
       ] },
-      { id: "nearest", h: "On Nearest", blocks: ["The Barber and Hair categories list professionals near verified students in cities where Nearest is live, with prices shown up front and booking inside the app."] },
+      { id: "nearest", h: "Book barbers and stylists on Nearest", blocks: [
+        "The Barber and Hair categories show professionals near you with prices up front, their recent cuts, open times and reviews from students who completed an appointment. You request a time, they accept, and you pay in the app.",
+        { cta: "student", title: "Find a barber near you", text: "Create a free student account to see barbers and stylists in your city and book a fresh cut at a student-friendly price." },
+      ] },
     ],
+    endCta: { title: "Stay fresh for less", text: "Sign up free as a student and book cuts, lineups and beard trims near you. Check your city to see what's available." },
     related: ["save-on-beauty-and-grooming-as-a-student", "prom-homecoming-beauty-budget", "parents-guide-teen-beauty-appointments"],
   },
   {
@@ -115,9 +123,13 @@ export const GUIDES_C: Guide[] = [
       { id: "save", h: "Ways to save", blocks: [
         { ul: ["Get ready with friends — some professionals offer group times.", "Choose a style that lasts (braids can carry from homecoming week through the dance).", "Skip extras you won't notice in photos.", "Book early to avoid last-minute premiums."] },
       ] },
-      { id: "nearest", h: "Booking on Nearest", blocks: ["In cities where Nearest is live, verified students can request event appointments, see prices up front and pay inside the app. Students 13–17 need a parent or guardian's approval to book."] },
+      { id: "nearest", h: "Booking event appointments on Nearest", blocks: [
+        "Verified students can compare event services by price, see each professional's work, add optional extras and request a time; payment happens in the app after the professional accepts. Students 13–17 need a parent or guardian's approval to book.",
+        { cta: "student", title: "Book your event look early", text: "Create a free student account now so you can request hair, makeup, nails or lashes as soon as you know your event date." },
+      ] },
     ],
-    related: ["save-on-beauty-and-grooming-as-a-student", "parents-guide-teen-beauty-appointments", "student-clients-prom-homecoming-graduation"],
+    endCta: { title: "Plan your event look on Nearest", text: "Sign up free, verify you're a student, and request event appointments with prices shown up front. Parents approve accounts for students 13–17." },
+    related: ["save-on-beauty-and-grooming-as-a-student", "parents-guide-teen-beauty-appointments", "student-grooming-on-a-budget"],
   },
   {
     slug: "parents-guide-teen-beauty-appointments",
@@ -154,6 +166,7 @@ export const GUIDES_C: Guide[] = [
         ] },
       ] },
     ],
+    endCta: { title: "A safer way for your teen to book", text: "Nearest verifies students, checks professionals' identities, keeps messages in the app and asks parents to approve accounts for students 13–17. Your teen can create a free student account; you'll get an approval email." },
     faq: [{ q: "Can I book for my teen?", a: "On Nearest, students book from their own verified account; a parent or guardian approves accounts for students 13–17 and is responsible for payments on a minor's account." }],
     related: ["prom-homecoming-beauty-budget", "save-on-beauty-and-grooming-as-a-student", "student-grooming-on-a-budget"],
   },

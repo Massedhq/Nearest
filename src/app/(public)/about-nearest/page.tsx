@@ -21,7 +21,7 @@ export default function About() {
       <p>Students get discounts on food, clothing, technology and entertainment. Haircuts, braids, nails, lashes, skincare and other self-care add up just as fast — and they matter for confidence, school photos, interviews, events and everyday life. Nearest&apos;s mission is to make professional beauty, grooming, wellness and self-care accessible at student prices, while giving independent professionals a free way to reach student clients.</p>
 
       <h2>What Nearest is</h2>
-      <p>Nearest is a marketplace, not a salon. Independent professionals — hairstylists, braiders, barbers, nail techs, lash and brow artists, makeup artists and other self-care professionals — list their own services, prices and hours. Verified students find them, request appointments, pay through the app and complete the appointment with check-in and finish steps. Nearest provides the platform, payment processing and booking rules; the services are provided by the professionals, who are independent businesses.</p>
+      <p>Nearest is a booking platform, not a salon. Independent professionals — hairstylists, braiders, barbers, nail techs, lash and brow artists, makeup artists and other self-care professionals — list their own services, prices and hours. Verified students find them, request appointments, pay through the app and complete the appointment with check-in and finish steps. Nearest provides the platform, payment processing and booking rules; the services are provided by the professionals, who are independent businesses.</p>
 
       <h2>Who it serves</h2>
       <ul>

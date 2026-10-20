@@ -138,9 +138,19 @@ export async function saveServices(_: FormState, form: FormData): Promise<FormSt
   // Remember which service each portfolio photo was tagged with (by name) so editing the menu keeps "Book this look".
   const tagged = await db.select({ photoId: portfolioItems.id, name: proServices.name }).from(portfolioItems)
     .innerJoin(proServices, eq(proServices.id, portfolioItems.serviceId)).where(eq(portfolioItems.userId, user.id));
+  // Previous prices, so price changes can be recorded for Nearest's internal pricing report (no effect on the pro).
+  const before = await db.select({ name: proServices.name, priceCents: proServices.priceCents }).from(proServices).where(eq(proServices.userId, user.id));
   // Replace the whole menu. (Later phases keep old rows once bookings reference them.)
   await db.delete(proServices).where(eq(proServices.userId, user.id));
   const inserted = await db.insert(proServices).values(values).returning();
+  try {
+    const { logActivity } = await import("@/lib/log");
+    const old = new Map(before.map((b) => [b.name.trim().toLowerCase(), b.priceCents]));
+    for (const n of inserted) {
+      const was = old.get(n.name.trim().toLowerCase());
+      if (was != null && was !== n.priceCents) await logActivity({ actorUserId: user.id, action: "service.price_changed", targetType: "pro_service", targetId: n.id, before: { priceCents: was }, after: { name: n.name, priceCents: n.priceCents, categoryId: n.categoryId } });
+    }
+  } catch { /* reporting only — never blocks saving the menu */ }
   for (const t of tagged) {
     const same = inserted.find((x) => x.name.trim().toLowerCase() === t.name.trim().toLowerCase());
     if (same) await db.update(portfolioItems).set({ serviceId: same.id }).where(eq(portfolioItems.id, t.photoId));

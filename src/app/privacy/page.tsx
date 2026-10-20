@@ -1,6 +1,6 @@
 import { LegalPage } from "@/components/LegalPage";
 
-export const metadata = { title: "Privacy Policy" };
+export const metadata = { title: "Privacy Policy", description: "How Nearest, the student beauty, wellness and self-care booking platform, collects, uses and protects personal information.", alternates: { canonical: "https://www.usenearest.com/privacy" } };
 
 const ENTITY = "Nearest";
 const ADDRESS = "5729 Lebanon Rd #144605, Frisco, Texas 75034";

@@ -11,7 +11,10 @@ export type Block =
   | { ol: string[] }
   | { copy: string; label?: string }
   | { table: { head: string[]; rows: string[][]; caption?: string } }
-  | { note: string };
+  | { note: string }
+  // A contextual call to action inside an article. "pro" → professional sign-up + city check; "student" → student
+  // sign-up + what's available; "interest" → the city checker. The text must be specific to the article.
+  | { cta: "pro" | "student" | "interest"; title: string; text: string };
 export type Section = { id: string; h: string; blocks: Block[] };
 export type Guide = {
   slug: string;
@@ -27,6 +30,8 @@ export type Guide = {
   sections: Section[];
   faq?: { q: string; a: string }[];
   related: string[];
+  pain?: string; // the reader's problem, in their words (shown above the summary for professional guides)
+  endCta?: { title: string; text: string }; // the closing call to action, specific to this article
 };
 
 export const GUIDES: Guide[] = [...GUIDES_A, ...GUIDES_B, ...GUIDES_C];

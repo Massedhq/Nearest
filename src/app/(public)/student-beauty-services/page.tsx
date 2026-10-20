@@ -29,7 +29,7 @@ export default async function StudentServices() {
       <h2>Student-friendly prices</h2>
       <ul>
         <li>No service on Nearest costs more than <strong>{usd(f.capDollars)}</strong>, add-ons included. Professionals set their own prices within that limit.</li>
-        <li>The price you see is the total for the service — Nearest&apos;s service fee is already included, and there&apos;s no separate booking fee at checkout. A travel fee is added only if the professional comes to you.</li>
+        <li>The price you see already includes Nearest&apos;s {usd(f.feeDollars)} booking fee per service, so there&apos;s no surprise charge at checkout. A travel fee is added only if the professional comes to you.</li>
         <li>Some professionals post <strong>Model Calls</strong>: discounted appointments where they practice a technique or build a portfolio. Results can differ from a standard service, and some list requirements.</li>
       </ul>
 

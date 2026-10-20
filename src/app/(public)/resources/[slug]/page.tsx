@@ -24,7 +24,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
   if (!g) notFound();
   const related = g.related.map(guideBySlug).filter((x): x is NonNullable<typeof x> => Boolean(x));
   return (
-    <article className="pub-article">
+    <article className="pub-article" data-audience={g.audience}>
       <Breadcrumbs items={[{ name: "Resources", href: "/resources" }, { name: g.h1, href: `/resources/${g.slug}` }]} />
       <JsonLd data={{
         "@context": "https://schema.org", "@type": "Article", headline: g.title, description: g.description,
@@ -36,7 +36,9 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
       <p className="pub-eyebrow">{g.topic}</p>
       <h1>{g.h1}</h1>
       <p className="pub-meta">By the Nearest team · Updated <time dateTime={g.updated}>{fmt(g.updated)}</time></p>
+      {g.pain && <p className="pub-box note"><strong>The problem:</strong> {g.pain}</p>}
       <p className="pub-lede">{g.summary}</p>
+      {g.audience === "pro" && <p className="pub-muted">Looking for student clients? <Link href="/pro/sign-up">List your services on Nearest free</Link> — no monthly fee for new professionals, and it works alongside the booking tools you already use.</p>}
       <nav className="pub-toc" aria-label="On this page"><ul>{g.sections.map((s) => <li key={s.id}><a href={`#${s.id}`}>{s.h}</a></li>)}</ul></nav>
       {g.sections.map((s) => (
         <section key={s.id} id={s.id} aria-labelledby={`${s.id}-h`}>
@@ -51,7 +53,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
           <p className="pub-more"><Link href="/faq">More answers in the Nearest FAQ</Link></p>
         </section>
       )}
-      {g.audience === "student" ? <StudentCta /> : <ProCta />}
+      {g.audience === "student" ? <StudentCta {...(g.endCta ?? {})} /> : <ProCta {...(g.endCta ?? {})} />}
       {related.length > 0 && (
         <section aria-labelledby="rel-h">
           <h2 id="rel-h">Related guides</h2>

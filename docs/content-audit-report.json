@@ -1,0 +1,201 @@
+{
+  "base": "http://localhost:3100",
+  "run": "2026-10-20T15:17:56.814Z",
+  "inventory": [
+    {
+      "path": "/",
+      "audience": "student",
+      "title": "Nearest — Student Beauty, Wellness &amp; Self-Care Booking Platform",
+      "words": 57
+    },
+    {
+      "path": "/pro",
+      "audience": "professional",
+      "title": "Nearest for Professionals — Free Listing, Student Clients",
+      "words": 50
+    },
+    {
+      "path": "/about-nearest",
+      "audience": "both",
+      "title": "About Nearest — Student Beauty, Wellness &amp; Self-Care Booking Platform · Nearest",
+      "words": 383
+    },
+    {
+      "path": "/for-professionals",
+      "audience": "professional",
+      "title": "Nearest for Beauty Professionals — List Free, Reach Students · Nearest",
+      "words": 1128
+    },
+    {
+      "path": "/grow-your-beauty-business",
+      "audience": "professional",
+      "title": "How to Grow Your Beauty Business — A Sustainable Plan · Nearest",
+      "words": 457
+    },
+    {
+      "path": "/free-business-listing",
+      "audience": "professional",
+      "title": "Free Business Listing for Beauty Professionals — What&#x27;s Really Free · Nearest",
+      "words": 521
+    },
+    {
+      "path": "/get-more-clients",
+      "audience": "professional",
+      "title": "How to Get More Clients — Tactics for Nail Techs, Stylists, Braiders, Barbers &amp; More · Nearest",
+      "words": 504
+    },
+    {
+      "path": "/beauty-marketing-resources",
+      "audience": "professional",
+      "title": "Beauty Marketing Resources — Captions, Referral Scripts, Flyers &amp; Calendars · Nearest",
+      "words": 389
+    },
+    {
+      "path": "/student-beauty-services",
+      "audience": "student",
+      "title": "Student Beauty Services — Book Affordable Hair, Nails, Lashes &amp; More · Nearest",
+      "words": 943
+    },
+    {
+      "path": "/resources",
+      "audience": "both",
+      "title": "Student Beauty &amp; Beauty Business Guides · Nearest",
+      "words": 680
+    },
+    {
+      "path": "/locations",
+      "audience": "both",
+      "title": "Where Nearest Is Live — Locations · Nearest",
+      "words": 158
+    },
+    {
+      "path": "/contact",
+      "audience": "general",
+      "title": "Contact Nearest · Nearest",
+      "words": 92
+    },
+    {
+      "path": "/faq",
+      "audience": "both",
+      "title": "Nearest FAQ — Professionals, Students &amp; Parents · Nearest",
+      "words": 7284,
+      "faq": 120
+    },
+    {
+      "path": "/resources/get-more-beauty-clients-without-ads",
+      "audience": "professional",
+      "title": "How to Get More Beauty Clients Without Paying for Ads · Nearest",
+      "words": 1075
+    },
+    {
+      "path": "/resources/where-to-list-beauty-business-free",
+      "audience": "professional",
+      "title": "Where to List Your Beauty Business for Free · Nearest",
+      "words": 720
+    },
+    {
+      "path": "/resources/nail-tech-30-day-content-calendar",
+      "audience": "professional",
+      "title": "30-Day Social Media Content Calendar for Nail Techs · Nearest",
+      "words": 778
+    },
+    {
+      "path": "/resources/first-10-clients-new-hairstylist",
+      "audience": "professional",
+      "title": "How to Get Your First 10 Clients as a New Hairstylist · Nearest",
+      "words": 675
+    },
+    {
+      "path": "/resources/beauty-business-flyer",
+      "audience": "professional",
+      "title": "How to Make a Beauty Business Flyer That Converts · Nearest",
+      "words": 609
+    },
+    {
+      "path": "/resources/student-clients-prom-homecoming-graduation",
+      "audience": "professional",
+      "title": "How to Attract Student Clients for Prom, Homecoming, and Graduation · Nearest",
+      "words": 605
+    },
+    {
+      "path": "/resources/price-student-friendly-beauty-services",
+      "audience": "professional",
+      "title": "How to Price Student-Friendly Beauty Services Profitably · Nearest",
+      "words": 603
+    },
+    {
+      "path": "/resources/more-lash-clients-without-discounting",
+      "audience": "professional",
+      "title": "How to Get More Lash Clients Without Discounting Every Service · Nearest",
+      "words": 585
+    },
+    {
+      "path": "/resources/why-beauty-business-not-getting-bookings",
+      "audience": "professional",
+      "title": "Why Your Beauty Business Isn&#x27;t Getting Bookings: A Diagnostic Checklist · Nearest",
+      "words": 615
+    },
+    {
+      "path": "/resources/improve-beauty-profile-booking-conversion",
+      "audience": "professional",
+      "title": "How to Improve Your Beauty Business Profile and Booking Conversion · Nearest",
+      "words": 581
+    },
+    {
+      "path": "/resources/repeat-clients-braiding-locs",
+      "audience": "professional",
+      "title": "How to Build Repeat Clients for Braiding and Loc Services · Nearest",
+      "words": 558
+    },
+    {
+      "path": "/resources/get-beauty-business-found-on-google",
+      "audience": "professional",
+      "title": "How to Get Your Beauty Business Found on Google · Nearest",
+      "words": 619
+    },
+    {
+      "path": "/resources/save-on-beauty-and-grooming-as-a-student",
+      "audience": "student",
+      "title": "How Students Can Save on Beauty, Grooming and Self-Care · Nearest",
+      "words": 736
+    },
+    {
+      "path": "/resources/student-grooming-on-a-budget",
+      "audience": "student",
+      "title": "Student Grooming on a Budget: Haircuts, Fades, Lineups and Beard Care · Nearest",
+      "words": 517
+    },
+    {
+      "path": "/resources/prom-homecoming-beauty-budget",
+      "audience": "student",
+      "title": "Prom and Homecoming Beauty Budget Planner for Students and Parents · Nearest",
+      "words": 549
+    },
+    {
+      "path": "/resources/parents-guide-teen-beauty-appointments",
+      "audience": "student",
+      "title": "A Parent&#x27;s Guide to Teen Beauty and Grooming Appointments · Nearest",
+      "words": 527
+    },
+    {
+      "path": "/locations/texas/frisco",
+      "audience": "both",
+      "title": "Student Beauty Services in Frisco, Texas — Nearest · Nearest",
+      "words": 321
+    },
+    {
+      "path": "/terms",
+      "audience": "general",
+      "title": "Terms of Service · Nearest",
+      "words": 4473
+    },
+    {
+      "path": "/privacy",
+      "audience": "general",
+      "title": "Privacy Policy · Nearest",
+      "words": 2223
+    }
+  ],
+  "faqEntries": 120,
+  "issues": []
+}

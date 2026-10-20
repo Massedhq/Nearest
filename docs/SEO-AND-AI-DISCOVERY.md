@@ -89,3 +89,18 @@ Search data lags days to weeks; don't judge before ~4 weeks. Don't measure with 
 
 See the delivery notes for the latest run: anonymous 200s on every public page, canonical/H1/JSON-LD checks, sitemap and robots,
 private routes still redirecting, existing sign-in/sign-up/pro pages and service worker unchanged, `npm run build` passing.
+
+## Live-site check and content audit (2026-10-20)
+
+Live usenearest.com, before this release is deployed: the homepage title was just "Nearest", the description "Find who's available near you.", with no canonical, no H1 and no Organization/WebSite structured data — the resource center and these tags weren't live yet. robots.txt could not be fetched from the audit environment; check it in Search Console after deploying.
+
+This release adds to "/" and "/pro": a full title, description, canonical, a single H1 (visually the same wordmark) and Organization + WebSite JSON-LD on "/", plus small crawlable links to the public pages. Terms and Privacy gained descriptions and canonicals.
+
+Content audit: `npm run content:audit -- https://www.usenearest.com` after each deploy. Last run (production build of this release): 32 pages, 120 FAQ entries, 52 internal link targets, 0 errors, 0 warnings.
+
+### Search Console — still to do (owner)
+1. Add a Domain property for usenearest.com (DNS TXT record), or a URL-prefix property for https://www.usenearest.com using the HTML tag: put the token in Vercel as GOOGLE_SITE_VERIFICATION and redeploy.
+2. Sitemaps → submit https://www.usenearest.com/sitemap.xml.
+3. URL Inspection → request indexing for /, /about-nearest, /for-professionals, /student-beauty-services, /resources, /faq.
+4. Google Business Profile → set the website to https://www.usenearest.com and the business name exactly "Nearest".
+5. Optional: Bing Webmaster Tools → import from Search Console (BING_SITE_VERIFICATION env var is supported).

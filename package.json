@@ -13,7 +13,8 @@
     "db:cleanup": "tsx scripts/cleanup-test-data.ts",
     "schools:import": "tsx scripts/import-schools.ts",
     "schools:check": "tsx scripts/check-schools.ts",
-    "stripe:check": "tsx scripts/check-stripe.ts"
+    "stripe:check": "tsx scripts/check-stripe.ts",
+    "content:audit": "node scripts/content-audit.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.5",
