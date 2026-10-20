@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Build a profile: built profiles join as First In while the 750 has room (city + category limit still applies)"
+git commit -q -m "Public resource center and SEO: 11 public pages, 12 guides, 120 FAQs, live locations, robots, sitemap, llms.txt, Organization/WebSite/Breadcrumb/Article schema"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""
