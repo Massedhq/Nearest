@@ -7,9 +7,8 @@
  *  1. Letters only (any language), plus spaces, hyphens, apostrophes and periods. No digits, emoji or symbols.
  *  2. No business or service words in a legal name (nails, lashes, beauty, studio, LLC, glam, kween…), including
  *     stylized spellings (Nailz, Lashez, Beautii, Glamm).
- *  3. Not the business name, and not built from it: if the legal name shares a word with the business name, that
- *     business name must be made only of the person's own name plus service words ("Heather's Lashes", "Nails by
- *     Tasha" are fine for Heather / Tasha). Otherwise the legal name was taken from the brand and is refused.
+ *  3. Not the business name itself. A business name built from the person's own name is fine ("KweenzNailz-Nails by
+ *     Heather", "Heather's Lashes" for Heather Ortega); brand words in the legal name are caught by rule 2.
  */
 
 const BUSINESS_WORDS = [
@@ -49,11 +48,6 @@ export function legalNameProblem(first: string, last: string, businessName?: str
     const biz = words(businessName).map(normWord).filter(Boolean);
     const joined = (a: string[]) => a.join("");
     if (joined(legalNorm) === joined(biz)) return `${who === "you" ? "Your" : "Their"} legal name can't be ${your} business name. Use the name on ${your} government ID.`;
-    const shared = legalNorm.some((w) => w.length >= 2 && biz.includes(w));
-    if (shared) {
-      const leftover = biz.filter((w) => !legalNorm.includes(w) && !BUSINESS.has(w));
-      if (leftover.length) return `${who === "you" ? "Your" : "Their"} legal name looks like it was taken from the business name "${businessName.trim()}". Use the name on ${your} government ID.`;
-    }
   }
   return null;
 }

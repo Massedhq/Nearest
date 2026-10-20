@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Public pages send everyone back to Nearest (no Google Business Profile or outside-listing advice); fee is just called a booking fee, never what Nearest earns; audit checks both"
+git commit -q -m "Services step: labeled Your price and How long (minutes) boxes, minutes numbers only; legal name no longer flagged when the business name is built from the person name"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

@@ -105,12 +105,12 @@ export function SupporterForm({ token, texts }: { token: string; texts: Texts })
 
       <div className="field">
         <label htmlFor="sp-statement">In your own words, please share your thoughts and overall impressions of Nearest.</label>
-        <textarea id="sp-statement" name="statement" required minLength={20} maxLength={1500} placeholder={texts.statementExample} style={{ height: 160 }} />
+        <textarea id="sp-statement" name="statement" maxLength={1500} placeholder={texts.statementExample} style={{ height: 160 }} />
       </div>
       <div className="field">
         <label htmlFor="sp-benefit">How could Nearest benefit students and parents?</label>
-        <textarea id="sp-benefit" name="benefit" required minLength={20} maxLength={1500} placeholder={texts.benefitExample} style={{ height: 130 }} />
-        <span className="xs muted">The examples provided are intended solely as a guide. We encourage you to share your genuine thoughts, opinions, and experiences in your own words.</span>
+        <textarea id="sp-benefit" name="benefit" maxLength={1500} placeholder={texts.benefitExample} style={{ height: 130 }} />
+        <span className="xs muted">Answer either question — one statement is enough. The examples provided are intended solely as a guide. We encourage you to share your genuine thoughts, opinions, and experiences in your own words.</span>
       </div>
 
       <div className="field">
@@ -148,7 +148,6 @@ export function SupporterForm({ token, texts }: { token: string; texts: Texts })
       </div>
 
       <label className="check" style={{ alignItems: "flex-start" }}><input type="checkbox" name="confirmHonest" required /><span style={opt}>This statement reflects my honest perspective.</span></label>
-      {photo && <label className="check" style={{ alignItems: "flex-start" }}><input type="checkbox" name="confirmPhoto" required /><span style={opt}>I have permission to provide the uploaded photo.</span></label>}
       <label className="check" style={{ alignItems: "flex-start" }}><input type="checkbox" name="publishConsent" required /><span style={opt}>{texts.consent}</span></label>
 
       {err && <p className="err" role="alert">{err}</p>}

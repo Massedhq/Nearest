@@ -19,7 +19,10 @@ export async function POST(req: Request) {
   const name = s("name", 120), email = s("email", 160).toLowerCase(), title = s("title", 120);
   const affiliationStatus = s("affiliationStatus", 10);
   const organization = affiliationStatus === "none" ? "" : s("organization", 160);
-  const statement = s("statement", 1500), benefit = s("benefit", 1500), experience = s("experience", 20), experienceOther = s("experienceOther", 300);
+  // One statement is enough: whichever question they answered becomes their statement.
+  const answer1 = s("statement", 1500), answer2 = s("benefit", 1500);
+  const statement = answer1 || answer2, benefit = answer1 ? answer2 : "";
+  const experience = s("experience", 20), experienceOther = s("experienceOther", 300);
   const endorsementType = s("endorsementType", 20), orgAuthorityNote = s("orgAuthorityNote", 300);
   const relationships = f.getAll("relationships").map(String).filter((r) => r in RELATIONSHIP_LABEL);
   const relationshipNote = s("relationshipNote", 500);
@@ -27,10 +30,9 @@ export async function POST(req: Request) {
   if (!["current", "former", "none"].includes(affiliationStatus)) return Response.json({ error: "Tell us whether you're currently with a school or organization, were previously, or neither." }, { status: 400 });
   if (affiliationStatus !== "none" && !organization) return Response.json({ error: "Enter the school or organization." }, { status: 400 });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return Response.json({ error: "Enter a valid contact email (kept private)." }, { status: 400 });
-  if (statement.length < 20) return Response.json({ error: "Share your opinion of Nearest in your own words (at least a sentence)." }, { status: 400 });
+  if (statement.length < 20) return Response.json({ error: "Answer at least one of the two questions in your own words (at least a sentence)." }, { status: 400 });
   const rating = Number(f.get("rating"));
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) return Response.json({ error: "Choose your star rating (1 to 5)." }, { status: 400 });
-  if (benefit.length < 20) return Response.json({ error: "Tell us how Nearest could benefit students and parents (at least a sentence)." }, { status: 400 });
   if (!(experience in EXPERIENCE_LABEL)) return Response.json({ error: "Tell us what you reviewed or experienced." }, { status: 400 });
   if (experience === "other" && !experienceOther) return Response.json({ error: "Describe what you reviewed or experienced." }, { status: 400 });
   if (!["personal", "organizational"].includes(endorsementType)) return Response.json({ error: "Choose personal or organizational endorsement." }, { status: 400 });
@@ -46,7 +48,6 @@ export async function POST(req: Request) {
   const file = f.get("portrait");
   if (file && typeof file !== "string" && file.size > 0) {
     if (file.size > PORTRAIT_MAX_BYTES) return Response.json({ error: "That photo is too large (4 MB max)." }, { status: 400 });
-    if (!on("confirmPhoto")) return Response.json({ error: "Confirm you have permission to provide the photo." }, { status: 400 });
     const buf = Buffer.from(await file.arrayBuffer());
     const { sniffImage, storeEvidence } = await import("@/lib/campaign-storage");
     const mime = sniffImage(buf);
@@ -73,7 +74,7 @@ export async function POST(req: Request) {
     relationships: f.get("relationshipAnswer") === "some" ? relationships : [], relationshipNote: f.get("relationshipAnswer") === "some" ? relationshipNote || null : null,
     // Submitting = consent to publish (one agreement box). The individual flags stay so a withdrawal can switch everything off.
     permStatement: true, permName: true, permPortrait: Boolean(portraitUrl), permAffiliation: affiliationStatus !== "none",
-    confirmHonest: true, confirmPhoto: Boolean(portraitUrl) && on("confirmPhoto"),
+    confirmHonest: true,
   }).returning();
   await db.update(supporterInvites).set({ supporterId: row.id }).where(eq(supporterInvites.id, claimed.id));
   await logSupporter(row.id, "supporter", "submitted", { permissions: { statement: row.permStatement, name: row.permName, portrait: row.permPortrait, affiliation: row.permAffiliation } });

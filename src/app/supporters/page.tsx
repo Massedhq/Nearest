@@ -37,7 +37,6 @@ export default async function Supporters() {
             </div>
             {s.rating && <Stars value={s.rating} size={18} />}
             <blockquote className="disp" style={{ margin: 0, fontStyle: "italic", fontSize: 22, lineHeight: 1.3 }}>&ldquo;{s.statement}&rdquo;</blockquote>
-            {s.benefit && <p className="small" style={{ margin: 0, lineHeight: 1.55 }}><span className="muted">How Nearest could help students and parents: </span>{s.benefit}</p>}
             <span className="xs muted">{s.experience}</span>
             {s.disclosure && <span className="xs muted">{s.disclosure}</span>}
           </section>

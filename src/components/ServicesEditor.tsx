@@ -106,10 +106,17 @@ export function ServicesEditor({ categories, initial, userId, feeCents = 500 }: 
               <div key={i} className="col" style={{ gap: 6 }}>
               <div className="row">
                 <input className="ainput grow" aria-label="Service name" placeholder="Service name" value={r.name} onChange={(e) => update(i, { name: e.target.value })} />
-                <input className="ainput" style={{ width: 70, ...(Number(r.price) > MAX_PRICE_DOLLARS ? { borderColor: "#F2A38F" } : {}) }} aria-label={`${r.name || "Service"} price in dollars, up to $${MAX_PRICE_DOLLARS}`} aria-invalid={Number(r.price) > MAX_PRICE_DOLLARS || undefined} placeholder="$" inputMode="decimal" value={r.price}
-                  onChange={(e) => { const next = cleanPrice(e.target.value); if (!underCap(next)) { setCapWarn(true); return; } setCapWarn(false); update(i, { price: next }); }} />
-                <input className="ainput" style={{ width: 62 }} aria-label={`${r.name || "Service"} length in minutes`} inputMode="numeric" value={r.duration} onChange={(e) => update(i, { duration: e.target.value })} />
                 <button type="button" className="iconbtn" style={{ width: 36, height: 36 }} aria-label={`Remove ${r.name || "service"}`} onClick={() => remove(i)}>×</button>
+              </div>
+              <div className="row" style={{ gap: 10, alignItems: "flex-end" }}>
+                <label className="col xs muted" style={{ gap: 4, flex: 1 }}>Your price ($)
+                  <span className="row" style={{ gap: 4 }}><span aria-hidden="true" className="b" style={{ color: "#ECE8E1" }}>$</span>
+                  <input className="ainput grow" style={{ minWidth: 0, ...(Number(r.price) > MAX_PRICE_DOLLARS ? { borderColor: "#F2A38F" } : {}) }} aria-label={`${r.name || "Service"} price in dollars, up to $${MAX_PRICE_DOLLARS}`} aria-invalid={Number(r.price) > MAX_PRICE_DOLLARS || undefined} placeholder="45" inputMode="decimal" value={r.price}
+                    onChange={(e) => { const next = cleanPrice(e.target.value); if (!underCap(next)) { setCapWarn(true); return; } setCapWarn(false); update(i, { price: next }); }} /></span>
+                </label>
+                <label className="col xs muted" style={{ gap: 4, flex: 1 }}>How long (minutes)
+                  <input className="ainput" style={{ minWidth: 0, width: "100%" }} aria-label={`${r.name || "Service"} length in minutes`} placeholder="60" inputMode="numeric" value={r.duration} onChange={(e) => update(i, { duration: e.target.value.replace(/\D/g, "").slice(0, 3) })} />
+                </label>
               </div>
               <label className="check" style={{ fontSize: 12, marginTop: -4 }}>
                 <input type="checkbox" checked={Boolean(r.adultsOnly)} onChange={(e) => update(i, { adultsOnly: e.target.checked })} />

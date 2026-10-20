@@ -57,7 +57,7 @@ export default async function SupporterReview({ params }: { params: Promise<{ id
               // eslint-disable-next-line @next/next/no-img-element
               ? <img src={`/api/supporters/portrait/${s.id}`} alt="" width={72} height={72} style={{ borderRadius: 36, objectFit: "cover", border: "1px solid #ECE8E1" }} />
               : <span style={{ width: 72, height: 72, borderRadius: 36, border: "1px solid #ECE8E1", display: "flex", alignItems: "center", justifyContent: "center" }} className="disp">—</span>}
-            <span className="small"><span className="b">{s.name}</span><br />{s.title}<br />{s.affiliationStatus === "none" ? "Not with a school or organization" : `${s.affiliationStatus === "former" ? "Previously with" : "Currently with"} ${s.organization}`}</span>
+            <span className="small"><span className="b">{s.name}</span><br />{s.title}{s.affiliationStatus !== "none" && s.organization ? <><br />{`${s.affiliationStatus === "former" ? "Previously with" : "Currently with"} ${s.organization}`}</> : null}</span>
           </div>
           <span className="small"><span className="muted">Contact email (private):</span> {s.email}</span>
           {s.rating ? <span className="row small" style={{ gap: 8, marginTop: 6 }}><span className="b">Rating</span><Stars value={s.rating} /> {s.rating}/5</span> : null}
@@ -74,7 +74,7 @@ export default async function SupporterReview({ params }: { params: Promise<{ id
             <span className="eyebrow">Publication consent</span>
             <span className="small">{s.status === "withdrawn" ? "Withdrawn — publication consent removed." : "Agreed to publication when submitting (statement, name, title, affiliation" + (s.portraitUrl ? ", photo" : "") + ")."}</span>
             {!s.portraitUrl && <span className="small">No photo — initials are shown.</span>}
-            <span className="small">Confirmed honest perspective: {yes(s.confirmHonest)}{s.portraitUrl ? ` • Has permission for the photo: ${yes(s.confirmPhoto)}` : ""}</span>
+            <span className="small">Confirmed honest perspective: {yes(s.confirmHonest)}</span>
           </div>
           <div className="card" style={{ gap: 4 }}>
             <span className="eyebrow">What they reviewed or experienced</span>
