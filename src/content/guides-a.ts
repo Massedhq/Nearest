@@ -10,11 +10,11 @@ export const GUIDES_A: Guide[] = [
     slug: "get-more-beauty-clients-without-ads",
     title: "How to Get More Beauty Clients Without Paying for Ads",
     h1: "How to get more beauty clients without paying for ads",
-    description: "A step-by-step plan for nail techs, stylists, braiders, barbers and lash artists to fill their books using referrals, local search and content.",
+    description: "A step-by-step plan for nail techs, stylists, braiders, barbers and lash artists to fill their books with referrals, content and a free Nearest profile.",
     intent: "Independent beauty professional wants more clients but has little or no ad budget.",
     topic: "Getting clients", audience: "pro", published: D, updated: D,
     pain: "Your work is good, but your book isn't full — and paying for ads every month isn't an option.",
-    summary: "Clients for independent beauty professionals come from four free places: people who already know your work, referrals, people searching nearby, and platforms that put you in front of clients who are already looking. This plan works through all four in a month.",
+    summary: "Without ads, new clients come from people who already know your work, referrals, posts that show your results — and Nearest, where verified students in your city are already choosing a professional. This plan puts all four to work in a month, with every lead sent to one place to book: your Nearest profile.",
     sections: [
       { id: "foundation", h: "Step 1: Make booking easy before you promote (days 1–3)", blocks: [
         "Every channel you use later sends people to one place, so that place has to answer their questions without a back-and-forth.",
@@ -45,9 +45,15 @@ export const GUIDES_A: Guide[] = [
         ] },
         "Student clients refer each other constantly — friends book together for events and compare who did their hair or nails. A good experience with one student often reaches their group.",
       ] },
-      { id: "local-search", h: "Step 5: Show up when people search nearby (week 2)", blocks: [
-        "Claim your Google Business Profile, choose the most specific category, set a service area if you work from home, add services with prices, and ask happy clients for reviews that name the service. It takes an afternoon and keeps working.",
-        "Your Nearest profile works alongside it: one helps people searching Google find you, the other puts you in front of verified students choosing a professional in your city.",
+      { id: "local-search", h: "Step 5: Be there when students are choosing (week 2)", blocks: [
+        "Students in your city open Nearest when they're ready to book — they compare professionals by service, price and photos, then request a time. Being listed there means you're in front of people who are already looking, without paying for ads.",
+        { ul: [
+          "Name each service the way clients ask for it (\"Knotless braids, mid-back\", not \"Braids 2\").",
+          "Tag portfolio photos to services so students see the exact look they're booking.",
+          "Set after-school hours if you can — that's when most students want appointments.",
+          "Reviews on Nearest come only from completed appointments, so every happy client adds proof.",
+        ] },
+        { cta: "pro", title: "Get in front of students choosing a professional", text: "List your services on Nearest free — no monthly fee. Check whether your city and category still have spots, then build your profile at your own pace." },
       ] },
       { id: "content", h: "Step 6: Post results with a purpose (weeks 2–4)", blocks: [
         { table: { head: ["Post type", "What it shows", "Example"], rows: [
@@ -59,58 +65,58 @@ export const GUIDES_A: Guide[] = [
         "End each post with one next step. If you're on Nearest, your booking link (usenearest.com/pro-yourname) works in any bio.",
       ] },
       { id: "track", h: "Step 7: Track what brings bookings (end of month)", blocks: [
-        "Ask every new client how they found you. After a month you'll know which channels bring paying clients — keep those, drop the rest. On Nearest, every request and completed appointment is in your app, so student bookings are easy to count.",
+        "Ask every new client how they found you. After a month you'll know which habits bring paying clients — keep those, drop the rest. On Nearest, every request and completed appointment is in your app, so your bookings are easy to count.",
       ] },
     ],
     faq: [
-      { q: "How long does it take to see results without ads?", a: "Warm-network and referral bookings can come within days. Search and content usually take several weeks of steady effort. A listing on Nearest can be live as soon as your profile and ID are approved, but no platform can promise how quickly bookings come." },
+      { q: "How long does it take to see results without ads?", a: "Warm-network and referral bookings can come within days; content usually takes several weeks of steady posting. A Nearest profile can be live as soon as your profile and ID are approved, though no one can promise how quickly bookings come." },
       { q: "Should I discount to get my first clients?", a: "A few limited intro or model appointments are fine — Nearest lets you post discounted Model Calls for exactly that. Avoid permanent discounts; they're hard to undo." },
     ],
-    endCta: { title: "Add a free student client channel", text: "Join Nearest at no cost and with no monthly fee, keep your current booking tools, and let verified students in your city find you. Each city has a limited number of spots per service, so check whether yours is open." },
+    endCta: { title: "Add a free student client channel", text: "Join Nearest at no cost and with no monthly fee, and let verified students in your city find and book you. Each city has a limited number of spots per service, so check whether yours is open." },
     related: ["first-10-clients-new-hairstylist", "where-to-list-beauty-business-free", "why-beauty-business-not-getting-bookings"],
   },
   {
     slug: "where-to-list-beauty-business-free",
     title: "Where to List Your Beauty Business for Free",
     h1: "Where to list your beauty business for free",
-    description: "A fair comparison of free listing options for beauty and wellness professionals — what each is good for, what it costs later, and how to choose.",
-    intent: "Professional wants free places to list services and understand trade-offs.",
+    description: "Why Nearest is the free place to list your beauty business: no monthly fee, verified student clients in your city, and booking and payment in one app.",
+    intent: "Professional wants a free place to list services and get booked.",
     topic: "Listings & visibility", audience: "pro", published: D, updated: D,
     pain: "You want more people to find you, but you don't want to pay monthly fees just to be listed.",
-    summary: "The best free listings are the ones where your clients are already choosing a professional. For most independent beauty professionals that means a student-focused listing on Nearest, a Google Business Profile, and one social profile you keep active — all pointing to the same booking information.",
+    summary: "List where clients are already choosing and booking a professional. For independent beauty, grooming, wellness and self-care professionals, that's Nearest: free for new professionals, no monthly fee, and verified students in your city can find you, request a time and pay in one place.",
     sections: [
       { id: "what-free-means", h: "What \"free\" should mean", blocks: [
-        "A truly free listing costs nothing to create and nothing per month to keep. Read what happens when a client actually books: some services charge per booking, take a commission, or lock basic features behind a paid plan.",
-        { ul: ["No sign-up fee or monthly fee to stay listed.", "Clear, upfront pricing on bookings.", "You can keep using your own tools.", "You control your prices, hours and photos."] },
+        "A truly free listing costs nothing to create and nothing per month to keep, and you know up front what happens when a client books. Nearest checks every box:",
+        { ul: ["No sign-up fee and no monthly fee to stay listed.", "A $5 booking fee per booking, added to the student's total by default so you keep your full price.", "You set your own prices, hours and photos.", "Requests, payments, reminders and appointment-day check-in are handled for you."] },
       ] },
-      { id: "nearest", h: "1. Nearest — a free listing built around student clients", blocks: [
-        "Nearest is a student beauty, grooming, wellness and self-care booking platform. Verified students in your city browse professionals, see your prices and work, and request appointments.",
+      { id: "nearest", h: "Why Nearest", blocks: [
+        "Nearest is a student beauty, grooming, wellness and self-care booking platform. Verified high school, college, trade school and online students in your city browse professionals, see your prices and work, and request appointments.",
         { ul: [
-          "Free for new professionals — no sign-up fee and no monthly membership fee.",
-          "A $5 booking fee is added to each booking by default, so students see one total and you keep your full price. Card processing is deducted from your payout.",
-          "Works alongside the booking tools you already use.",
-          "Requests, payments, reminders, address sharing and appointment-day check-in are handled in the app.",
-          "Spots are limited: each service category opens with five professionals per city.",
+          "Clients who are already looking — students open Nearest to book, not to scroll.",
+          "Less competition — each service category opens with five professionals per city.",
+          "Protected bookings — every booking includes a deposit that's paid to you on a late cancellation or no-show.",
+          "Privacy — your street address is shared only with a booked client on the appointment day.",
+          "Works alongside the tools you already use for other clients.",
         ] },
-        { cta: "pro", title: "Claim a free listing in your city", text: "If students are part of your clientele, list your services on Nearest. See whether your city and category are open, then build your profile — it's free, and you can save and finish later." },
+        { cta: "pro", title: "Claim a free listing in your city", text: "See whether your city and category are open, then build your profile — it's free, and you can save and finish later." },
       ] },
-      { id: "google", h: "2. Google Business Profile — be found in local search", blocks: [
-        "A verified profile helps people searching near you find your hours, photos and reviews. Choose an accurate category, set a service area if you work from home, and keep it updated. See the guide to getting found on Google for the full setup.",
+      { id: "setup", h: "Set up a listing that gets booked", blocks: [
+        { ol: [
+          "Add a clear photo of you and, if you have one, your logo.",
+          "List each service with a price and how long it takes — named the way clients ask for it.",
+          "Add add-ons (designs, length, extra time) so students can build what they want.",
+          "Upload photos of your work and tag each one to a service.",
+          "Set your hours, including after-school hours if you offer them.",
+          "Verify your ID and submit your profile for review.",
+        ] },
       ] },
-      { id: "social", h: "3. One social profile you actually keep up", blocks: [
-        "Instagram or TikTok is where many clients check your work before booking. Pick one, post consistently, and put one booking link in your bio — your Nearest link (usenearest.com/pro-yourname) works for student clients.",
-      ] },
-      { id: "choose", h: "How to decide", blocks: [
-        { table: { head: ["If your goal is…", "Start with"], rows: [
-          ["Reaching students booking near you", "Nearest"],
-          ["Being found when anyone searches \"near me\"", "Google Business Profile"],
-          ["Showing your work and building a following", "One social profile"],
-        ] } },
-        { note: "Keep your business name, area and services identical everywhere. Two or three well-kept listings beat ten forgotten ones." },
+      { id: "share", h: "Send everyone to one place", blocks: [
+        "Your Nearest profile comes with a public booking link: usenearest.com/pro-yourname. Put it in your bio, your texts and your flyer's QR code so every person who sees your work lands where they can see your prices and book.",
+        { note: "One link everywhere beats a different contact method in every place. Fewer DMs, fewer back-and-forths, more booked appointments." },
       ] },
     ],
     faq: [{ q: "Is a free listing on Nearest really free?", a: "For new professionals, yes: no sign-up fee and no monthly fee. A $5 booking fee applies to each booking (added to the student's total by default), and card processing is deducted from your payout. Nearest doesn't promise bookings." }],
-    endCta: { title: "Start your free Nearest listing", text: "No monthly fee, no card needed to join, and you keep your current tools. Check your city, then create your professional account." },
+    endCta: { title: "Start your free Nearest listing", text: "No monthly fee and no card needed to join. Check your city, then create your professional account." },
     related: ["get-beauty-business-found-on-google", "improve-beauty-profile-booking-conversion", "get-more-beauty-clients-without-ads"],
   },
   {
@@ -282,7 +288,7 @@ export const GUIDES_A: Guide[] = [
         "On Nearest, add-ons let students build the package themselves — a base service plus optional extras — within the student price limit.",
       ] },
       { id: "minors", h: "Serving minors professionally", blocks: [
-        "Many event clients are under 18. Know your state's licensing and parental-consent rules for each service, keep communication in your booking app, welcome a parent to attend, and decline services that require an adult client.",
+        "Many event clients are under 18. Know your state's licensing and parental-consent rules for each service, keep communication in the Nearest app, welcome a parent to attend, and decline services that require an adult client.",
         "On Nearest, you can mark a service 18+ only so students under 18 can't book it, and messages stay in the app — phone numbers and emails aren't shared.",
         { note: "This is general guidance, not legal advice. Check your state licensing board's rules for the services you offer." },
       ] },

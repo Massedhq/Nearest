@@ -37,12 +37,12 @@ export default async function FreeListing() {
         <li><strong>Your time.</strong> Every profile needs current hours, photos and prices. A Nearest profile is one place to keep them for student clients.</li>
       </ul>
 
-      <h2>A simple free setup that works</h2>
+      <h2>Get set up in an afternoon</h2>
       <ol>
-        <li><strong>A Nearest profile</strong> so verified students in your city can find and book you — <Link href="/pro/sign-up">join free</Link>.</li>
-        <li><strong>A Google Business Profile</strong> so nearby searches find you — <Link href="/resources/get-beauty-business-found-on-google">set it up properly</Link>.</li>
-        <li><strong>One social profile</strong> you post on weekly, with your Nearest link (usenearest.com/pro-yourname) in the bio.</li>
-        <li><strong>Your existing booking tool</strong> for non-student clients, if you have one. Block time when a booking comes in from either side.</li>
+        <li><strong>Create your free Nearest profile</strong> — photo, services with prices and durations, and photos of your work. <Link href="/pro/sign-up">Join free</Link>.</li>
+        <li><strong>Set your hours</strong>, including after-school hours if you offer them — that&apos;s when most students want appointments.</li>
+        <li><strong>Verify your ID and submit</strong> your profile for review, then go live.</li>
+        <li><strong>Share your Nearest link</strong> (usenearest.com/pro-yourname) in your bio, your texts and your flyer&apos;s QR code, so everyone who sees your work lands where they can book. See <Link href="/resources/get-beauty-business-found-on-google">getting found by more clients</Link>.</li>
       </ol>
 
       <h2>What a Nearest listing includes</h2>

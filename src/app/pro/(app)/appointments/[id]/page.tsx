@@ -73,7 +73,7 @@ export default async function ProAppointment({ params, searchParams }: { params:
           <hr className="hr" />
           <div className="row between"><span>Price</span><span className="b">{money(b.priceCents)}</span></div>
           {b.inviteDiscountCents > 0 && <div className="row between"><span>Student invite reward</span><span className="b">−{money(b.inviteDiscountCents)}</span></div>}
-          {b.serviceFeeCents > 0 && <div className="row between"><span>Nearest service fee</span><span className="b">−{money(b.serviceFeeCents)}</span></div>}
+          {b.serviceFeeCents > 0 && <div className="row between"><span>Booking fee</span><span className="b">−{money(b.serviceFeeCents)}</span></div>}
           <span className="xs muted">{b.status === "completed" ? "Released to you" : "Paid in full • held until the student releases it"}</span>
         </div>
         {b.bundleId && (

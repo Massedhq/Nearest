@@ -47,7 +47,7 @@ export default async function Payments({ searchParams }: { searchParams: Promise
           <div className="card">
             <div className="row between"><span className="eyebrow">Fees</span><span className="tag ok">No monthly fee</span></div>
             <span className="disp h2">$0 a month</span>
-            <span className="small">There&apos;s no membership and nothing to pay to be on Nearest. Nearest only earns its {fee} service fee on each completed booking — services and Model Calls — and it&apos;s added on top of your price, so you receive your full price. Card processing comes out of each payment.</span>
+            <span className="small">There&apos;s no membership and nothing to pay to be on Nearest. Each completed booking — services and Model Calls — has a {fee} booking fee, added on top of your price, so you receive your full price. Card processing comes out of each payment.</span>
             {oldSub && <span className="small b">{p.membershipEndsAt ? `Your old membership ends ${fmtDate(p.membershipEndsAt, { month: "short", day: "numeric", year: "numeric" })} and you won't be charged again.` : "Your old monthly membership is being cancelled — you won't be charged again."}</span>}
             {p.entryPaidAt && <span className="xs muted">Joined {fmtDate(p.entryPaidAt, { month: "short", day: "numeric", year: "numeric" })}</span>}
             {p.membershipPausedAt && <span className="small b">Your account is paused by Nearest — students can&apos;t book you while it&apos;s paused. Questions? hello@usenearest.com</span>}

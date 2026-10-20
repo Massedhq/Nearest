@@ -149,12 +149,12 @@ export const GUIDES_C: Guide[] = [
         ] },
       ] },
       { id: "during", h: "During the appointment", blocks: [
-        { ul: ["You're usually welcome to come — ask ahead.", "Your teen should mention allergies or sensitivities (adhesives, dyes, acrylics).", "Keep communication in the booking app rather than personal numbers or social media.", "Your teen can stop an appointment if something feels wrong."] },
+        { ul: ["You're usually welcome to come — ask ahead.", "Your teen should mention allergies or sensitivities (adhesives, dyes, acrylics).", "Keep communication in the Nearest app rather than personal numbers or social media.", "Your teen can stop an appointment if something feels wrong."] },
       ] },
       { id: "red-flags", h: "Red flags", blocks: [
-        { ul: ["Asking to move the conversation to private messages or a personal number.", "Pressure to pay outside the booking platform.", "Changing the location at the last minute.", "No photos of their own work, or reluctance to answer basic questions."] },
+        { ul: ["Asking to move the conversation to private messages or a personal number.", "Pressure to pay outside Nearest.", "Changing the location at the last minute.", "No photos of their own work, or reluctance to answer basic questions."] },
       ] },
-      { id: "payment", h: "Payment and cancellations", blocks: ["Use a platform that holds payment until the appointment is done, and read the cancellation policy before booking so a missed appointment doesn't cost more than it should."] },
+      { id: "payment", h: "Payment and cancellations", blocks: ["Book through Nearest, where payment is held until the appointment is done, and read the cancellation rules before booking so a missed appointment doesn't cost more than it should."] },
       { id: "nearest", h: "How Nearest handles teens", blocks: [
         { ul: [
           "Students 13–17 can't book until a parent or guardian approves from an email Nearest sends them.",

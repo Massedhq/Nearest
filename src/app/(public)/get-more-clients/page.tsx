@@ -38,7 +38,7 @@ export default function GetMoreClients() {
         </section>
       ))}
       <h2>Free channels that work for everyone</h2>
-      <p>Referrals, a complete Google Business Profile and consistent results posts. The step-by-step plan is in <Link href="/resources/get-more-beauty-clients-without-ads">how to get more clients without paying for ads</Link>.</p>
+      <p>A complete Nearest profile, referrals from happy clients, and consistent results posts that send people to your Nearest link. The step-by-step plan is in <Link href="/resources/get-more-beauty-clients-without-ads">how to get more clients without paying for ads</Link>.</p>
       <ProCta />
     </div>
   );

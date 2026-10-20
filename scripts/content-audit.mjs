@@ -37,7 +37,10 @@ const PRO_PAGES = ["/pro", "/for-professionals", "/grow-your-beauty-business", "
 const STUDENT_PAGES = ["/", "/student-beauty-services"];
 const NO_CTA_PAGES = ["/terms", "/privacy", "/contact"];
 
-const COMPETITORS = ["Yelp", "Booksy", "Vagaro", "StyleSeat", "GlossGenius", "Fresha", "Square Appointments", "Schedulicity", "Acuity", "Thumbtack", "Nextdoor", "Groupon", "Apple Business Connect", "Bing Places", "Facebook Marketplace", "Treatwell", "Mindbody", "Booker", "Setmore", "Calendly", "Timely", "Zenoti"];
+const COMPETITORS = ["Yelp", "Booksy", "Vagaro", "StyleSeat", "GlossGenius", "Fresha", "Square Appointments", "Schedulicity", "Acuity", "Thumbtack", "Nextdoor", "Groupon", "Apple Business Connect", "Bing Places", "Facebook Marketplace", "Treatwell", "Mindbody", "Booker", "Setmore", "Calendly", "Timely", "Zenoti", "Google Business Profile", "Google Maps", "Google profile", "Linktree"];
+// Pages send people to Nearest, never to set up outside listings; and never explain what Nearest earns.
+const OFF_PLATFORM = [/\blist (?:yourself |your business )?on (?:other )?platforms\b/i, /\bother listings?\b/i, /\bfound on Google\b/i, /\bclaim your Google\b/i];
+const EARNINGS = [/\bNearest earns\b/i, /\bNearest's revenue\b/i, /\bhow Nearest (?:earns|makes money)\b/i, /\bNearest keeps\b/i, /\bno (?:other )?commission\b/i];
 const STATE_CENTERING = [/\bDFW\b/, /\bDallas\b/, /\bFort Worth\b/, /\bNew Mexico\b(?!.*\bNew York\b)/, /\bJanuary 2027\b/, /\b(?:launching|expanding) (?:in|to) Texas\b/i, /\bTexas[- ]based\b/i];
 const SKIP_STATE_PATHS = ["/terms", "/privacy"]; // legal address and governing law are legitimate Texas references
 
@@ -67,6 +70,8 @@ function contentChecks(page, t) {
     const re = new RegExp(`\\b${c.replace(/ /g, "\\s+")}\\b`, "g");
     for (const m of t.matchAll(re)) add("error", "Competitor mentioned", page, `${c}: …${near(t, m.index)}…`);
   }
+  for (const re of OFF_PLATFORM) { const m = t.match(re); if (m) add("error", "Sends people off Nearest", page, near(t, m.index)); }
+  for (const re of EARNINGS) { const m = t.match(re); if (m) add("error", "Explains what Nearest earns", page, near(t, m.index)); }
   // state centering
   if (!SKIP_STATE_PATHS.includes(page)) for (const re of STATE_CENTERING) {
     const m = t.match(re); if (m) add("error", "State-centered or dated expansion copy", page, near(t, m.index));

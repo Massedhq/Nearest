@@ -29,8 +29,8 @@ export default async function ForProfessionals() {
       <h2 id="fees">What it costs</h2>
       <ul>
         <li><strong>No sign-up fee and no monthly membership fee</strong> for new professionals, and no card needed to join.</li>
-        <li>Nearest earns a flat <strong>service fee (currently {usd(f.feeDollars)})</strong> on each service and Model Call booked. By default it&apos;s added on top of your price, so students see one total and you receive your full price. You can choose to include it in your price instead.</li>
-        <li><strong>Card-processing fees</strong> charged by the payment processor are deducted from each payout. Add-ons carry no service fee.</li>
+        <li>A <strong>{usd(f.feeDollars)} booking fee</strong> applies to each service and Model Call booked. By default it&apos;s added on top of your price, so students see one total and you receive your full price. You can choose to include it in your price instead.</li>
+        <li><strong>Card-processing fees</strong> charged by the payment processor are deducted from each payout. Add-ons carry no booking fee.</li>
         <li>Payouts go through <strong>Stripe Connect</strong> to the account you connect. You can go live before connecting; earnings are held until you do.</li>
       </ul>
       <p className="pub-muted">Listing is a discovery opportunity, not a promise of bookings or income. Other costs of running your business — supplies, licensing, insurance — are your own.</p>

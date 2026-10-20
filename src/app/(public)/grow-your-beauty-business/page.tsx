@@ -20,7 +20,8 @@ export default function Grow() {
       <p className="pub-lede">Sustainable growth for an independent professional isn&apos;t about being everywhere. It&apos;s a loop: get seen by the right people, make booking easy, deliver work they come back for, and turn happy clients into referrals. Strengthen the weakest link first.</p>
 
       <h2>1. Visibility: be findable where clients look</h2>
-      <p>Most local clients find a professional through search, social media or a friend. Complete a Google Business Profile, keep one active social account, and list on platforms that reach your audience. See {G("get-beauty-business-found-on-google", "getting found on Google")} and {G("where-to-list-beauty-business-free", "where to list for free")}.</p>
+      <p>Be where clients are already choosing a professional. On Nearest, verified students in your city browse professionals by service and price and request a time — and each service category has only a few spots per city. List free with no monthly fee, then share your Nearest link everywhere people see your work so every lead lands where they can book. See {G("get-beauty-business-found-on-google", "getting found by more clients")} and {G("where-to-list-beauty-business-free", "where to list for free")}.</p>
+      <p className="pub-box note"><Link href="/pro/sign-up">Join Nearest free</Link> or <Link href="/locations#check">check whether your city is open</Link>.</p>
 
       <h2>2. Conversion: turn interest into appointments</h2>
       <p>If people look but don&apos;t book, something is missing — prices, durations, availability or an easy link. Use the {G("improve-beauty-profile-booking-conversion", "profile checklist")} and the {G("why-beauty-business-not-getting-bookings", "booking diagnostic")}.</p>
@@ -50,14 +51,14 @@ export default function Grow() {
       <h2>A one-page monthly plan</h2>
       <pre className="pub-copy">{`Ideal client: ______________________
 Services to promote this month: 1) ________ 2) ________
-Channels: Google profile · [one social platform] · referrals · [one listing]
+Channels: Nearest profile · [one social account] · referrals · flyer QR to my Nearest link
 Posting rhythm: ___ posts per week (batch film on ________)
 One offer (with end date): ______________________
 Number to track: new bookings per week = ___
 Review date: ____________`}</pre>
 
       <h2>Where Nearest fits</h2>
-      <p>If students are part of your market and Nearest is live in your city, it&apos;s a free additional channel to reach verified students — one part of the visibility step, alongside the tools you already use. See <Link href="/for-professionals">Nearest for professionals</Link>.</p>
+      <p>Nearest covers the visibility and conversion steps for you: verified students in your city find your profile, see your prices and open times, request a time and pay in the app, with reminders and protected deposits built in. See <Link href="/for-professionals">Nearest for professionals</Link>.</p>
       <ProCta />
     </div>
   );

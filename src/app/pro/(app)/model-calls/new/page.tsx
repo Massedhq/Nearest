@@ -50,7 +50,7 @@ export default async function NewModelCall() {
             <PriceInput id="price" name="price" label="Your model price ($)" placeholder="15" />
             <div className="field"><label htmlFor="spots">Spots</label><input id="spots" name="spots" inputMode="numeric" defaultValue="1" required /></div>
           </div>
-          <span className="xs muted" style={{ marginTop: -8 }}>Nearest adds its {money(fee)} service fee, so models see one price: your price + {money(fee)} (a $15 model price shows as {money(1500 + fee)}; a free model call shows as {money(fee)}). You receive your price, minus card processing.</span>
+          <span className="xs muted" style={{ marginTop: -8 }}>A {money(fee)} booking fee is added, so models see one price: your price + {money(fee)} (a $15 model price shows as {money(1500 + fee)}; a free model call shows as {money(fee)}). You receive your price, minus card processing.</span>
           <div className="field"><label htmlFor="duration">Approx. length (minutes, optional)</label><input id="duration" name="duration" inputMode="numeric" placeholder="Uses the service length if blank" /></div>
           <span className="lbl">Requirements</span>
           {REQS.map((r) => <label key={r} className="check"><input type="checkbox" name="requirements" value={r} />{r}</label>)}

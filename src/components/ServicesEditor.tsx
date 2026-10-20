@@ -117,7 +117,7 @@ export function ServicesEditor({ categories, initial, userId, feeCents = 500 }: 
               </label>
               <label className="check" style={{ fontSize: 12, marginTop: -4 }}>
                 <input type="checkbox" checked={r.addFee !== false} onChange={(e) => update(i, { addFee: e.target.checked })} />
-                <span>Add the {fmt(feeD)} Nearest service fee to my price{studentPrice(r) != null ? <> — <span className="b">students see {fmt(studentPrice(r)!)}</span>{r.addFee === false ? `, you receive ${fmt(Math.max(0, studentPrice(r)! - feeD))}` : ""}</> : ""}</span>
+                <span>Add the {fmt(feeD)} booking fee to my price{studentPrice(r) != null ? <> — <span className="b">students see {fmt(studentPrice(r)!)}</span>{r.addFee === false ? `, you receive ${fmt(Math.max(0, studentPrice(r)! - feeD))}` : ""}</> : ""}</span>
               </label>
               <ServicePhoto userId={userId} url={r.photo} onChange={(u) => update(i, { photo: u })} />
               <AddonsEditor serviceName={r.name} list={r.addons ?? []} onChange={(l) => update(i, { addons: l })} room={studentPrice(r) != null ? Math.max(0, MAX_PRICE_DOLLARS - studentPrice(r)!) : null} />
@@ -145,7 +145,7 @@ export function ServicesEditor({ categories, initial, userId, feeCents = 500 }: 
       })}
       {cats.length === 0 && <p className="small muted p">Pick at least one category above.</p>}
       {(capWarn || rows.some((r) => (studentPrice(r) ?? 0) > MAX_PRICE_DOLLARS)) && <p className="err small" role="alert">Students can&apos;t be charged more than ${MAX_PRICE_DOLLARS} per service{rows.some((r) => (studentPrice(r) ?? 0) > MAX_PRICE_DOLLARS) ? ` — with the ${fmt(feeD)} service fee, a service can be up to ${fmt(MAX_PRICE_DOLLARS - feeD)}.` : "."}</p>}
-      <p className="xs muted p">Enter your price. Nearest adds its {fmt(feeD)} service fee, so students see one total price (no separate fee). Every service is ${MAX_PRICE_DOLLARS} or less for students.</p>
+      <p className="xs muted p">Enter your price. A {fmt(feeD)} booking fee is added, so students see one total price (no separate fee). Every service is ${MAX_PRICE_DOLLARS} or less for students.</p>
     </div>
   );
 }

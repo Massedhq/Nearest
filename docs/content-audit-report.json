@@ -1,6 +1,6 @@
 {
   "base": "http://localhost:3100",
-  "run": "2026-10-20T15:17:56.814Z",
+  "run": "2026-10-20T17:44:41.929Z",
   "inventory": [
     {
       "path": "/",
@@ -24,25 +24,25 @@
       "path": "/for-professionals",
       "audience": "professional",
       "title": "Nearest for Beauty Professionals — List Free, Reach Students · Nearest",
-      "words": 1128
+      "words": 1121
     },
     {
       "path": "/grow-your-beauty-business",
       "audience": "professional",
       "title": "How to Grow Your Beauty Business — A Sustainable Plan · Nearest",
-      "words": 457
+      "words": 505
     },
     {
       "path": "/free-business-listing",
       "audience": "professional",
       "title": "Free Business Listing for Beauty Professionals — What&#x27;s Really Free · Nearest",
-      "words": 521
+      "words": 535
     },
     {
       "path": "/get-more-clients",
       "audience": "professional",
       "title": "How to Get More Clients — Tactics for Nail Techs, Stylists, Braiders, Barbers &amp; More · Nearest",
-      "words": 504
+      "words": 513
     },
     {
       "path": "/beauty-marketing-resources",
@@ -60,13 +60,13 @@
       "path": "/resources",
       "audience": "both",
       "title": "Student Beauty &amp; Beauty Business Guides · Nearest",
-      "words": 680
+      "words": 688
     },
     {
       "path": "/locations",
       "audience": "both",
       "title": "Where Nearest Is Live — Locations · Nearest",
-      "words": 158
+      "words": 164
     },
     {
       "path": "/contact",
@@ -78,38 +78,38 @@
       "path": "/faq",
       "audience": "both",
       "title": "Nearest FAQ — Professionals, Students &amp; Parents · Nearest",
-      "words": 7284,
+      "words": 7249,
       "faq": 120
     },
     {
       "path": "/resources/get-more-beauty-clients-without-ads",
       "audience": "professional",
       "title": "How to Get More Beauty Clients Without Paying for Ads · Nearest",
-      "words": 1075
+      "words": 1152
     },
     {
       "path": "/resources/where-to-list-beauty-business-free",
       "audience": "professional",
       "title": "Where to List Your Beauty Business for Free · Nearest",
-      "words": 720
+      "words": 692
     },
     {
       "path": "/resources/nail-tech-30-day-content-calendar",
       "audience": "professional",
       "title": "30-Day Social Media Content Calendar for Nail Techs · Nearest",
-      "words": 778
+      "words": 780
     },
     {
       "path": "/resources/first-10-clients-new-hairstylist",
       "audience": "professional",
       "title": "How to Get Your First 10 Clients as a New Hairstylist · Nearest",
-      "words": 675
+      "words": 677
     },
     {
       "path": "/resources/beauty-business-flyer",
       "audience": "professional",
       "title": "How to Make a Beauty Business Flyer That Converts · Nearest",
-      "words": 609
+      "words": 611
     },
     {
       "path": "/resources/student-clients-prom-homecoming-graduation",
@@ -127,31 +127,31 @@
       "path": "/resources/more-lash-clients-without-discounting",
       "audience": "professional",
       "title": "How to Get More Lash Clients Without Discounting Every Service · Nearest",
-      "words": 585
+      "words": 587
     },
     {
       "path": "/resources/why-beauty-business-not-getting-bookings",
       "audience": "professional",
       "title": "Why Your Beauty Business Isn&#x27;t Getting Bookings: A Diagnostic Checklist · Nearest",
-      "words": 615
+      "words": 622
     },
     {
       "path": "/resources/improve-beauty-profile-booking-conversion",
       "audience": "professional",
       "title": "How to Improve Your Beauty Business Profile and Booking Conversion · Nearest",
-      "words": 581
+      "words": 582
     },
     {
       "path": "/resources/repeat-clients-braiding-locs",
       "audience": "professional",
       "title": "How to Build Repeat Clients for Braiding and Loc Services · Nearest",
-      "words": 558
+      "words": 560
     },
     {
       "path": "/resources/get-beauty-business-found-on-google",
       "audience": "professional",
-      "title": "How to Get Your Beauty Business Found on Google · Nearest",
-      "words": 619
+      "title": "How to Get Your Beauty Business Found by More Clients · Nearest",
+      "words": 695
     },
     {
       "path": "/resources/save-on-beauty-and-grooming-as-a-student",
@@ -175,19 +175,13 @@
       "path": "/resources/parents-guide-teen-beauty-appointments",
       "audience": "student",
       "title": "A Parent&#x27;s Guide to Teen Beauty and Grooming Appointments · Nearest",
-      "words": 527
-    },
-    {
-      "path": "/locations/texas/frisco",
-      "audience": "both",
-      "title": "Student Beauty Services in Frisco, Texas — Nearest · Nearest",
-      "words": 321
+      "words": 526
     },
     {
       "path": "/terms",
       "audience": "general",
       "title": "Terms of Service · Nearest",
-      "words": 4473
+      "words": 4458
     },
     {
       "path": "/privacy",
