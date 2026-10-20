@@ -13,7 +13,7 @@ export function ProForm({ firstName, lastName, invite }: { firstName: string; la
         <div className="field"><label htmlFor="lastName">Legal last name</label><input id="lastName" name="lastName" defaultValue={lastName} autoComplete="family-name" required /></div>
       </div>
       <DobInput />
-      <p className="xs muted p">Your legal name and date of birth are used for identity verification and are never shown publicly.</p>
+      <p className="xs muted p">Enter your legal name exactly as it appears on your government ID — not your business name. Your business name goes on your profile later. Your legal name and date of birth are used for identity verification and are never shown publicly.</p>
       {state.error && <p className="err" role="alert">{state.error}</p>}
       <button className="btn" type="submit" disabled={pending}>{pending ? "Saving…" : "Continue"}</button>
     </form>

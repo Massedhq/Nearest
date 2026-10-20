@@ -71,6 +71,8 @@ export async function createBuiltProfile(form: FormData): Promise<{ error: strin
   const categoryId = Number(str(form, "categoryId", 10));
   const cityId = Number(str(form, "cityId", 10));
   if (!validName(firstName) || !validName(lastName)) return { error: "Enter their first and last name." };
+  const nameProblem = (await import("@/lib/legal-name")).legalNameProblem(firstName, lastName, businessName, "they"); // legal name ≠ business name
+  if (nameProblem) return { error: nameProblem };
   const { normEmail, normPhone, logProspect } = await import("@/lib/outreach");
   if (!normEmail(email)) return { error: "Enter the email address they'll use to sign in — their claim link goes there." };
   if (form.get("permission") !== "on") return { error: "Confirm they gave you permission to set up their profile." };

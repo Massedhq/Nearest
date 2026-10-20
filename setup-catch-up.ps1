@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Sitewide content audit + fixes (platform wording, 5-dollar fee, no competitor picks, CTAs, home/pro SEO tags), npm run content:audit, Student Pricing Intelligence admin page, price-change log"
+git commit -q -m "Legal name can never be the business name or built from it: checks at pro sign-up, Build a profile and business name save; admin Correct legal name; guides updated"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

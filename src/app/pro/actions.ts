@@ -62,6 +62,9 @@ export async function saveProfile(_: FormState, form: FormData): Promise<FormSta
   const pinterest = pinterestHandle(pinRaw);
   if (pinRaw && !pinterest) return { error: "Pinterest: paste your full pinterest.com profile link (not a pin, board or pin.it link)." };
   if (!businessName) return { error: "Add your business or professional name." };
+  // The legal name on the account must be a person's name — never the business name or built from it.
+  const legalProblem = (await import("@/lib/legal-name")).legalNameProblem(user.firstName ?? "", user.lastName ?? "", businessName);
+  if (legalProblem) return { error: `${legalProblem} Your account's legal name is "${[user.firstName, user.lastName].filter(Boolean).join(" ")}". If that isn't the name on your government ID, email support@usenearest.com and we'll correct it. If it is, choose a business name that isn't made from it.` };
   if (!bio) return { error: "Tell customers a little about your work." };
   if (years !== null && (!Number.isInteger(years) || years < 0 || years > 70)) return { error: "Years of experience should be a whole number." };
   await db

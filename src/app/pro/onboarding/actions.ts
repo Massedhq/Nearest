@@ -26,6 +26,8 @@ export async function completePro(_: FormState, form: FormData): Promise<FormSta
   const dob = String(form.get("dob") ?? "");
   const code = String(form.get("invite") ?? "").trim() || null;
   if (!validName(firstName) || !validName(lastName)) return { error: "Enter your legal first and last name." };
+  const nameProblem = (await import("@/lib/legal-name")).legalNameProblem(firstName, lastName); // a person's name, never a business name
+  if (nameProblem) return { error: nameProblem };
   if (!validDob(dob)) return { error: "Enter a real date of birth." };
 
   const c = await clerkContact();

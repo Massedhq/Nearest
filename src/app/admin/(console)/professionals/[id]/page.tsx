@@ -16,6 +16,8 @@ import { fmtDate, money } from "@/lib/time";
 import { instagramHandle, tiktokHandle, facebookHandle, instagramUrl, tiktokUrl, facebookUrl, facebookLabel, pinterestHandle, pinterestUrl } from "@/lib/social";
 import { proLink } from "@/lib/connections";
 import { proBlockers } from "@/lib/live-check";
+import { legalNameProblem } from "@/lib/legal-name";
+import { correctLegalName } from "@/app/admin/legal-name-actions";
 
 export const metadata = { title: "Review account" };
 export const dynamic = "force-dynamic";
@@ -54,6 +56,7 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
   const subActive = ["active", "trialing"].includes(p.subscriptionStatus ?? "");
   // What's stopping them from being bookable right now — same checks as student search
   const blockers = await proBlockers(p);
+  const nameIssue = legalNameProblem(row.u.firstName ?? "", row.u.lastName ?? "", row.p.businessName, "they");
   const ig = instagramHandle(p.instagram), tt = tiktokHandle(p.tiktok), fb = facebookHandle(p.facebook), pin = pinterestHandle(p.pinterest);
 
   const { membershipState, MEMBERSHIP_LABEL, profileState, MEMBERSHIP_ENABLED: membershipOn } = await import("@/lib/membership");
@@ -108,6 +111,18 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
             {p.photoUrl ? <Image src={p.photoUrl} alt="" width={56} height={56} style={{ borderRadius: 28, objectFit: "cover" }} /> : <div className="avatar">{(p.businessName ?? "N").slice(0, 2).toUpperCase()}</div>}
             <div className="col g4"><span className="b">{u.firstName} {u.lastName}</span><span className="xs muted">{u.email ?? "no email"}{u.phone ? ` • ${u.phone}` : ""}</span></div>
           </div>
+          {nameIssue && <span className="small" role="alert" style={{ color: "#E3C58A" }}>Legal name problem: {nameIssue}</span>}
+          <details open={Boolean(nameIssue)}>
+            <summary className="link xs">Correct legal name</summary>
+            <ActionForm action={correctLegalName} submitLabel="Save legal name" buttonClass="btn ghost sm" className="col g4">
+              <input type="hidden" name="userId" value={id} />
+              <span className="xs muted">Must match their government ID — never their business name or anything made from it. Saved to the activity log.</span>
+              <div className="grid2">
+                <div className="field"><label htmlFor="ln-first">Legal first name</label><input id="ln-first" name="firstName" defaultValue={u.firstName ?? ""} maxLength={60} required /></div>
+                <div className="field"><label htmlFor="ln-last">Legal last name</label><input id="ln-last" name="lastName" defaultValue={u.lastName ?? ""} maxLength={60} required /></div>
+              </div>
+            </ActionForm>
+          </details>
           <Row k="Age" v={age(u.dateOfBirth) ?? "—"} />
           <Row k="City" v={row.city ?? "—"} />
           <Row k="Joined Nearest" v={fmtDate(u.createdAt)} />

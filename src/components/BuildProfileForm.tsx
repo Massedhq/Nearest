@@ -136,6 +136,7 @@ export function BuildProfileForm({ categories, cities, initial }: { categories: 
       </div>
 
       <div className="grid2">
+        <p className="xs muted" style={{ gridColumn: "1 / -1", margin: 0 }}>Legal name = the name on their government ID. Never their business name or anything made from it.</p>
         <div className="field"><label htmlFor="bp-first">Legal first name</label><input id="bp-first" name="firstName" required maxLength={60} value={v.firstName} onChange={set("firstName")} /></div>
         <div className="field"><label htmlFor="bp-last">Legal last name</label><input id="bp-last" name="lastName" required maxLength={60} value={v.lastName} onChange={set("lastName")} /></div>
         <div className="field"><label htmlFor="bp-email">Their email (their sign-in)</label><input id="bp-email" name="email" type="email" required maxLength={160} value={v.email} onChange={set("email")} /></div>
