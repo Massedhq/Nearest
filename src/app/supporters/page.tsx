@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { SupporterAvatar } from "@/components/SupporterAvatar";
 import { Stars } from "@/components/Stars";
-import { PERSONAL_DISCLAIMER, previewPlaceholders, publishedSupporters } from "@/lib/supporters";
+import { previewPlaceholders, publishedSupporters } from "@/lib/supporters";
 
 export const metadata = { title: "Meet our supporters", description: "Why educators support Nearest." };
 export const dynamic = "force-dynamic";
@@ -37,11 +37,9 @@ export default async function Supporters() {
             </div>
             {s.rating && <Stars value={s.rating} size={18} />}
             <blockquote className="disp" style={{ margin: 0, fontStyle: "italic", fontSize: 22, lineHeight: 1.3 }}>&ldquo;{s.statement}&rdquo;</blockquote>
-            <span className="xs muted">{s.experience}</span>
             {s.disclosure && <span className="xs muted">{s.disclosure}</span>}
           </section>
         ))}
-        <p className="xs muted" style={{ textAlign: "center", margin: 0 }}>{PERSONAL_DISCLAIMER}</p>
         <Link className="btn" href="/sign-up">Create account</Link>
       </div>
     </div>

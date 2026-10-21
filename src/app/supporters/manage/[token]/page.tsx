@@ -73,7 +73,7 @@ export default async function ManageSupporter({ params }: { params: Promise<{ to
                     <div className="field"><label>Your rating</label><StarRating defaultValue={s.rating ?? 0} required={false} /></div>
                     <div className="field"><label htmlFor="c-st">In your own words, please share your thoughts and overall impressions of Nearest.</label><textarea id="c-st" name="statement" defaultValue={s.statementCurrent} maxLength={1500} style={{ height: 140 }} /></div>
                     <div className="field"><label htmlFor="c-be">How Nearest could benefit students and parents</label><textarea id="c-be" name="benefit" defaultValue={s.benefitCurrent ?? ""} maxLength={1500} style={{ height: 120 }} /></div>
-                    <div className="field"><label htmlFor="c-ti">Professional title</label><input id="c-ti" name="title" defaultValue={s.title} maxLength={120} /></div>
+                    <div className="field"><label htmlFor="c-ti">Your role</label><select id="c-ti" name="title" defaultValue={s.title}>{[...new Set(["Teacher", "Principal", "Administrator", "School Counselor", s.title])].map((r) => <option key={r}>{r}</option>)}</select></div>
                     <div className="field"><label htmlFor="c-af">School or organization</label>
                       <select id="c-af" name="affiliationStatus" defaultValue={s.affiliationStatus}><option value="current">Currently with</option><option value="former">Previously with (not anymore)</option><option value="none">Not with a school or organization</option></select>
                       <input name="organization" defaultValue={s.organization} maxLength={160} placeholder="School or organization" />

@@ -79,7 +79,6 @@ export default async function SupporterReview({ params }: { params: Promise<{ id
           <div className="card" style={{ gap: 4 }}>
             <span className="eyebrow">What they reviewed or experienced</span>
             <span className="small">{EXPERIENCE_LABEL[s.experience]}{s.experienceOther ? `: ${s.experienceOther}` : ""}</span>
-            <span className="xs muted">{s.experience === "platform_use" ? "Shown publicly as based on using Nearest." : "Shown publicly as a prelaunch perspective — not actual service experience."}</span>
           </div>
           <div className="card" style={{ gap: 4 }}>
             <span className="eyebrow">Relationship / incentive disclosure</span>

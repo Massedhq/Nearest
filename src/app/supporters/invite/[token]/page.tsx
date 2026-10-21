@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { BENEFIT_EXAMPLE, PUBLISH_CONSENT, STATEMENT_EXAMPLE, explainerEmbed, getExplainerUrl, openInvite, PERSONAL_DISCLAIMER } from "@/lib/supporters";
+import { BENEFIT_EXAMPLE, PUBLISH_CONSENT, STATEMENT_EXAMPLE, explainerEmbed, getExplainerUrl, openInvite } from "@/lib/supporters";
 import { SupporterForm } from "@/components/SupporterForm";
 import { WalkthroughVideo } from "@/components/WalkthroughVideo";
 import { walkthroughPublished } from "@/lib/walkthrough";
@@ -33,7 +33,6 @@ export default async function SupporterInvite({ params }: { params: Promise<{ to
               </div>
             )}
             {showWalkthrough && <WalkthroughVideo />}
-            <p className="xs muted p" style={{ margin: 0 }}>{PERSONAL_DISCLAIMER}</p>
             <SupporterForm token={token} texts={{ statementExample: STATEMENT_EXAMPLE, benefitExample: BENEFIT_EXAMPLE, consent: PUBLISH_CONSENT }} />
           </>
         )}

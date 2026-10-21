@@ -79,7 +79,7 @@ export function SupporterForm({ token, texts }: { token: string; texts: Texts })
     }}>
       <div className="field"><label htmlFor="sp-name">Your name</label><input id="sp-name" name="name" required maxLength={120} autoComplete="name" /></div>
       <div className="field"><label htmlFor="sp-email">Contact email (private — never published)</label><input id="sp-email" name="email" type="email" required maxLength={160} autoComplete="email" /></div>
-      <div className="field"><label htmlFor="sp-title">Professional title</label><input id="sp-title" name="title" required maxLength={120} placeholder="e.g. School counselor, Teacher, Retired principal" /></div>
+      <div className="field"><label htmlFor="sp-title">Your role</label><select id="sp-title" name="title" required defaultValue=""><option value="" disabled>Choose your role</option><option>Teacher</option><option>Principal</option><option>Administrator</option><option>School Counselor</option></select></div>
 
       <div className="field">
         <label>School or organization</label>
