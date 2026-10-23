@@ -21,6 +21,7 @@ const clerkMsg = (e: unknown) => {
 export async function claimBuiltProfile(token: string, password: string): Promise<{ ticket?: string; error?: string; signIn?: string }> {
   const t = await claimTarget(token);
   if (!t) return { error: "This link has already been used or has expired. Ask the Nearest team member who set up your profile to send a new one." };
+  { const { activeHold, CLOSED_MESSAGE } = await import("@/lib/enrollment-holds"); if (await activeHold({ userId: t.u.id })) return { error: CLOSED_MESSAGE }; }
   if (typeof password !== "string" || password.length < 8) return { error: "Use at least 8 characters for your password." };
   if (password.length > 128) return { error: "That password is too long." };
   const email = (t.u.email ?? "").toLowerCase();

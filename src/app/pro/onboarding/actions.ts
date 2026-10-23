@@ -32,6 +32,12 @@ export async function completePro(_: FormState, form: FormData): Promise<FormSta
 
   const c = await clerkContact();
   if (!c?.email || !c.emailVerifiedAt) return { error: "Your email needs to be verified. Enter the code we emailed you." };
+  // Registration on hold for this email (an earlier account, invitation or link never finished within 30 days).
+  {
+    const { activeHold, recordAttempt, CLOSED_MESSAGE } = await import("@/lib/enrollment-holds");
+    const held = await activeHold({ email: c.email, userId: viewer.user?.id });
+    if (held) { await recordAttempt(held, "registration", `Tried to register again as ${c.email}`); return { error: CLOSED_MESSAGE }; }
+  }
 
   const settings = await getSettings();
   const check = code ? await checkInvite(code) : null;

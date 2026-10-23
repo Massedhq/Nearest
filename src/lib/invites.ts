@@ -26,7 +26,7 @@ export async function foundingOpen() {
 
 export type InviteCheck =
   | { ok: true; invite: typeof invitations.$inferSelect; city: string | null }
-  | { ok: false; reason: "not_found" | "expired" | "used" | "revoked" | "closed" };
+  | { ok: false; reason: "not_found" | "expired" | "used" | "revoked" | "closed" | "held" };
 
 export async function checkInvite(code: string | null | undefined): Promise<InviteCheck> {
   if (!code) return { ok: false, reason: "not_found" };
@@ -40,6 +40,12 @@ export async function checkInvite(code: string | null | undefined): Promise<Invi
   const hit = row[0];
   if (!hit) return { ok: false, reason: "not_found" };
   const st = hit.invite.status;
+  // An invitation never used within 30 days is on enrollment hold until an owner releases it.
+  if (st === "invited" || st === "expired") {
+    const { activeHold, recordAttempt } = await import("./enrollment-holds");
+    const held = await activeHold({ invitationId: hit.invite.id });
+    if (held) { await recordAttempt(held, "invitation", `Opened invitation ${hit.invite.code}`); return { ok: false, reason: "held" }; }
+  }
   if (st === "expired") return { ok: false, reason: "expired" };
   if (st === "registered") return { ok: false, reason: "used" };
   if (st === "revoked" || st === "declined") return { ok: false, reason: "revoked" };
@@ -56,4 +62,5 @@ export const INVITE_MESSAGES: Record<string, string> = {
   used: "This invitation has already been used.",
   revoked: "This invitation is no longer active.",
   closed: "First In is closed.",
+  held: "Sorry — enrollment in your area has reached capacity, so registration is closed right now. You've been placed on the waiting list. Please check back when enrollment opens again — we'll let you know.",
 };

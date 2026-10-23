@@ -56,6 +56,8 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
   const subActive = ["active", "trialing"].includes(p.subscriptionStatus ?? "");
   // What's stopping them from being bookable right now — same checks as student search
   const blockers = await proBlockers(p);
+  const { activeHold } = await import("@/lib/enrollment-holds");
+  const enrollmentHold = await activeHold({ userId: id });
   const nameIssue = legalNameProblem(row.u.firstName ?? "", row.u.lastName ?? "", row.p.businessName, "they");
   const ig = instagramHandle(p.instagram), tt = tiktokHandle(p.tiktok), fb = facebookHandle(p.facebook), pin = pinterestHandle(p.pinterest);
 
@@ -111,6 +113,7 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
             {p.photoUrl ? <Image src={p.photoUrl} alt="" width={56} height={56} style={{ borderRadius: 28, objectFit: "cover" }} /> : <div className="avatar">{(p.businessName ?? "N").slice(0, 2).toUpperCase()}</div>}
             <div className="col g4"><span className="b">{u.firstName} {u.lastName}</span><span className="xs muted">{u.email ?? "no email"}{u.phone ? ` • ${u.phone}` : ""}</span></div>
           </div>
+          {enrollmentHold && <Link className="small" href={`/admin/enrollment-holds#h-${enrollmentHold.id}`} style={{ color: "#E3C58A" }}>On enrollment hold since {fmtDate(enrollmentHold.heldAt)} — registration closed for them{enrollmentHold.attempts ? ` • ${enrollmentHold.attempts} attempt${enrollmentHold.attempts === 1 ? "" : "s"} to get back in` : ""}. Open Enrollment holds to release them.</Link>}
           {nameIssue && <span className="small" role="alert" style={{ color: "#E3C58A" }}>Legal name problem: {nameIssue}</span>}
           <details open={Boolean(nameIssue)}>
             <summary className="link xs">Correct legal name</summary>

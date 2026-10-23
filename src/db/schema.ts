@@ -1301,3 +1301,34 @@ export const supporterEvents = pgTable("supporter_events", {
   detail: jsonb("detail"),
   at: ts("at").notNull().defaultNow(),
 }, (t) => [index("supporter_events_idx").on(t.supporterId, t.at)]);
+
+// ---------- Enrollment holds (2026-10-23) ----------
+// Professionals who never finished registering within 30 days — no Professional Terms accepted, no ID sent, never
+// submitted — and invitations / registration links never used in 30 days. Nothing is deleted: the account and all its
+// information stay; a "held" row blocks registration with the enrollment-closed message until an owner releases it.
+// kind: "account" (users.id in user_id) | "invitation" (invitations.id) | "outreach" (prospects.id). One row per subject.
+export const enrollmentHolds = pgTable("enrollment_holds", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  kind: text("kind").notNull(),
+  subjectId: text("subject_id").notNull(), // users.id | invitations.id | prospects.id
+  userId: uuid("user_id"),
+  email: text("email"), // normalized, so a fresh sign-up with the same email is held too
+  name: text("name"),
+  reason: text("reason").notNull(),
+  status: text("status").notNull().default("held"), // held | released
+  heldAt: ts("held_at").notNull().defaultNow(),
+  releasedAt: ts("released_at"),
+  releasedBy: uuid("released_by"),
+  releaseNote: text("release_note"),
+  attempts: integer("attempts").notNull().default(0),
+  lastAttemptAt: ts("last_attempt_at"),
+}, (t) => [uniqueIndex("enrollment_holds_subject_idx").on(t.kind, t.subjectId), index("enrollment_holds_email_idx").on(t.email), index("enrollment_holds_user_idx").on(t.userId), index("enrollment_holds_status_idx").on(t.status)]);
+
+// Every time a held professional tries to come back (sign in, open setup, register again, use the invitation).
+export const enrollmentHoldAttempts = pgTable("enrollment_hold_attempts", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  holdId: uuid("hold_id").notNull().references(() => enrollmentHolds.id, { onDelete: "cascade" }),
+  action: text("action").notNull(), // signed_in | registration | invitation | claim_link
+  detail: text("detail"),
+  at: ts("at").notNull().defaultNow(),
+}, (t) => [index("enrollment_hold_attempts_idx").on(t.holdId, t.at)]);

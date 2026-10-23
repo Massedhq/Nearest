@@ -18,5 +18,6 @@ export async function GET(req: Request) {
   const outreach = await (await import("@/lib/outreach-mail")).runOutreach(); // Professional Outreach emails + follow-ups
   const broadcastSent = await (await import("@/lib/broadcasts")).sendBroadcasts(); // Broadcasts, in batches
   const campaign = await (await import("@/lib/campaign-cron")).runCampaign(); // launch campaign clock, reminders, rewards
-  return Response.json({ ...result, reminders, steppedUp, seatsReleased, bundlesExpired, verifyReminders, setupReminders, outreach, broadcastSent, requestsExpired, requestReminders, spotsReleased, membershipsEnded, inactiveSpots, campaign });
+  const enrollmentHolds = await (await import("@/lib/enrollment-holds")).runEnrollmentHolds().catch((e) => { console.error("holds", e); return null; }); // unfinished 30 days → on hold
+  return Response.json({ ...result, enrollmentHolds, reminders, steppedUp, seatsReleased, bundlesExpired, verifyReminders, setupReminders, outreach, broadcastSent, requestsExpired, requestReminders, spotsReleased, membershipsEnded, inactiveSpots, campaign });
 }

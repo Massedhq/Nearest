@@ -16,6 +16,11 @@ export default async function ProOnboarding({ searchParams }: { searchParams: Pr
   const c = await clerkContact();
   const code = invite ?? c?.invite ?? null;
   const check = code ? await checkInvite(code) : null;
+  // Registration on hold for this email: the enrollment-closed message instead of the form.
+  if (!viewer.admin && c?.email) {
+    const { activeHold } = await import("@/lib/enrollment-holds");
+    if (await activeHold({ email: c.email })) redirect("/pro/enrollment-closed");
+  }
 
   // An invitation creates a NEW professional account. If an owner is signed in on this device, stop them
   // so the pro business isn't attached to the owner's login (which shows "Partner • Owner" and the workspace chooser).

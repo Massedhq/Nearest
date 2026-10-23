@@ -28,6 +28,23 @@ export default async function ClaimPage({ params }: { params: Promise<{ token: s
       </div>
     );
   }
+  // Never claimed within 30 days → registration on hold until an owner releases it.
+  const { activeHold, recordAttempt, CLOSED_MESSAGE, CLOSED_TITLE } = await import("@/lib/enrollment-holds");
+  const held = await activeHold({ userId: t.u.id });
+  if (held) {
+    await recordAttempt(held, "claim_link", "Opened their claim link");
+    return (
+      <div className="scr">
+        {top}
+        <div className="body">
+          <Image src="/brand/nearest-monogram.png" alt="" width={84} height={84} />
+          <h1 className="disp h2">{CLOSED_TITLE}</h1>
+          <div className="card small"><span>{CLOSED_MESSAGE}</span></div>
+          <span className="xs muted">Your information is saved — you won&apos;t need to start over when enrollment opens for you.</span>
+        </div>
+      </div>
+    );
+  }
   const builder = t.p.builtBy ? await db.query.users.findFirst({ where: eq(users.id, t.p.builtBy), columns: { firstName: true } }) : null;
   const { userId } = await auth();
   return (

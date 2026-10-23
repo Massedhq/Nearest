@@ -19,6 +19,12 @@ export async function requirePro(opts: { allowUnpaid?: boolean; self?: boolean }
   if (opts.self && viewer.building) redirect("/pro/setup/review");
   const profile = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, viewer.user!.id) });
   if (!profile) redirect("/pro/onboarding");
+  // Registration on hold (never finished within 30 days): the enrollment-closed page, until an owner releases it.
+  // Owners building a profile for someone keep working on it.
+  if (!viewer.building && !viewer.admin && !profile.entryPaidAt) {
+    const { activeHold } = await import("./enrollment-holds");
+    if (await activeHold({ userId: viewer.user!.id })) redirect("/pro/enrollment-closed");
+  }
   return { viewer, user: viewer.user!, profile, building: Boolean(viewer.building) };
 }
 

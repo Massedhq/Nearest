@@ -33,6 +33,7 @@ export const SETTINGS: Record<string, SettingDef> = {
   "growth.second_cohort_end": { label: "$20 pricing through pro #", group: "Growth", type: "number", value: 3500 },
   "partner.pool_size": { label: "Partner pool size (pros)", group: "Growth", type: "number", value: 3500 },
   "partner.nearest_block": { label: "Pool pros whose payments go to Nearest", group: "Growth", type: "number", value: 500 },
+  "growth.unfinished_registration_days": { label: "Days a professional has to accept the Terms or send their ID (and to use an invitation) before registration is put on hold", group: "Growth", type: "number", unit: "days", value: 30 },
   "growth.target_per_city": { label: "Target per city", group: "Growth", type: "number", value: 5 },
   "campaign.reward_credit_cents": { label: "Launch campaign reward — Nearest credit added when a student is approved", group: "Fees", type: "cents", value: 2000 },
   "fees.service_fee_cents": { label: "Nearest service fee per service (added to the price students see)", group: "Fees", type: "cents", value: 500 },
