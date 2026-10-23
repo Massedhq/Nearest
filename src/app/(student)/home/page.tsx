@@ -30,7 +30,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
     const { getCampaign, entryFor } = await import("@/lib/campaign");
     const [c, e] = await Promise.all([getCampaign(), entryFor(user.id)]);
     if (e && ["reserved", "in_progress", "needs_correction", "ready_for_review"].includes(e.status)) return "enrolled" as const;
-    if (e && e.status === "approved" && !e.rewardBookingId) return "reward" as const;
+    if (e && ["approved", "redeemed"].includes(e.status) && !e.rewardBookingId && e.approvedAt && Date.now() - e.approvedAt.getTime() < 14 * 24 * 3600 * 1000) return "reward" as const;
     if (c.status !== "open" || e) return null;
     // The optional invitation after registration: shown automatically once, hidden for good after "Not now".
     const { campaignNotices } = await import("@/db");
@@ -151,7 +151,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
         {campaignOpen && (
           <Link className="card" href="/campaign" style={{ textDecoration: "none", color: "inherit", gap: 2 }}>
             <span className="b">Nearest launch campaign</span>
-            <span className="small">{campaignOpen === "enrolled" ? "Open your campaign — upload today's screenshot." : campaignOpen === "reward" ? "You're approved — your free service is in your account." : "Want to join? Complete the seven-day profile-picture promotion to qualify for one free eligible service."}</span>
+            <span className="small">{campaignOpen === "enrolled" ? "Open your campaign — upload today's screenshot." : campaignOpen === "reward" ? "You're approved — your Nearest credit is in your account. Use it on any booking." : "Want to join? Complete the seven-day profile-picture promotion to earn Nearest credit toward any service."}</span>
           </Link>
         )}
         <p className="eyebrow p">Hi, {user.firstName}</p>

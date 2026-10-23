@@ -17,7 +17,9 @@ export const EVIDENCE_MAX_BYTES = 4 * 1024 * 1024;
 export const CLOCK_LABEL = "Elapsed-time tracking + manual evidence review";
 export const CLOCK_DISCLAIMER =
   "This clock only counts the 168 hours since Nearest recorded your start. It doesn't watch your social account and doesn't prove the picture stayed up the whole time — Nearest reviews your screenshots and checks your profile by hand.";
-export const DISCLOSURE_LINE = "I'm part of the Nearest launch campaign and get a free service for using this picture. #ad";
+export const DISCLOSURE_LINE = "I'm part of the Nearest launch campaign and get Nearest credit for using this picture. #ad";
+/** The line students used before the reward became credit (kept so earlier bios still count). */
+const LEGACY_DISCLOSURE = "I'm part of the Nearest launch campaign and get a free service for using this picture. #ad";
 
 export type Campaign = typeof campaigns.$inferSelect;
 export type Entry = typeof campaignEntries.$inferSelect;
@@ -29,7 +31,7 @@ export const STATUS_LABEL: Record<string, string> = {
   ready_for_review: "Ready for final review",
   needs_correction: "Needs correction",
   approved: "Approved",
-  redeemed: "Redeemed",
+  redeemed: "Approved — credit added",
   rejected: "Not approved",
   cancelled: "Cancelled",
 };
@@ -39,7 +41,7 @@ export const OCCUPYING = ["reserved", "in_progress", "ready_for_review", "needs_
 /** The previous default steps — a campaign still holding them is upgraded to the new seven steps automatically. */
 const LEGACY_INSTRUCTIONS = `1. Download the Nearest profile picture below.
 2. Set it as your profile picture on Instagram, Facebook or TikTok (any one — no follower minimum).
-3. Add this line to your bio while the picture is up: "${DISCLOSURE_LINE}"
+3. Add this line to your bio while the picture is up: "${LEGACY_DISCLOSURE}"
 4. Submit your profile link and a screenshot of your profile showing the picture. Your seven days (168 hours) start the moment Nearest accepts it.
 5. Upload one screenshot of your profile in each of the seven daily windows shown on your campaign page.
 6. After the full 168 hours, upload your final screenshot. Nearest then reviews everything by hand.
@@ -49,17 +51,26 @@ Never share your social media password — Nearest will never ask for it.`;
 export const SCREENSHOT_RULE = "Every screenshot must clearly show your account username and your profile picture.";
 
 /** "How to participate" — shown in the invitation and kept on the campaign page throughout. One step per line. */
+const FREE_SERVICE_INSTRUCTIONS = `1. Join the campaign to reserve your place.
+2. Download the Nearest profile picture.
+3. Change your Instagram, Facebook or TikTok profile picture to the Nearest picture, and add this line to your bio: "${LEGACY_DISCLOSURE}"
+4. Submit your profile link and a screenshot of your profile. Your seven-day clock starts when Nearest accepts them.
+5. Keep the Nearest picture up for seven full consecutive days, and upload a screenshot of your profile each day.
+6. After the countdown ends, upload your final screenshot. Nearest reviews your screenshots and checks your profile.
+7. Once you're approved, your reward appears in your Nearest account. Redeem it after booking opens.`;
+
+/** "How to participate" — shown in the invitation and kept on the campaign page throughout. One step per line. */
 export const DEFAULT_INSTRUCTIONS = `1. Join the campaign to reserve your place.
 2. Download the Nearest profile picture.
 3. Change your Instagram, Facebook or TikTok profile picture to the Nearest picture, and add this line to your bio: "${DISCLOSURE_LINE}"
 4. Submit your profile link and a screenshot of your profile. Your seven-day clock starts when Nearest accepts them.
 5. Keep the Nearest picture up for seven full consecutive days, and upload a screenshot of your profile each day.
 6. After the countdown ends, upload your final screenshot. Nearest reviews your screenshots and checks your profile.
-7. Once you're approved, your reward appears in your Nearest account. Redeem it after booking opens.`;
+7. Once you're approved, your Nearest credit is added to your account automatically. Use it toward any service you book with a professional on Nearest.`;
 
 /** The invitation shown after registration (and on the campaign page until the student joins). */
 export const INVITE_HEADLINE = "Want to join the Nearest launch campaign?";
-export const inviteBody = (opensLabel: string) => `Complete the seven-day profile-picture promotion to qualify for one free eligible service after booking opens ${opensLabel}.`;
+export const inviteBody = (credit: string) => `Complete the seven-day profile-picture promotion to earn ${credit} in Nearest credit toward any service you book with a professional.`;
 export const invitePoints = (c: Pick<Campaign, "capacity" | "market">) => [
   "No minimum follower count.",
   "One campaign place and reward per verified student.",
@@ -69,16 +80,48 @@ export const invitePoints = (c: Pick<Campaign, "capacity" | "market">) => [
 ];
 export const AGREE_TEXT = "I have read the campaign directions and reward terms and agree to participate.";
 export const WAITLIST_NOTE = "A waitlist entry does not reserve a reward. If a place opens, it's offered in waitlist order and you're notified.";
-/** What the free service is, when the owner hasn't written their own description. */
-export const REWARD_DEFAULT_INCLUDES = "Each participating professional chooses one of their services listed at $25 or more to give for free. You'll see exactly which service, how long it takes and who provides it before you book.";
-export const REDEMPTION_TERMS = [
-  "One free service per approved student — one time, non-transferable, no cash value.",
-  "Book it on Nearest once booking opens, with a participating professional, at their location. Appointments depend on availability — booking opening doesn't guarantee an appointment that day.",
-  "You pay $0 for the reward service — no deposit and no service fee.",
-  "If the professional declines or the booking is cancelled, the reward comes back to you. A no-show uses it.",
+/** The reward: Nearest credit, added once when Nearest approves the student's participation. */
+export const rewardTitle = (credit: string) => `${credit} in Nearest credit`;
+export const rewardIncludes = (credit: string) => `${credit} is added to your Nearest account as soon as Nearest approves your participation. Use it toward any service you book with any professional on Nearest — it's taken off your total automatically when you pay.`;
+export const redemptionTerms = (credit: string) => [
+  `${credit} in Nearest credit per approved student — added once, non-transferable, no cash value.`,
+  "Use it toward any service with any professional on Nearest. If the service costs more, you pay the rest; anything left stays in your account for your next booking.",
+  "It can't be used on Bundle Me bookings or withdrawn as cash.",
+  "If a booking you paid with it is cancelled, the credit comes back under Nearest's normal credit rules.",
 ];
 
-export const DEFAULT_TERMS = `Nearest Launch Campaign — Terms (draft — edit before publishing)
+/** The credit amount from Rules & Settings (campaign.reward_credit_cents, $20 by default). */
+export async function rewardCreditCents() {
+  const { getSettings } = await import("./settings");
+  return Math.max(0, Math.round(Number((await getSettings())["campaign.reward_credit_cents"] ?? 2000)));
+}
+export const creditLabel = (cents: number) => `$${(cents / 100).toFixed(cents % 100 ? 2 : 0)}`;
+
+/**
+ * Add the reward credit for an approved entry — exactly once. General credit (pro_id null) is usable with any
+ * professional; the credit row's reason carries the entry id, so a second call finds it and adds nothing.
+ */
+export async function issueRewardCredit(entryId: string) {
+  const { credits } = await import("@/db");
+  const e = await db.query.campaignEntries.findFirst({ where: eq(campaignEntries.id, entryId) });
+  if (!e || !["approved", "redeemed"].includes(e.status)) return null;
+  const reason = `Launch campaign reward (${entryId})`;
+  const had = await db.select({ id: credits.id }).from(credits).where(and(eq(credits.studentId, e.studentId), eq(credits.reason, reason))).limit(1);
+  if (had.length) return null;
+  const cents = await rewardCreditCents();
+  if (!cents) return null;
+  const r = await db.execute<{ id: string }>(sql`
+    insert into credits (student_id, pro_id, amount_cents, reason)
+    select ${e.studentId}::uuid, null, ${cents}, ${reason}
+    where not exists (select 1 from credits where student_id = ${e.studentId}::uuid and reason = ${reason})
+    returning id`);
+  if (!r.rows.length) return null;
+  await db.update(campaignEntries).set({ status: "redeemed", redeemedAt: new Date(), version: sql`${campaignEntries.version} + 1` }).where(and(eq(campaignEntries.id, entryId), eq(campaignEntries.status, "approved")));
+  await recordEvent(entryId, null, "credit_added", `${creditLabel(cents)} Nearest credit added to the student's account.`);
+  return cents;
+}
+
+const FREE_SERVICE_TERMS = `Nearest Launch Campaign — Terms (draft — edit before publishing)
 • Participation is optional and does not affect ordinary Nearest account access. Open to verified Nearest students at schools in the campaign market. Students under 18 need parent/guardian approval on Nearest first. One entry and one reward per student.
 • Places are limited. A place is reserved only when you join on Nearest. A waitlist entry does not reserve a reward.
 • Your seven days are 168 hours from the moment Nearest's server accepts your profile link and starting screenshot. Submit one screenshot in each daily window and a final screenshot at or after 168 hours. Every screenshot must clearly show your account username and profile picture.
@@ -88,14 +131,28 @@ export const DEFAULT_TERMS = `Nearest Launch Campaign — Terms (draft — edit 
 • Nearest may cancel entries for duplicate accounts, false evidence or misuse.
 • This campaign isn't sponsored or endorsed by Instagram, Facebook or TikTok.`;
 
+export const DEFAULT_TERMS = `Nearest Launch Campaign — Terms (draft — edit before publishing)
+• Participation is optional and does not affect ordinary Nearest account access. Open to verified Nearest students at schools in the campaign market. Students under 18 need parent/guardian approval on Nearest first. One entry and one reward per student.
+• Places are limited. A place is reserved only when you join on Nearest. A waitlist entry does not reserve a reward.
+• Your seven days are 168 hours from the moment Nearest's server accepts your profile link and starting screenshot. Submit one screenshot in each daily window and a final screenshot at or after 168 hours. Every screenshot must clearly show your account username and profile picture.
+• Nearest reviews evidence manually and may visit your public profile. Screenshots support the review; they don't prove the picture was never changed. Nearest decides approval.
+• Approved participants receive the Nearest credit shown on the campaign page, added to their Nearest account once. It can be used toward any service booked with a professional on Nearest (not on Bundle Me bookings). It is non-transferable, has no cash value and can't be withdrawn. If a booking paid with it is cancelled, the credit is returned under Nearest's normal credit rules.
+• Nearest may cancel entries — and remove unused credit — for duplicate accounts, false evidence or misuse.
+• This campaign isn't sponsored or endorsed by Instagram, Facebook or TikTok.`;
+
 /** The campaign row (created with safe defaults — status "draft" — the first time it's read). */
 export async function getCampaign(): Promise<Campaign> {
   const found = await db.query.campaigns.findFirst({ where: eq(campaigns.key, CAMPAIGN_KEY) });
   if (found) {
     // Upgrade a campaign still holding the old default steps to the seven-step directions.
-    if (found.instructions === LEGACY_INSTRUCTIONS) {
-      await db.update(campaigns).set({ instructions: DEFAULT_INSTRUCTIONS }).where(and(eq(campaigns.key, CAMPAIGN_KEY), eq(campaigns.instructions, LEGACY_INSTRUCTIONS)));
-      return { ...found, instructions: DEFAULT_INSTRUCTIONS };
+    // Reward is Nearest credit now: directions and terms still holding the free-service defaults are updated to the
+    // credit wording (anything the owner wrote themselves is left alone).
+    const set: Partial<Campaign> = {};
+    if (found.instructions === LEGACY_INSTRUCTIONS || found.instructions === FREE_SERVICE_INSTRUCTIONS) set.instructions = DEFAULT_INSTRUCTIONS;
+    if (found.terms === FREE_SERVICE_TERMS) set.terms = DEFAULT_TERMS;
+    if (Object.keys(set).length) {
+      await db.update(campaigns).set(set).where(eq(campaigns.key, CAMPAIGN_KEY));
+      return { ...found, ...set };
     }
     return found;
   }

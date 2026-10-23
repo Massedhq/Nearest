@@ -1,11 +1,12 @@
-import { REWARD_DEFAULT_INCLUDES, DISCLOSURE_LINE, INVITE_HEADLINE, REDEMPTION_TERMS, SCREENSHOT_RULE, inviteBody, invitePoints, type Campaign } from "@/lib/campaign";
+import { DISCLOSURE_LINE, INVITE_HEADLINE, SCREENSHOT_RULE, creditLabel, inviteBody, invitePoints, redemptionTerms, rewardCreditCents, rewardIncludes, rewardTitle, type Campaign } from "@/lib/campaign";
 
 /**
- * The campaign invitation and directions: the configured free service, what it includes, redemption terms,
+ * The campaign invitation and directions: the Nearest credit reward, how it works, redemption terms,
  * the seven "How to participate" steps, the screenshot rule and the key points. Shown after registration,
  * on the join screen, and kept on the campaign page for the whole campaign.
  */
-export function CampaignInvitation({ c, opensLabel, headline = true }: { c: Campaign; opensLabel: string; headline?: boolean }) {
+export async function CampaignInvitation({ c, headline = true }: { c: Campaign; opensLabel?: string; headline?: boolean }) {
+  const credit = creditLabel(await rewardCreditCents());
   const steps = (c.instructions ?? "").split("\n").map((l) => l.trim()).filter(Boolean);
   return (
     <div className="col" style={{ gap: 12 }}>
@@ -17,17 +18,16 @@ export function CampaignInvitation({ c, opensLabel, headline = true }: { c: Camp
             // eslint-disable-next-line @next/next/no-img-element
             <img src={c.graphicUrl} alt="The approved Nearest launch profile picture" width={96} height={96} style={{ borderRadius: 48, objectFit: "cover", border: "1px solid #2A2A2D" }} />
           )}
-          <span className="small">{inviteBody(opensLabel)}</span>
+          <span className="small">{inviteBody(credit)}</span>
         </div>
       )}
 
       <div className="card" style={{ gap: 6 }}>
         <span className="eyebrow">Your reward</span>
-        <span className="small b">{c.rewardTitle || "One free service from a participating professional"}</span>
-        <span className="small"><span className="b">What it includes:</span> {c.rewardIncludes || REWARD_DEFAULT_INCLUDES}</span>
-        <span className="small b" style={{ marginTop: 4 }}>Redemption terms</span>
-        {REDEMPTION_TERMS.map((t) => <span key={t} className="xs">• {t}</span>)}
-        <span className="xs muted">Booking opens {opensLabel}.</span>
+        <span className="small b">{rewardTitle(credit)}</span>
+        <span className="small"><span className="b">How it works:</span> {rewardIncludes(credit)}</span>
+        <span className="small b" style={{ marginTop: 4 }}>Credit terms</span>
+        {redemptionTerms(credit).map((t) => <span key={t} className="xs">• {t}</span>)}
       </div>
 
       <div className="card" style={{ gap: 6 }}>
@@ -35,7 +35,7 @@ export function CampaignInvitation({ c, opensLabel, headline = true }: { c: Camp
         {steps.map((s) => <span key={s} className="small">{s}</span>)}
         <span className="small" style={{ marginTop: 4 }}><span className="b">Screenshots:</span> {SCREENSHOT_RULE} This applies to your starting screenshot, each daily screenshot and your final screenshot.</span>
         <span className="small"><span className="b">Deadlines:</span> after your clock starts, each daily submission deadline is shown on your campaign dashboard.</span>
-        <span className="small"><span className="b">Required disclosure</span> (you receive a free service for taking part — add this to your bio): &ldquo;{DISCLOSURE_LINE}&rdquo;</span>
+        <span className="small"><span className="b">Required disclosure</span> (you receive Nearest credit for taking part — add this to your bio): &ldquo;{DISCLOSURE_LINE}&rdquo;</span>
         <span className="xs muted">Never share your social media password — Nearest will never ask for it.</span>
       </div>
 

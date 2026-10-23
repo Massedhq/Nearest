@@ -23,12 +23,6 @@ export default async function CampaignAdmin({ searchParams }: { searchParams: Pr
   const c = await getCampaign();
   const sp = await searchParams;
   const [counts, problems] = await Promise.all([campaignCounts(), readinessProblems(c)]);
-  const pc = await db.execute<{ agreed: number; declined: number; waiting: number; offering: number }>(sql`select
-    count(*) filter (where campaign_choice = 'agreed')::int as agreed, count(*) filter (where campaign_choice = 'declined')::int as declined,
-    count(*) filter (where campaign_choice is null)::int as waiting,
-    (select count(*)::int from campaign_offers o where o.campaign_key = ${CAMPAIGN_KEY} and o.active and o.slots_used < o.slots_total) as offering
-    from professional_profiles where entry_paid_at is not null`);
-  const proCount = pc.rows[0] ?? { agreed: 0, declined: 0, waiting: 0, offering: 0 };
   const effSql = sql`case when e.status = 'in_progress' and e.completes_at <= now() then 'ready_for_review' else e.status end`;
   const rows = (await db.execute<Row>(sql`
     select e.id, e.status, u.first_name as first, u.last_name as last, e.platform, e.profile_url, e.started_at, e.completes_at, e.final_proof_at,
@@ -78,19 +72,15 @@ export default async function CampaignAdmin({ searchParams }: { searchParams: Pr
             {problems.map((p) => <span key={p} className="xs">• {p}</span>)}
           </div>
         )}
-        <span className="xs muted">Approved participants see &ldquo;Qualified—booking opens {bookingOpensLabel(c)}.&rdquo; Nothing here watches social media — the clock measures elapsed time from the server-recorded start; approval is always manual.</span>
+        <span className="xs muted">Approving a participant adds the Nearest credit reward to their account automatically (amount in Rules &amp; Settings). Nothing here watches social media — the clock measures elapsed time from the server-recorded start; approval is always manual.</span>
       </div>
 
-      <Link className="card" href="/admin/campaign/settings#pros" style={{ textDecoration: "none", color: "inherit", gap: 2 }}>
-        <span className="small b">Participating professionals: {proCount.offering} offering a free service</span>
-        <span className="xs muted">{proCount.agreed} agreed • {proCount.declined} declined • {proCount.waiting} haven&apos;t answered the home-screen card yet — see who and which service</span>
-      </Link>
 
       <div className="kpis k4">
         <div className="card" style={{ gap: 4 }}><span className="xs muted">Reserved (not started)</span><span className="stat">{counts.reserved}</span></div>
         <div className="card" style={{ gap: 4 }}><span className="xs muted">Active (clock running)</span><span className="stat">{counts.active}</span><span className="xs muted">{counts.needs_correction} needs correction</span></div>
         <div className="card" style={{ gap: 4 }}><span className="xs muted">Ready for final review</span><span className="stat">{counts.ready}</span></div>
-        <div className="card" style={{ gap: 4 }}><span className="xs muted">Approved • Redeemed</span><span className="stat">{counts.approved} • {counts.redeemed}</span><span className="xs muted">{counts.cancelled} cancelled • {counts.rejected} not approved • {counts.waitlist} waitlisted</span></div>
+        <div className="card" style={{ gap: 4 }}><span className="xs muted">Approved — credit added</span><span className="stat">{counts.approved + counts.redeemed}</span><span className="xs muted">{counts.cancelled} cancelled • {counts.rejected} not approved • {counts.waitlist} waitlisted</span></div>
       </div>
       {counts.occupied_actual !== c.occupied && <div className="card warn xs"><span>Place counter ({c.occupied}) differs from occupied entries ({counts.occupied_actual}) — released places or a manual change may explain it.</span></div>}
 

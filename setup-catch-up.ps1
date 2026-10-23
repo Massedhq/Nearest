@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Supporters: removed prelaunch perspective line and personal endorsement disclaimer from public pages; role choice Teacher, Principal, Administrator, School Counselor"
+git commit -q -m "Launch campaign reward is now 20 dollars of Nearest credit on approval (any service, any pro); pro free-service opt-in removed; guides and Terms updated"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

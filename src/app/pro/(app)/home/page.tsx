@@ -12,7 +12,6 @@ import { chicagoNow, fmtDate, fmtTime, label12, money } from "@/lib/time";
 import { proStanding } from "@/lib/enforcement";
 import { Bell } from "@/components/Inbox";
 import { GoLiveCard } from "@/components/GoLiveCard";
-import { ProCampaignCard } from "@/components/ProCampaignCard";
 import { ProProtectionCard } from "@/components/ProProtectionCard";
 import { PhoneAlerts } from "@/components/PhoneAlerts";
 import { ProSpotCard } from "@/components/ProSpotCard";
@@ -110,7 +109,6 @@ export default async function ProHome({ searchParams }: { searchParams: Promise<
 
         {!building && <PhoneAlerts compact />}
         {approved && <GoLiveCard profile={profile} />}
-        <ProCampaignCard profile={profile} />
         <ProProtectionCard profile={profile} />
 
         {upcoming.filter((b) => b.checkedInAt && !b.startedAt).map((b) => (

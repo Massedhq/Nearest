@@ -82,17 +82,19 @@ export async function approveEntry(_: FormState, f: FormData): Promise<FormState
   if (!row) return CHANGED;
   await recordEvent(e.id, user.id, "approved", [missing.length ? `Approved with missing evidence acknowledged: ${missing.join(", ")}` : "Approved", note].filter(Boolean).join(" — "));
   await logActivity({ actorUserId: user.id, action: "campaign.approved", targetType: "campaign_entry", targetId: e.id, before: e.status, after: { status: "approved", missing } });
-  const c = await getCampaign();
+  // The reward: Nearest credit, added to the student's account once (usable with any professional).
+  const { issueRewardCredit, creditLabel, rewardCreditCents } = await import("@/lib/campaign");
+  const added = await issueRewardCredit(e.id);
+  const credit = creditLabel(added ?? (await rewardCreditCents()));
   const { notifyOnce } = await import("@/lib/campaign-notify");
-  const open = c.bookingOpensAt && c.bookingOpensAt.getTime() <= Date.now();
   await notifyOnce(`approved:${e.id}`, e.studentId, {
-    title: open ? "You're approved — book your free service" : `Qualified—booking opens ${bookingOpensLabel(c)}`,
-    body: open ? "Your free service is ready to book, subject to available appointments." : `You're approved. You can book your free service once booking opens on ${bookingOpensLabel(c)}.`,
-    href: "/campaign",
-    email: { subject: "You're approved for the Nearest launch reward", heading: "You're approved.", lines: [open ? "Book your free service from your campaign page — appointments depend on availability." : `Qualified—booking opens ${bookingOpensLabel(c)}. Your reward stays reserved for you until then.`], button: "Open my campaign" },
+    title: `You're approved — ${credit} credit added`,
+    body: `${credit} in Nearest credit is in your account. Use it toward any service you book with a professional on Nearest.`,
+    href: "/credits",
+    email: { subject: `You're approved — ${credit} Nearest credit added`, heading: "You're approved.", lines: [`${credit} in Nearest credit was added to your account. It's taken off your total automatically when you pay for any service with any professional on Nearest.`], button: "See my credit" },
   });
   refresh(e.id);
-  return { ok: "Approved. The student was notified." };
+  return { ok: `Approved — ${credit} Nearest credit added. The student was notified.` };
 }
 
 async function endEntry(kind: "rejected" | "cancelled", f: FormData): Promise<FormState> {

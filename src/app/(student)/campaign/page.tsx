@@ -27,6 +27,9 @@ export default async function CampaignPage({ searchParams }: { searchParams: Pro
   if (entry?.rewardBookingId) { await (await import("@/lib/campaign-reward")).reconcileRewards(entry.id); entry = await entryFor(user.id); }
   const opensLabel = bookingOpensLabel(c);
   const bookingOpen = Boolean(c.bookingOpensAt && c.bookingOpensAt.getTime() <= Date.now());
+  // Approved before the reward became credit? Add the credit now (once).
+  if (entry && entry.status === "approved" && !entry.rewardBookingId) { await (await import("@/lib/campaign")).issueRewardCredit(entry.id); entry = await entryFor(user.id); }
+  const credit = (await import("@/lib/campaign")).creditLabel(await (await import("@/lib/campaign")).rewardCreditCents());
 
   // ---------- Not enrolled: the invitation (JOIN THE CAMPAIGN / NOT NOW), then the agreement step ----------
   if (!entry) {
@@ -91,8 +94,8 @@ export default async function CampaignPage({ searchParams }: { searchParams: Pro
     in_progress: "Your seven days are running. Upload one screenshot in each daily window.",
     ready_for_review: entry.finalProofAt ? "Seven days complete and final screenshot received. Nearest is doing your final review — this is not an approval yet." : "Seven days complete. Upload your final screenshot so Nearest can do your final review.",
     needs_correction: "Nearest asked for a correction — see the note below.",
-    approved: bookingOpen ? "Approved! Book your free service." : `Qualified—booking opens ${opensLabel}.`,
-    redeemed: "Your free service has been booked.",
+    approved: `Approved! Your ${credit} Nearest credit is being added to your account.`,
+    redeemed: entry.rewardBookingId ? "Your free service has been booked." : `Approved! ${credit} in Nearest credit was added to your account — use it toward any service you book.`,
     rejected: "Your participation wasn't approved.",
     cancelled: "Your campaign entry was cancelled.",
   };
@@ -185,12 +188,12 @@ export default async function CampaignPage({ searchParams }: { searchParams: Pro
 
         <div className="card" style={{ gap: 6 }}>
           <span className="eyebrow">Final review &amp; reward</span>
-          {status === "approved" && !entry.rewardBookingId && (bookingOpen
-            ? <><span className="small">{c.rewardTitle}: {c.rewardIncludes}</span><Link className="btn sm" href="/campaign/reward" style={{ alignSelf: "flex-start" }}>Book my free service</Link></>
-            : <span className="small b">Qualified—booking opens {opensLabel}.</span>)}
+          {["approved", "redeemed"].includes(status) && !entry.rewardBookingId && <>
+            <span className="small">{credit} in Nearest credit is in your account. It&apos;s taken off your total automatically when you pay for any service with any professional{bookingOpen ? "" : ` once booking opens ${opensLabel}`}.</span>
+            <Link className="btn sm" href="/credits" style={{ alignSelf: "flex-start" }}>See my credit</Link>
+          </>}
           {entry.rewardBookingId && rewardBooking && <><span className="small">{status === "redeemed" ? "Redeemed" : "Requested — waiting for the professional to accept"}: {rewardBooking.serviceName}</span><Link className="link small" href={`/bookings/${rewardBooking.id}`}>Open the booking</Link></>}
-          {!["approved", "redeemed"].includes(status) && <span className="small">Nearest approves participation by hand after the full 168 hours and your final screenshot. The reward is issued only after approval.</span>}
-          {c.rewardIncludes && !["approved", "redeemed"].includes(status) && <span className="xs muted">{c.rewardTitle}: {c.rewardIncludes}</span>}
+          {!["approved", "redeemed"].includes(status) && <span className="small">Nearest approves participation by hand after the full 168 hours and your final screenshot. Your {credit} Nearest credit is added only after approval.</span>}
         </div>
 
         <details className="card">

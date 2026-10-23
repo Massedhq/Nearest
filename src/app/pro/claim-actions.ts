@@ -87,10 +87,6 @@ export async function acceptBuiltProfile(_: FormState, form: FormData): Promise<
   const { PRO_TERMS_VERSION } = await import("@/lib/pro-terms");
   if (form.get("acceptTerms") !== "on" || String(form.get("termsVersion")) !== PRO_TERMS_VERSION) return { error: "Scroll through and accept the Professional Terms to continue." };
   if (form.get("inviteReward") !== "on") return { error: "Please agree to honor the $5 student invite reward." };
-  if (form.get("campaignAgree") !== "on") return { error: "Please agree to honor the Nearest launch campaign free service." };
-  const { readChoice, saveAgreement } = await import("@/lib/campaign-pro");
-  const campaignChoice = await readChoice(user.id, form);
-  if ("error" in campaignChoice) return { error: campaignChoice.error };
   const protection = (await import("@/lib/insurance")).readProtection(form);
   if (protection && "error" in protection) return { error: protection.error };
   const { builtEnrollmentQuote } = await import("@/lib/enroll");
@@ -109,7 +105,6 @@ export async function acceptBuiltProfile(_: FormState, form: FormData): Promise<
     ...(protection && !("error" in protection) ? { insuranceChoice: protection.choice, insuranceInterest: protection.interest, insuranceChoiceAt: now } : {}),
   }).where(and(eq(professionalProfiles.userId, user.id), isNull(professionalProfiles.entryPaidAt))).returning();
   if (!row) redirect("/pro/home");
-  await saveAgreement(user.id, campaignChoice);
   await logActivity({ actorUserId: user.id, action: "pro.enrolled", targetType: "professional", targetId: user.id, after: { entryType: q.type, termsVersion: PRO_TERMS_VERSION, ip, builtBy: profile.builtBy, live: true } });
   try { await (await import("@/lib/outreach")).checkCapacity(row.slotCityId, row.slotCategoryId); } catch (e) { console.error(e); }
   try {

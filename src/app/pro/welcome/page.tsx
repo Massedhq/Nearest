@@ -7,11 +7,9 @@ import { isManagedClerkId } from "@/lib/build-mode";
 import { ActionForm } from "@/components/ActionForm";
 import { ProCard } from "@/components/ProCard";
 import { ProTermsAgreement } from "@/components/ProTermsAgreement";
-import { ProCampaignFields } from "@/components/ProCampaignFields";
 import { ProProtectionFields } from "@/components/ProProtectionFields";
 import { proTermsSections, PRO_TERMS_VERSION } from "@/lib/pro-terms";
 import { builtEnrollmentQuote } from "@/lib/enroll";
-import { rewardEligibleServices } from "@/lib/campaign-pro";
 import { acceptBuiltProfile } from "@/app/pro/claim-actions";
 
 export const metadata = { title: "Welcome to Nearest" };
@@ -27,13 +25,12 @@ export default async function WelcomeBuilt() {
   const user = viewer.user;
   const p = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, user.id) });
   if (!p?.builtBy || p.entryPaidAt || isManagedClerkId(user.clerkUserId)) redirect("/pro/home");
-  const [services, photos, city, builder, quote, rewardServices] = await Promise.all([
+  const [services, photos, city, builder, quote] = await Promise.all([
     db.select().from(proServices).where(and(eq(proServices.userId, user.id), eq(proServices.active, true))).orderBy(asc(proServices.sort)),
     db.select({ url: portfolioItems.url }).from(portfolioItems).where(and(eq(portfolioItems.userId, user.id), eq(portfolioItems.kind, "image"))).orderBy(desc(portfolioItems.featured), asc(portfolioItems.sort)).limit(3),
     p.cityId ? db.query.cities.findFirst({ where: eq(cities.id, p.cityId) }) : null,
     db.query.users.findFirst({ where: eq(users.id, p.builtBy!), columns: { firstName: true } }),
     builtEnrollmentQuote(p),
-    rewardEligibleServices(user.id),
   ]);
   return (
     <div className="scr">
@@ -50,10 +47,6 @@ export default async function WelcomeBuilt() {
             <span className="eyebrow">Before you start</span>
             <ProTermsAgreement sections={proTermsSections({ cents: quote.cents, label: quote.label })} version={PRO_TERMS_VERSION} />
             <label className="check xs" style={{ alignItems: "flex-start" }}><input type="checkbox" name="inviteReward" required /><span>I agree to honor Nearest&apos;s $5 student invite reward: a student who earned it by inviting a friend gets $5 off their first booking with me, taken from that booking&apos;s payout.</span></label>
-            <div className="card" style={{ gap: 8 }}>
-              <span className="eyebrow">Nearest launch campaign</span>
-              <ProCampaignFields services={rewardServices} />
-            </div>
             {!p.insuranceChoiceAt && <div className="card" style={{ gap: 8 }}><ProProtectionFields /></div>}
             <span className="xs muted">Accepting puts your profile live. You can go offline any time from Today, and turn it back on whenever you like.</span>
           </ActionForm>

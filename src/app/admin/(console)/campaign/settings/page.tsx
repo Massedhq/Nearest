@@ -1,14 +1,11 @@
 import Link from "next/link";
-import { asc, eq, isNotNull, sql } from "drizzle-orm";
-import { db, campaignOffers, professionalProfiles, proServices, users } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
 import { ActionForm } from "@/components/ActionForm";
 import { Uploader } from "@/components/Uploader";
 import { requireAdmin } from "@/lib/admin";
-import { CAMPAIGN_KEY, DISCLOSURE_LINE, REWARD_DEFAULT_INCLUDES, getCampaign, readinessProblems, fmtWhen } from "@/lib/campaign";
-import { personName } from "@/lib/pro-name";
+import { DISCLOSURE_LINE, creditLabel, getCampaign, readinessProblems, rewardCreditCents, fmtWhen } from "@/lib/campaign";
 import {
-  saveCampaignSettings, publishCampaignTerms, saveCampaignGraphic, applySuppliedGraphic, updateRewardOffer,
+  saveCampaignSettings, publishCampaignTerms, saveCampaignGraphic, applySuppliedGraphic,
 } from "@/app/admin/campaign-actions";
 
 export const metadata = { title: "Campaign settings" };
@@ -20,18 +17,12 @@ const ct = (d: Date, part: "date" | "time") => {
   return part === "date" ? `${p.year}-${p.month}-${p.day}` : `${p.hour}:${p.minute}`;
 };
 
-/** Owners: capacity, booking-opening date/time, instructions, terms, graphic, optional reward description, and the professionals who chose to give a free service. */
+/** Owners: capacity, booking-opening date/time, instructions, terms and graphic. The reward is Nearest credit (amount in Rules & Settings). */
 export default async function CampaignSettings() {
   const { user } = await requireAdmin({ owner: true });
   const c = await getCampaign();
   const problems = await readinessProblems(c);
-  const offers = await db.select({ o: campaignOffers, service: proServices.name, first: users.firstName, last: users.lastName, display: professionalProfiles.displayName, biz: professionalProfiles.businessName })
-    .from(campaignOffers).innerJoin(proServices, eq(proServices.id, campaignOffers.serviceId)).innerJoin(users, eq(users.id, campaignOffers.proId))
-    .innerJoin(professionalProfiles, eq(professionalProfiles.userId, campaignOffers.proId)).where(eq(campaignOffers.campaignKey, CAMPAIGN_KEY)).orderBy(asc(campaignOffers.createdAt));
-  const choices = await db.select({ choice: professionalProfiles.campaignChoice, n: sql<number>`count(*)::int` }).from(professionalProfiles)
-    .where(isNotNull(professionalProfiles.entryPaidAt)).groupBy(professionalProfiles.campaignChoice);
-  const choiceCounts = { agreed: 0, declined: 0, waiting: 0 };
-  for (const r of choices) { if (r.choice === "agreed") choiceCounts.agreed += r.n; else if (r.choice === "declined") choiceCounts.declined += r.n; else choiceCounts.waiting += r.n; }
+  const credit = creditLabel(await rewardCreditCents());
 
   return (
     <>
@@ -51,7 +42,7 @@ export default async function CampaignSettings() {
             <label className="xs muted">Booking opens (date, Central)<input name="opensDay" type="date" defaultValue={c.bookingOpensAt ? ct(c.bookingOpensAt, "date") : "2026-11-19"} style={field} /></label>
             <label className="xs muted">Time (Central)<input name="opensTime" type="time" defaultValue={c.bookingOpensAt ? ct(c.bookingOpensAt, "time") : "00:00"} style={field} /></label>
           </div>
-          <span className="xs muted">Currently {c.bookingOpensAt ? fmtWhen(c.bookingOpensAt) : "not set"}. Rewards can only be booked after this time.</span>
+          <span className="xs muted">Currently {c.bookingOpensAt ? fmtWhen(c.bookingOpensAt) : "not set"}. Students can use their credit on bookings once booking is open.</span>
         </div>
         <div className="card" style={{ gap: 8 }}>
           <span className="eyebrow">How to participate (student steps)</span>
@@ -59,10 +50,9 @@ export default async function CampaignSettings() {
           <span className="xs muted">One step per line — shown in the invitation after registration and on the student&apos;s campaign page throughout. Keep the incentive disclosure in the steps: &ldquo;{DISCLOSURE_LINE}&rdquo;</span>
         </div>
         <div className="card" style={{ gap: 8 }}>
-          <span className="eyebrow">What the free service includes (optional — shown before students join)</span>
-          <input name="rewardTitle" defaultValue={c.rewardTitle ?? ""} placeholder="One free service from a participating professional" maxLength={120} style={field} />
-          <textarea name="rewardIncludes" rows={4} defaultValue={c.rewardIncludes ?? ""} placeholder={REWARD_DEFAULT_INCLUDES} style={field} />
-          <span className="xs muted">Leave blank to use the standard wording shown in grey.</span>
+          <span className="eyebrow">Reward</span>
+          <span className="small">{credit} in Nearest credit, added to the student&apos;s account automatically when you approve them. Usable toward any service with any professional (not Bundle Me), non-transferable, no cash value.</span>
+          <span className="xs muted">Change the amount in Rules &amp; Settings → Fees → &ldquo;Launch campaign reward&rdquo;. Professionals don&apos;t give anything — they&apos;re paid their normal price.</span>
         </div>
       </ActionForm>
 
@@ -86,18 +76,6 @@ export default async function CampaignSettings() {
         </div>
       </ActionForm>
 
-      <div className="card" id="pros" style={{ gap: 10 }}>
-        <span className="eyebrow">Participating professionals — {offers.filter((x) => x.o.active).length} offering a free service</span>
-        <span className="xs muted">Professionals sign up for this themselves: new pros agree on the last setup page, and pros who joined earlier opt in or decline from the card on their home screen. Each one chooses a service listed at $25 or more and how many free appointments they give. Nearest pays nothing — the payout is $0.</span>
-        <span className="xs">Agreed: {choiceCounts.agreed} • Declined: {choiceCounts.declined} • Haven&apos;t answered yet: {choiceCounts.waiting}</span>
-        {offers.length === 0 && <span className="small">No professional has chosen a free service yet.</span>}
-        {offers.map(({ o, service, first, last, display, biz }) => (
-          <div key={o.id} className="row small" style={{ gap: 8, flexWrap: "wrap", borderTop: "1px solid #1C1C1F", paddingTop: 8 }}>
-            <span className="grow"><span className="b">{service}</span> — {personName(display, first, last)}{biz ? ` (${biz})` : ""} • {o.slotsUsed} of {o.slotsTotal} free appointments used • {o.active ? "Active" : "Paused"}<br /><span className="xs muted">{o.confirmedAt ? `Agreed ${fmtWhen(o.confirmedAt)}` : ""}</span></span>
-            <form action={updateRewardOffer}><input type="hidden" name="id" value={o.id} /><input type="hidden" name="toggle" value="1" /><button className="link xs" type="submit">{o.active ? "Pause" : "Resume"}</button></form>
-          </div>
-        ))}
-      </div>
     </>
   );
 }

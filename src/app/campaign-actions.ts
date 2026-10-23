@@ -103,20 +103,8 @@ export async function markCorrectionDone(_: FormState, form: FormData): Promise<
 }
 
 /** Book the free-service reward (only once approved, booking open, an appointment available, and unused). */
-export async function bookCampaignReward(_: FormState, form: FormData): Promise<FormState> {
-  const { user } = await requireStudent();
-  const offerId = String(form.get("offerId") ?? "");
-  const day = String(form.get("day") ?? ""), time = String(form.get("time") ?? "");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !/^\d{2}:\d{2}$/.test(time)) return { error: "Pick a day and time." };
-  if (form.get("agree") !== "on") return { error: "Please agree to the reward booking terms." };
-  const { campaignOffers, proServices } = await import("@/db");
-  const offer = await db.query.campaignOffers.findFirst({ where: eq(campaignOffers.id, offerId) });
-  const svc = offer ? await db.query.proServices.findFirst({ where: eq(proServices.id, offer.serviceId) }) : null;
-  if (!offer || !svc) return { error: "That appointment option isn't available." };
-  const { openSlots } = await import("@/lib/availability");
-  if (!(await openSlots(offer.proId, svc.durationMin, day)).includes(time)) return { error: "That time was just taken or isn't available. Pick another." };
-  const { bookReward } = await import("@/lib/campaign-reward");
-  const r = await bookReward(user.id, offerId, chicagoToUtc(day, time));
-  if ("error" in r) return { error: r.error };
-  redirect(`/bookings/${r.bookingId}?requested=1`);
+/** Retired: the launch reward is Nearest credit, added automatically when Nearest approves the student. */
+export async function bookCampaignReward(_: FormState, _form: FormData): Promise<FormState> {
+  await requireStudent();
+  return { error: "The launch reward is now Nearest credit — it's added to your account when you're approved. Use it on any booking." };
 }

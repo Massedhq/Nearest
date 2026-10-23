@@ -1,16 +1,16 @@
 import "server-only";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
-import { CAMPAIGN_KEY, fmtWhen, getCampaign, recordEvent, bookingOpensLabel } from "./campaign";
+import { CAMPAIGN_KEY, fmtWhen, getCampaign, recordEvent } from "./campaign";
 import { notifyOnce } from "./campaign-notify";
 
 /**
  * Every 15 minutes: mark entries "Ready for final review" once 168 hours have passed (never approve), send daily and
- * final evidence reminders, tell approved students when booking opens, give back rewards whose booking fell through,
+ * final evidence reminders, add any missing reward credit for approved students, give back rewards whose booking fell through,
  * and fill released places from the waitlist. Every notice is keyed, so re-running never sends a duplicate.
  */
 export async function runCampaign() {
-  const c = await getCampaign();
+  await getCampaign(); // creates the campaign row (and upgrades its wording) if needed
   const out = { ready: 0, daily: 0, finals: 0, bookingOpen: 0, restored: 0, placed: 0 };
 
   // 1) 168 hours passed → Ready for final review.
@@ -45,19 +45,19 @@ export async function runCampaign() {
   for (const r of finals.rows) {
     if (await notifyOnce(`final:${r.id}`, r.student_id, {
       title: "Seven days complete — send your final screenshot", body: "Upload a final screenshot of your profile so Nearest can do your final review.", href: "/campaign",
-      email: { subject: "Your seven days are complete — final screenshot needed", heading: "Your seven days are complete.", lines: ["Upload a final screenshot of your profile showing the Nearest picture. Nearest reviews everything by hand before approving your reward."], button: "Upload final screenshot" },
+      email: { subject: "Your seven days are complete — final screenshot needed", heading: "Your seven days are complete.", lines: ["Upload a final screenshot of your profile showing the Nearest picture. Nearest reviews everything by hand before adding your Nearest credit."], button: "Upload final screenshot" },
     })) out.finals++;
   }
 
-  // 4) Booking is open → tell approved participants (once).
-  if (c.bookingOpensAt && c.bookingOpensAt.getTime() <= Date.now()) {
-    const approved = await db.execute<{ id: string; student_id: string }>(sql`select id, student_id from campaign_entries where campaign_key = ${CAMPAIGN_KEY} and status = 'approved' limit 1000`);
-    for (const r of approved.rows) {
-      if (await notifyOnce(`booking-open:${r.id}`, r.student_id, {
-        title: "Booking is open — book your free service", body: "Your approved launch reward can be booked now, subject to available appointments.", href: "/campaign/reward",
-        email: { subject: "Booking is open on Nearest — book your free service", heading: "Booking is open.", lines: [`Booking opened ${bookingOpensLabel(c)}. Book your free service from your campaign page — appointments depend on availability.`], button: "Book my free service" },
-      })) out.bookingOpen++;
-    }
+  // 4) Approved participants without their Nearest credit yet (e.g. approved before the reward became credit) get it now — once.
+  const approved = await db.execute<{ id: string; student_id: string }>(sql`select id, student_id from campaign_entries where campaign_key = ${CAMPAIGN_KEY} and status = 'approved' and reward_booking_id is null limit 1000`);
+  const { issueRewardCredit, creditLabel } = await import("./campaign");
+  for (const r of approved.rows) {
+    const cents = await issueRewardCredit(r.id);
+    if (cents && await notifyOnce(`credit-added:${r.id}`, r.student_id, {
+      title: `${creditLabel(cents)} Nearest credit added`, body: "Your launch campaign reward is now Nearest credit — use it toward any service you book with a professional.", href: "/credits",
+      email: { subject: `${creditLabel(cents)} Nearest credit added to your account`, heading: "Your launch reward is in your account.", lines: [`${creditLabel(cents)} in Nearest credit was added. It's taken off your total automatically when you pay for any service with any professional on Nearest.`], button: "See my credit" },
+    })) out.bookingOpen++;
   }
 
   // 5) Rewards whose booking didn't go ahead; 6) released places → waitlist.
