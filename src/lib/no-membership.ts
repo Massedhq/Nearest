@@ -51,8 +51,8 @@ export async function endOldMemberships() {
         await db.update(professionalProfiles).set({ subscriptionStatus: "canceled" }).where(eq(professionalProfiles.userId, p.userId));
       }
       await db.update(professionalProfiles).set({ membershipEndsAt: endsAt, membershipPausedAt: null }).where(eq(professionalProfiles.userId, p.userId));
-      await tell(p.userId, "account", "No more monthly membership", "Nearest no longer charges a monthly membership. Yours is cancelled — you won't be charged again. Nearest only earns its service fee on completed bookings.", "/pro/payments",
-        { subject: "Good news: no more monthly membership", heading: "There's no monthly membership anymore.", lines: ["Being on Nearest is now free. Nearest only earns its $5 service fee on each completed booking.", "Your membership is cancelled and you won't be charged again. Nothing else about your account changes."], button: "See your fees" });
+      await tell(p.userId, "account", "No more monthly membership", "Nearest no longer charges a monthly membership. Yours is cancelled — you won't be charged again.", "/pro/payments",
+        { subject: "Good news: no more monthly membership", heading: "There's no monthly membership anymore.", lines: ["Being on Nearest is now free.", "Your membership is cancelled and you won't be charged again. Nothing else about your account changes."], button: "See your fees" });
       n++;
     } catch (e) { console.error("endOldMemberships", p.userId, e); }
   }

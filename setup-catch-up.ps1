@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Enrollment holds: unfinished pro registrations, unused invitations and links put on hold after 30 days (nothing deleted), enrollment-closed message, attempts logged, owner release; guides and Terms updated"
+git commit -q -m "Removed the Nearest only earns sentence from invitation page, invitation email, outreach email, membership notices and recruiter assistant"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

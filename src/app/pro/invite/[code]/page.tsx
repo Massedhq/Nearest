@@ -37,7 +37,7 @@ export default async function InvitePage({ params }: { params: Promise<{ code: s
   const offer = noFee
     ? invite.kind === "AMBASSADOR"
       ? { tag: "Ambassador Invitation", title: "You're invited to join Nearest as an Ambassador.", price: "Free", line: "No sign-up fee and no monthly fee.", note: "Share Nearest with other professionals and help them get on board." }
-      : { tag: invite.kind === "BOOKING_PAID" ? "Special Invitation" : "First In Invitation", title: invite.kind === "BOOKING_PAID" ? "You're invited to join Nearest." : "You're invited to join Nearest First In.", price: "Free to join", line: "No sign-up fee and no monthly fee.", note: "Nearest only earns its small service fee on each completed booking — added on top of your price, so you receive your full price." }
+      : { tag: invite.kind === "BOOKING_PAID" ? "Special Invitation" : "First In Invitation", title: invite.kind === "BOOKING_PAID" ? "You're invited to join Nearest." : "You're invited to join Nearest First In.", price: "Free to join", line: "No sign-up fee and no monthly fee.", note: "" }
     : invite.kind === "AMBASSADOR"
     ? { tag: "Ambassador Invitation", title: "You're invited to join Nearest as an Ambassador.", price: "Free", line: "No sign-up fee and no monthly membership.", note: "Share Nearest with other professionals and help them get on board." }
     : invite.kind === "BOOKING_PAID"
@@ -58,7 +58,7 @@ export default async function InvitePage({ params }: { params: Promise<{ code: s
         <div className="card pearl">
           <span className="disp h2">{offer.price}</span>
           <span className="small">{offer.line}</span>
-          <span className="xs muted">{offer.note}</span>
+          {offer.note && <span className="xs muted">{offer.note}</span>}
         </div>
         <div style={{ flex: 1 }} />
         <Link className="btn" href={accept}>Accept invitation</Link>

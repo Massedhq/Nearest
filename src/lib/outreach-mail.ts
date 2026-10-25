@@ -23,7 +23,7 @@ export const DEFAULT_TEMPLATES: Record<TemplateKey, { subject: string; body: str
 
 I came across your work and wanted to reach out personally. I'm {recruiter} with Nearest — a booking platform for beauty, wellness and self-care professionals.
 
-Nearest is controlled by city, so you're never one of fifty: each city has a limited number of spots per service. Joining is free — build your full profile at no cost, with no monthly fee. Nearest only earns a small service fee when you complete a booking, added on top of your price.
+Nearest is controlled by city, so you're never one of fifty: each city has a limited number of spots per service. Joining is free — build your full profile at no cost, with no monthly fee.
 
 If you want to grow your bookings and get in early, here's your personal invite (it expires in 24 hours):
 {link}
@@ -62,7 +62,7 @@ If now isn't the right time, no worries at all.
 export async function getTemplates() {
   const rows = await db.select().from(outreachTemplates);
   const t = { ...DEFAULT_TEMPLATES } as Record<TemplateKey, { subject: string; body: string; updatedAt?: Date }>;
-  for (const r of rows) if (r.key in t) t[r.key as TemplateKey] = { subject: r.subject, body: r.body, updatedAt: r.updatedAt };
+  for (const r of rows) if (r.key in t) t[r.key as TemplateKey] = { subject: r.subject, body: r.body.replace(/ ?Nearest only earns[^.\n]*\./g, ""), updatedAt: r.updatedAt };
   const address = rows.find((r) => r.key === "address")?.body ?? "";
   return { templates: t, address };
 }
