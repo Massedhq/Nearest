@@ -8,6 +8,7 @@ import { liveProWhere } from "@/lib/search";
 import { money } from "@/lib/time";
 import { MAX_PRICE_CENTS } from "@/lib/pricing";
 import { Icon } from "@/components/Icon";
+import { abs } from "@/lib/public/site";
 
 export const dynamic = "force-dynamic";
 
@@ -26,8 +27,10 @@ export async function generateMetadata({ params }: { params: Promise<{ handle: s
   const { handle } = await params;
   const r = await findPro(handle);
   if (!r) return { title: "Nearest" };
-  const title = `${r.p.businessName ?? "Professional"} on Nearest`;
-  return { title, description: `Book ${r.p.businessName} on Nearest — verified professionals near you.`, openGraph: { title, ...(r.p.photoUrl ? { images: [r.p.photoUrl] } : {}) } };
+  const title = `${r.p.businessName ?? "Professional"}${r.city ? ` in ${r.city}` : ""} on Nearest`;
+  const description = `Book ${r.p.businessName ?? "this professional"}${r.city ? ` in ${r.city}${r.state ? `, ${r.state}` : ""}` : ""} on Nearest — verified beauty, wellness and self-care professionals students can book near them.`;
+  const url = abs(`/pro-${r.p.slug ?? r.p.userId}`);
+  return { title, description, alternates: { canonical: url }, openGraph: { title, description, url, ...(r.p.photoUrl ? { images: [r.p.photoUrl] } : {}) } };
 }
 
 /** Public booking link (usenearest.com/pro-<name>): anyone can see it; verified students go straight to the full profile. */

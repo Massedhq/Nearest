@@ -29,7 +29,7 @@ export default async function Welcome() {
       <JsonLd data={[
         { "@context": "https://schema.org", "@type": "Organization", "@id": `${SITE_URL}/#organization`, name: SITE_NAME, alternateName: `Nearest — ${SITE_TAGLINE}`, url: SITE_URL, logo: abs(LOGO_PATH), sameAs: [INSTAGRAM_URL],
           contactPoint: [{ "@type": "ContactPoint", contactType: "customer support", email: SUPPORT_EMAIL }] },
-        { "@context": "https://schema.org", "@type": "WebSite", "@id": `${SITE_URL}/#website`, name: SITE_NAME, alternateName: "usenearest.com", url: SITE_URL, publisher: { "@id": `${SITE_URL}/#organization` } },
+        { "@context": "https://schema.org", "@type": "WebSite", "@id": `${SITE_URL}/#website`, name: SITE_NAME, alternateName: ["usenearest", "usenearest.com", "Use Nearest", "Nearest app"], url: SITE_URL, publisher: { "@id": `${SITE_URL}/#organization` } },
       ]} />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", padding: "0 22px" }}>
         <h1 style={{ margin: 0, width: "100%", display: "flex", justifyContent: "center" }}>
@@ -59,7 +59,13 @@ export default async function Welcome() {
           </section>
         )}
         <p className="xs muted" style={{ textAlign: "center", margin: "6px 0 0" }}>By continuing you agree to the Nearest <Link className="link" href="/terms" style={{ fontSize: "inherit" }}>Terms</Link> and <Link className="link" href="/privacy" style={{ fontSize: "inherit" }}>Privacy Policy</Link>.</p>
+        <p className="xs muted" style={{ textAlign: "center", margin: "10px auto 0", maxWidth: 340, lineHeight: 1.5 }}>
+          <strong>Nearest</strong> (usenearest.com) is a booking platform where verified students book independent beauty, grooming, wellness and
+          self-care professionals near them — hair, braids, barbers, lashes, nails, brows, makeup and more — at student-friendly prices.
+          Professionals list their services free and get booked by students nearby.
+        </p>
         <nav aria-label="Learn about Nearest" className="xs" style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "4px 14px", margin: "2px 0 0" }}>
+          <Link className="link" href="/about-nearest" style={{ fontSize: "inherit" }}>About Nearest</Link>
           <Link className="link" href="/student-beauty-services" style={{ fontSize: "inherit" }}>For students</Link>
           <Link className="link" href="/for-professionals" style={{ fontSize: "inherit" }}>For professionals</Link>
           <Link className="link" href="/locations" style={{ fontSize: "inherit" }}>Locations</Link>

@@ -59,6 +59,7 @@ export default async function Launch() {
   }
   add({ area: "Email", label: "Sends from @usenearest.com", ok: /@usenearest\.com/i.test(env("EMAIL_FROM")), detail: env("EMAIL_FROM") || "missing (defaults to hello@usenearest.com)" });
   add({ area: "Email", label: "Links in emails point to the live site", ok: env("APP_URL") === "https://usenearest.com" || env("APP_URL") === "https://www.usenearest.com", detail: env("APP_URL") || "missing" });
+  add({ area: "Site", label: "Site address is the www address Google indexes", ok: env("APP_URL") === "https://www.usenearest.com", detail: env("APP_URL") === "https://www.usenearest.com" ? "https://www.usenearest.com" : `${env("APP_URL") || "missing"} — set APP_URL to https://www.usenearest.com in Vercel (search pages already use www either way)`, fix: "Vercel → Settings → Environment Variables → APP_URL = https://www.usenearest.com (Production) → Redeploy" });
 
   // ---------- Site ----------
   add({ area: "Site", label: "Photo storage (Vercel Blob)", ok: Boolean(env("BLOB_READ_WRITE_TOKEN")), detail: env("BLOB_READ_WRITE_TOKEN") ? "connected" : "missing" });

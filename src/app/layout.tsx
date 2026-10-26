@@ -8,10 +8,11 @@ import { SwRegister } from "@/components/SwRegister";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { ProblemReporter } from "@/components/ProblemReporter";
 import { PoweredBy } from "@/components/PoweredBy";
+import { SITE_URL } from "@/lib/public/site";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.APP_URL || "https://www.usenearest.com"),
+  metadataBase: new URL(SITE_URL), // always https://www.usenearest.com in production (never the redirecting no-www address)
   title: { default: "Nearest", template: "%s · Nearest" },
   // Link previews (iMessage, Messenger, Instagram, Facebook…) always show the Nearest logo — src/app/opengraph-image.png.
   openGraph: { siteName: "Nearest", type: "website", description: "Find who's available near you." },

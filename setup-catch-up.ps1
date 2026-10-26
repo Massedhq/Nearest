@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Find by photo: students upload an inspo photo and see only pros whose portfolio photos closely match the look (server-side visual fingerprints + AI look check), admin page, rules, guides and Privacy updated"
+git commit -q -m "SEO: canonical, sitemap and structured data always use https://www.usenearest.com (the no-www address redirects), brand alternate names, visible About Nearest text on the homepage, live pro booking pages in the sitemap with canonicals, launch check for APP_URL"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

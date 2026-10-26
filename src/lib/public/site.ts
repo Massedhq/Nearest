@@ -1,5 +1,19 @@
 // Public site (SEO + resource center) — shared constants. Only facts confirmed in the codebase live here.
-export const SITE_URL = (process.env.APP_URL || "https://www.usenearest.com").replace(/\/+$/, "");
+/**
+ * The ONE address search engines should index. usenearest.com (no www) redirects to www, so every canonical link,
+ * sitemap entry and structured-data URL must use https://www.usenearest.com — pointing Google at an address that
+ * redirects tells it the page isn't the real one. Local/preview builds keep their own APP_URL.
+ */
+export const CANONICAL_ORIGIN = "https://www.usenearest.com";
+export const SITE_URL = (() => {
+  const raw = (process.env.APP_URL || CANONICAL_ORIGIN).replace(/\/+$/, "");
+  try {
+    const host = new URL(raw).hostname.toLowerCase();
+    return host === "usenearest.com" || host === "www.usenearest.com" ? CANONICAL_ORIGIN : raw;
+  } catch {
+    return CANONICAL_ORIGIN;
+  }
+})();
 export const SITE_NAME = "Nearest";
 export const SITE_TAGLINE = "Student Beauty, Wellness & Self-Care Booking Platform";
 export const SUPPORT_EMAIL = "support@usenearest.com"; // used across the app for help

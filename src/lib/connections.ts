@@ -2,6 +2,7 @@ import "server-only";
 import { and, eq, ne, or, sql, inArray, desc, gte } from "drizzle-orm";
 import { db, users, studentProfiles, schools, connections, proShares, professionalProfiles } from "@/db";
 import { inbox } from "./inbox";
+import { SITE_URL } from "./public/site";
 
 // ---------- Names ----------
 export const shortName = (u: { firstName: string | null; lastName: string | null }) =>
@@ -153,4 +154,5 @@ export async function ensureProSlug(userId: string) {
   return null;
 }
 
-export const proLink = (slug: string) => `${process.env.APP_URL || "https://usenearest.com"}/pro-${slug}`;
+// Always the indexed address (www) — these links end up in pros' bios, so they should point straight at the real page.
+export const proLink = (slug: string) => `${SITE_URL}/pro-${slug}`;

@@ -10,7 +10,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       <JsonLd data={[
         { "@context": "https://schema.org", "@type": "Organization", "@id": `${SITE_URL}/#organization`, name: SITE_NAME, alternateName: `Nearest — ${SITE_TAGLINE}`, url: SITE_URL, logo: abs(LOGO_PATH), sameAs: [INSTAGRAM_URL],
           contactPoint: [{ "@type": "ContactPoint", contactType: "customer support", email: SUPPORT_EMAIL }] },
-        { "@context": "https://schema.org", "@type": "WebSite", "@id": `${SITE_URL}/#website`, name: SITE_NAME, alternateName: "usenearest.com", url: SITE_URL, publisher: { "@id": `${SITE_URL}/#organization` } },
+        { "@context": "https://schema.org", "@type": "WebSite", "@id": `${SITE_URL}/#website`, name: SITE_NAME, alternateName: ["usenearest", "usenearest.com", "Use Nearest", "Nearest app"], url: SITE_URL, publisher: { "@id": `${SITE_URL}/#organization` } },
       ]} />
       {children}
     </PublicShell>
