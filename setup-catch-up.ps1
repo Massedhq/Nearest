@@ -17,7 +17,7 @@ foreach ($r in $retired) { if (Test-Path $r) { Remove-Item -Recurse -Force $r; W
 Step "1/4  Installing packages"
 npm ci
 Check "Installing packages"
-Step "2/4  Updating Neon (adds fields for Model Call fees, the 30-day spot rule, add-ons and Professional Protection - nothing is removed)"
+Step "2/4  Updating Neon (adds Find by photo fields to portfolio photos and a search log - nothing is removed)"
 # Neon can be slow to answer "Pulling schema" - retry up to 3 times before giving up.
 $ok = $false
 foreach ($try in 1..3) {
@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Removed the Nearest only earns sentence from invitation page, invitation email, outreach email, membership notices and recruiter assistant"
+git commit -q -m "Find by photo: students upload an inspo photo and see only pros whose portfolio photos closely match the look (server-side visual fingerprints + AI look check), admin page, rules, guides and Privacy updated"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

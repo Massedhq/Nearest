@@ -164,6 +164,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
           <div className="row between"><span className="b">Bundle my booking</span><Icon name="right" /></div>
           <span className="small muted">Hair, lashes, nails, makeup and more for the same week — matched to your budget.</span>
         </Link>
+        <Link className="card" href="/find-look" style={{ textDecoration: "none", color: "inherit", gap: 4 }}>
+          <div className="row between"><span className="row b" style={{ gap: 8 }}><Icon name="camera" /> Find by photo</span><Icon name="right" /></div>
+          <span className="small muted">Have an inspo photo? Upload it and see professionals whose own work matches that look.</span>
+        </Link>
         <ExploreFilters
           key={`${f.cat ?? ""}|${f.svc ?? ""}|${f.q ?? ""}|${f.area ?? ""}|${f.loc ?? ""}`}
           cats={listCats}

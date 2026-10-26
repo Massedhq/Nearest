@@ -361,6 +361,12 @@ export const portfolioItems = pgTable("portfolio_items", {
   serviceId: uuid("service_id").references(() => proServices.id, { onDelete: "set null" }),
   // Set when the pro chose to move a client's photo into their portfolio (client photos are never added automatically).
   fromBookingId: uuid("from_booking_id"),
+  // Find by photo (src/lib/look-match.ts): visual fingerprints of this photo (whole photo + close-up areas), made by the
+  // server from the image itself. Null until indexed (cron). look_model changes when the matching model is upgraded.
+  lookVectors: text("look_vectors"),
+  lookModel: text("look_model"),
+  lookIndexedAt: ts("look_indexed_at"),
+  lookError: text("look_error"),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("portfolio_user_idx").on(t.userId)]);
 
@@ -627,6 +633,19 @@ export const searchLog = pgTable("search_log", {
   results: integer("results").notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("search_log_created_idx").on(t.createdAt)]);
+
+/** Find by photo: one row per search (the student's photo itself is never stored). */
+export const lookSearches = pgTable("look_searches", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  studentId: uuid("student_id").references(() => users.id, { onDelete: "set null" }),
+  categoryId: integer("category_id"),
+  detected: text("detected"), // what the photo shows, in a few words ("Wispy hybrid lash set, cat-eye")
+  compared: integer("compared").notNull().default(0), // portfolio photos compared
+  results: integer("results").notNull().default(0), // professionals shown
+  aiUsed: boolean("ai_used").notNull().default(false),
+  error: text("error"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("look_searches_student_idx").on(t.studentId, t.createdAt)]);
 
 export const favorites = pgTable("favorites", {
   studentId: uuid("student_id").notNull().references(() => users.id, { onDelete: "cascade" }),

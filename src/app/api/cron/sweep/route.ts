@@ -19,5 +19,6 @@ export async function GET(req: Request) {
   const broadcastSent = await (await import("@/lib/broadcasts")).sendBroadcasts(); // Broadcasts, in batches
   const campaign = await (await import("@/lib/campaign-cron")).runCampaign(); // launch campaign clock, reminders, rewards
   const enrollmentHolds = await (await import("@/lib/enrollment-holds")).runEnrollmentHolds().catch((e) => { console.error("holds", e); return null; }); // unfinished 30 days → on hold
-  return Response.json({ ...result, enrollmentHolds, reminders, steppedUp, seatsReleased, bundlesExpired, verifyReminders, setupReminders, outreach, broadcastSent, requestsExpired, requestReminders, spotsReleased, membershipsEnded, inactiveSpots, campaign });
+  const lookIndex = await (await import("@/lib/look-match")).indexPendingLooks(30_000).catch((e) => { console.error("look index", e); return null; }); // Find by photo: fingerprint new portfolio photos
+  return Response.json({ ...result, enrollmentHolds, lookIndex, reminders, steppedUp, seatsReleased, bundlesExpired, verifyReminders, setupReminders, outreach, broadcastSent, requestsExpired, requestReminders, spotsReleased, membershipsEnded, inactiveSpots, campaign });
 }
