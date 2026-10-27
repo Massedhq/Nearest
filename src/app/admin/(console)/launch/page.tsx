@@ -8,6 +8,9 @@ import { stripe } from "@/lib/stripe";
 import { getEntryState } from "@/lib/entry";
 import { findStaleStripeRefs } from "@/lib/stripe-hygiene";
 import { clearTestStripeLinks } from "@/app/admin/actions";
+import { ActionForm } from "@/components/ActionForm";
+import { lastSent } from "@/lib/indexnow";
+import { sendIndexNowNow } from "@/app/admin/indexnow-actions";
 
 export const metadata = { title: "Launch readiness" };
 export const dynamic = "force-dynamic";
@@ -90,6 +93,7 @@ export default async function Launch() {
 
   const areas = [...new Set(checks.map((c) => c.area))];
   const red = checks.filter((c) => c.ok === false).length;
+  const last = await lastSent().catch(() => null);
   return (
     <>
       <AdminHead eyebrow="Owner only • checks the live settings this site is running with" title="Launch readiness" />
@@ -113,6 +117,13 @@ export default async function Launch() {
           <span className="small">Found {stale.length} Stripe link{stale.length === 1 ? "" : "s"} from test mode. Clearing removes only those links — accounts, profiles and bookings stay.</span>
           <button className="btn sm" type="submit">Clear test Stripe links</button>
         </form>
+      )}
+      {(
+          <ActionForm action={sendIndexNowNow} submitLabel="Send all pages to Bing now" buttonClass="btn ghost sm" className="card">
+            <span className="eyebrow">Search engines</span>
+            <span className="small">Bing, Yahoo, DuckDuckGo and ChatGPT search are told about every public page automatically once a day (IndexNow), and a professional&apos;s booking page the moment they go live. Google reads the sitemap instead — submit https://www.usenearest.com/sitemap.xml in Search Console.</span>
+            <span className="xs muted">{last ? `Last sent ${new Date(last.at).toLocaleString("en-US", { timeZone: "America/Chicago", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} — ${last.count} pages (response ${last.status})` : "Not sent yet — it goes out with the next 15-minute run after this version is live."}</span>
+          </ActionForm>
       )}
       <p className="xs muted p">Full step-by-step guide: <Link className="link xs" href="https://github.com/Massedhq/Nearest/blob/main/docs/LAUNCH.md">docs/LAUNCH.md</Link></p>
     </>

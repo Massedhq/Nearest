@@ -517,6 +517,12 @@ export async function setGoLive(form: FormData) {
   const on = form.get("on") === "1";
   if (on && (await proReadiness(profile)).length > 0) return; // the card lists what's left instead
   await db.update(professionalProfiles).set({ searchable: on }).where(eq(professionalProfiles.userId, user.id));
+  if (on) {
+    // Their public booking page just appeared — tell Bing & co. now (never blocks going live).
+    const { ensureProSlug } = await import("@/lib/connections");
+    const slug = await ensureProSlug(user.id).catch(() => null);
+    await (await import("@/lib/indexnow")).pingProPage(slug).catch(() => {});
+  }
   revalidatePath("/pro", "layout");
   revalidatePath("/home");
 }

@@ -1351,3 +1351,55 @@ export const enrollmentHoldAttempts = pgTable("enrollment_hold_attempts", {
   detail: text("detail"),
   at: ts("at").notNull().defaultNow(),
 }, (t) => [index("enrollment_hold_attempts_idx").on(t.holdId, t.at)]);
+
+// ---------------------------------------------------------------------------------------------------------------
+// Meet the Director of Outreach (/meet): professionals book a 30-minute in-person meeting. src/lib/meet.ts
+// ---------------------------------------------------------------------------------------------------------------
+
+/** Starbucks locations professionals may pick as a meet-up spot — entered by the owner per city (Admin → Outreach meetings). */
+export const meetSpots = pgTable("meet_spots", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  city: text("city").notNull(), // one of MEET_CITIES
+  name: text("name").notNull(), // "Starbucks · Stonebriar Centre"
+  address: text("address").notNull(),
+  active: boolean("active").notNull().default(true),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("meet_spots_city_idx").on(t.city)]);
+
+export const outreachMeetings = pgTable("outreach_meetings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  city: text("city").notNull(),
+  specialty: text("specialty").notNull(), // nails | lashes | hair | barber
+  proStatus: text("pro_status").notNull(), // licensed | in_school | self_taught
+  homeBased: boolean("home_based").notNull(),
+  startsAt: ts("starts_at").notNull(),
+  endsAt: ts("ends_at").notNull(),
+  locationType: text("location_type").notNull(), // their_place | starbucks
+  address: text("address"), // their place only — private, owner-only
+  suite: text("suite"),
+  zip: text("zip"),
+  locationNotes: text("location_notes"),
+  spotId: integer("spot_id"),
+  spotLabel: text("spot_label"), // copy of the Starbucks name + address at booking time
+  legalFirst: text("legal_first").notNull(),
+  legalLast: text("legal_last").notNull(),
+  businessName: text("business_name"),
+  phone: text("phone").notNull(),
+  phoneNorm: text("phone_norm").notNull(),
+  email: text("email").notNull(),
+  photo: text("photo").notNull(), // private Blob URL — served only to owners
+  photoAccess: text("photo_access").notNull().default("private"),
+  friendFirst: text("friend_first"),
+  friendLast: text("friend_last"),
+  friendSpecialty: text("friend_specialty"),
+  friendStatus: text("friend_status"),
+  friendContact: text("friend_contact"),
+  friendPhoto: text("friend_photo"),
+  friendPhotoAccess: text("friend_photo_access"),
+  state: text("state").notNull().default("booked"), // booked | showed | no_show | cancelled
+  stateAt: ts("state_at"),
+  stateBy: uuid("state_by"),
+  agreedAt: ts("agreed_at").notNull(), // "can't be changed / missed = can't book again"
+  ip: text("ip"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("outreach_meetings_starts_idx").on(t.startsAt), index("outreach_meetings_email_idx").on(t.email), index("outreach_meetings_phone_idx").on(t.phoneNorm)]);

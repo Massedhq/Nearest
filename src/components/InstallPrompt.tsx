@@ -8,7 +8,7 @@ type Mode = "button" | "ios" | "android" | "inapp" | null;
 
 const KEY = "nearest_install_dismissed";
 // The public resource center (articles, FAQ) never shows the install banner — no interstitials over content.
-const HIDE_ON = ["/guardian", "/unsubscribe", "/go/", "/invite-expired", "/r/", ...PUBLIC_PAGES];
+const HIDE_ON = ["/guardian", "/unsubscribe", "/go/", "/invite-expired", "/r/", "/meet", ...PUBLIC_PAGES];
 
 /**
  * "Install Nearest" banner. Phones rarely offer to install a web app on their own (iPhone never does),
