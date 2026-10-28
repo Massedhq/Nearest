@@ -1,9 +1,9 @@
 "use client";
 import { useState } from "react";
 import { ACCENT, GOLD, IMG, C, Btn, Choice, Check, Toggle, Done, DemoShell } from "./ui";
-import { DEMO, SERVICES, PORTFOLIO, mins } from "./data";
+import { DEMO, SERVICES, PORTFOLIO, PRODUCTS, mins } from "./data";
 
-const TABS = ["Apply", "Sign in", "Your page", "Services", "Portfolio", "Travel & hours", "Share"];
+const TABS = ["Apply", "Sign in", "Your page", "Services", "Portfolio", "Travel & hours", "Shop", "Share"];
 
 /** How a partner sets up: apply, sign in, page & links, services, portfolio, travel & hours, then share and save. */
 export function SetupDemo() {
@@ -16,7 +16,8 @@ export function SetupDemo() {
       {tab === 3 && <Services />}
       {tab === 4 && <Portfolio />}
       {tab === 5 && <TravelHours />}
-      {tab === 6 && <Share />}
+      {tab === 6 && <ShopSetup />}
+      {tab === 7 && <Share />}
     </DemoShell>
   );
 }
@@ -255,12 +256,54 @@ function TravelHours() {
   );
 }
 
+function ShopSetup() {
+  const [items, setItems] = useState(PRODUCTS.map((p) => p.title));
+  const [kind, setKind] = useState<"digital" | "physical">("digital");
+  const [uploaded, setUploaded] = useState(false);
+  const [shipped, setShipped] = useState(false);
+  const [saved, setSaved] = useState(false);
+  return (
+    <>
+      <Head step="Step 7" title="Your shop" text="Sell digital downloads like your workbook — delivered the moment someone pays — and products like shampoo, tools or lash kits that you ship." />
+      {items.map((t) => (
+        <div key={t} style={{ ...C.tile, cursor: "default" }}>
+          <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}><span style={{ fontSize: 14, fontWeight: 800 }}>{t}</span><span style={{ fontSize: 12, color: "#B8B2A7" }}>{PRODUCTS.find((p) => p.title === t)?.kind === "physical" ? "Physical product" : "Digital download"}</span></span>
+          <span style={{ background: "#12301C", color: "#8FE0A8", borderRadius: 999, padding: "4px 10px", fontSize: 11, fontWeight: 800 }}>In shop</span>
+        </div>
+      ))}
+      <div style={C.card}>
+        <span style={{ fontSize: 15, fontWeight: 800 }}>Add a product</span>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}><Choice on={kind === "digital"} onClick={() => setKind("digital")}>Digital download</Choice><Choice on={kind === "physical"} onClick={() => setKind("physical")}>Physical product</Choice></div>
+        <Field label="Name" value={kind === "digital" ? "Lash Business Starter Guide" : "Silk Press Flat Iron"} />
+        <div style={{ display: "grid", gridTemplateColumns: kind === "physical" ? "1fr 1fr" : "1fr", gap: 8 }}><Field label="Price ($)" value={kind === "digital" ? "19" : "89"} />{kind === "physical" && <Field label="Shipping ($)" value="8" />}</div>
+        {kind === "physical" && <Field label="How many do you have?" value="15" />}
+        <Btn kind="ghost">Add a product photo</Btn>
+        {kind === "digital" && <Btn kind="outline" onClick={() => setUploaded(true)}>{uploaded ? "✓ Starter-Guide.pdf uploaded" : "Upload the download (PDF, ZIP, MP4, MP3)"}</Btn>}
+        <span style={C.muted}>{kind === "digital" ? "Only buyers get the file — it's never shown on your page." : "You'll see the buyer's shipping address in Orders."}</span>
+        <Btn onClick={() => { setItems([...items, kind === "digital" ? "Lash Business Starter Guide" : "Silk Press Flat Iron"]); setSaved(true); }}>Add to my shop</Btn>
+        <Saved on={saved} />
+      </div>
+      <span style={C.eyebrow}>Orders</span>
+      <div style={C.card}>
+        <div style={{ display: "flex", justifyContent: "space-between" }}><b style={{ fontSize: 14 }}>2 × Pro Lash Kit</b><span style={{ fontSize: 12, color: shipped ? "#8FE0A8" : GOLD, fontWeight: 800 }}>{shipped ? "Shipped" : "To ship"}</span></div>
+        <span style={{ fontSize: 13, color: "#D9D4CA", lineHeight: 1.5 }}><b>Ship to</b><br />Jasmine R.<br />2150 Main St, Corona, CA 92882</span>
+        {!shipped ? <><Field label="Tracking (optional)" value="9400 1000 0000 0000 0000 00" /><Btn onClick={() => setShipped(true)}>Mark shipped</Btn></> : <span style={C.muted}>The buyer got the tracking number by email, and your payout is on its way.</span>}
+      </div>
+      <div style={C.card}>
+        <div style={{ display: "flex", justifyContent: "space-between" }}><b style={{ fontSize: 14 }}>Get Booked Workbook</b><span style={{ fontSize: 12, color: "#8FE0A8", fontWeight: 800 }}>Delivered</span></div>
+        <span style={C.muted}>Digital — the buyer downloaded it right after paying. Paid out automatically.</span>
+      </div>
+      <span style={C.muted}>Payouts must be connected before your shop takes orders. Card processing comes out of each sale.</span>
+    </>
+  );
+}
+
 function Share() {
   const [copied, setCopied] = useState(false);
   const link = `usenearest.com/link/${DEMO.slug}`;
   return (
     <>
-      <Head step="Step 7" title="Share your page" text="Put your link in your Instagram and TikTok bio. Followers can save your page to their phone like an app." />
+      <Head step="Step 8" title="Share your page" text="Put your link in your Instagram and TikTok bio. Followers can save your page to their phone like an app." />
       <div style={{ ...C.card, border: `1px solid ${ACCENT}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><b style={{ fontSize: 14 }}>Your page is live</b><span style={{ background: "#12301C", color: "#8FE0A8", borderRadius: 999, padding: "4px 10px", fontSize: 11, fontWeight: 800 }}>LIVE</span></div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, background: "#0B0B0C", border: "1px solid #2A2A2E", borderRadius: 12, padding: "10px 12px", fontSize: 14 }}>

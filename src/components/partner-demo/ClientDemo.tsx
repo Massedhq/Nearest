@@ -1,24 +1,27 @@
 "use client";
 import { useState } from "react";
 import { ACCENT, GOLD, IMG, C, Btn, Choice, Row, Check, Stars, Ico, Done, DemoShell } from "./ui";
-import { DEMO, SERVICES, PORTFOLIO, VIDEOS, LINKS, MODEL_CALLS, mins } from "./data";
+import { DEMO, SERVICES, PORTFOLIO, VIDEOS, LINKS, MODEL_CALLS, PRODUCTS, mins } from "./data";
 
-const TABS = ["Link page", "Book profile", "Booking", "Bundle", "Model Calls", "Save to phone"];
+const TABS = ["Link page", "Book profile", "Booking", "Bundle", "Model Calls", "Shop", "Save to phone"];
 const svcOf = (id: string) => SERVICES.find((s) => s.id === id)!;
 
 /** What a partner's clients see: the link page, the booking profile, booking, Bundle my booking, Model Calls, save to phone. */
 export function ClientDemo() {
   const [tab, setTab] = useState(0);
   const [preset, setPreset] = useState<string | null>(null);
+  const [item, setItem] = useState<string | null>(null);
   const book = (svc?: string) => { setPreset(svc ?? null); setTab(2); };
+  const shop = (id?: string) => { setItem(id ?? null); setTab(5); };
   return (
     <DemoShell title="Client view · demo" other={{ label: "Setup demo", href: "/partners/demo/setup" }} tabs={TABS} tab={tab} setTab={setTab}>
-      {tab === 0 && <LinkPage go={setTab} book={book} />}
+      {tab === 0 && <LinkPage go={setTab} book={book} shop={shop} />}
       {tab === 1 && <Profile book={book} />}
       {tab === 2 && <Booking preset={preset} />}
       {tab === 3 && <Bundle />}
       {tab === 4 && <ModelCalls />}
-      {tab === 5 && <SavePhone />}
+      {tab === 5 && <Shop start={item} />}
+      {tab === 6 && <SavePhone />}
     </DemoShell>
   );
 }
@@ -27,7 +30,7 @@ function Note({ children }: { children: React.ReactNode }) {
   return <div style={{ background: "#16130E", border: `1px solid #3B3222`, borderRadius: 12, padding: "10px 12px", fontSize: 12, color: "#E9CF8E", lineHeight: 1.5 }}>{children}</div>;
 }
 
-function LinkPage({ go, book }: { go: (n: number) => void; book: (s?: string) => void }) {
+function LinkPage({ go, book, shop }: { go: (n: number) => void; book: (s?: string) => void; shop: (id?: string) => void }) {
   return (
     <>
       <Note>This is the partner&apos;s link in bio. Tap anything — every button works.</Note>
@@ -82,6 +85,18 @@ function LinkPage({ go, book }: { go: (n: number) => void; book: (s?: string) =>
           ))}
         </div>
       </section>
+      <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <span style={C.eyebrow}>Shop</span>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+          {PRODUCTS.map((p) => (
+            <button key={p.id} type="button" onClick={() => shop(p.id)} style={{ display: "flex", flexDirection: "column", gap: 6, background: "#121214", border: "1px solid #2A2A2E", borderRadius: 14, overflow: "hidden", color: "#F4F1EA", padding: 0, textAlign: "left", cursor: "pointer", font: "inherit" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={IMG(p.img)} alt="" style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", display: "block" }} />
+              <span style={{ display: "flex", flexDirection: "column", gap: 2, padding: "0 10px 10px" }}><span style={{ fontSize: 13, fontWeight: 800, lineHeight: 1.3 }}>{p.title}</span><span style={{ fontSize: 12, color: "#B8B2A7" }}>${p.price} · {p.kind === "digital" ? "Instant download" : "Ships to you"}</span></span>
+            </button>
+          ))}
+        </div>
+      </section>
       <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <span style={C.eyebrow}>Shop &amp; links</span>
         {LINKS.map((l) => (
@@ -93,7 +108,7 @@ function LinkPage({ go, book }: { go: (n: number) => void; book: (s?: string) =>
           </div>
         ))}
       </section>
-      <Btn kind="outline" onClick={() => go(5)}>Save Ava to my phone</Btn>
+      <Btn kind="outline" onClick={() => go(6)}>Save Ava to my phone</Btn>
       <a href="/partners" style={{ display: "flex", alignItems: "center", gap: 12, border: `1px solid ${ACCENT}`, borderRadius: 16, padding: 14, textDecoration: "none", color: "#F4F1EA" }}>
         <span style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}><span style={{ fontSize: 14, fontWeight: 800, color: ACCENT }}>Nearest Partner</span><span style={{ fontSize: 12, color: "#B8B2A7" }}>Want a page like this? Become a partner</span></span>
         <Ico size={16} d={<path d="m9 5 7 7-7 7" />} />
@@ -349,6 +364,83 @@ function ModelCalls() {
         </div>
       ))}
       <Btn disabled={!call} onClick={() => setDone(true)}>{call ? `Pay $${call.price} and book` : "Pick a time"}</Btn>
+    </>
+  );
+}
+
+function Shop({ start }: { start: string | null }) {
+  const [id, setId] = useState<string | null>(start);
+  const [qty, setQty] = useState(1);
+  const [step, setStep] = useState<"view" | "pay" | "done">("view");
+  const [got, setGot] = useState(false);
+  const p = PRODUCTS.find((x) => x.id === id);
+  if (!p) return (
+    <>
+      <h2 style={C.h1}>Ava&apos;s shop</h2>
+      <span style={{ fontSize: 14, color: "#D9D4CA", lineHeight: 1.5 }}>Digital downloads arrive the moment you pay. Products ship to your door. No account needed.</span>
+      {PRODUCTS.map((x) => (
+        <button key={x.id} type="button" onClick={() => { setId(x.id); setQty(1); setStep("view"); setGot(false); }} style={C.tile}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={IMG(x.img)} alt="" style={{ width: 56, height: 56, borderRadius: 10, objectFit: "cover", flex: "none" }} />
+          <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}><span style={{ fontSize: 14, fontWeight: 800 }}>{x.title}</span><span style={{ fontSize: 12, color: "#B8B2A7" }}>{x.kind === "digital" ? "Instant download" : "Ships to you"}</span></span>
+          <b>${x.price}</b>
+        </button>
+      ))}
+    </>
+  );
+  const digital = p.kind === "digital";
+  const total = p.price * qty + (digital ? 0 : p.shipping ?? 0);
+  const back = <button type="button" onClick={() => setId(null)} style={{ alignSelf: "flex-start", background: "transparent", border: "1px solid #2A2A2E", color: "#F4F1EA", borderRadius: 999, padding: "8px 14px", font: "700 12px var(--font-body), sans-serif", cursor: "pointer" }}>‹ All products</button>;
+  if (step === "done") return digital ? (
+    <Done title="Your download is ready." text={`${p.title} — $${total} paid. We also emailed you the link so you can download it again later.`}>
+      <Btn onClick={() => setGot(true)}>{got ? "Downloaded ✓ — check your Files" : "Download now"}</Btn>
+      <span style={C.muted}>{p.file}. Your link works 10 times for a year.</span>
+      {back}
+    </Done>
+  ) : (
+    <Done title="Your order is in." text={`${qty} × ${p.title} — $${total} paid. Ava ships it to you, and we'll email you the tracking number when it's on the way.`}>{back}</Done>
+  );
+  if (step === "pay") return (
+    <>
+      {back}
+      <h2 style={C.h1}>Checkout</h2>
+      <div style={{ ...C.card, fontSize: 14, gap: 9 }}>
+        <div style={{ display: "flex", justifyContent: "space-between" }}><span>{qty > 1 ? `${qty} × ` : ""}{p.title}</span><span>${p.price * qty}</span></div>
+        {!digital && <div style={{ display: "flex", justifyContent: "space-between", color: "#D9D4CA" }}><span>Shipping</span><span>{p.shipping ? `$${p.shipping}` : "Free"}</span></div>}
+        <div style={{ height: 1, background: "#2A2A2E" }} />
+        <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: 16 }}><span>Total</span><span>${total}</span></div>
+      </div>
+      <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, fontWeight: 700 }}>Email for your receipt{digital ? " and download link" : ""}<input defaultValue="jasmine@email.com" style={C.input} /></label>
+      {!digital && <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, fontWeight: 700 }}>Ship to<input defaultValue="Jasmine R., 2150 Main St, Corona, CA 92882" style={C.input} /></label>}
+      <span style={C.eyebrow}>Pay with</span>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}><Choice on onClick={() => {}}>Apple Pay</Choice><Choice on={false} onClick={() => {}}>Card</Choice></div>
+      <Btn onClick={() => setStep("done")}>Pay ${total}</Btn>
+      <span style={{ ...C.muted, textAlign: "center" }}>Secure checkout on Nearest. No account needed.</span>
+    </>
+  );
+  return (
+    <>
+      {back}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={IMG(p.img)} alt={p.title} style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 18 }} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <span style={{ ...C.eyebrow, color: GOLD }}>{digital ? "Digital download" : "Ships to you"}</span>
+        <h2 style={C.h1}>{p.title}</h2>
+        <b style={{ fontSize: 20 }}>${p.price}</b>
+      </div>
+      <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "#D9D4CA" }}>{p.desc}</p>
+      {digital ? <span style={C.muted}>{p.file} — download it right after you pay.</span> : (
+        <>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ flex: 1, fontSize: 14, fontWeight: 700 }}>Quantity</span>
+            <button type="button" aria-label="Fewer" onClick={() => setQty(Math.max(1, qty - 1))} style={{ width: 40, height: 40, borderRadius: 10, border: "1px solid #2A2A2E", background: "#121214", color: "#F4F1EA", cursor: "pointer" }}>−</button>
+            <b style={{ width: 28, textAlign: "center" }}>{qty}</b>
+            <button type="button" aria-label="More" onClick={() => setQty(Math.min(10, qty + 1))} style={{ width: 40, height: 40, borderRadius: 10, border: "1px solid #2A2A2E", background: "#121214", color: "#F4F1EA", cursor: "pointer" }}>+</button>
+          </div>
+          <span style={C.muted}>{p.shipping ? `Shipping $${p.shipping}` : "Free shipping"} · {p.left} left</span>
+        </>
+      )}
+      <Btn onClick={() => setStep("pay")}>{digital ? `Buy & download · $${total}` : `Buy now · $${total}`}</Btn>
     </>
   );
 }

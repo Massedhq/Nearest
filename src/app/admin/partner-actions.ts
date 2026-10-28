@@ -62,3 +62,21 @@ export async function setPartnerPagePaused(_: FormState, form: FormData): Promis
   revalidatePath("/admin/partners");
   return { ok: pause ? "Paused — the page is hidden." : "Resumed." };
 }
+
+/** Owner: refund a partner shop order that hasn't been paid out to the seller yet. */
+export async function refundPartnerOrder(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireAdmin({ owner: true });
+  const id = String(form.get("id") ?? "");
+  if (!UUID.test(id)) return { error: "Not found." };
+  const { refundShopOrder } = await import("@/lib/shop");
+  try {
+    const r = await refundShopOrder(id, user.id);
+    if ("error" in r) return { error: r.error };
+    await logActivity({ actorUserId: user.id, action: "partner.order_refunded", targetType: "partner_order", targetId: id, before: { status: r.before }, after: { status: "refunded" } });
+  } catch (e) {
+    console.error("Shop refund failed", id, e);
+    return { error: "The refund didn't go through. Try again, or refund it in Stripe." };
+  }
+  revalidatePath("/admin/partners");
+  return { ok: "Refunded — the buyer was emailed." };
+}

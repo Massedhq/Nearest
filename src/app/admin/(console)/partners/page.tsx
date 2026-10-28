@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { desc, eq, sql } from "drizzle-orm";
-import { db, partnerApplications, partnerPages, professionalProfiles, users } from "@/db";
+import { db, partnerApplications, partnerOrders, partnerPages, professionalProfiles, users } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
 import { ActionForm } from "@/components/ActionForm";
 import { CopyButton } from "@/components/CopyButton";
@@ -8,7 +8,10 @@ import { requireAdmin } from "@/lib/admin";
 import { fmtDate } from "@/lib/time";
 import { personName } from "@/lib/pro-name";
 import { partnerApplyLink, partnerDemoLink, partnerSetupDemoLink, partnerPageLink, partnerPagePath, PARTNER_DEMO_PATH, PARTNER_SETUP_DEMO_PATH, PARTNER_APPLY_PATH } from "@/lib/partners";
-import { decidePartnerApplication, setPartnerPagePaused } from "@/app/admin/partner-actions";
+import { decidePartnerApplication, setPartnerPagePaused, refundPartnerOrder } from "@/app/admin/partner-actions";
+import { sellerAmount } from "@/lib/shop";
+import { money } from "@/lib/time";
+import { inArray } from "drizzle-orm";
 
 export const metadata = { title: "Partner pages" };
 export const dynamic = "force-dynamic";
@@ -27,11 +30,16 @@ export default async function PartnersAdmin({ searchParams }: { searchParams: Pr
       .from(partnerPages).innerJoin(professionalProfiles, eq(professionalProfiles.userId, partnerPages.userId)).innerJoin(users, eq(users.id, partnerPages.userId))
       .orderBy(desc(partnerPages.approvedAt)),
   ]);
+  const orders = await db.select({ o: partnerOrders, business: professionalProfiles.businessName, displayName: professionalProfiles.displayName })
+    .from(partnerOrders).innerJoin(professionalProfiles, eq(professionalProfiles.userId, partnerOrders.sellerId))
+    .where(inArray(partnerOrders.status, ["paid", "shipped", "refunded"])).orderBy(desc(partnerOrders.paidAt)).limit(50);
+  const sales = orders.filter((r) => r.o.status !== "refunded").reduce((n, r) => n + r.o.totalCents, 0);
+  const fees = orders.filter((r) => r.o.status !== "refunded").reduce((n, r) => n + r.o.feeCents, 0);
   const count = (k: string) => counts.find((c) => c.status === k)?.n ?? 0;
   const share: [string, string, string, string][] = [
     ["Partner link (apply)", partnerApplyLink(), PARTNER_APPLY_PATH, "What the partner program is, both demos, and the application form."],
-    ["Demo: what clients see", partnerDemoLink(), PARTNER_DEMO_PATH, "Link page, booking profile, booking, Bundle my booking, Model Calls, save to phone."],
-    ["Demo: how setup works", partnerSetupDemoLink(), PARTNER_SETUP_DEMO_PATH, "Apply, sign in, page & links, services, portfolio, travel & hours, share."],
+    ["Demo: what clients see", partnerDemoLink(), PARTNER_DEMO_PATH, "Link page, booking profile, booking, Bundle my booking, Model Calls, shop, save to phone."],
+    ["Demo: how setup works", partnerSetupDemoLink(), PARTNER_SETUP_DEMO_PATH, "Apply, sign in, page & links, services, portfolio, travel & hours, shop, share."],
   ];
 
   return (
@@ -79,6 +87,21 @@ export default async function PartnersAdmin({ searchParams }: { searchParams: Pr
               </ActionForm>
             )}
           </div>
+        </div>
+      ))}
+
+      <h2 className="disp h3">Shop orders</h2>
+      <div className="card" style={{ gap: 6 }}>
+        <span className="small">Last {orders.length} orders: {money(sales)} sold{fees ? ` · ${money(fees)} Nearest order fees` : ""}. Set the order fee and download limits in Rules &amp; Settings → Partner shop.</span>
+      </div>
+      {orders.map(({ o, business, displayName }) => (
+        <div key={o.id} className="card" style={{ gap: 6 }}>
+          <div className="row between" style={{ gap: 8, flexWrap: "wrap" }}><span className="b">{o.qty > 1 ? `${o.qty} × ` : ""}{o.title}</span><span className={`tag ${o.status === "refunded" ? "" : "ok"}`}>{o.status === "paid" && o.kind === "physical" ? "Paid — not shipped" : o.status}</span></div>
+          <span className="small muted">#{String(o.number).padStart(5, "0")} · {business ?? displayName} · {o.kind} · {o.paidAt ? fmtDate(o.paidAt, { month: "short", day: "numeric" }) : ""} · buyer {o.buyerEmail}</span>
+          <span className="small">Paid {money(o.totalCents)} · seller {money(sellerAmount(o))} · payout {o.payoutStatus}</span>
+          {o.status !== "refunded" && o.payoutStatus !== "sent" && (
+            <ActionForm action={refundPartnerOrder} submitLabel="Refund buyer" buttonClass="btn ghost sm" className="col g4"><input type="hidden" name="id" value={o.id} /></ActionForm>
+          )}
         </div>
       ))}
 

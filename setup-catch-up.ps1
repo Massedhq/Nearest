@@ -17,7 +17,7 @@ foreach ($r in $retired) { if (Test-Path $r) { Remove-Item -Recurse -Force $r; W
 Step "1/4  Installing packages"
 npm ci
 Check "Installing packages"
-Step "2/4  Updating Neon (adds the outreach meeting and partner page tables - nothing is removed)"
+Step "2/4  Updating Neon (adds the outreach meeting, partner page and partner shop tables - nothing is removed)"
 # Neon can be slow to answer "Pulling schema" - retry up to 3 times before giving up.
 $ok = $false
 foreach ($try in 1..3) {
@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Nearest Partner pages: apply page, client and setup demos, partner link page with Save to my phone, pro editor, admin Partner pages; booking button no longer says Open to everyone"
+git commit -q -m "Nearest Partner pages + shop: digital downloads delivered right after payment, physical products with shipping and Mark shipped, seller payouts, owner refunds, Partner shop rules; apply page, client and setup demos with Shop tabs, Save to my phone, admin Partner pages; guides, Terms, Privacy"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

@@ -46,3 +46,9 @@ export const MODEL_CALLS = [
 ];
 
 export const mins = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} hr${m % 60 ? ` ${m % 60} min` : ""}` : `${m} min`);
+
+export const PRODUCTS = [
+  { id: "workbook", kind: "digital", title: "Get Booked Workbook", price: 27, img: "v-booked", desc: "My 42-page PDF: pricing your services, a 30-day posting plan, DM scripts that turn followers into bookings, and my client intake form.", file: "PDF · 42 pages" },
+  { id: "lashkit", kind: "physical", title: "Pro Lash Kit", price: 45, shipping: 6, img: "p-face", desc: "Everything I use for a lash lift at home: lift shields, glue, setting lotion, tint and a mini brush set.", left: 12 },
+  { id: "stain", kind: "physical", title: "Brow Stain — Medium Brown", price: 18, shipping: 0, img: "v-french", desc: "My signature brow stain. One tube lasts about 20 uses.", left: 30 },
+] as { id: string; kind: "digital" | "physical"; title: string; price: number; shipping?: number; img: string; desc: string; file?: string; left?: number }[];

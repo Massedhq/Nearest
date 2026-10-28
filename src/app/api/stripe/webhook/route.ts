@@ -31,7 +31,8 @@ export async function POST(req: Request) {
     switch (event.type) {
       case "checkout.session.completed": {
         const s = event.data.object;
-        if (s.mode === "payment" && s.metadata?.fineId) await confirmFinePayment(s.id);
+        if (s.mode === "payment" && s.metadata?.kind === "shop") await (await import("@/lib/shop")).confirmShopOrder(s.id); // partner shop orders
+        else if (s.mode === "payment" && s.metadata?.fineId) await confirmFinePayment(s.id);
         else if (s.mode === "payment") await confirmFromCheckout(s.id);
         if ((s.mode === "subscription" || s.mode === "setup") && s.metadata?.kind === "entry") await finalizeEntry(s.id); // registration: paid now, or card saved until the city opens
         else if (s.mode === "subscription" && s.client_reference_id && s.subscription) {
@@ -70,6 +71,7 @@ export async function POST(req: Request) {
           // Send anything Nearest was holding while this pro finished payout setup.
           const pro = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.stripeAccountId, a.id) });
           if (pro) await (await import("@/lib/bookings")).payOwedToPro(pro.userId);
+          if (pro) await (await import("@/lib/shop")).payOwedShopOrders(pro.userId); // partner shop sales held until payouts were on
         }
         await savePartnerAccount(a); // partner payout accounts (bank or debit card)
         await (await import("@/lib/rep-stripe")).saveRepAccount(a); // sales rep payout accounts

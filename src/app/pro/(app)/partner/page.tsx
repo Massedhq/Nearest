@@ -59,6 +59,12 @@ export default async function PartnerEditor() {
           <span className="small muted">Put it in your Instagram and TikTok bio. Your photo, name, rating, social links and services come from your profile — edit those in Business.</span>
         </div>
 
+        <div className="card" style={{ gap: 8 }}>
+          <span className="b">My shop</span>
+          <span className="small muted">Sell digital downloads (like a workbook — delivered the moment they pay) and physical products (shampoo, tools, lash kits) right on your page.</span>
+          <div className="row" style={{ gap: 16 }}><Link className="link small" href="/pro/partner/shop">Products</Link><Link className="link small" href="/pro/partner/orders">Orders</Link></div>
+        </div>
+
         <ActionForm action={savePartnerPage} submitLabel="Save my page" className="col g16">
           <div className="field"><label htmlFor="pp-head">Headline (under your name)</label><input id="pp-head" name="headline" maxLength={PARTNER_LIMITS.headline} defaultValue={page.headline ?? ""} placeholder="Beauty educator · Brows, lashes & glam" /></div>
 

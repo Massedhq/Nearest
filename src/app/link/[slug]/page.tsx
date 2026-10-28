@@ -11,6 +11,7 @@ import { MAX_PRICE_CENTS } from "@/lib/pricing";
 import { abs } from "@/lib/public/site";
 import { instagramHandle, instagramUrl, tiktokHandle, tiktokUrl, facebookHandle, facebookUrl, pinterestHandle, pinterestUrl } from "@/lib/social";
 import { SaveToPhone } from "@/components/SaveToPhone";
+import { shopProducts, soldOut } from "@/lib/shop";
 import { ShareLinkButton } from "./ShareLinkButton";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +53,7 @@ export default async function PartnerLinkPage({ params }: { params: Promise<{ sl
     db.select({ n: sql<number>`count(*)::int`, min: sql<number | null>`min(${modelCalls.priceCents})::int` }).from(modelCalls).where(and(eq(modelCalls.userId, id), eq(modelCalls.status, "open"), gt(modelCalls.startsAt, new Date()))),
     db.select({ avg: sql<number | null>`avg(${reviews.rating})::float`, n: sql<number>`count(*)::int` }).from(reviews).where(eq(reviews.proId, id)),
   ]);
+  const products = await shopProducts(id);
   const bookable = Boolean(live);
   const services = top.length ? top.map((sid) => topServices.find((s) => s.id === sid)).filter((s): s is NonNullable<typeof s> => Boolean(s)) : fallback;
   const bookHref = `/pro-${r.p.slug}`;
@@ -142,6 +144,25 @@ export default async function PartnerLinkPage({ params }: { params: Promise<{ sl
                   </a>
                 );
               })}
+            </div>
+          </section>
+        )}
+
+        {products.length > 0 && (
+          <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <span style={eyebrow}>Shop</span>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+              {products.map((p) => (
+                <Link key={p.id} href={`${partnerPagePath(r.p.slug!)}/shop/${p.id}`} style={{ display: "flex", flexDirection: "column", gap: 6, background: "#121214", border: "1px solid #2A2A2E", borderRadius: 14, overflow: "hidden", textDecoration: "none", color: "#F4F1EA" }}>
+                  {p.photoUrl
+                    ? <Image src={p.photoUrl} alt="" width={240} height={240} style={{ width: "100%", height: "auto", aspectRatio: "1 / 1", objectFit: "cover" }} />
+                    : <span style={{ aspectRatio: "1 / 1", background: "linear-gradient(160deg, #2A2320, #121214)", display: "flex", alignItems: "center", justifyContent: "center", padding: 10, textAlign: "center", fontFamily: "var(--font-display), Georgia, serif", fontSize: 16 }}>{p.title}</span>}
+                  <span style={{ display: "flex", flexDirection: "column", gap: 2, padding: "0 10px 10px" }}>
+                    <span style={{ fontSize: 13, fontWeight: 800, lineHeight: 1.3 }}>{p.title}</span>
+                    <span style={{ fontSize: 12, color: "#B8B2A7" }}>{money(p.priceCents)} · {soldOut(p) ? "Sold out" : p.kind === "digital" ? "Instant download" : "Ships to you"}</span>
+                  </span>
+                </Link>
+              ))}
             </div>
           </section>
         )}

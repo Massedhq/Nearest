@@ -20,6 +20,10 @@ export async function POST(request: Request) {
           // Owners: the supporter explainer video (shown on the supporter invitation form).
           return { allowedContentTypes: ["video/mp4", "video/quicktime", "video/webm"], maximumSizeInBytes: 200 * 1024 * 1024, addRandomSuffix: true };
         }
+        if (pathname.startsWith(`pros/${u!.id}/shop-file/`)) {
+          // Partner shop digital downloads (workbooks, guides, presets…). Never shown publicly — served by /api/shop/download.
+          return { allowedContentTypes: ["application/pdf", "application/zip", "application/x-zip-compressed", "application/epub+zip", "image/jpeg", "image/png", "video/mp4", "audio/mpeg", "audio/mp4"], maximumSizeInBytes: 200 * 1024 * 1024, addRandomSuffix: true };
+        }
         if (pathname.startsWith(`pros/${u!.id}/portfolio-video/`)) {
           // Portfolio videos: 15 seconds max (checked again from the file after upload), MP4 or iPhone MOV.
           return { allowedContentTypes: ["video/mp4", "video/quicktime"], maximumSizeInBytes: 100 * 1024 * 1024, addRandomSuffix: true };

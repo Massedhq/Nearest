@@ -1441,3 +1441,60 @@ export const partnerPages = pgTable("partner_pages", {
   approvedAt: ts("approved_at").notNull().defaultNow(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
 });
+
+// ─── Partner shop: digital downloads + physical products sold from a partner page ─────────────────────────────────
+// Buyers check out with Stripe (no Nearest account needed). Money is charged by Nearest and sent to the seller's
+// payout account: digital orders right after payment, physical orders when the seller marks them shipped.
+export const partnerProducts = pgTable("partner_products", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), // the seller (a partner)
+  kind: text("kind").notNull(), // digital | physical
+  title: text("title").notNull(),
+  description: text("description"),
+  priceCents: integer("price_cents").notNull(),
+  shippingCents: integer("shipping_cents").notNull().default(0), // physical: flat shipping per order
+  stock: integer("stock"), // physical: null = no limit
+  photoUrl: text("photo_url"), // public product photo
+  fileUrl: text("file_url"), // digital: the download (never sent to a browser — served by /api/shop/download)
+  fileAccess: text("file_access"), // private | public (unlisted)
+  fileName: text("file_name"),
+  fileSize: integer("file_size"),
+  active: boolean("active").notNull().default(true),
+  archivedAt: ts("archived_at"),
+  sort: integer("sort").notNull().default(0),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+}, (t) => [index("partner_products_user_idx").on(t.userId)]);
+
+export const partnerOrders = pgTable("partner_orders", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  number: bigserial("number", { mode: "number" }),
+  productId: uuid("product_id").notNull().references(() => partnerProducts.id),
+  sellerId: uuid("seller_id").notNull().references(() => users.id),
+  kind: text("kind").notNull(), // digital | physical (copied from the product)
+  title: text("title").notNull(), // product title at purchase
+  qty: integer("qty").notNull().default(1),
+  unitCents: integer("unit_cents").notNull(),
+  shippingCents: integer("shipping_cents").notNull().default(0),
+  totalCents: integer("total_cents").notNull().default(0), // what the buyer paid
+  feeCents: integer("fee_cents").notNull().default(0), // Nearest's order fee
+  stripeFeeCents: integer("stripe_fee_cents").notNull().default(0), // card processing (paid from the seller's side)
+  status: text("status").notNull().default("pending"), // pending | paid | shipped | refunded | expired
+  buyerEmail: text("buyer_email"),
+  buyerName: text("buyer_name"),
+  shipTo: jsonb("ship_to").$type<{ name?: string; line1?: string; line2?: string; city?: string; state?: string; postal?: string; country?: string } | null>(),
+  stripeSessionId: text("stripe_session_id"),
+  stripeChargeId: text("stripe_charge_id"),
+  downloadTokenHash: text("download_token_hash"),
+  downloads: integer("downloads").notNull().default(0),
+  carrier: text("carrier"),
+  tracking: text("tracking"),
+  payoutStatus: text("payout_status").notNull().default("none"), // none | waiting (held until shipped) | owed (no payout account yet) | sent
+  payoutCents: integer("payout_cents").notNull().default(0),
+  transferId: text("transfer_id"),
+  paidAt: ts("paid_at"),
+  shippedAt: ts("shipped_at"),
+  refundedAt: ts("refunded_at"),
+  refundedBy: uuid("refunded_by"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("partner_orders_seller_idx").on(t.sellerId), index("partner_orders_session_idx").on(t.stripeSessionId)]);
