@@ -36,7 +36,7 @@ export async function repForUser(userId: string | null | undefined) {
 
 export type RepStats = {
   total: number; pros: number; prosJoined: number; students: number; studentsVerified: number; thisMonth: number;
-  proClicks: number; studentClicks: number; prosLive: number; prosActive: number; studentsBooked: number;
+  proClicks: number; studentClicks: number; prosLive: number; prosActive: number; studentsBooked: number; prosBooked: number;
 };
 export type RepPeriod = "week" | "month" | "all";
 
@@ -61,6 +61,7 @@ export async function repStats(repIds: string[], period: RepPeriod = "all"): Pro
       students: sql<number>`count(*) filter (where ${users.accountType} = 'student')::int`,
       studentsVerified: sql<number>`count(*) filter (where ${users.accountType} = 'student' and ${studentProfiles.verificationStatus} = 'verified')::int`,
       studentsBooked: sql<number>`count(*) filter (where ${users.accountType} = 'student' and exists (select 1 from bookings b where b.student_id = ${users.id} and b.status in ('confirmed','completed')))::int`,
+      prosBooked: sql<number>`count(*) filter (where ${users.accountType} = 'professional' and exists (select 1 from bookings b where b.pro_id = ${users.id} and b.status in ('confirmed','completed')))::int`,
       thisMonth: sql<number>`count(*) filter (where ${users.createdAt} >= ${monthStart})::int`,
     })
     .from(users)
@@ -70,8 +71,8 @@ export async function repStats(repIds: string[], period: RepPeriod = "all"): Pro
     .groupBy(users.repId);
   const clicks = await db.select({ repId: repLinkClicks.repId, kind: repLinkClicks.kind, n: sql<number>`sum(${repLinkClicks.clicks})::int` })
     .from(repLinkClicks).where(and(inArray(repLinkClicks.repId, repIds), sql`${repLinkClicks.day} >= ${sinceDay}`)).groupBy(repLinkClicks.repId, repLinkClicks.kind);
-  for (const id of repIds) out.set(id, { total: 0, pros: 0, prosJoined: 0, students: 0, studentsVerified: 0, thisMonth: 0, proClicks: 0, studentClicks: 0, prosLive: 0, prosActive: 0, studentsBooked: 0 });
-  for (const r of rows) if (r.repId) Object.assign(out.get(r.repId)!, { total: r.total, pros: r.pros, prosJoined: r.prosJoined, prosLive: r.prosLive, prosActive: r.prosActive, students: r.students, studentsVerified: r.studentsVerified, studentsBooked: r.studentsBooked, thisMonth: r.thisMonth });
+  for (const id of repIds) out.set(id, { total: 0, pros: 0, prosJoined: 0, students: 0, studentsVerified: 0, thisMonth: 0, proClicks: 0, studentClicks: 0, prosLive: 0, prosActive: 0, studentsBooked: 0, prosBooked: 0 });
+  for (const r of rows) if (r.repId) Object.assign(out.get(r.repId)!, { total: r.total, pros: r.pros, prosJoined: r.prosJoined, prosLive: r.prosLive, prosActive: r.prosActive, students: r.students, studentsVerified: r.studentsVerified, studentsBooked: r.studentsBooked, prosBooked: r.prosBooked, thisMonth: r.thisMonth });
   for (const c of clicks) { const o = out.get(c.repId); if (o) { if (c.kind === "pro") o.proClicks = c.n; else o.studentClicks = c.n; } }
   return out;
 }
@@ -82,6 +83,8 @@ export async function repRecent(repId: string, limit = 25) {
     .select({
       type: users.accountType, first: users.firstName, last: users.lastName, createdAt: users.createdAt,
       businessName: professionalProfiles.businessName, paid: professionalProfiles.entryPaidAt, sub: professionalProfiles.subscriptionStatus,
+      review: professionalProfiles.reviewStatus, searchable: professionalProfiles.searchable,
+      booked: sql<boolean>`exists (select 1 from bookings b where b.pro_id = ${users.id} and b.status in ('confirmed','completed'))`,
       verified: studentProfiles.verificationStatus,
     })
     .from(users)
@@ -92,10 +95,29 @@ export async function repRecent(repId: string, limit = 25) {
     .limit(limit);
   return rows.map((r) => {
     if (r.type === "professional") {
-      const joined = Boolean(r.paid) || ["active", "trialing", "past_due"].includes(r.sub ?? "");
+      const joined = Boolean(r.paid) || ["active", "trialing", "past_due"].includes(r.sub ?? "") || r.review === "submitted" || r.review === "approved";
+      const live = r.review === "approved" && Boolean(r.searchable);
       const who = r.businessName || [r.first, r.last ? `${r.last[0]}.` : ""].filter(Boolean).join(" ") || "Professional";
-      return { who, kind: "Professional", status: joined ? "Joined" : "Signed up", ok: joined, createdAt: r.createdAt };
+      // Started (profile not finished) → Profile complete (submitted) → Live → First booking
+      const status = r.booked ? "First booking" : live ? "Live" : joined ? "Profile complete" : "Started";
+      return { who, kind: "Professional", status, ok: joined, createdAt: r.createdAt };
     }
     return { who: "Student", kind: "Student", status: r.verified === "verified" ? "Verified" : "Signed up", ok: r.verified === "verified", createdAt: r.createdAt };
   });
+}
+
+/** The rep's professionals by city and by service category (a pro offering two categories counts in both). */
+export async function repBreakdown(repId: string) {
+  const byCity = await db.execute(sql`
+    select coalesce(c.name, 'No city yet') as label, count(*)::int as n
+    from users u left join professional_profiles p on p.user_id = u.id left join cities c on c.id = p.city_id
+    where u.rep_id = ${repId} and u.account_type = 'professional'
+    group by 1 order by 2 desc, 1 limit 12`);
+  const byCategory = await db.execute(sql`
+    select coalesce(cat.name, 'No services yet') as label, count(distinct u.id)::int as n
+    from users u left join pro_services s on s.user_id = u.id and s.active left join categories cat on cat.id = s.category_id
+    where u.rep_id = ${repId} and u.account_type = 'professional'
+    group by 1 order by 2 desc, 1 limit 12`);
+  const rows = (r: unknown) => ((r as { rows?: unknown[] }).rows ?? (r as unknown[])) as { label: string; n: number }[];
+  return { byCity: rows(byCity), byCategory: rows(byCategory) };
 }

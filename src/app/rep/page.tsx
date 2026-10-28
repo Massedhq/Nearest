@@ -2,7 +2,9 @@ import Image from "next/image";
 import { headers } from "next/headers";
 import { SignOutButton } from "@clerk/nextjs";
 import { getViewer } from "@/lib/viewer";
-import { repForUser, repLinks, repRecent, repStats } from "@/lib/reps";
+import { repBreakdown, repForUser, repLinks, repRecent, repStats } from "@/lib/reps";
+import { RepCampaignGuide } from "@/components/RepCampaignGuide";
+import Link from "next/link";
 import { fmtDate } from "@/lib/time";
 import { CopyText } from "@/components/CopyText";
 import { desc, eq } from "drizzle-orm";
@@ -45,9 +47,10 @@ export default async function RepDashboard({ searchParams }: { searchParams: Pro
   const h = await headers();
   const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
   const links = repLinks(origin, rep.code);
-  const [stats, recent, payments] = await Promise.all([
+  const [stats, recent, payments, breakdown] = await Promise.all([
     repStats([rep.id]), repRecent(rep.id),
     db.select().from(repPayouts).where(eq(repPayouts.repId, rep.id)).orderBy(desc(repPayouts.createdAt)).limit(24),
+    repBreakdown(rep.id),
   ]);
   const paidTotal = payments.reduce((t, p) => t + p.amountCents, 0);
   const verified = rep.verificationStatus === "approved";
@@ -85,7 +88,7 @@ export default async function RepDashboard({ searchParams }: { searchParams: Pro
         <div className="kpis k4">
           <div className="card" style={{ gap: 4 }}><span className="xs muted">Link taps</span><span className="stat">{s.proClicks + s.studentClicks}</span><span className="xs muted">{s.proClicks} pro • {s.studentClicks} student</span></div>
           <div className="card" style={{ gap: 4 }}><span className="xs muted">Total sign-ups</span><span className="stat">{s.total}</span><span className="xs muted">{s.thisMonth} this month</span></div>
-          <div className="card" style={{ gap: 4 }}><span className="xs muted">Professionals</span><span className="stat">{s.pros}</span><span className="xs muted">{s.prosJoined} submitted • {s.prosLive} live • {s.prosActive} activated</span></div>
+          <div className="card" style={{ gap: 4 }}><span className="xs muted">Professionals</span><span className="stat">{s.pros}</span><span className="xs muted">{s.prosJoined} profile complete • {s.prosLive} live • {s.prosBooked} booked</span></div>
           <div className="card" style={{ gap: 4 }}><span className="xs muted">Students</span><span className="stat">{s.students}</span><span className="xs muted">{s.studentsVerified} verified • {s.studentsBooked} booked</span></div>
         </div>
 
@@ -124,6 +127,22 @@ export default async function RepDashboard({ searchParams }: { searchParams: Pro
         </>)}
 
         <div className="card" style={{ gap: 10 }}>
+          <span className="eyebrow">Professionals by status</span>
+          {([["Started", s.pros - s.prosJoined, "Account made, profile not finished — follow up"], ["Profile complete", s.prosJoined, "Submitted for review"], ["Live", s.prosLive, "Approved and showing to students"], ["First booking", s.prosBooked, "Booked at least once"]] as const).map(([l, n, d]) => (
+            <div key={l} className="row between" style={{ gap: 8 }}><span className="col g4"><span className="small b">{l}</span><span className="xs muted">{d}</span></span><span className="stat" style={{ fontSize: 22 }}>{Math.max(0, n)}</span></div>
+          ))}
+        </div>
+
+        <div className="grid2" style={{ gap: 12 }}>
+          {([["Sign-ups by city", breakdown.byCity], ["Sign-ups by service category", breakdown.byCategory]] as const).map(([title, list]) => (
+            <div key={title} className="card" style={{ gap: 8 }}>
+              <span className="eyebrow">{title}</span>
+              {list.length === 0 ? <span className="xs muted">No professionals yet.</span> : list.map((r) => <div key={r.label} className="row between small"><span>{r.label}</span><span className="b">{r.n}</span></div>)}
+            </div>
+          ))}
+        </div>
+
+        <div className="card" style={{ gap: 10 }}>
           <span className="eyebrow">Recent sign-ups</span>
           {recent.length === 0 && <span className="small muted">No sign-ups yet. Share your links to get started.</span>}
           {recent.map((r, i) => (
@@ -133,6 +152,12 @@ export default async function RepDashboard({ searchParams }: { searchParams: Pro
             </div>
           ))}
           <span className="xs muted">Students are shown without names to protect their privacy.</span>
+        </div>
+
+        <div className="col" style={{ gap: 8 }} id="campaign-guide">
+          <div className="row between"><span className="eyebrow">Campaign Guide</span><Link className="link small" href="/rep/guide">How it all works</Link></div>
+          {!verified && <span className="xs muted">Your link fills in here once your ID is verified.</span>}
+          <RepCampaignGuide link={verified ? links.pro : "[your link]"} name={rep.name.split(" ")[0]} />
         </div>
 
         <span className="xs muted" style={{ textAlign: "center" }}>

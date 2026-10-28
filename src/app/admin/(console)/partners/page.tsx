@@ -40,6 +40,7 @@ export default async function PartnersAdmin({ searchParams }: { searchParams: Pr
     ["Partner link (apply)", partnerApplyLink(), PARTNER_APPLY_PATH, "What the partner program is, both demos, and the application form."],
     ["Demo: what clients see", partnerDemoLink(), PARTNER_DEMO_PATH, "Link page, booking profile, booking, Bundle my booking, Model Calls, shop, save to phone."],
     ["Demo: how setup works", partnerSetupDemoLink(), PARTNER_SETUP_DEMO_PATH, "Apply, sign in, page & links, services, portfolio, travel & hours, shop, share."],
+    ["Demo: sales rep dashboard", `${partnerDemoLink()}/rep`, `${PARTNER_DEMO_PATH}/rep`, "For prospective reps: sales link, sign-ups, pros by status, city & category, earnings and the Campaign Guide — sample data only."],
   ];
 
   return (

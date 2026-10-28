@@ -19,6 +19,7 @@ export const SITE_TAGLINE = "Student Beauty, Wellness & Self-Care Booking Platfo
 export const SUPPORT_EMAIL = "support@usenearest.com"; // used across the app for help
 export const HELLO_EMAIL = "hello@usenearest.com"; // Terms & Privacy questions
 export const INSTAGRAM_URL = "https://www.instagram.com/usenearest/"; // the official account linked in the pro app
+export const FACEBOOK_URL = "https://www.facebook.com/usenearest"; // Nearest on Facebook — shown in the rep Campaign Guide ("Follow us")
 export const LOGO_PATH = "/brand/nearest-monogram.png";
 
 // Real routes in the app (checked in code) — used for calls to action.

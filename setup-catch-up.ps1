@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Nearest Partner pages + shop: digital downloads delivered right after payment, physical products with shipping and Mark shipped, seller payouts, owner refunds, Partner shop rules; apply page, client and setup demos with Shop tabs, Save to my phone, admin Partner pages; guides, Terms, Privacy"
+git commit -q -m "Sales reps: Campaign Guide on the rep dashboard (planner, where to find pros, schools, ads, scripts, brand rules, Follow Nearest), pros by status, sign-ups by city and category, rep How it works guide, rep dashboard demo with sample data; plus partner pages and partner shop; guides for students, pros, admins and reps"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

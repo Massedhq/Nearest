@@ -64,8 +64,9 @@ export function Done({ title, text, children }: { title: string; text: string; c
 }
 
 /** Full-screen demo shell: header, tab bar, a scrolling screen that fits any phone or computer, Back/Next at the bottom. */
-export function DemoShell({ title, other, tabs, tab, setTab, children }: {
+export function DemoShell({ title, other, tabs, tab, setTab, children, finish = { label: "Become a partner", href: "/partners#apply" }, banner }: {
   title: string; other: { label: string; href: string }; tabs: string[]; tab: number; setTab: (n: number) => void; children: ReactNode;
+  finish?: { label: string; href: string }; banner?: string;
 }) {
   const nav = useRef<HTMLElement>(null);
   useEffect(() => { nav.current?.querySelector<HTMLElement>("[aria-current]")?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" }); }, [tab]);
@@ -85,6 +86,7 @@ export function DemoShell({ title, other, tabs, tab, setTab, children }: {
           </nav>
         </div>
       </header>
+      {banner && <div role="note" style={{ flex: "none", background: "#2B2410", color: "#E9CF8E", textAlign: "center", fontSize: 12, fontWeight: 800, padding: "6px 12px" }}>{banner}</div>}
       <main key={tab} style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
         <div style={{ maxWidth: 520, margin: "0 auto", padding: "18px 16px 24px", display: "flex", flexDirection: "column", gap: 18, minHeight: "100%", boxSizing: "border-box" }}>
           {children}
@@ -96,7 +98,7 @@ export function DemoShell({ title, other, tabs, tab, setTab, children }: {
           <span style={{ fontSize: 12, color: "#8E897F", minWidth: 44, textAlign: "center" }}>{tab + 1} of {tabs.length}</span>
           {tab < tabs.length - 1
             ? <button type="button" onClick={() => setTab(tab + 1)} style={{ flex: 1, background: ACCENT, color: "#0B0B0C", border: "none", borderRadius: 999, padding: 12, font: "800 13px var(--font-body), system-ui, sans-serif", cursor: "pointer" }}>Next: {tabs[tab + 1]}</button>
-            : <a href="/partners#apply" style={{ flex: 1, textAlign: "center", background: ACCENT, color: "#0B0B0C", borderRadius: 999, padding: 12, font: "800 13px var(--font-body), system-ui, sans-serif", textDecoration: "none" }}>Become a partner</a>}
+            : <a href={finish.href} style={{ flex: 1, textAlign: "center", background: ACCENT, color: "#0B0B0C", borderRadius: 999, padding: 12, font: "800 13px var(--font-body), system-ui, sans-serif", textDecoration: "none" }}>{finish.label}</a>}
         </div>
       </footer>
     </div>
