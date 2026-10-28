@@ -11,7 +11,7 @@ Write-Host "Owner emails in .env.local (should be ONLY your three owner emails):
 Get-Content .\.env.local | Where-Object { $_ -match "^(OWNER_EMAILS|MAIN_OWNER_EMAIL)=" } | ForEach-Object { Write-Host "  $_" }
 
 # Files removed from Nearest (unzipping never deletes old files, so remove them here).
-$retired = @(".\Claude outputs", ".\src\app\how-it-works", ".\src\app\(student)\verify\later", ".\src\components\FillingMarketBook.tsx", ".\src\app\admin\city-actions.ts", ".\src\lib\city-activation.ts", ".\src\components\ProTermsUpdateCard.tsx")
+$retired = @(".\Claude outputs", ".\src\app\how-it-works", ".\src\app\(student)\verify\later", ".\src\components\FillingMarketBook.tsx", ".\src\app\admin\city-actions.ts", ".\src\lib\city-activation.ts", ".\src\components\ProTermsUpdateCard.tsx", ".\src\components\partner-demo\RepDemo.tsx")
 foreach ($r in $retired) { if (Test-Path $r) { Remove-Item -Recurse -Force $r; Write-Host "Removed $r" -ForegroundColor DarkGray } }
 
 Step "1/4  Installing packages"
@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Sales reps: Campaign Guide on the rep dashboard (planner, where to find pros, schools, ads, scripts, brand rules, Follow Nearest), pros by status, sign-ups by city and category, rep How it works guide, rep dashboard demo with sample data; plus partner pages and partner shop; guides for students, pros, admins and reps"
+git commit -q -m "Sales reps separated from partners: rep dashboard demo moved to its own page /reps/demo with its own look, removed from Partner pages, old address redirects; Campaign Guide, pros by status, city and category, rep guide; partner pages and partner shop; guides"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

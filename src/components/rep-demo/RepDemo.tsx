@@ -46,9 +46,8 @@ export function RepDemo() {
   const [tab, setTab] = useState(0);
   const [filter, setFilter] = useState<string>("All");
   return (
-    <DemoShell title="Rep dashboard · demo" other={{ label: "Partner demo", href: "/partners/demo" }} tabs={TABS} tab={tab} setTab={setTab}
-      banner="DEMO — sample rep, sample professionals and sample numbers. Not real data."
-      finish={{ label: "Become a sales rep", href: "mailto:support@usenearest.com?subject=Become%20a%20Nearest%20sales%20rep" }}>
+    <DemoShell title="Rep dashboard · demo" tabs={TABS} tab={tab} setTab={setTab}
+      banner="DEMO — sample rep, sample professionals and sample numbers. Not real data.">
       {tab === 0 && (
         <>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>

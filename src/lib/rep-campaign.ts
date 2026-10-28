@@ -1,4 +1,4 @@
-// Rep Campaign Guide — one source for the rep dashboard (/rep) and the public rep dashboard demo (/partners/demo/rep).
+// Rep Campaign Guide — one source for the rep dashboard (/rep) and the public rep dashboard demo (/reps/demo).
 // Plain data (no server-only) so the client guide component can use it. Placeholders in scripts:
 //   {LINK} = the rep's professional sign-up link, {NAME} = the rep's first name, {CITY} = the campaign's focus area,
 //   {CATEGORY} = the campaign's service category.

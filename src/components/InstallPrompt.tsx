@@ -9,7 +9,7 @@ type Mode = "button" | "ios" | "android" | "inapp" | null;
 const KEY = "nearest_install_dismissed";
 // The public resource center (articles, FAQ) never shows the install banner — no interstitials over content.
 // Partner pages (/link/…) have their own "Save to my phone" button that installs that partner's page instead.
-const HIDE_ON = ["/guardian", "/unsubscribe", "/go/", "/invite-expired", "/r/", "/meet", "/partners", "/link/", ...PUBLIC_PAGES];
+const HIDE_ON = ["/guardian", "/unsubscribe", "/go/", "/invite-expired", "/r/", "/meet", "/partners", "/link/", "/reps/demo", ...PUBLIC_PAGES];
 
 /**
  * "Install Nearest" banner. Phones rarely offer to install a web app on their own (iPhone never does),

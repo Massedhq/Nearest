@@ -42,7 +42,7 @@ export default async function SalesBoard({ searchParams }: { searchParams: Promi
       <AdminHead eyebrow="Only you can see this" title="Sales Board" />
       <div className="card" style={{ gap: 6 }}>
         <span className="small b">Rep dashboard demo (to recruit reps)</span>
-        <div className="row between" style={{ gap: 8, flexWrap: "wrap" }}><span className="small" style={{ wordBreak: "break-all" }}>{`${SITE_URL}/partners/demo/rep`}</span><span className="row" style={{ gap: 14 }}><CopyText text={`${SITE_URL}/partners/demo/rep`} /><Link className="link small" href="/partners/demo/rep" target="_blank">Open</Link></span></div>
+        <div className="row between" style={{ gap: 8, flexWrap: "wrap" }}><span className="small" style={{ wordBreak: "break-all" }}>{`${SITE_URL}/reps/demo`}</span><span className="row" style={{ gap: 14 }}><CopyText text={`${SITE_URL}/reps/demo`} /><Link className="link small" href="/reps/demo" target="_blank">Open</Link></span></div>
         <span className="xs muted">Sample rep, sample professionals and sample numbers — clearly labeled as a demo. Every real rep has the same Campaign Guide on their dashboard.</span>
       </div>
       <div className="card" style={{ gap: 10 }}>
