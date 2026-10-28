@@ -9,7 +9,7 @@ export default function Terms() {
   return (
     <LegalPage
       title="Terms of Service"
-      updated="October 23, 2026"
+      updated="October 27, 2026"
       other={{ href: "/privacy", label: "Privacy Policy" }}
       intro={[
         `These Terms of Service ("Terms") are an agreement between you and ${ENTITY}, doing business as Nearest ("Nearest," "we," "us"). They apply whenever you use usenearest.com, the Nearest app, or any related service (together, the "Service").`,
@@ -188,6 +188,7 @@ export default function Terms() {
           h: "17. Third-party services",
           p: [
             "The Service relies on third parties, including Stripe (payments and payouts), Clerk (sign-in), and hosting and email providers, and may link to other websites (for example a Professional's Instagram, TikTok or website). We're not responsible for third-party services or websites, and your use of them is subject to their terms.",
+            "Nearest Partner pages. Approved Professionals may publish a partner page (usenearest.com/link/…) with their services, videos and links to their own shops, products, courses or other websites. Anything bought or used through those links is offered by the Professional or a third party, not Nearest, and is between you and that seller. Partners are responsible for what they post and link to, must have the right to share it, and may not use their page for anything these Terms prohibit; Nearest may pause or remove a partner page. Appointments booked from a partner page are Nearest bookings and follow these Terms.",
           ],
         },
         {

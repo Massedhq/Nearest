@@ -1403,3 +1403,41 @@ export const outreachMeetings = pgTable("outreach_meetings", {
   ip: text("ip"),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("outreach_meetings_starts_idx").on(t.startsAt), index("outreach_meetings_email_idx").on(t.email), index("outreach_meetings_phone_idx").on(t.phoneNorm)]);
+
+// ─── Nearest Partner pages (link-in-bio + booking for beauty educators/influencers) ──────────────────────────────
+// Separate from Sales Track partners (partner codes) and sales reps. A creator applies at /partners; an owner approves;
+// the professional account with the same email then gets a link page at usenearest.com/link/<slug>.
+export type PartnerLinkItem = { id: string; title: string; url: string; note?: string };
+export type PartnerVideoItem = { id: string; title: string; url: string };
+
+export const partnerApplications = pgTable("partner_applications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  email: text("email").notNull(), // lowercased
+  instagram: text("instagram"),
+  city: text("city"),
+  state: text("state"),
+  specialty: text("specialty"),
+  about: text("about"), // what they teach / share with their followers
+  status: text("status").notNull().default("new"), // new | approved | declined
+  note: text("note"), // owner's note (sent with a decline)
+  decidedAt: ts("decided_at"),
+  decidedBy: uuid("decided_by"),
+  ip: text("ip"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("partner_applications_email_idx").on(t.email), index("partner_applications_status_idx").on(t.status)]);
+
+export const partnerPages = pgTable("partner_pages", {
+  userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }), // the professional
+  applicationId: uuid("application_id"),
+  headline: text("headline"), // short line under their name, e.g. "Beauty educator · Brows & lashes"
+  links: jsonb("links").$type<PartnerLinkItem[]>().notNull().default([]), // shop, Amazon, course…
+  videos: jsonb("videos").$type<PartnerVideoItem[]>().notNull().default([]), // "Learn with me"
+  topServiceIds: jsonb("top_service_ids").$type<string[]>().notNull().default([]), // up to 4 services shown on the page
+  published: boolean("published").notNull().default(false),
+  publishedAt: ts("published_at"),
+  pausedAt: ts("paused_at"), // owner paused the page
+  pausedBy: uuid("paused_by"),
+  approvedAt: ts("approved_at").notNull().defaultNow(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});

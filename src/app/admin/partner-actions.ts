@@ -1,0 +1,64 @@
+"use server";
+import { revalidatePath } from "next/cache";
+import { and, eq, sql } from "drizzle-orm";
+import { db, partnerApplications, partnerPages, users } from "@/db";
+import { requireAdmin } from "@/lib/admin";
+import { logActivity } from "@/lib/log";
+import { sendEmail } from "@/lib/email";
+import { inbox } from "@/lib/inbox";
+import { partnerSetupDemoLink } from "@/lib/partners";
+import { SITE_URL } from "@/lib/public/site";
+
+type FormState = { error?: string; ok?: string };
+const UUID = /^[0-9a-f-]{36}$/;
+
+/** Owner: approve or decline a Nearest Partner application (approve also opens the page for a matching pro account). */
+export async function decidePartnerApplication(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireAdmin({ owner: true });
+  const id = String(form.get("id") ?? "");
+  const to = String(form.get("to") ?? "");
+  const note = String(form.get("note") ?? "").trim().slice(0, 500) || null;
+  if (!UUID.test(id) || !["approved", "declined", "new"].includes(to)) return { error: "Not found." };
+  const before = await db.query.partnerApplications.findFirst({ where: eq(partnerApplications.id, id) });
+  if (!before) return { error: "Not found." };
+  await db.update(partnerApplications).set({ status: to, note, decidedAt: to === "new" ? null : new Date(), decidedBy: to === "new" ? null : user.id }).where(eq(partnerApplications.id, id));
+
+  let pro: { id: string; accountType: string } | undefined;
+  if (to === "approved") {
+    pro = (await db.select({ id: users.id, accountType: users.accountType }).from(users).where(sql`lower(${users.email}) = ${before.email}`).limit(1))[0];
+    if (pro?.accountType === "professional") {
+      await db.insert(partnerPages).values({ userId: pro.id, applicationId: id }).onConflictDoNothing();
+      await inbox(pro.id, { kind: "partner", title: "You're a Nearest Partner", body: "Your partner page is ready. Open Business → Partner page to add your links and videos and turn it on.", href: "/pro/partner" }).catch(() => {});
+    }
+    const hasPro = pro?.accountType === "professional";
+    sendEmail({
+      to: before.email, subject: "You're approved as a Nearest Partner", eyebrow: "Nearest Partner", heading: `Welcome, ${before.name.split(" ")[0]}.`,
+      lines: hasPro
+        ? ["Your partner page is ready. Sign in to the Nearest pro app and open Business → Partner page to add your links, videos and top services, then turn on Page is live.", `Step-by-step: ${partnerSetupDemoLink()}`]
+        : [`Create your Nearest professional account with this same email (${before.email}), set up your profile, then open Business → Partner page.`, `Step-by-step: ${partnerSetupDemoLink()}`],
+      button: hasPro ? { label: "Open my partner page", url: `${SITE_URL}/pro/partner` } : { label: "Create my account", url: `${SITE_URL}/pro/sign-up` },
+    }).catch(() => {});
+  } else if (to === "declined") {
+    sendEmail({
+      to: before.email, subject: "Your Nearest Partner application", eyebrow: "Nearest Partner", heading: `Thanks for applying, ${before.name.split(" ")[0]}.`,
+      lines: ["We're not able to approve your partner application right now.", ...(note ? [note] : [])],
+    }).catch(() => {});
+  }
+  await logActivity({ actorUserId: user.id, action: `partner.application_${to}`, targetType: "partner_application", targetId: id, before: { status: before.status }, after: { status: to, note, proUserId: pro?.id ?? null } });
+  revalidatePath("/admin/partners");
+  return { ok: to === "approved" ? (pro?.accountType === "professional" ? "Approved — their partner page is open in their pro app." : "Approved — they'll get it once they create a pro account with this email.") : to === "declined" ? "Declined — they were emailed." : "Moved back to New." };
+}
+
+/** Owner: pause or resume a partner page (paused pages are hidden from the public). */
+export async function setPartnerPagePaused(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireAdmin({ owner: true });
+  const id = String(form.get("userId") ?? "");
+  const pause = form.get("pause") === "1";
+  if (!UUID.test(id)) return { error: "Not found." };
+  const before = await db.query.partnerPages.findFirst({ where: eq(partnerPages.userId, id) });
+  if (!before) return { error: "Not found." };
+  await db.update(partnerPages).set(pause ? { pausedAt: new Date(), pausedBy: user.id } : { pausedAt: null, pausedBy: null }).where(and(eq(partnerPages.userId, id)));
+  await logActivity({ actorUserId: user.id, action: pause ? "partner.page_paused" : "partner.page_resumed", targetType: "partner_page", targetId: id, before: { pausedAt: before.pausedAt }, after: { paused: pause } });
+  revalidatePath("/admin/partners");
+  return { ok: pause ? "Paused — the page is hidden." : "Resumed." };
+}
