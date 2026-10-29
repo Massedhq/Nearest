@@ -27,26 +27,21 @@ export function CityPicker({ cities, value, onChange, name = "cityId", id = "cit
     return [...starts, ...has].slice(0, 8);
   }, [cities, state, q]);
 
-  const choose = (c: City) => { onChange(String(c.id)); setQ(""); setOpen(false); };
+  const choose = (c: City) => { onChange(String(c.id)); setQ(""); setOpen(false); (document.activeElement as HTMLElement | null)?.blur(); };
 
   return (
-    <div className="field">
+    <div className="field" style={{ gridColumn: "1 / -1" }}>
       <label htmlFor={id}>{label}</label>
       <input type="hidden" name={name} value={value} />
       <div className="row" style={{ gap: 8, alignItems: "stretch" }}>
         <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
-          {chosen && !open ? (
-            <button type="button" id={id} className="btn ghost sm" style={{ width: "100%", justifyContent: "space-between", height: "100%" }} onClick={() => { setOpen(true); setQ(""); }}>
-              <span>{chosen.name}, {chosen.state || "TX"}</span><span className="muted xs">Change</span>
-            </button>
-          ) : (
-            <input id={id} autoComplete="off" placeholder={`Start typing a ${state === "TX" ? "Texas " : ""}city`} value={q} maxLength={60}
-              onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)}
-              onChange={(e) => { setQ(e.target.value); setOpen(true); }}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (matches[0]) choose(matches[0]); } }} />
-          )}
+          <input id={id} autoComplete="off" placeholder={`Start typing a ${state === "TX" ? "Texas " : ""}city`} maxLength={60}
+            value={open ? q : chosen ? `${chosen.name}, ${chosen.state || "TX"}` : q}
+            onFocus={() => { setQ(""); setOpen(true); }} onBlur={() => setTimeout(() => setOpen(false), 150)}
+            onChange={(e) => { setQ(e.target.value); setOpen(true); }}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (matches[0]) choose(matches[0]); } }} />
           {open && (
-            <div role="listbox" style={{ position: "absolute", zIndex: 20, left: 0, right: 0, top: "calc(100% + 4px)", background: "var(--card, #1b1b1f)", border: "1px solid #3A3A3F", borderRadius: 12, overflow: "hidden" }}>
+            <div role="listbox" style={{ position: "absolute", zIndex: 20, left: 0, right: 0, top: "calc(100% + 4px)", background: "#0E0E10", border: "1px solid #2A2A2D", borderRadius: 12, overflow: "hidden" }}>
               {matches.length ? matches.map((c) => (
                 <button key={c.id} type="button" role="option" aria-selected={String(c.id) === value} onMouseDown={(e) => e.preventDefault()} onClick={() => choose(c)}
                   style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 14px", background: "transparent", border: 0, color: "inherit", cursor: "pointer" }}>
@@ -56,7 +51,7 @@ export function CityPicker({ cities, value, onChange, name = "cityId", id = "cit
             </div>
           )}
         </div>
-        <select aria-label="State" value={state} style={{ width: 84 }} onChange={(e) => { setState(e.target.value); setQ(""); if (chosen && (chosen.state || "TX") !== e.target.value) onChange(""); setOpen(true); }}>
+        <select aria-label="State" value={state} style={{ flex: "0 0 96px", width: 96 }} onChange={(e) => { setState(e.target.value); setQ(""); if (chosen && (chosen.state || "TX") !== e.target.value) onChange(""); setOpen(true); }}>
           {states.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>

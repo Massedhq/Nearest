@@ -61,7 +61,7 @@ export function ServicesEditor({ categories, initial, userId, feeCents = 500 }: 
   const feeD = feeCents / 100;
   const fmt = (n: number) => `$${n.toFixed(2).replace(/\.00$/, "")}`;
   // What students see and pay for a row: the pro's price + the service fee (unless they chose to absorb it).
-  const studentPrice = (r: Row) => { const p = Number(String(r.price).replace(/[$,\s]/g, "")); return Number.isFinite(p) && p > 0 ? (r.addFee === false ? p : p + feeD) : null; };
+  const studentPrice = (r: Row) => { const p = Number(String(r.price).replace(/[$,\s]/g, "")); return Number.isFinite(p) && p > 0 ? p + feeD : null; };
   const [rows, setRows] = useState<Row[]>(initial);
   const [cats, setCats] = useState<number[]>(() => [...new Set(initial.map((r) => r.categoryId))]);
   const [capWarn, setCapWarn] = useState(false);
@@ -122,10 +122,7 @@ export function ServicesEditor({ categories, initial, userId, feeCents = 500 }: 
                 <input type="checkbox" checked={Boolean(r.adultsOnly)} onChange={(e) => update(i, { adultsOnly: e.target.checked })} />
                 <span><span className="b">18+ only</span> — must be 18 or older to book</span>
               </label>
-              <label className="check" style={{ fontSize: 12, marginTop: -4 }}>
-                <input type="checkbox" checked={r.addFee !== false} onChange={(e) => update(i, { addFee: e.target.checked })} />
-                <span>Add the {fmt(feeD)} booking fee to my price{studentPrice(r) != null ? <> — <span className="b">students see {fmt(studentPrice(r)!)}</span>{r.addFee === false ? `, you receive ${fmt(Math.max(0, studentPrice(r)! - feeD))}` : ""}</> : ""}</span>
-              </label>
+              {studentPrice(r) != null && <span className="small muted" style={{ marginTop: -4 }}>Students see <span className="b">{fmt(studentPrice(r)!)}</span> — your price plus the {fmt(feeD)} booking fee. You receive your full price.</span>}
               <ServicePhoto userId={userId} url={r.photo} onChange={(u) => update(i, { photo: u })} />
               <AddonsEditor serviceName={r.name} list={r.addons ?? []} onChange={(l) => update(i, { addons: l })} room={studentPrice(r) != null ? Math.max(0, MAX_PRICE_DOLLARS - studentPrice(r)!) : null} />
               <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} onClick={() => close(i)}>Minimize</button>

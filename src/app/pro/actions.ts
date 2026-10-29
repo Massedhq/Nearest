@@ -122,12 +122,11 @@ export async function saveServices(_: FormState, form: FormData): Promise<FormSt
     if (!name) return { error: "Every service needs a name." };
     if (!validCats.has(Number(r.categoryId))) return { error: "Pick a category for every service." };
     if (!Number.isFinite(price) || price <= 0) return { error: `Enter a price for ${name}.` };
-    // The pro enters their price. With the fee added (default), students see their price + the Nearest service fee.
-    const addFee = r.addFee !== false;
+    // The pro enters their price; the booking fee is always added on top, so students see their price + the fee.
+    const addFee = true;
     const proCents = Math.round(price * 100);
     const studentCents = addFee ? proCents + fee : proCents;
     if (studentCents > MAX_PRICE_DOLLARS * 100) return { error: `Students can't be charged more than $${MAX_PRICE_DOLLARS} per service — ${name} would be $${(studentCents / 100).toFixed(2).replace(/\.00$/, "")}${addFee ? " with the service fee" : ""}.` };
-    if (!addFee && proCents <= fee) return { error: `${name} needs to be more than the $${(fee / 100).toFixed(0)} service fee.` };
     if (!Number.isInteger(duration) || duration < 10 || duration > 600) return { error: `Enter ${name}'s length in minutes (10–600).` };
     const photo = typeof r.photo === "string" && blobUrlOk(r.photo, user.id) ? r.photo : null; // optional photo of this service
     // Optional add-ons: the service + any add-on must stay within the $150 student limit.

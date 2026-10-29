@@ -3,7 +3,7 @@
  * card processing) are part of section 2 — there's no monthly membership. The rate argument is kept for older callers. Bump PRO_TERMS_VERSION whenever the text changes —
  * every professional's accepted version is stored, so Nearest can prove which terms they agreed to.
  */
-export const PRO_TERMS_VERSION = "2026-10-17";
+export const PRO_TERMS_VERSION = "2026-10-28";
 
 /** Label for a pro's locked rate (used when an already-enrolled pro accepts an updated version). */
 export const rateLabel = (entryType: string | null | undefined) => (entryType === "FIRST_IN" ? "First In" : entryType === "DFW_NEXT" ? "DFW membership" : "Market rate");
@@ -21,7 +21,7 @@ export function proTermsSections(_rate?: { cents: number; label: string }) {
       "Once you accept, the student pays to confirm. The appointment is confirmed when their payment goes through; Nearest holds the payment until the service is finished. If they don't pay in time, the time is released.",
       "You must show up on time at the confirmed place, check in through Nearest, and provide the service as described. Nearest's cancellation, deposit, no-show and fine rules apply to you.",
       "Joining Nearest, building your profile and staying listed are free. There is no sign-up fee and no monthly fee, and you don't need a card on file.",
-      "Nearest service fee: a flat $5.00 Nearest service fee applies to each service and each Model Call booked through Nearest. When you save a service, the fee is added to your price by default, so students see one total (for example, a $30 service shows as $35) and you receive your full price. You can instead choose, per service, to include the fee in your price — then students see your price and the $5.00 comes out of your payout for that booking. On Model Calls the fee is always added to your model price (a $15 model price shows models $20; a free Model Call shows $5). Model Calls published before October 17, 2026 have no fee. Add-ons have no service fee.",
+      "Nearest service fee: a flat $5.00 Nearest service fee applies to each service and each Model Call booked through Nearest. The fee is always added on top of your service price, so students see one total (for example, a $30 service shows as $35) and you receive your full price. It can't be included in or taken from your price. On Model Calls the fee is always added to your model price (a $15 model price shows models $20; a free Model Call shows $5). Model Calls published before October 17, 2026 have no fee. Add-ons have no service fee.",
       "Nearest keeps the fee only when a booking is completed. Nearest takes no other commission on your bookings.",
       "Card processing: the card-processing fee on each payment comes out of your payout for that booking. When a student pays with Nearest credit from an earlier payment, or when you receive a forfeited deposit, the processing fee from the original payment comes out of that amount the same way.",
       "Nearest may add, change or remove platform and service fees to operate and improve the service. Nearest will tell you before any change takes effect, and changes apply only to bookings made after the change.",

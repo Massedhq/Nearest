@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Build a profile: type-to-search city with a state picker (Texas first), screenshots still fill the city; guide explains building the whole profile; plus partners you add, rep and shop updates"
+git commit -q -m "Booking fee is always added to the service price (no checkbox), Terms and Professional Terms updated (pros acknowledge in Business - Updates), guides; city picker full-width; plus partners you add, rep and shop updates"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""
