@@ -12,6 +12,7 @@ import { setupSteps } from "@/lib/pro";
 import { builtEnrollmentQuote } from "@/lib/enroll";
 import { buildStatus } from "@/lib/build-status";
 import { editBuiltProfile, sendClaimLink } from "@/app/admin/build-actions";
+import { LinkSender } from "@/components/LinkSender";
 import { BuildScreenshots } from "@/components/BuildScreenshots";
 import { and } from "drizzle-orm";
 
@@ -73,12 +74,10 @@ export default async function BuiltProfile({ params }: { params: Promise<{ id: s
           {quote && !quote.ok && left.length === 0 && <div className="card warn small" style={{ maxWidth: 720 }}><span className="b">Check their city before sending the link</span><span>{quote.reason.replace(/^Your city/, "Their city")}</span></div>}
           <div className="card" style={{ gap: 8, maxWidth: 720 }}>
             <span className="eyebrow">Claim link</span>
-            <span className="small">They get an email with a button to create their password. Then they accept the Professional Terms and their profile goes live (students see them once their ID is verified). The link works once and lasts 14 days; sending again replaces it.</span>
+            <span className="small">Email it, or copy it and text or DM it to them yourself. Opening it, they create their password. Then they accept the Professional Terms and their profile goes live (students see them once their ID is verified). The link works once and lasts 14 days; sending again replaces it.</span>
             {p.claimSentAt && <span className="xs muted">Last sent {day(p.claimSentAt)}{p.claimExpiresAt ? ` • expires ${day(p.claimExpiresAt)}` : ""}</span>}
             {left.length > 0 ? <span className="small muted">Finish {left.map((x) => x.label).join(", ")} first.</span> : (
-              <ActionForm action={sendClaimLink} submitLabel={p.claimSentAt ? "Send a new link" : `Email the link to ${u.email}`}>
-                <input type="hidden" name="userId" value={id} />
-              </ActionForm>
+              <LinkSender action={sendClaimLink} fields={{ userId: id }} primary emailLabel={p.claimSentAt ? "Email a new link" : "Email the link"} copyLabel="Copy the link to text or DM" />
             )}
           </div>
         </>

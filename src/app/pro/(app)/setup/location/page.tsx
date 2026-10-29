@@ -9,7 +9,7 @@ import { ProAddressFields } from "@/components/ProAddressFields";
 export const metadata = { title: "Location" };
 
 export default async function LocationStep({ searchParams }: { searchParams: Promise<{ edit?: string }> }) {
-  const { user, profile: p } = await requirePro();
+  const { user, profile: p, building } = await requirePro();
   const edit = (await searchParams).edit === "1";
   const [steps, cityList] = await Promise.all([
     setupSteps(user.id),
@@ -36,6 +36,7 @@ export default async function LocationStep({ searchParams }: { searchParams: Pro
         {edit && <input type="hidden" name="edit" value="1" />}
         <ProAddressFields groups={cityList} address={p.addressLine ?? ""} unit={p.addressUnit ?? ""} cityId={p.cityId} zip={p.zip ?? ""} />
         <span className="xs muted">Your street address stays private. Students only see how far away you are until they&apos;ve booked.</span>
+        {building && <span className="xs" style={{ color: "#E3C58A" }}>Don&apos;t know their street address? Leave it blank and keep the ZIP — they&apos;ll be asked for it when they sign in, before they go live.</span>}
         <fieldset className="col" style={{ border: 0, padding: 0, margin: 0 }}>
           <legend className="lbl" style={{ marginBottom: 8 }}>How do you provide services?</legend>
           <label className="check"><input type="radio" name="mode" value="come_to_me" defaultChecked={mode === "come_to_me"} />Customers come to me</label>

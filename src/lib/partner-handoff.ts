@@ -62,7 +62,7 @@ export async function selfSetupPartner(userId: string) {
 }
 
 /** Emails (and returns) one of the three links. Sending again replaces the earlier link. */
-export async function sendPartnerHandoff(opts: { userId: string; mode: HandoffMode; byUserId: string; byName?: string | null }): Promise<{ error: string } | { ok: true; link: string; emailed: boolean; email: string }> {
+export async function sendPartnerHandoff(opts: { userId: string; mode: HandoffMode; byUserId: string; byName?: string | null; email?: boolean }): Promise<{ error: string } | { ok: true; link: string; emailed: boolean; email: string }> {
   const t = await buildTarget(opts.userId);
   if (!t) return { error: "They already created their password — they sign in at usenearest.com/pro/sign-in." };
   const page = await addedPartner(opts.userId);
@@ -83,7 +83,7 @@ export async function sendPartnerHandoff(opts: { userId: string; mode: HandoffMo
   await db.update(partnerPages).set({ handoff: opts.mode, handoffSentAt: new Date(), updatedAt: new Date() }).where(eq(partnerPages.userId, opts.userId));
   const link = `${SITE_URL}/pro/claim/${token}`;
   const c = HANDOFF[opts.mode];
-  const r = await sendEmail({
+  const r = opts.email === false ? { sent: false } : await sendEmail({
     to: t.u.email, subject: c.subject, eyebrow: "Nearest Partner", heading: c.heading(t.u.firstName ?? "Hi"),
     lines: [
       ...c.lines,
@@ -92,7 +92,7 @@ export async function sendPartnerHandoff(opts: { userId: string; mode: HandoffMo
     ],
     button: { label: c.cta, url: link },
   });
-  await logActivity({ actorUserId: opts.byUserId, action: `partner.handoff_${opts.mode}`, targetType: "partner_page", targetId: opts.userId, after: { emailed: r.sent } });
+  await logActivity({ actorUserId: opts.byUserId, action: `partner.handoff_${opts.mode}`, targetType: "partner_page", targetId: opts.userId, after: { emailed: r.sent, copied: opts.email === false } });
   return { ok: true, link, emailed: r.sent || false, email: t.u.email ?? "" };
 }
 

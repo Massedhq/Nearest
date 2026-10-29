@@ -11,6 +11,7 @@ import { personName } from "@/lib/pro-name";
 import { setupSteps } from "@/lib/pro";
 import { HANDOFF, HANDOFF_MODES, type HandoffMode } from "@/lib/partner-handoff";
 import { partnerApplyLink, partnerDemoLink, partnerSetupDemoLink, partnerPageLink, partnerPagePath, PARTNER_DEMO_PATH, PARTNER_SETUP_DEMO_PATH, PARTNER_APPLY_PATH } from "@/lib/partners";
+import { LinkSender } from "@/components/LinkSender";
 import { decidePartnerApplication, setPartnerPagePaused, refundPartnerOrder, sendPartnerLink } from "@/app/admin/partner-actions";
 import { editBuiltProfile } from "@/app/admin/build-actions";
 import { sellerAmount } from "@/lib/shop";
@@ -112,14 +113,15 @@ async function Added() {
               <div className="col g8">
                 <form action={editBuiltProfile}><input type="hidden" name="userId" value={u.id} /><input type="hidden" name="step" value={steps[0]?.key ?? "profile"} /><button className="btn ghost sm" type="submit">{steps.length ? "Build their profile" : "Open their profile"}</button></form>
                 <span className="xs muted">Partner page, links, videos and shop are under Business → Partner page while you&apos;re building.</span>
-                <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "flex-start" }}>
+                <div className="col g12">
                   {HANDOFF_MODES.map((m) => (
-                    <ActionForm key={m} action={sendPartnerLink} submitLabel={HANDOFF[m].button} buttonClass={m === "approve" && !steps.length ? "btn sm" : "btn ghost sm"} className="col g4" >
-                      <input type="hidden" name="userId" value={u.id} /><input type="hidden" name="mode" value={m} />
-                    </ActionForm>
+                    <div key={m} className="col g4">
+                      <span className="small b">{HANDOFF[m].button.replace(/^Send link: /, "Link: ")}</span>
+                      <LinkSender action={sendPartnerLink} fields={{ userId: u.id, mode: m }} primary={m === "approve" && !steps.length} emailLabel="Email it" copyLabel="Copy link to text or DM" />
+                    </div>
                   ))}
                 </div>
-                <span className="xs muted">Sending a new link replaces the old one. The message after you send shows the link so you can also DM or text it.</span>
+                <span className="xs muted">Each tap makes a new link and the old one stops working. Copy puts the link on your clipboard so you can paste it in a text or DM.</span>
               </div>
             )}
             {claimed && (

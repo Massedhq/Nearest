@@ -52,6 +52,16 @@ export default async function WelcomeBuilt() {
           <div className="card warn small"><span>{quote.reason}</span><span className="muted">Message Nearest support and we&apos;ll sort it out with you.</span></div>
         ) : (
           <ActionForm action={acceptBuiltProfile} submitLabel={partner ? "Approve my page and go live" : "Accept and go live"}>
+            {p.serviceMode !== "travel" && !p.addressLine && (
+              <div className="card" style={{ gap: 10 }}>
+                <span className="b">Your address</span>
+                <span className="xs muted">Where clients come to you. It stays private — students only see how far away you are, and a booked client gets it on the day of the appointment.</span>
+                <div className="field"><label htmlFor="w-addr">Street address</label><input id="w-addr" name="address" required maxLength={160} autoComplete="address-line1" placeholder="123 Main St" /></div>
+                <div className="field"><label htmlFor="w-unit">Apt, suite, unit (optional)</label><input id="w-unit" name="unit" maxLength={40} autoComplete="address-line2" /></div>
+                <div className="field"><label htmlFor="w-zip">ZIP</label><input id="w-zip" name="zip" required inputMode="numeric" maxLength={5} defaultValue={p.zip ?? ""} /></div>
+                {city && <span className="xs muted">City: {city.name}, {city.state}</span>}
+              </div>
+            )}
             <span className="eyebrow">Before you start</span>
             <ProTermsAgreement sections={proTermsSections({ cents: quote.cents, label: quote.label })} version={PRO_TERMS_VERSION} />
             <label className="check xs" style={{ alignItems: "flex-start" }}><input type="checkbox" name="inviteReward" required /><span>I agree to honor Nearest&apos;s $5 student invite reward: a student who earned it by inviting a friend gets $5 off their first booking with me, taken from that booking&apos;s payout.</span></label>

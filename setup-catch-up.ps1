@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Booking fee is always added to the service price (no checkbox), Terms and Professional Terms updated (pros acknowledge in Business - Updates), guides; city picker full-width; plus partners you add, rep and shop updates"
+git commit -q -m "Built profiles: Back to admin button visible, copy the sign-in link to text or DM (not only email), street address can be left for the pro to add at sign-in; booking fee always added; city picker; guides"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

@@ -2,7 +2,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { db, users, professionalProfiles, prospects } from "@/db";
+import { db, users, professionalProfiles, prospects, cities } from "@/db";
 import { getViewer } from "@/lib/viewer";
 import { hashClaimToken, isManagedClerkId, claimTarget } from "@/lib/build-mode";
 import { logActivity } from "@/lib/log";
@@ -90,6 +90,19 @@ export async function acceptBuiltProfile(_: FormState, form: FormData): Promise<
   if (form.get("inviteReward") !== "on") return { error: "Please agree to honor the $5 student invite reward." };
   const protection = (await import("@/lib/insurance")).readProtection(form);
   if (protection && "error" in protection) return { error: protection.error };
+  // The owner may have left their street address for them to add.
+  let addr: Record<string, unknown> = {};
+  if (profile.serviceMode !== "travel" && !profile.addressLine) {
+    const street = String(form.get("address") ?? "").trim().slice(0, 160);
+    const unit = String(form.get("unit") ?? "").trim().slice(0, 40) || null;
+    const zip = String(form.get("zip") ?? profile.zip ?? "").trim();
+    if (!street) return { error: "Add the street address where clients come to you. It stays private." };
+    if (!/^\d{5}$/.test(zip)) return { error: "Enter a 5-digit ZIP code." };
+    const city = profile.cityId ? await db.query.cities.findFirst({ where: eq(cities.id, profile.cityId) }) : null;
+    const { geocode } = await import("@/lib/geo");
+    const point = city ? await geocode(street, city.name, zip, city.state) : null;
+    addr = { addressLine: street, addressUnit: unit, zip, lat: point?.lat ?? null, lng: point?.lng ?? null };
+  }
   const { builtEnrollmentQuote } = await import("@/lib/enroll");
   const q = await builtEnrollmentQuote(profile); // First In while the 750 has room
   if (!q.ok) return { error: q.reason };
@@ -102,7 +115,7 @@ export async function acceptBuiltProfile(_: FormState, form: FormData): Promise<
     proTermsVersion: PRO_TERMS_VERSION, proTermsAcceptedAt: now, proTermsIp: ip,
     // Nearest built and checked this profile with them, so accepting puts it live (no separate review).
     reviewStatus: "approved", submittedAt: now, approvedAt: now, reviewNote: null, searchable: true,
-    claimedAt: profile.claimedAt ?? now, claimTokenHash: null,
+    claimedAt: profile.claimedAt ?? now, claimTokenHash: null, ...addr,
     ...(protection && !("error" in protection) ? { insuranceChoice: protection.choice, insuranceInterest: protection.interest, insuranceChoiceAt: now } : {}),
   }).where(and(eq(professionalProfiles.userId, user.id), isNull(professionalProfiles.entryPaidAt))).returning();
   if (!row) redirect("/pro/home");

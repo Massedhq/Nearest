@@ -7,7 +7,7 @@ export function BuildBanner({ userId, name }: { userId: string; name: string }) 
       <span style={{ flex: 1, minWidth: 180 }}><b>Building {name}&apos;s profile.</b> Everything you save goes on their profile. They accept the Terms, verify their ID and set up payouts themselves.</span>
       <form action={stopBuilding}>
         <input type="hidden" name="userId" value={userId} />
-        <button type="submit" className="btn sm" style={{ background: "#0A0A0A", color: "#ECE8E1" }}>Back to admin</button>
+        <button type="submit" style={{ background: "#0A0A0A", color: "#ECE8E1", border: 0, borderRadius: 22, minHeight: 44, padding: "0 20px", font: "700 13px var(--font-body), system-ui, sans-serif", letterSpacing: ".08em", textTransform: "uppercase", cursor: "pointer" }}>Back to admin</button>
       </form>
     </div>
   );

@@ -208,7 +208,7 @@ export async function stopBuilding(form: FormData) {
  * Email the professional their claim link. Opening it, they create a password (8+ characters), sign in, accept the
  * Professional Terms, and their profile goes live. Sending again replaces the earlier link.
  */
-export async function sendClaimLink(_: FormState, form: FormData): Promise<FormState> {
+export async function sendClaimLink(_: FormState, form: FormData): Promise<FormState & { link?: string }> {
   const { user } = await owner();
   const id = str(form, "userId", 40);
   const t = await buildTarget(id);
@@ -229,7 +229,8 @@ export async function sendClaimLink(_: FormState, form: FormData): Promise<FormS
   const link = `${base}/pro/claim/${token}`;
   const { sendEmail, emailEnabled } = await import("@/lib/email");
   const who = user.firstName ?? "Nearest";
-  const r = await sendEmail({
+  const copy = form.get("via") === "copy";
+  const r = copy ? { sent: false } : await sendEmail({
     to: t.u.email, subject: "Your Nearest profile is ready", eyebrow: "Nearest",
     heading: `${t.u.firstName ?? "Hi"}, your Nearest profile is ready.`,
     lines: [
@@ -240,9 +241,11 @@ export async function sendClaimLink(_: FormState, form: FormData): Promise<FormS
     ],
     button: { label: "Create my password", url: link },
   });
-  await logActivity({ actorUserId: user.id, action: "pro.claim_link_sent", targetType: "professional", targetId: id, after: { emailed: r.sent } });
+  await logActivity({ actorUserId: user.id, action: "pro.claim_link_sent", targetType: "professional", targetId: id, after: { emailed: r.sent, copied: copy } });
   revalidatePath(`/admin/outreach/build/${id}`);
   revalidatePath("/admin/outreach/build");
-  if (!r.sent) return { ok: `${emailEnabled() ? "The email didn't go through" : "Email isn't set up"} — copy this link and send it to them yourself (works once, ${CLAIM_DAYS} days): ${link}` };
-  return { ok: `Sent to ${t.u.email}. You can also text them this link (works once, ${CLAIM_DAYS} days): ${link}` };
+  const lasts = `It works once and lasts ${CLAIM_DAYS} days; any earlier link stopped working.`;
+  if (copy) return { link, ok: `Here's their link — copy it and send it to them by text or DM. ${lasts}` };
+  if (!r.sent) return { link, ok: `${emailEnabled() ? "The email didn't go through" : "Email isn't set up"} — copy the link and send it yourself. ${lasts}` };
+  return { link, ok: `Emailed to ${t.u.email}. You can also copy it and text or DM it. ${lasts}` };
 }

@@ -176,7 +176,7 @@ export async function saveProfessionalStatus(_: FormState, form: FormData): Prom
 
 // ---------- Location ----------
 export async function saveLocation(_: FormState, form: FormData): Promise<FormState> {
-  const { user, profile } = await requirePro();
+  const { user, profile, building } = await requirePro();
   const cityId = Number(form.get("cityId"));
   const zip = str(form, "zip", 10);
   const addressLine = str(form, "address", 160);
@@ -186,7 +186,8 @@ export async function saveLocation(_: FormState, form: FormData): Promise<FormSt
   if (!cityId) return { error: "Choose your city." };
   if (!/^\d{5}$/.test(zip)) return { error: "Enter a 5-digit ZIP code." };
   if (!["come_to_me", "travel", "both"].includes(mode)) return { error: "Choose how you provide services." };
-  if (mode !== "travel" && !addressLine) return { error: "Add the address where customers come to you. It stays private." };
+  // An owner building the profile may leave the street blank — the professional adds it when they sign in.
+  if (mode !== "travel" && !addressLine && !building) return { error: "Add the address where customers come to you. It stays private." };
   if (mode !== "come_to_me" && !(radius > 0 && radius <= 50)) return { error: "Choose how far you'll travel." };
   const feeRaw = str(form, "travelFee", 8).replace(/[$,\s]/g, "");
   const travelFee = mode === "come_to_me" ? null : Number(feeRaw || "35");
@@ -347,6 +348,7 @@ export async function submitForReview(_: FormState, form: FormData): Promise<For
   const { user, profile, viewer } = await requirePro({ self: true });
   if (profile.reviewStatus === "approved") return { ok: "You're already approved." };
   if (!setupComplete(await setupSteps(user.id))) return { error: "Finish the remaining setup steps first." };
+  if (profile.serviceMode !== "travel" && !profile.addressLine) return { error: "Add the street address where customers come to you on the Location step (it stays private)." };
   // Professional Protection is optional: saved when answered, never required to submit.
   const protection = (await import("@/lib/insurance")).readProtection(form);
   if (protection && "error" in protection) return { error: protection.error };

@@ -9,7 +9,7 @@ import { inbox } from "@/lib/inbox";
 import { partnerSetupDemoLink } from "@/lib/partners";
 import { SITE_URL } from "@/lib/public/site";
 
-type FormState = { error?: string; ok?: string };
+type FormState = { error?: string; ok?: string; link?: string };
 const UUID = /^[0-9a-f-]{36}$/;
 
 /** Owner: approve or decline a Nearest Partner application (approve also opens the page for a matching pro account). */
@@ -101,9 +101,11 @@ export async function sendPartnerLink(_: FormState, form: FormData): Promise<For
   const mode = String(form.get("mode") ?? "");
   const { isHandoffMode, sendPartnerHandoff } = await import("@/lib/partner-handoff");
   if (!UUID.test(id) || !isHandoffMode(mode)) return { error: "Not found." };
-  const r = await sendPartnerHandoff({ userId: id, mode, byUserId: user.id });
+  const copy = form.get("via") === "copy";
+  const r = await sendPartnerHandoff({ userId: id, mode, byUserId: user.id, email: !copy });
   if ("error" in r) return { error: r.error };
   revalidatePath("/admin/partners");
   const { CLAIM_DAYS } = await import("@/lib/build-mode");
-  return { ok: `${r.emailed ? `Emailed to ${r.email}.` : "Email isn't sending right now —"} You can also text or DM them this link (works once, ${CLAIM_DAYS} days): ${r.link}` };
+  const lasts = `It works once and lasts ${CLAIM_DAYS} days; any earlier link stopped working.`;
+  return { link: r.link, ok: copy ? `Here's their link — copy it and send it to them by text or DM. ${lasts}` : r.emailed ? `Emailed to ${r.email}. You can also copy it and text or DM it. ${lasts}` : `The email didn't go out — copy the link and send it yourself. ${lasts}` };
 }
