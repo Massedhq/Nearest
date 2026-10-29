@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Partners you add: Add a partner on Partner pages (kept out of Outreach), three links - they set up, they finish, they review and approve - approve puts their page live and shows their share link and sign-in link, partner page preview, tabbed Partner pages; plus rep and shop updates; guides"
+git commit -q -m "Build a profile: type-to-search city with a state picker (Texas first), screenshots still fill the city; guide explains building the whole profile; plus partners you add, rep and shop updates"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

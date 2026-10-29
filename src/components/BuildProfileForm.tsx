@@ -6,6 +6,7 @@ import { parseLeadText } from "@/lib/lead-parse";
 import { createBuiltProfile, readBuildDetails } from "@/app/admin/build-actions";
 import { partnerSetupHandoff } from "@/app/admin/partner-actions";
 import { saveAvatar, saveLogo } from "@/app/pro/actions";
+import { CityPicker } from "./CityPicker";
 
 type Opt = { id: number; name: string; state?: string };
 export type BuildInitial = { firstName: string; lastName: string; email: string; phone: string; businessName: string; categoryId: number | null; cityId: number | null; prospectId: string | null };
@@ -73,6 +74,7 @@ export function BuildProfileForm({ categories, cities, initial, partner = false 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErr(""); setAfter("");
+    if (!v.cityId) { document.getElementById("bp-city")?.focus(); return setErr("Choose the city they provide services in."); }
     const fd = new FormData(e.currentTarget);
     fd.set("extra", JSON.stringify(extra));
     if (initial.prospectId) fd.set("prospectId", initial.prospectId);
@@ -153,9 +155,7 @@ export function BuildProfileForm({ categories, cities, initial, partner = false 
         <div className="field"><label htmlFor="bp-cat">Main service category</label>
           <select id="bp-cat" name="categoryId" required value={v.categoryId} onChange={set("categoryId")}><option value="">Choose a category</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
         </div>
-        <div className="field"><label htmlFor="bp-city">City they provide services in</label>
-          <select id="bp-city" name="cityId" required value={v.cityId} onChange={set("cityId")}><option value="">Choose a city</option>{cities.map((c) => <option key={c.id} value={c.id}>{c.name}{c.state && c.state !== "TX" ? `, ${c.state}` : ""}</option>)}</select>
-        </div>
+        <CityPicker cities={cities} value={v.cityId} onChange={(id) => setV((x) => ({ ...x, cityId: id }))} id="bp-city" label="City they provide services in" />
       </div>
       {partner && (
         <div className="col g8">
