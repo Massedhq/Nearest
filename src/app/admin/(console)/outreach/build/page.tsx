@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { asc, desc, eq, isNotNull, and, inArray } from "drizzle-orm";
+import { asc, desc, eq, isNotNull, and, inArray, sql } from "drizzle-orm";
 import { db, users, professionalProfiles, prospects, prospectDrafts, categories, cities } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
 import { OutreachNav } from "@/components/OutreachNav";
@@ -29,7 +29,10 @@ export default async function BuildProfiles({ searchParams }: { searchParams: Pr
   ]);
   const draft = pr ? await db.query.prospectDrafts.findFirst({ where: and(eq(prospectDrafts.prospectId, pr.id), eq(prospectDrafts.status, "approved")) }) : null;
   const rows = await db.select({ p: professionalProfiles, u: users }).from(professionalProfiles).innerJoin(users, eq(users.id, professionalProfiles.userId))
-    .where(isMain ? isNotNull(professionalProfiles.builtBy) : and(isNotNull(professionalProfiles.builtBy), eq(professionalProfiles.builtBy, user.id)))
+    .where(and(
+      isMain ? isNotNull(professionalProfiles.builtBy) : and(isNotNull(professionalProfiles.builtBy), eq(professionalProfiles.builtBy, user.id)),
+      sql`not exists (select 1 from partner_pages pp where pp.user_id = ${professionalProfiles.userId} and pp.added_by is not null)`, // partners live on Admin → Partner pages
+    ))
     .orderBy(desc(professionalProfiles.builtAt)).limit(200);
   const ids = [...new Set(rows.map((r) => r.p.builtBy!).filter(Boolean))];
   const builders = new Map(ids.length ? (await db.select({ id: users.id, first: users.firstName }).from(users).where(inArray(users.id, ids))).map((b) => [b.id, b.first]) : []);

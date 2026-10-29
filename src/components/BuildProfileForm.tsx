@@ -4,6 +4,7 @@ import { upload } from "@vercel/blob/client";
 import { readScreenshotText } from "@/lib/ocr-client";
 import { parseLeadText } from "@/lib/lead-parse";
 import { createBuiltProfile, readBuildDetails } from "@/app/admin/build-actions";
+import { partnerSetupHandoff } from "@/app/admin/partner-actions";
 import { saveAvatar, saveLogo } from "@/app/pro/actions";
 
 type Opt = { id: number; name: string; state?: string };
@@ -30,7 +31,7 @@ async function shrink(file: File, max: number): Promise<Blob> {
  * prices and more saved straight onto the profile. Their photo and logo are optional too. Creating the profile opens
  * the first setup step that's still missing.
  */
-export function BuildProfileForm({ categories, cities, initial }: { categories: Opt[]; cities: Opt[]; initial: BuildInitial }) {
+export function BuildProfileForm({ categories, cities, initial, partner = false }: { categories: Opt[]; cities: Opt[]; initial: BuildInitial; partner?: boolean }) {
   const [v, setV] = useState({ ...initial, categoryId: initial.categoryId ? String(initial.categoryId) : "", cityId: initial.cityId ? String(initial.cityId) : "" });
   const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setV((x) => ({ ...x, [k]: e.target.value }));
   const [shots, setShots] = useState<File[]>([]);
@@ -75,6 +76,7 @@ export function BuildProfileForm({ categories, cities, initial }: { categories: 
     const fd = new FormData(e.currentTarget);
     fd.set("extra", JSON.stringify(extra));
     if (initial.prospectId) fd.set("prospectId", initial.prospectId);
+    if (partner) fd.set("partner", "1");
     setBusy("Creating their account…");
     let r: Awaited<ReturnType<typeof createBuiltProfile>>;
     try { r = await createBuiltProfile(fd); } catch (x) { console.error(x); setBusy(""); return setErr("Something went wrong. Try again."); }
@@ -88,6 +90,7 @@ export function BuildProfileForm({ categories, cities, initial }: { categories: 
         if (s.error) problems.push(`${label}: ${s.error}`);
       } catch (x) { console.error(x); problems.push(`${label} didn't upload`); }
     };
+    if (r.next.startsWith("/admin") && !r.handoff) { window.location.href = r.next; return; } // existing professional made a partner — nothing to upload
     if (photo) await put(photo, "avatar", saveAvatar, "photo");
     if (logo) await put(logo, "logo", saveLogo, "logo");
     if (shots.length) {
@@ -100,8 +103,13 @@ export function BuildProfileForm({ categories, cities, initial }: { categories: 
         if (!res.ok) problems.push((await res.json().catch(() => ({}))).error || "screenshots didn't save");
       } catch (x) { console.error(x); problems.push("screenshots didn't save"); }
     }
+    if (r.handoff === "setup") {
+      setBusy("Emailing their setup link…");
+      const h = await partnerSetupHandoff(r.userId).catch(() => ({ error: "The setup link didn't send — send it from the list below." }));
+      if ("error" in h) problems.push(h.error);
+    }
     if (problems.length) { setBusy(""); setErr(`Their profile was created, but: ${problems.join("; ")}. You can add those on their Profile step.`); setAfter(r.next); return; }
-    setBusy("Opening their profile…");
+    setBusy(r.handoff === "setup" ? "Done — back to Partner pages…" : "Opening their profile…");
     window.location.href = r.next;
   }
 
@@ -149,11 +157,19 @@ export function BuildProfileForm({ categories, cities, initial }: { categories: 
           <select id="bp-city" name="cityId" required value={v.cityId} onChange={set("cityId")}><option value="">Choose a city</option>{cities.map((c) => <option key={c.id} value={c.id}>{c.name}{c.state && c.state !== "TX" ? `, ${c.state}` : ""}</option>)}</select>
         </div>
       </div>
-      <label className="check small" style={{ alignItems: "flex-start" }}><input type="checkbox" name="permission" required /><span>They gave me permission to create their Nearest account and set up their profile for them.</span></label>
+      {partner && (
+        <div className="col g8">
+          <div className="field"><label htmlFor="bp-ig">Their Instagram (optional)</label><input id="bp-ig" name="instagram" maxLength={120} placeholder="@theirhandle or instagram.com/theirhandle" /></div>
+          <span className="lbl">After adding them</span>
+          <label className="check small" style={{ alignItems: "flex-start" }}><input type="radio" name="handoff" value="build" defaultChecked /><span><b>I&apos;ll build their profile now.</b> Their setup pages open next. When you&apos;re done (or partway), send them the finish link or the approve link from Partner pages.</span></label>
+          <label className="check small" style={{ alignItems: "flex-start" }}><input type="radio" name="handoff" value="setup" /><span><b>They&apos;ll set it up themselves.</b> Their setup link is emailed to them now.</span></label>
+        </div>
+      )}
+      <label className="check small" style={{ alignItems: "flex-start" }}><input type="checkbox" name="permission" required /><span>They gave me permission to create their Nearest account{partner ? " as a Nearest Partner" : ""} and set up their profile for them.</span></label>
       {busy && <span className="small" role="status" aria-live="polite">{busy}</span>}
       {err && <p className="err" role="alert">{err}</p>}
-      {after ? <a className="btn" href={after}>Continue building their profile</a>
-        : <button className="btn" type="submit" disabled={Boolean(busy)}>{busy ? "Working…" : "Create and start building"}</button>}
+      {after ? <a className="btn" href={after}>{after.startsWith("/admin") ? "Back to Partner pages" : "Continue building their profile"}</a>
+        : <button className="btn" type="submit" disabled={Boolean(busy)}>{busy ? "Working…" : partner ? "Add partner" : "Create and start building"}</button>}
     </form>
   );
 }

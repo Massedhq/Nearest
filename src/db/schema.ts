@@ -1440,6 +1440,12 @@ export const partnerPages = pgTable("partner_pages", {
   pausedBy: uuid("paused_by"),
   approvedAt: ts("approved_at").notNull().defaultNow(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
+  // Partners an owner added and built (Admin → Partner pages → Add a partner). handoff = which link they were sent:
+  // setup (they set up everything) | finish (owner started, they finish) | approve (owner finished, they review + approve).
+  addedBy: uuid("added_by"),
+  handoff: text("handoff"),
+  handoffSentAt: ts("handoff_sent_at"),
+  partnerApprovedAt: ts("partner_approved_at"), // they approved the page Nearest built for them
 });
 
 // ─── Partner shop: digital downloads + physical products sold from a partner page ─────────────────────────────────

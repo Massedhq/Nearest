@@ -61,7 +61,7 @@ function servicesFromPrices(prices: string, categoryId: number) {
  * the profile so there's as little left to do as possible. (Pictures go straight from the browser to storage: the
  * photo and logo through /api/blob, screenshots through /api/admin/build-screenshots.)
  */
-export async function createBuiltProfile(form: FormData): Promise<{ error: string } | { userId: string; next: string }> {
+export async function createBuiltProfile(form: FormData): Promise<{ error: string } | { userId: string; next: string; handoff?: "setup" }> {
   const { user } = await owner();
   const firstName = str(form, "firstName", 60), lastName = str(form, "lastName", 60);
   const email = str(form, "email", 160).toLowerCase();
@@ -85,6 +85,22 @@ export async function createBuiltProfile(form: FormData): Promise<{ error: strin
   const owners = (process.env.OWNER_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
   if (owners.includes(email)) return { error: "That email belongs to a Nearest owner. Use the professional's own email." };
   const taken = await db.query.users.findFirst({ where: sql`lower(${users.email}) = ${email}` });
+  if (taken && form.get("partner") === "1" && taken.accountType === "professional" && !(await buildTarget(taken.id))) {
+    // Already a professional on Nearest: make them a partner on their existing account (no new profile, no link needed).
+    const { partnerApplications, partnerPages } = await import("@/db");
+    const existing = await db.query.partnerPages.findFirst({ where: eq(partnerPages.userId, taken.id) });
+    if (existing) return { error: "They're already a partner — find them under All partner pages." };
+    const [app] = await db.insert(partnerApplications).values({ name: `${firstName} ${lastName}`, email, city: city?.name ?? null, state: city?.state ?? null, specialty: cat?.name ?? null, about: "Added by Nearest (existing professional)", status: "approved", decidedAt: new Date(), decidedBy: user.id }).returning();
+    await db.insert(partnerPages).values({ userId: taken.id, applicationId: app.id, published: true, addedBy: user.id, partnerApprovedAt: new Date() }).onConflictDoNothing();
+    const { inbox } = await import("@/lib/inbox");
+    await inbox(taken.id, { kind: "partner", title: "You're a Nearest Partner", body: "Your partner page is ready. Open Business → Partner page to add your links, videos and shop.", href: "/pro/partner" });
+    const { sendEmail } = await import("@/lib/email");
+    const { SITE_URL } = await import("@/lib/public/site");
+    sendEmail({ to: email, subject: "You're a Nearest Partner", eyebrow: "Nearest Partner", heading: `Welcome, ${firstName}.`, lines: ["Your partner page is ready. Sign in to the Nearest pro app and open Business → Partner page to add your links, videos and shop — your link to share is at the top."], button: { label: "Open my partner page", url: `${SITE_URL}/pro/partner` } }).catch(() => {});
+    await logActivity({ actorUserId: user.id, action: "partner.added_existing", targetType: "partner_page", targetId: taken.id, after: { email } });
+    revalidatePath("/admin/partners");
+    return { userId: taken.id, next: `/admin/partners?view=added#p-${taken.id}` };
+  }
   if (taken) {
     const built = await buildTarget(taken.id);
     if (built) return { error: "You already started a profile for this email — open it from the list below." };
@@ -127,6 +143,7 @@ export async function createBuiltProfile(form: FormData): Promise<{ error: strin
   try { await ensureProSlug(u.id); } catch (e) { console.error("build slug", e); }
 
   // Outreach: link their prospect record (picked, or matched by email / phone) — or add one — and stop recruiting them.
+  const asPartner = form.get("partner") === "1"; // Admin → Partner pages → Add a partner (kept separate from Outreach)
   const em = normEmail(email), ph = normPhone(phone);
   const hit = (prospectId && /^[0-9a-f-]{36}$/.test(prospectId) ? await db.query.prospects.findFirst({ where: eq(prospects.id, prospectId) }) : null)
     ?? (em ? await db.query.prospects.findFirst({ where: eq(prospects.emailNorm, em) }) : null)
@@ -134,7 +151,7 @@ export async function createBuiltProfile(form: FormData): Promise<{ error: strin
   if (hit) {
     await db.update(prospects).set({ status: "registered", registeredUserId: u.id, updatedAt: new Date() }).where(eq(prospects.id, hit.id));
     await logProspect(hit.id, "registered", "Nearest is building their profile for them (with their permission) — recruiting stopped.", user.id);
-  } else {
+  } else if (!asPartner) {
     const notes = [d.otherServices && `Also offers: ${d.otherServices}`, d.credentials && `Credentials (as shown): ${d.credentials}`, d.hours && `Hours: ${d.hours}`, d.prices && `Service prices (as listed): ${d.prices}`, d.deposit && `Deposit: ${d.deposit}`].filter(Boolean).join("\n");
     const [row] = await db.insert(prospects).values({
       recruiterId: user.id, name: `${firstName} ${lastName}`, business: businessName, email, emailNorm: em, phone, phoneNorm: ph,
@@ -144,13 +161,29 @@ export async function createBuiltProfile(form: FormData): Promise<{ error: strin
     }).returning();
     await logProspect(row.id, "registered", "Nearest is building their profile for them (with their permission).", user.id);
   }
-  await logActivity({ actorUserId: user.id, action: "pro.built_started", targetType: "professional", targetId: u.id, after: { email, city: city.name, category: cat.name } });
+  await logActivity({ actorUserId: user.id, action: "pro.built_started", targetType: "professional", targetId: u.id, after: { email, city: city.name, category: cat.name, partner: asPartner } });
   revalidatePath("/admin/outreach/build");
+  if (asPartner) {
+    // Approved as a partner right away (no application needed) and kept on Admin → Partner pages.
+    const { partnerApplications, partnerPages } = await import("@/db");
+    const ig = (await import("@/lib/social")).instagramHandle(str(form, "instagram", 120) || d.instagram || null);
+    if (ig) await db.update(professionalProfiles).set({ instagram: ig }).where(eq(professionalProfiles.userId, u.id));
+    const [app] = await db.insert(partnerApplications).values({
+      name: `${firstName} ${lastName}`, email, instagram: ig, city: city.name, state: city.state, specialty: cat.name,
+      about: "Added by Nearest", status: "approved", decidedAt: new Date(), decidedBy: user.id,
+    }).returning();
+    await db.insert(partnerPages).values({ userId: u.id, applicationId: app.id, published: true, addedBy: user.id }).onConflictDoNothing();
+    await logActivity({ actorUserId: user.id, action: "partner.added", targetType: "partner_page", targetId: u.id, after: { email, instagram: ig } });
+    revalidatePath("/admin/partners");
+  }
   // Builder mode on for this profile; the page then uploads their photo, logo and screenshots, and opens the first
   // setup step that's still missing.
   (await cookies()).set(BUILD_COOKIE, u.id, COOKIE);
   const { setupSteps } = await import("@/lib/pro");
   const next = (await setupSteps(u.id)).find((x) => !x.done && !x.optional && x.key !== "identity")?.key ?? "services";
+  // Partner who'll set it all up themselves: the page uploads their photo/logo (still in builder mode), then calls
+  // partnerSetupHandoff, which leaves builder mode and emails their setup link.
+  if (asPartner && str(form, "handoff", 10) === "setup") return { userId: u.id, next: `/admin/partners?show=added#p-${u.id}`, handoff: "setup" };
   return { userId: u.id, next: `/pro/setup/${next}` };
 }
 
@@ -167,6 +200,7 @@ export async function stopBuilding(form: FormData) {
   await owner();
   (await cookies()).delete(BUILD_COOKIE);
   const id = str(form, "userId", 40);
+  if (/^[0-9a-f-]{36}$/.test(id) && (await (await import("@/lib/partner-handoff")).addedPartner(id))) redirect(`/admin/partners?show=added#p-${id}`);
   redirect(/^[0-9a-f-]{36}$/.test(id) ? `/admin/outreach/build/${id}` : "/admin/outreach/build");
 }
 

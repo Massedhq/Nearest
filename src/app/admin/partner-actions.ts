@@ -80,3 +80,30 @@ export async function refundPartnerOrder(_: FormState, form: FormData): Promise<
   revalidatePath("/admin/partners");
   return { ok: "Refunded — the buyer was emailed." };
 }
+
+/** Add a partner → "They'll set it up themselves": leave builder mode and email their setup link. */
+export async function partnerSetupHandoff(userId: string): Promise<{ ok: true } | { error: string }> {
+  const { user } = await requireAdmin({ owner: true });
+  if (!UUID.test(userId)) return { error: "Not found." };
+  const { cookies } = await import("next/headers");
+  const { BUILD_COOKIE } = await import("@/lib/build-mode");
+  (await cookies()).delete(BUILD_COOKIE);
+  const { sendPartnerHandoff } = await import("@/lib/partner-handoff");
+  const r = await sendPartnerHandoff({ userId, mode: "setup", byUserId: user.id });
+  revalidatePath("/admin/partners");
+  return "error" in r ? { error: r.error } : { ok: true };
+}
+
+/** Owner: email one of the three links to a partner they added (setup / finish / approve). */
+export async function sendPartnerLink(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireAdmin({ owner: true });
+  const id = String(form.get("userId") ?? "");
+  const mode = String(form.get("mode") ?? "");
+  const { isHandoffMode, sendPartnerHandoff } = await import("@/lib/partner-handoff");
+  if (!UUID.test(id) || !isHandoffMode(mode)) return { error: "Not found." };
+  const r = await sendPartnerHandoff({ userId: id, mode, byUserId: user.id });
+  if ("error" in r) return { error: r.error };
+  revalidatePath("/admin/partners");
+  const { CLAIM_DAYS } = await import("@/lib/build-mode");
+  return { ok: `${r.emailed ? `Emailed to ${r.email}.` : "Email isn't sending right now —"} You can also text or DM them this link (works once, ${CLAIM_DAYS} days): ${r.link}` };
+}

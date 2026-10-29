@@ -9,13 +9,15 @@ import { savePartnerPage } from "@/app/pro/partner-actions";
 import { normEmail, partnerPageFor, partnerPageLink, partnerPagePath, PARTNER_APPLY_PATH, PARTNER_DEMO_PATH, PARTNER_LIMITS } from "@/lib/partners";
 import { ensureProSlug } from "@/lib/connections";
 import { money } from "@/lib/time";
+import { SITE_URL } from "@/lib/public/site";
 
 export const metadata = { title: "Partner page" };
 export const dynamic = "force-dynamic";
 
 /** Business → Partner page: the link-in-bio page approved Nearest Partners share (usenearest.com/link/<slug>). */
-export default async function PartnerEditor() {
+export default async function PartnerEditor({ searchParams }: { searchParams: Promise<{ welcome?: string }> }) {
   const { user, profile } = await requirePro();
+  const welcome = (await searchParams).welcome === "1";
   const page = await partnerPageFor(user.id);
 
   if (!page) {
@@ -52,6 +54,17 @@ export default async function PartnerEditor() {
     <div className="scr">
       <TopBar title="Partner page" back="/pro/business" />
       <div className="body" style={{ gap: 16 }}>
+        {welcome && link && (
+          <div className="card" style={{ gap: 10, borderColor: "#E8C4C0" }}>
+            <span className="disp h2">You&apos;re live.</span>
+            <span className="small">Your link to share — put it in your Instagram and TikTok bio:</span>
+            <span className="b" style={{ wordBreak: "break-all" }}>{link}</span>
+            <div className="row" style={{ gap: 16 }}><CopyButton text={link} /><Link className="link small" href={partnerPagePath(slug!)} target="_blank">Open my page</Link></div>
+            <span className="small">Sign in any time at <span className="b">{SITE_URL.replace(/^https?:\/\//, "")}/pro/sign-in</span> with your email and password, or have a sign-in code emailed to you. Forgot your password? Tap Forgot password there to set a new one.</span>
+            <CopyButton text={`${SITE_URL}/pro/sign-in`} label="Copy sign-in link" />
+            {profile.identityStatus !== "verified" && <Link className="btn sm" href="/pro/setup/identity?welcome=1">Verify your ID so clients can book you</Link>}
+          </div>
+        )}
         <div className="card" style={{ gap: 10 }}>
           <div className="row between"><span className="b">Your link</span><span className={`tag ${live ? "ok" : "warn"}`}>{page.pausedAt ? "Paused by Nearest" : live ? "Live" : page.published ? "Live after your profile is approved" : "Hidden"}</span></div>
           {link ? <span className="small" style={{ wordBreak: "break-all" }}>{link}</span> : <span className="small muted">Your link is created once your business name is saved.</span>}

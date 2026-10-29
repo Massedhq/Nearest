@@ -115,3 +115,12 @@ export async function publicPartnerPage(slug: string) {
     .limit(1))[0];
   return r ?? null;
 }
+
+/** The partner's own page for a private preview — same shape as publicPartnerPage, without the live checks. */
+export async function partnerPagePreview(userId: string) {
+  const r = (await db.select({ page: partnerPages, p: professionalProfiles, u: users }).from(partnerPages)
+    .innerJoin(professionalProfiles, eq(professionalProfiles.userId, partnerPages.userId))
+    .innerJoin(users, eq(users.id, partnerPages.userId))
+    .where(eq(partnerPages.userId, userId)).limit(1))[0];
+  return r ?? null;
+}

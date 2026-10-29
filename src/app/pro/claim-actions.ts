@@ -119,5 +119,32 @@ export async function acceptBuiltProfile(_: FormState, form: FormData): Promise<
   } catch (e) { console.error("built accept notify", e); }
   revalidatePath("/pro", "layout");
   revalidatePath("/admin", "layout");
+  // A partner Nearest added: approving publishes their partner page; their share link + sign-in link are shown and emailed.
+  const { addedPartner } = await import("@/lib/partner-handoff");
+  const partner = await addedPartner(user.id);
+  if (partner) {
+    const { partnerPages } = await import("@/db");
+    await db.update(partnerPages).set({ published: true, publishedAt: partner.publishedAt ?? now, partnerApprovedAt: now, updatedAt: now }).where(eq(partnerPages.userId, user.id));
+    await logActivity({ actorUserId: user.id, action: "partner.approved_page", targetType: "partner_page", targetId: user.id });
+    try {
+      const { ensureProSlug } = await import("@/lib/connections");
+      const { partnerPageLink } = await import("@/lib/partners");
+      const { SITE_URL } = await import("@/lib/public/site");
+      const slug = await ensureProSlug(user.id);
+      const { sendEmail } = await import("@/lib/email");
+      await sendEmail({
+        to: user.email, subject: "Your Nearest Partner page is live", eyebrow: "Nearest Partner", heading: "You're live.",
+        lines: [
+          ...(slug ? [`Your link to share: ${partnerPageLink(slug)} — put it in your Instagram and TikTok bio.`] : []),
+          `Sign in any time at ${SITE_URL}/pro/sign-in with your email and password (or have a sign-in code emailed to you). Forgot your password? Tap "Forgot password" on that page to set a new one.`,
+          ...(row.identityStatus === "verified" ? [] : ["One more step so clients can book you: verify your ID in the app."]),
+        ],
+        button: { label: "Open my partner page", url: `${SITE_URL}/pro/partner?welcome=1` },
+      });
+      const { notifyAdmins } = await import("@/lib/outreach");
+      await notifyAdmins({ kind: "partner", title: "Partner approved their page", body: `${[user.firstName, user.lastName].filter(Boolean).join(" ")} approved the page you built — it's live.`, href: `/admin/partners?show=added#p-${user.id}` }, partner.addedBy ? [partner.addedBy] : undefined);
+    } catch (e) { console.error("partner approve email", e); }
+    redirect("/pro/partner?welcome=1");
+  }
   redirect(row.identityStatus === "unverified" || row.identityStatus === "rejected" ? "/pro/setup/identity?welcome=1" : "/pro/home");
 }

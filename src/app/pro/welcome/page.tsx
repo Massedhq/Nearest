@@ -25,6 +25,13 @@ export default async function WelcomeBuilt() {
   const user = viewer.user;
   const p = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, user.id) });
   if (!p?.builtBy || p.entryPaidAt || isManagedClerkId(user.clerkUserId)) redirect("/pro/home");
+  const { addedPartner } = await import("@/lib/partner-handoff");
+  const partner = await addedPartner(user.id);
+  if (partner && (partner.handoff === "setup" || partner.handoff === "finish")) {
+    const { setupSteps } = await import("@/lib/pro");
+    const next = (await setupSteps(user.id)).find((x) => !x.done && !x.optional && x.key !== "identity")?.key ?? "review";
+    redirect(`/pro/setup/${next}`);
+  }
   const [services, photos, city, builder, quote] = await Promise.all([
     db.select().from(proServices).where(and(eq(proServices.userId, user.id), eq(proServices.active, true))).orderBy(asc(proServices.sort)),
     db.select({ url: portfolioItems.url }).from(portfolioItems).where(and(eq(portfolioItems.userId, user.id), eq(portfolioItems.kind, "image"))).orderBy(desc(portfolioItems.featured), asc(portfolioItems.sort)).limit(3),
@@ -38,17 +45,18 @@ export default async function WelcomeBuilt() {
       <div className="body">
         <Image src="/brand/nearest-monogram.png" alt="" width={72} height={72} />
         <h1 className="disp h2">You&apos;re in, {user.firstName ?? "welcome"}.</h1>
-        <p className="small p">{builder?.firstName ?? "The Nearest team"} set up your profile. Here&apos;s how students will see you — you can change anything after you accept.</p>
+        <p className="small p">{partner ? "Your Nearest Partner page is ready. Here's how students will see your profile — review it, then approve it below. You can change anything after you approve." : `${builder?.firstName ?? "The Nearest team"} set up your profile. Here's how students will see you — you can change anything after you accept.`}</p>
+        {partner && <a className="link small" href="/pro/partner-preview" target="_blank" rel="noreferrer">Preview my partner page</a>}
         <ProCard p={{ ...p, favCount: 0 }} services={services} photos={photos.map((x) => x.url)} city={city?.name ?? null} first={user.firstName} last={user.lastName} />
         {!quote.ok ? (
           <div className="card warn small"><span>{quote.reason}</span><span className="muted">Message Nearest support and we&apos;ll sort it out with you.</span></div>
         ) : (
-          <ActionForm action={acceptBuiltProfile} submitLabel="Accept and go live">
+          <ActionForm action={acceptBuiltProfile} submitLabel={partner ? "Approve my page and go live" : "Accept and go live"}>
             <span className="eyebrow">Before you start</span>
             <ProTermsAgreement sections={proTermsSections({ cents: quote.cents, label: quote.label })} version={PRO_TERMS_VERSION} />
             <label className="check xs" style={{ alignItems: "flex-start" }}><input type="checkbox" name="inviteReward" required /><span>I agree to honor Nearest&apos;s $5 student invite reward: a student who earned it by inviting a friend gets $5 off their first booking with me, taken from that booking&apos;s payout.</span></label>
             {!p.insuranceChoiceAt && <div className="card" style={{ gap: 8 }}><ProProtectionFields /></div>}
-            <span className="xs muted">Accepting puts your profile live. You can go offline any time from Today, and turn it back on whenever you like.</span>
+            <span className="xs muted">{partner ? "Approving puts your profile and partner page live, and shows your link to share. You can go offline any time from Today." : "Accepting puts your profile live. You can go offline any time from Today, and turn it back on whenever you like."}</span>
           </ActionForm>
         )}
       </div>

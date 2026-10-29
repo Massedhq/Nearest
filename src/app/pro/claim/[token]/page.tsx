@@ -47,13 +47,16 @@ export default async function ClaimPage({ params }: { params: Promise<{ token: s
   }
   const builder = t.p.builtBy ? await db.query.users.findFirst({ where: eq(users.id, t.p.builtBy), columns: { firstName: true } }) : null;
   const { userId } = await auth();
+  const { addedPartner, HANDOFF } = await import("@/lib/partner-handoff");
+  const ap = await addedPartner(t.u.id);
+  const partnerIntro = ap?.handoff && ap.handoff in HANDOFF ? HANDOFF[ap.handoff as keyof typeof HANDOFF].claimIntro : null;
   return (
     <div className="scr">
       {top}
       <div className="body">
         <Image src="/brand/nearest-monogram.png" alt="" width={84} height={84} />
         <h1 className="disp h1">Welcome to Nearest, {t.u.firstName ?? "there"}.</h1>
-        <p className="small p">{builder?.firstName ?? "The Nearest team"} set up your professional profile{t.p.businessName ? ` for ${t.p.businessName}` : ""}, as you discussed. Create a password to get in — then review and accept the Professional Terms, and your profile goes live for students near you.</p>
+        <p className="small p">{partnerIntro ?? `${builder?.firstName ?? "The Nearest team"} set up your professional profile${t.p.businessName ? ` for ${t.p.businessName}` : ""}, as you discussed. Create a password to get in — then review and accept the Professional Terms, and your profile goes live for students near you.`}</p>
         {userId ? (
           <div className="card warn small" style={{ gap: 8 }}>
             <span>Someone is already signed in to Nearest in this browser. Sign out first, then open your link again — or open it on your own phone.</span>
