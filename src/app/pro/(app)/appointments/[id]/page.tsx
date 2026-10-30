@@ -13,6 +13,8 @@ import { Icon } from "@/components/Icon";
 import { ServiceTimer } from "@/components/ServiceTimer";
 import { proStart, proFinish, proNoShow } from "@/app/day-actions";
 import { proCancelBooking } from "@/app/pro/pay-actions";
+import { ReviewMediaUploader } from "@/components/ReviewMediaUploader";
+import { removeReviewMedia } from "@/app/pro/review-media-actions";
 
 export const metadata = { title: "Appointment" };
 export const dynamic = "force-dynamic";
@@ -125,6 +127,32 @@ export default async function ProAppointment({ params, searchParams }: { params:
           </>
         )}
         {b.status === "completed" && <div className="card ok small"><span className="b">Completed — payment released.</span></div>}
+        {b.finishedAt && ["confirmed", "completed"].includes(b.status) && (
+          <div className="card" style={{ gap: 10 }}>
+            <span className="eyebrow">Photos &amp; videos for their review</span>
+            <span className="small">Add your own photos or a video from this appointment to show with {first ?? "your client"}&apos;s review.</span>
+            {(b.reviewMedia ?? []).length > 0 && (
+              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                {(b.reviewMedia ?? []).map((m) => (
+                  <div key={m.id} className="col" style={{ gap: 4, width: 104 }}>
+                    {m.kind === "video"
+                      ? <video src={m.url} muted playsInline preload="metadata" style={{ width: 104, height: 104, objectFit: "cover", borderRadius: 10, background: "#111" }} />
+                      // eslint-disable-next-line @next/next/no-img-element
+                      : <img src={m.url} alt="" style={{ width: 104, height: 104, objectFit: "cover", borderRadius: 10 }} />}
+                    <form action={removeReviewMedia}><input type="hidden" name="bookingId" value={b.id} /><input type="hidden" name="mediaId" value={m.id} /><button className="link xs" type="submit">Remove</button></form>
+                  </div>
+                ))}
+              </div>
+            )}
+            {(b.reviewMedia ?? []).length > 0 && (
+              <span className={`tag ${b.reviewMediaConsent === "approved" ? "ok" : b.reviewMediaConsent === "declined" ? "" : "warn"}`} style={{ alignSelf: "flex-start" }}>
+                {b.reviewMediaConsent === "approved" ? (review && !review.hidden ? "Showing with their review" : "Approved — shows once they leave a review") : b.reviewMediaConsent === "declined" ? `${first ?? "Your client"} chose not to share these` : `Waiting for ${first ?? "your client"} to approve`}
+              </span>
+            )}
+            <span className="xs muted">{b.photoForPortfolio ? `${first ?? "Your client"} allowed sharing when they finished, so these show with their review.` : `${first ?? "Your client"} is asked to approve them first — nothing shows until they do.`}</span>
+            <ReviewMediaUploader userId={user.id} bookingId={b.id} count={(b.reviewMedia ?? []).length} videos={(b.reviewMedia ?? []).filter((m) => m.kind === "video").length} />
+          </div>
+        )}
         {b.status === "no_show" && <div className="card small"><span className="b">Marked as a no-show.</span></div>}
 
         {live && !b.checkedInAt && (

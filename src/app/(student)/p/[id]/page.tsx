@@ -19,6 +19,7 @@ import { openModelCalls } from "@/lib/search";
 import { chicagoNow, label12, money, WEEKDAYS } from "@/lib/time";
 import { TopBar } from "@/components/TopBar";
 import { Icon } from "@/components/Icon";
+import { publicReviewMedia } from "@/lib/review-media";
 import { ModelCallCard } from "@/components/ModelCallCard";
 
 export const metadata = { title: "Professional" };
@@ -61,7 +62,8 @@ export default async function ProProfile({ params, searchParams }: { params: Pro
   const revs = await db
     .select({ id: reviews.id, rating: reviews.rating, body: reviews.body, createdAt: reviews.createdAt,
       // a client photo shows only if the client allowed sharing AND the pro chose to show it with this review
-      photo: sql<string | null>`case when ${bookings.photoStatus} = 'shown' and ${bookings.photoForPortfolio} then ${bookings.photoUrl} end` })
+      photo: sql<string | null>`case when ${bookings.photoStatus} = 'shown' and ${bookings.photoForPortfolio} then ${bookings.photoUrl} end`,
+      media: bookings.reviewMedia, mediaConsent: bookings.reviewMediaConsent })
     .from(reviews).innerJoin(bookings, eq(bookings.id, reviews.bookingId))
     .where(and(eq(reviews.proId, id), eq(reviews.hidden, false))).orderBy(desc(reviews.createdAt)).limit(20);
   const avg = revs.length ? Math.round((revs.reduce((a, r) => a + r.rating, 0) / revs.length) * 10) / 10 : null;
@@ -151,6 +153,18 @@ export default async function ProProfile({ params, searchParams }: { params: Pro
                 {r.photo && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={r.photo} alt="The client's finished look" style={{ width: "100%", maxHeight: 320, objectFit: "cover", borderRadius: 12 }} />
+                )}
+                {publicReviewMedia(r.media, r.mediaConsent).length > 0 && (
+                  <div className="col" style={{ gap: 8 }}>
+                    {publicReviewMedia(r.media, r.mediaConsent).filter((m) => m.kind === "video").map((m) => <video key={m.id} src={m.url} controls playsInline preload="metadata" style={{ width: "100%", maxHeight: 360, borderRadius: 12, background: "#111" }} />)}
+                    <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+                      {publicReviewMedia(r.media, r.mediaConsent).filter((m) => m.kind === "image").map((m) => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <a key={m.id} href={m.url} target="_blank" rel="noreferrer"><img src={m.url} alt="From this appointment" style={{ width: 96, height: 96, objectFit: "cover", borderRadius: 10 }} /></a>
+                      ))}
+                    </div>
+                    <span className="xs muted">Photos from the professional, shared with the client&apos;s OK</span>
+                  </div>
                 )}
                 <span className="badge xs"><Icon name="check" size="s" /> Verified Booking</span>
               </div>

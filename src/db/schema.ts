@@ -516,6 +516,11 @@ export const bookings = pgTable("bookings", {
   photoForPortfolio: boolean("photo_for_portfolio"), // the client allowed the pro to share it (with the review or in the portfolio)
   // The pro's choice for this client photo. null = private (only the pro sees it); "shown" = with the review; "removed".
   photoStatus: text("photo_status"),
+  // Photos/videos the pro took that day, to show with the client's review (src/lib/review-media.ts). Shown only once the
+  // client approves (or already allowed sharing): review_media_consent null | "asked" | "approved" | "declined".
+  reviewMedia: jsonb("review_media").$type<{ id: string; kind: "image" | "video"; url: string; durationSec?: number }[]>().notNull().default([]),
+  reviewMediaConsent: text("review_media_consent"),
+  reviewMediaAskedAt: ts("review_media_asked_at"),
   noShowAt: ts("no_show_at"),
   // Phase 6: emails sent
   remind24At: ts("remind_24_at"),

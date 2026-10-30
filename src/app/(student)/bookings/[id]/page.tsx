@@ -17,6 +17,7 @@ import { addressUnlocked, checkinOpen, finishOpen } from "@/lib/appointment";
 import { studentCheckIn } from "@/app/day-actions";
 import { LocateForm } from "@/components/LocateButton";
 import { RequiredPhoto } from "@/components/RequiredPhoto";
+import { setReviewMediaConsent } from "@/app/review-media-consent-actions";
 
 export const metadata = { title: "Appointment" };
 
@@ -122,6 +123,25 @@ export default async function Booking({ params, searchParams }: { params: Promis
           <Link className="btn danger" href={`/bookings/${b.id}/problem`}><Icon name="flag" /> Report a problem</Link>
         )}
         {b.status === "no_show" && <div className="card bad small"><span className="b">Marked as a no-show</span><span className="muted">The deposit was forfeited; the rest became credit with {pro}.</span></div>}
+
+        {(b.reviewMedia ?? []).length > 0 && (
+          <div className="card" style={{ gap: 10 }}>
+            <span className="eyebrow">Photos from your appointment</span>
+            <span className="small">{pro} added {(b.reviewMedia ?? []).length === 1 ? "this" : "these"} from your {b.serviceName} and would like to show {(b.reviewMedia ?? []).length === 1 ? "it" : "them"} with your review.</span>
+            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+              {(b.reviewMedia ?? []).map((m) => m.kind === "video"
+                ? <video key={m.id} src={m.url} controls playsInline preload="metadata" style={{ width: "100%", maxHeight: 320, borderRadius: 12, background: "#111" }} />
+                // eslint-disable-next-line @next/next/no-img-element
+                : <img key={m.id} src={m.url} alt="" style={{ width: 104, height: 104, objectFit: "cover", borderRadius: 10 }} />)}
+            </div>
+            <span className={`tag ${b.reviewMediaConsent === "approved" ? "ok" : b.reviewMediaConsent === "declined" ? "" : "warn"}`} style={{ alignSelf: "flex-start" }}>{b.reviewMediaConsent === "approved" ? "You allowed sharing" : b.reviewMediaConsent === "declined" ? "Not shared" : "Waiting for your answer"}</span>
+            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+              {b.reviewMediaConsent !== "approved" && <ActionForm action={setReviewMediaConsent} submitLabel="Show with my review" buttonClass="btn sm" className="col g4"><input type="hidden" name="id" value={b.id} /><input type="hidden" name="choice" value="approved" /></ActionForm>}
+              {b.reviewMediaConsent !== "declined" && <ActionForm action={setReviewMediaConsent} submitLabel={b.reviewMediaConsent === "approved" ? "Stop sharing" : "Don't share"} buttonClass="btn ghost sm" className="col g4"><input type="hidden" name="id" value={b.id} /><input type="hidden" name="choice" value="declined" /></ActionForm>}
+            </div>
+            <span className="xs muted">They only show with your review on {pro}&apos;s profile. You can change your mind anytime.</span>
+          </div>
+        )}
 
         {b.status === "confirmed" && !started && (
           <details className="card">
