@@ -67,6 +67,7 @@ export async function sendPartnerHandoff(opts: { userId: string; mode: HandoffMo
   if (!t) return { error: "They already created their password — they sign in at usenearest.com/pro/sign-in." };
   const page = await addedPartner(opts.userId);
   if (!page) return { error: "This isn't a partner you added." };
+  { const { activeHold } = await import("@/lib/enrollment-holds"); if (await activeHold({ userId: opts.userId })) return { error: "They're on enrollment hold (no sign-up within the time limit). Release them in People → Enrollment holds first, then send a new link." }; }
   if (opts.mode === "approve") {
     const { setupSteps } = await import("@/lib/pro");
     const left = (await setupSteps(opts.userId)).filter((s) => !s.done && !s.optional && s.key !== "identity");

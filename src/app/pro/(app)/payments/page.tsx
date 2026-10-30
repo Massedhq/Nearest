@@ -35,7 +35,8 @@ export default async function Payments({ searchParams }: { searchParams: Promise
   // An old membership that Nearest is cancelling (no monthly fee anymore): show that no further charge will happen.
   const oldSub = Boolean(p.subscriptionId) && ["active", "trialing", "past_due"].includes(p.subscriptionStatus ?? "");
   const rate = money(planCents(p.cohort));
-  const managed = !owner && isManagedEntry(p.entryType); // Ambassador (free) or pay-from-bookings — no card, no Stripe subscription
+  const managed = !owner && isManagedEntry(p.entryType);
+  const isPartner = p.entryType === "AMBASSADOR" ? Boolean(await (await import("@/db")).db.query.partnerPages.findFirst({ where: (t, { eq: e }) => e(t.userId, p.userId) })) : false; // Ambassador (free) or pay-from-bookings — no card, no Stripe subscription
   const dues = managed && p.entryType === "BOOKING_PAID" ? await duesStatus(p) : null;
   return (
     <div className="scr">
@@ -71,8 +72,8 @@ export default async function Payments({ searchParams }: { searchParams: Promise
             <div className="row between"><span className="eyebrow">Membership</span><span className="tag ok">{p.entryType === "AMBASSADOR" ? "Free" : "Active"}</span></div>
             {p.entryType === "AMBASSADOR" ? (
               <>
-                <span className="disp h2">Ambassador — free</span>
-                <span className="small">Your account is free: no sign-up fee and no monthly membership. Thank you for bringing other professionals to Nearest.</span>
+                <span className="disp h2">{isPartner ? "Nearest Partner — free" : "Ambassador — free"}</span>
+                <span className="small">{isPartner ? "Your account is free: no sign-up fee and no monthly membership. Your partner page is under Business → Partner page." : "Your account is free: no sign-up fee and no monthly membership. Thank you for bringing other professionals to Nearest."}</span>
               </>
             ) : (
               <>

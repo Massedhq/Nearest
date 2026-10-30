@@ -109,3 +109,31 @@ export async function sendPartnerLink(_: FormState, form: FormData): Promise<For
   const lasts = `It works once and lasts ${CLAIM_DAYS} days; any earlier link stopped working.`;
   return { link: r.link, ok: copy ? `Here's their link — copy it and send it to them by text or DM. ${lasts}` : r.emailed ? `Emailed to ${r.email}. You can also copy it and text or DM it. ${lasts}` : `The email didn't go out — copy the link and send it yourself. ${lasts}` };
 }
+
+/**
+ * Owner: switch an existing professional (for example a free Ambassador account) to a Nearest Partner. Their account,
+ * profile, bookings and free status stay as they are; a published partner page is added and they're told.
+ */
+export async function switchToPartner(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireAdmin({ owner: true });
+  const id = String(form.get("userId") ?? "");
+  if (!UUID.test(id)) return { error: "Not found." };
+  const { professionalProfiles, cities } = await import("@/db");
+  const r = (await db.select({ u: users, p: professionalProfiles }).from(professionalProfiles).innerJoin(users, eq(users.id, professionalProfiles.userId)).where(eq(professionalProfiles.userId, id)).limit(1))[0];
+  if (!r || r.u.accountType !== "professional") return { error: "Not found." };
+  if (await db.query.partnerPages.findFirst({ where: eq(partnerPages.userId, id) })) return { error: "They're already a Nearest Partner." };
+  const email = (r.u.email ?? "").trim().toLowerCase();
+  const city = r.p.cityId ? await db.query.cities.findFirst({ where: eq(cities.id, r.p.cityId) }) : null;
+  const [app] = await db.insert(partnerApplications).values({ name: `${r.u.firstName ?? ""} ${r.u.lastName ?? ""}`.trim() || email, email, city: city?.name ?? null, state: city?.state ?? null, specialty: null, about: `Switched by Nearest from an existing account (${r.p.entryType ?? "professional"})`, status: "approved", decidedAt: new Date(), decidedBy: user.id }).returning();
+  await db.insert(partnerPages).values({ userId: id, applicationId: app.id, approvedAt: new Date(), published: true, addedBy: user.id, partnerApprovedAt: new Date() }).onConflictDoNothing();
+  await inbox(id, { kind: "partner", title: "You're a Nearest Partner", body: "Your account is now a Nearest Partner account. Open Business → Partner page to add your links, videos and shop — your link to share is at the top.", href: "/pro/partner" }).catch(() => {});
+  if (email) sendEmail({
+    to: email, subject: "You're a Nearest Partner", eyebrow: "Nearest Partner", heading: `Welcome, ${r.u.firstName ?? "there"}.`,
+    lines: ["Your Nearest account is now a Nearest Partner account. Everything you already set up stays the same.", "Sign in and open Business → Partner page to add your links, videos and shop. Your link to share is at the top."],
+    button: { label: "Open my partner page", url: `${SITE_URL}/pro/partner` },
+  }).catch(() => {});
+  await logActivity({ actorUserId: user.id, action: "partner.switched_existing", targetType: "partner_page", targetId: id, before: { partner: false, entryType: r.p.entryType }, after: { partner: true, entryType: r.p.entryType } });
+  revalidatePath("/admin/partners");
+  revalidatePath(`/admin/professionals/${id}`);
+  return { ok: "Done — they're a Nearest Partner now and were told by email and in the app. Find them under Partner pages → Partners you added." };
+}

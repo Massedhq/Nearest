@@ -7,8 +7,9 @@ import { db, enrollmentHolds, enrollmentHoldAttempts, invitations, users } from 
  *
  * After `growth.unfinished_registration_days` (30) days, these are put on hold (nothing is deleted):
  *   - "account": a professional account that has NOT accepted the Professional Terms, has NOT sent an ID check and
- *     has never submitted its profile (an unclaimed profile Nearest built counts too). Anyone who accepted the Terms
- *     or sent their ID is never held.
+ *     has never submitted its profile. For a profile Nearest built, the clock starts when its sign-in link was sent
+ *     (a new link restarts it; a profile whose link was never sent isn't held). Anyone who accepted the Terms or
+ *     sent their ID is never held.
  *   - "invitation": an invitation code that was never used.
  *   - "outreach": an outreach registration link that was sent and never used.
  * A held professional who signs in, opens setup, registers again with the same email or uses the invitation sees the
@@ -83,19 +84,20 @@ export async function runEnrollmentHolds() {
   const out = { accounts: 0, invitations: 0, outreach: 0 };
 
   // 1) Professional accounts that never accepted the Terms, never sent an ID and never submitted.
-  const accounts = await db.execute<{ id: string; email: string | null; first: string | null; last: string | null; built: boolean; created: Date }>(sql`
-    select u.id, lower(u.email) as email, u.first_name as first, u.last_name as last, (p.built_by is not null) as built, u.created_at as created
+  const accounts = await db.execute<{ id: string; email: string | null; first: string | null; last: string | null; built: boolean; created: Date; sent: Date | null; claimed: Date | null }>(sql`
+    select u.id, lower(u.email) as email, u.first_name as first, u.last_name as last, (p.built_by is not null) as built, u.created_at as created, p.claim_sent_at as sent, p.claimed_at as claimed
     from users u join professional_profiles p on p.user_id = u.id
     where u.account_type = 'professional'
       and p.entry_paid_at is null and p.pro_terms_accepted_at is null
       and p.identity_status = 'unverified' and p.review_status = 'draft'
-      and u.created_at < now() - (${days} * interval '1 day')
+      and ((p.built_by is null and u.created_at < now() - (${days} * interval '1 day'))
+           or (p.built_by is not null and p.claim_sent_at is not null and p.claim_sent_at < now() - (${days} * interval '1 day')))
       and not exists (select 1 from admin_members a where a.user_id = u.id and a.active)
       and not exists (select 1 from enrollment_holds h where h.kind = 'account' and h.subject_id = u.id::text and (h.status = 'held' or h.released_at >= now() - (${days} * interval '1 day')))
     limit 2000`);
   for (const a of accounts.rows) {
     const reason = a.built
-      ? `Nearest built this profile, but it was never claimed and the Professional Terms were never accepted within ${days} days.`
+      ? `Nearest built this profile and sent their link ${a.sent ? new Date(a.sent).toLocaleDateString("en-US", { timeZone: "America/Chicago", month: "short", day: "numeric", year: "numeric" }) : ""} — ${a.claimed ? "they set a password but never accepted the Professional Terms" : "they never opened it to claim the profile"} within ${days} days.`
       : `Account created ${new Date(a.created).toLocaleDateString("en-US", { timeZone: "America/Chicago", month: "short", day: "numeric", year: "numeric" })} — the Professional Terms weren't accepted, no ID was sent and the profile was never submitted within ${days} days.`;
     if (await hold({ kind: "account", subjectId: a.id, userId: a.id, email: a.email, name: [a.first, a.last].filter(Boolean).join(" ") || null, reason }, days)) out.accounts++;
   }
@@ -134,6 +136,12 @@ export async function releaseHold(holdId: string, adminId: string, note: string 
     // Reopen the invitation for another period so the link works again.
     await db.update(invitations).set({ status: "invited", expiresAt: new Date(Date.now() + days * 24 * 3600 * 1000) })
       .where(and(eq(invitations.id, h.subjectId), inArray(invitations.status, ["invited", "expired"])));
+  }
+  // A built profile that was never claimed needs a fresh sign-in link from the owner — the old one has expired.
+  if (h.userId) {
+    const { professionalProfiles } = await import("@/db");
+    const bp = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, h.userId), columns: { builtBy: true, claimedAt: true } });
+    if (bp?.builtBy && !bp.claimedAt) return { ...h, needsLink: true as const };
   }
   const to = h.email ?? (h.userId ? (await db.query.users.findFirst({ where: eq(users.id, h.userId), columns: { email: true } }))?.email : null);
   const base = process.env.APP_URL || "https://www.usenearest.com";

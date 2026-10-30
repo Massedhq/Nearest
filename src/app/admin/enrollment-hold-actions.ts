@@ -16,6 +16,7 @@ export async function releaseEnrollmentHold(_: FormState, form: FormData): Promi
   if (!h) return { error: "This hold was already released." };
   await logActivity({ actorUserId: user.id, action: "enrollment_hold.released", targetType: "enrollment_hold", targetId: id, before: { status: "held" }, after: { status: "released", note, kind: h.kind, subject: h.subjectId } });
   revalidatePath("/admin/enrollment-holds");
+  if ("needsLink" in h) return { ok: `Released. Nearest built this profile and it was never claimed, so send them a new sign-in link (email it or copy it): Outreach → Build a profile → open them, or Partner pages if they're a partner.` };
   return { ok: "Released — they've been told they can finish registering." };
 }
 

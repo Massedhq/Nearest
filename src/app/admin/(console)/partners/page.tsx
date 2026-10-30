@@ -90,7 +90,7 @@ async function Added() {
       {rows.map(({ page, p, u }) => {
         const name = [u.firstName, u.lastName].filter(Boolean).join(" ");
         const steps = left.get(u.id) ?? [];
-        const claimed = Boolean(p.claimedAt);
+        const claimed = Boolean(p.claimedAt) || !p.builtBy; // their own account (signed up themselves, or switched from Ambassador)
         const mode = (page.handoff ?? null) as HandoffMode | null;
         const expired = !claimed && p.claimExpiresAt && p.claimExpiresAt.getTime() < Date.now();
         const live = p.reviewStatus === "approved" && page.published && !page.pausedAt;

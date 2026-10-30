@@ -213,6 +213,7 @@ export async function sendClaimLink(_: FormState, form: FormData): Promise<FormS
   const id = str(form, "userId", 40);
   const t = await buildTarget(id);
   if (!t) return { error: "This profile has already been claimed." };
+  { const { activeHold } = await import("@/lib/enrollment-holds"); if (await activeHold({ userId: id })) return { error: "They're on enrollment hold (no sign-up within the time limit). Release them in People → Enrollment holds first, then send a new link." }; }
   const { setupSteps } = await import("@/lib/pro");
   const left = (await setupSteps(id)).filter((s) => !s.done && !s.optional && s.key !== "identity");
   if (left.length) return { error: `Finish these steps first: ${left.map((s) => s.label).join(", ")}.` };

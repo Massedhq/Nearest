@@ -18,6 +18,7 @@ import { proLink } from "@/lib/connections";
 import { proBlockers } from "@/lib/live-check";
 import { legalNameProblem } from "@/lib/legal-name";
 import { correctLegalName } from "@/app/admin/legal-name-actions";
+import { switchToPartner } from "@/app/admin/partner-actions";
 
 export const metadata = { title: "Review account" };
 export const dynamic = "force-dynamic";
@@ -66,6 +67,7 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
   const mstate = membershipState(p, await ownerBiz(p.userId));
   const { bookings: bk } = await import("@/db");
   const { and: both, eq: is, sql: q } = await import("drizzle-orm");
+  const partnerPage = await db.query.partnerPages.findFirst({ where: (t, { eq: e }) => e(t.userId, p.userId) });
   const [{ n: pendingRequests }] = await db.select({ n: q<number>`count(*)::int` }).from(bk).where(both(is(bk.proId, p.userId), is(bk.status, "requested")));
   return (
     <>
@@ -148,6 +150,21 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
           <Row k="Profile review" v={<Tag ok={p.reviewStatus === "approved"}>{p.reviewStatus}</Tag>} />
           <Row k="Outstanding fines" v={standing.fines.length ? `${standing.fines.length} (${money(standing.fines.reduce((a, f) => a + f.amountCents, 0))})` : "None"} />
           <Row k="Confirmed incidents" v={`${standing.incidents} of ${standing.limit}`} />
+        </div>
+
+        <div className="card" style={{ gap: 8 }}>
+          <span className="eyebrow">Nearest Partner</span>
+          {partnerPage ? (
+            <>
+              <span className="small">They&apos;re a Nearest Partner{partnerPage.approvedAt ? ` since ${fmtDate(partnerPage.approvedAt)}` : ""}.{p.entryType === "AMBASSADOR" ? " Their account stays free, as it was as an Ambassador." : ""}</span>
+              <Link className="link small" href={`/admin/partners?view=${partnerPage.addedBy ? "added" : "pages"}#p-${p.userId}`}>Open in Partner pages</Link>
+            </>
+          ) : (
+            <ActionForm action={switchToPartner} submitLabel="Switch to a Nearest Partner account" buttonClass="btn ghost sm" className="col g8">
+              <input type="hidden" name="userId" value={p.userId} />
+              <span className="small muted">Adds a partner page (link-in-bio, videos, shop) to this account. Their profile, bookings and sign-in stay the same{p.entryType === "AMBASSADOR" ? ", and their free Ambassador account stays free" : ""}. They&apos;re told by email and in the app. Owners only.</span>
+            </ActionForm>
+          )}
         </div>
       </div>
 
