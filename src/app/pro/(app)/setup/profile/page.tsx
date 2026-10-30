@@ -27,7 +27,7 @@ export default async function ProfileStep({ searchParams }: { searchParams: Prom
           <div className="avatar lg"><Icon name="camera" size="l" /></div>
         )}
         <div className="grow col" style={{ gap: 4 }}>
-          <Uploader userId={user.id} folder="avatar" save={saveAvatar} multiple={false} label={p.photoUrl ? "Change your photo" : "Upload a photo of you"} />
+          <Uploader userId={user.id} folder="avatar" save={saveAvatar} multiple={false} crop current={p.photoUrl} label={p.photoUrl ? "Change your photo" : "Upload a photo of you"} />
           <span className="xs muted">A clear, friendly photo of your face, so clients know who they&apos;re booking.</span>
         </div>
       </div>

@@ -7,6 +7,7 @@ import { createBuiltProfile, readBuildDetails } from "@/app/admin/build-actions"
 import { partnerSetupHandoff } from "@/app/admin/partner-actions";
 import { saveAvatar, saveLogo } from "@/app/pro/actions";
 import { CityPicker } from "./CityPicker";
+import { PhotoCropper } from "./PhotoCropper";
 
 type Opt = { id: number; name: string; state?: string };
 export type BuildInitial = { firstName: string; lastName: string; email: string; phone: string; businessName: string; categoryId: number | null; cityId: number | null; prospectId: string | null };
@@ -38,6 +39,7 @@ export function BuildProfileForm({ categories, cities, initial, partner = false 
   const [shots, setShots] = useState<File[]>([]);
   const [photo, setPhoto] = useState<File | null>(null);
   const [logo, setLogo] = useState<File | null>(null);
+  const [photoCrop, setPhotoCrop] = useState("");
   const [extra, setExtra] = useState<Record<string, unknown>>({});
   const [found, setFound] = useState<string[]>([]);
   const [note, setNote] = useState("");
@@ -141,7 +143,8 @@ export function BuildProfileForm({ categories, cities, initial, partner = false 
       </div>
 
       <div className="row" style={{ gap: 16, flexWrap: "wrap" }}>
-        {pick("Photo of them (optional)", "bp-photo", photoSrc, setPhoto, true)}
+        {pick("Photo of them (optional)", "bp-photo", photoSrc, (f) => (f ? setPhotoCrop(URL.createObjectURL(f)) : setPhoto(null)), true)}
+        {photoCrop && <PhotoCropper src={photoCrop} onCancel={() => { URL.revokeObjectURL(photoCrop); setPhotoCrop(""); }} onDone={(b) => { URL.revokeObjectURL(photoCrop); setPhotoCrop(""); setPhoto(new File([b], "photo.jpg", { type: "image/jpeg" })); }} />}
         {pick("Business logo (optional)", "bp-logo", logoSrc, setLogo, false)}
       </div>
 

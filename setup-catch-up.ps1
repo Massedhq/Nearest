@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Enrollment holds: built profiles go on hold 30 days after their link was sent if not claimed and accepted; no links while held; switch Ambassador to Partner; copy sign-in links; guides"
+git commit -q -m "Profile photo framer: drag, pinch or slider zoom before upload, Adjust my current photo, also in Build a profile; built profiles go on hold 30 days after their link; guides"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""
