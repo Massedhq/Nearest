@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Review photos and videos from the pro (client approves), nickname wording for the name clients see; profile photo framer; guides"
+git commit -q -m "Student campaign card now says Join the campaign (Your campaign once joined); Nearest Store left out for now - partner link-page shop unchanged"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

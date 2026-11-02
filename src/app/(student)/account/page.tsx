@@ -43,7 +43,7 @@ export default async function Account() {
         </div>
         {campaign && (
           <Link className={`card${approved ? " ok" : ""}`} href={approved ? "/credits" : "/campaign"} style={{ textDecoration: "none", color: "inherit", gap: 4 }}>
-            <span className="eyebrow">{approved ? "Your campaign reward" : "Nearest launch campaign"}</span>
+            <span className="eyebrow">{approved ? "Your campaign reward" : campaign.entry ? "Your campaign" : "Join the campaign"}</span>
             <span className="small">{approved
               ? `Approved — ${credit} in Nearest credit is in your account. Use it toward any service you book.`
               : campaign.entry ? `Your campaign: ${campaign.label}` : `Optional: complete the seven-day profile-picture promotion to earn ${credit} in Nearest credit.`}</span>

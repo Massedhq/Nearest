@@ -150,7 +150,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
         )}
         {campaignOpen && (
           <Link className="card" href="/campaign" style={{ textDecoration: "none", color: "inherit", gap: 2 }}>
-            <span className="b">Nearest launch campaign</span>
+            <span className="b">{campaignOpen === "enrolled" || campaignOpen === "reward" ? "Your campaign" : "Join the campaign"}</span>
             <span className="small">{campaignOpen === "enrolled" ? "Open your campaign — upload today's screenshot." : campaignOpen === "reward" ? "You're approved — your Nearest credit is in your account. Use it on any booking." : "Want to join? Complete the seven-day profile-picture promotion to earn Nearest credit toward any service."}</span>
           </Link>
         )}

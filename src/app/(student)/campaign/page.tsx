@@ -39,7 +39,7 @@ export default async function CampaignPage({ searchParams }: { searchParams: Pro
     const confirming = sp.step === "confirm" && c.status === "open" && el.state === "eligible" && !full;
     const notNow = <form action={dismissCampaignInvite}><button className="btn ghost" type="submit" style={{ width: "100%" }}>NOT NOW</button></form>;
     let action: React.ReactNode;
-    if (c.status === "draft") action = <div className="card small"><span>The launch campaign isn&apos;t open yet. Check back soon.</span></div>;
+    if (c.status === "draft") action = <div className="card small"><span>The campaign isn&apos;t open yet. Check back soon.</span></div>;
     else if (c.status === "closed") action = <div className="card small"><span className="b">Enrollment is closed.</span></div>;
     else if (el.state === "incomplete") action = <div className="card warn small" style={{ gap: 8 }}><span className="b">Finish your registration and verification first</span><span>Students must be fully registered and verified before joining. Remaining step: {el.message}</span><Link className="btn sm" href={el.href} style={{ alignSelf: "flex-start" }}>Continue</Link>{notNow}</div>;
     else if (el.state === "pending") action = <div className="card small" style={{ gap: 8 }}><span className="b">Verification pending</span><span>Students must be fully registered and verified before joining. Remaining step: {el.message}</span><Link className="link small" href={el.href}>See status</Link>{notNow}</div>;

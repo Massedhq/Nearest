@@ -12,7 +12,7 @@ export async function CampaignInvitation({ c, headline = true }: { c: Campaign; 
     <div className="col" style={{ gap: 12 }}>
       {headline && (
         <div className="card" style={{ gap: 10 }}>
-          <span className="eyebrow">Nearest launch campaign</span>
+          <span className="eyebrow">Join the campaign</span>
           <h1 className="disp h2" style={{ margin: 0 }}>{INVITE_HEADLINE}</h1>
           {c.graphicUrl && (
             // eslint-disable-next-line @next/next/no-img-element

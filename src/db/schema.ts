@@ -1509,3 +1509,4 @@ export const partnerOrders = pgTable("partner_orders", {
   refundedBy: uuid("refunded_by"),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("partner_orders_seller_idx").on(t.sellerId), index("partner_orders_session_idx").on(t.stripeSessionId)]);
+
