@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Outreach: Email now buttons (queue + each prospect), plain status of what blocks sending, last run and not-sent reasons; cron jobs isolated so outreach always runs"
+git commit -q -m "Google brand links: site now lists @usenearest and @use_nearest (Instagram), the Facebook page and @usenearest TikTok as official Nearest profiles; footer links to all four. Includes Outreach Email now fixes"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

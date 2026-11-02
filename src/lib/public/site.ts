@@ -20,6 +20,10 @@ export const SUPPORT_EMAIL = "support@usenearest.com"; // used across the app fo
 export const HELLO_EMAIL = "hello@usenearest.com"; // Terms & Privacy questions
 export const INSTAGRAM_URL = "https://www.instagram.com/usenearest/"; // the official account linked in the pro app
 export const FACEBOOK_URL = "https://www.facebook.com/usenearest"; // Nearest on Facebook — shown in the rep Campaign Guide ("Follow us")
+export const INSTAGRAM_PRO_URL = "https://www.instagram.com/use_nearest/"; // Nearest for professionals (links to /pro)
+/** Every official Nearest profile — tells Google these accounts and usenearest.com are the same company (Organization sameAs). */
+export const TIKTOK_URL = "https://www.tiktok.com/@usenearest";
+export const SAME_AS = [INSTAGRAM_URL, INSTAGRAM_PRO_URL, FACEBOOK_URL, TIKTOK_URL];
 export const LOGO_PATH = "/brand/nearest-monogram.png";
 
 // Real routes in the app (checked in code) — used for calls to action.

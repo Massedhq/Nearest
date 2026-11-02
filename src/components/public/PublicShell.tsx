@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { HELLO_EMAIL, INSTAGRAM_URL, ROUTES, SUPPORT_EMAIL } from "@/lib/public/site";
+import { FACEBOOK_URL, HELLO_EMAIL, INSTAGRAM_PRO_URL, INSTAGRAM_URL, ROUTES, SUPPORT_EMAIL, TIKTOK_URL } from "@/lib/public/site";
 
 const NAV = [
   { href: "/about-nearest", label: "About" },
@@ -53,6 +53,9 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
             <p className="pub-muted">Help: <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a></p>
             <p className="pub-muted">Terms &amp; privacy: <a href={`mailto:${HELLO_EMAIL}`}>{HELLO_EMAIL}</a></p>
             <p className="pub-muted"><a href={INSTAGRAM_URL} rel="noopener noreferrer" target="_blank">@usenearest on Instagram</a></p>
+            <p className="pub-muted"><a href={INSTAGRAM_PRO_URL} rel="noopener noreferrer" target="_blank">@use_nearest for professionals</a></p>
+            <p className="pub-muted"><a href={FACEBOOK_URL} rel="noopener noreferrer" target="_blank">Nearest on Facebook</a></p>
+            <p className="pub-muted"><a href={TIKTOK_URL} rel="noopener noreferrer" target="_blank">@usenearest on TikTok</a></p>
           </div>
         </div>
       </footer>
