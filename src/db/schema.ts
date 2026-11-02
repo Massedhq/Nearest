@@ -1551,3 +1551,12 @@ export const nearestCardAttempts = pgTable("nearest_card_attempts", {
   ok: boolean("ok").notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("nearest_card_attempts_user_idx").on(t.userId, t.createdAt)]);
+
+// Nearest Cards fund: the share of the booking fee set aside from each completed booking (cards.fund_per_booking_cents,
+// never more than that booking's fee). One row per booking. Cards used on paid bookings are taken out of it.
+export const nearestCardFund = pgTable("nearest_card_fund", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  bookingId: uuid("booking_id").notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [uniqueIndex("nearest_card_fund_booking_idx").on(t.bookingId)]);

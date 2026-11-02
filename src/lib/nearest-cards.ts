@@ -188,3 +188,27 @@ export async function cardAmount(cardId: string | null, bookingId: string) {
     .where(and(eq(nearestCards.id, cardId), eq(nearestCards.usedBookingId, bookingId))).limit(1))[0];
   return row?.amount ?? 0;
 }
+
+/**
+ * The Nearest Cards fund: how much has been set aside from booking fees, how much cards have used, and what's left to
+ * give back. Adds any completed bookings not counted yet (past ones too), each at the current setting, capped at that
+ * booking's own fee. Bookings with no fee (campaign rewards, legacy prices) add nothing.
+ */
+export async function cardFund() {
+  const { getSettings } = await import("./settings");
+  const per = Math.max(0, Number((await getSettings())["cards.fund_per_booking_cents"] ?? 500));
+  if (per > 0) {
+    await db.execute(sql`insert into nearest_card_fund (booking_id, amount_cents, created_at)
+      select b.id, least(b.service_fee_cents, ${per}), coalesce(b.released_at, now()) from bookings b
+      where b.status = 'completed' and b.service_fee_cents > 0
+        and not exists (select 1 from nearest_card_fund f where f.booking_id = b.id)
+      on conflict do nothing`);
+  }
+  const r = (await db.execute(sql`select
+      (select coalesce(sum(amount_cents), 0)::int from nearest_card_fund) as added,
+      (select count(*)::int from nearest_card_fund) as bookings,
+      (select coalesce(sum(card_cents), 0)::int from bookings where card_id is not null and paid_at is not null) as used,
+      (select coalesce(sum(nb.amount_cents), 0)::int from nearest_cards c join nearest_card_batches nb on nb.id = c.batch_id where c.status = 'activated' and c.credit_id is null) as saved,
+      (select coalesce(sum(nb.amount_cents), 0)::int from nearest_cards c join nearest_card_batches nb on nb.id = c.batch_id where c.status = 'issued' and nb.status = 'active' and nb.valid_thru > now()) as unclaimed`)).rows[0] as { added: number; bookings: number; used: number; saved: number; unclaimed: number };
+  return { perBooking: per, ...r, available: r.added - r.used };
+}

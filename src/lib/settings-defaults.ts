@@ -55,6 +55,7 @@ export const SETTINGS: Record<string, SettingDef> = {
   "shop.download_limit": { label: "Partner shop — downloads allowed per digital purchase", group: "Partner shop", type: "number", value: 10 },
   "shop.download_days": { label: "Partner shop — days a download link keeps working", group: "Partner shop", type: "number", unit: "days", value: 365 },
   "fees.service_fee_cents": { label: "Nearest service fee per service (added to the price students see)", group: "Fees", type: "cents", value: 500 },
+  "cards.fund_per_booking_cents": { label: "Nearest Cards fund — part of the booking fee set aside from each completed booking to give back with Nearest Cards", group: "Fees", type: "cents", value: 500 },
   "outreach.paused": { label: "Pause all outreach emails", group: "Outreach", type: "bool", value: false },
   "outreach.ai_enabled": { label: "AI recruiter answers replies", group: "Outreach", type: "bool", value: true },
   "outreach.per_run": { label: "Outreach emails sent per 15 minutes (all partners)", group: "Outreach", type: "number", value: 40 },

@@ -4,7 +4,7 @@ import { db, nearestCardBatches, nearestCards, users } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
 import { ActionForm } from "@/components/ActionForm";
 import { requireAdmin } from "@/lib/admin";
-import { cardLabel, digits, groupNumber, validThruLabel, CARD_LIMITS } from "@/lib/nearest-cards";
+import { cardLabel, cardFund, digits, groupNumber, validThruLabel, CARD_LIMITS } from "@/lib/nearest-cards";
 import { createCards, setCardBatchStatus, setCardStatus } from "@/app/admin/card-actions";
 import { fmtDate, money } from "@/lib/time";
 
@@ -19,7 +19,8 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
   const { role } = await requireAdmin();
   if (role !== "OWNER") notFound();
   const q = digits((await searchParams).q ?? "").slice(0, 16);
-  const [batches, totals, found, locked] = await Promise.all([
+  const [fund, batches, totals, found, locked] = await Promise.all([
+    cardFund(),
     db.select({
       b: nearestCardBatches,
       added: sql<number>`(select count(*)::int from nearest_cards c where c.batch_id = ${nearestCardBatches.id} and c.status = 'activated')`,
@@ -56,6 +57,16 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
   return (
     <>
       <AdminHead eyebrow="Business" title="Nearest Cards" />
+      <div className={`card${fund.available < fund.saved ? " warn" : " ok"}`} style={{ gap: 10 }}>
+        <span className="eyebrow">Nearest Cards fund — what you can give back</span>
+        <div className="kpis k4">
+          <div className="col" style={{ gap: 2 }}><span className="xs muted">Set aside from booking fees</span><span className="stat">{money(fund.added)}</span><span className="xs muted">{fund.bookings} completed booking{fund.bookings === 1 ? "" : "s"} × up to {money(fund.perBooking)}</span></div>
+          <div className="col" style={{ gap: 2 }}><span className="xs muted">Given back (cards used on paid bookings)</span><span className="stat">{money(fund.used)}</span></div>
+          <div className="col" style={{ gap: 2 }}><span className="xs muted">Available to give back</span><span className="stat">{money(fund.available)}</span><span className="xs muted">{fund.available > 0 ? `= ${Math.floor(fund.available / 1000)} × $10 cards or ${Math.floor(fund.available / 500)} × $5 cards` : "Nothing available yet"}</span></div>
+          <div className="col" style={{ gap: 2 }}><span className="xs muted">Already promised</span><span className="stat">{money(fund.saved)}</span><span className="xs muted">saved on student accounts, not used yet • {money(fund.unclaimed)} more printed and not saved yet</span></div>
+        </div>
+        <span className="xs muted">Every completed booking sets aside {money(fund.perBooking)} of its booking fee (never more than that booking&apos;s own fee) for Nearest Cards — change it in Rules &amp; Settings → Fees. When a student uses a card on a paid booking, its value comes out of the fund. It&apos;s a tracking number for planning: the money itself stays in Nearest&apos;s balance and professionals are always paid in full.{fund.available < fund.saved ? " Cards already saved on student accounts are worth more than the fund right now — hold off on new cards until more bookings complete." : ""}</span>
+      </div>
       <div className="kpis k4">
         <div className="card" style={{ gap: 4 }}><span className="xs muted">Cards made</span><span className="stat">{totals.made}</span></div>
         <div className="card" style={{ gap: 4 }}><span className="xs muted">Saved by students</span><span className="stat">{totals.added}</span></div>

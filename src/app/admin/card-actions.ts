@@ -4,6 +4,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db, nearestCardBatches, nearestCards } from "@/db";
 import { requireAdmin } from "@/lib/admin";
 import { logActivity } from "@/lib/log";
+import { money } from "@/lib/time";
 import { batchProblem, createCardBatch, endOfMonth, type CardKind } from "@/lib/nearest-cards";
 
 type FormState = { error?: string; ok?: string };
@@ -24,10 +25,16 @@ export async function createCards(_: FormState, form: FormData): Promise<FormSta
   const problem = batchProblem({ kind, amountCents, count, validThru });
   if (problem) return { error: problem };
   const name = s(form, "name", 80) || `${kind === "free" ? "Free" : `$${amountCents / 100}`} cards ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Chicago" })}`;
+  const { cardFund } = await import("@/lib/nearest-cards");
+  const fund = await cardFund();
+  const worst = amountCents * count;
   const batch = await createCardBatch({ name, kind, amountCents, count, validThru: validThru!, by: user.id });
   await logActivity({ actorUserId: user.id, action: "cards.batch_created", targetType: "nearest_card_batch", targetId: batch.id, after: { name, kind, amountCents, count, validThru } });
   revalidatePath("/admin/cards");
-  return { ok: `"${name}" — ${count} card${count === 1 ? "" : "s"} made. Download the file for your printer below.` };
+  const fundNote = worst > fund.available - fund.saved
+    ? ` Heads up: if every card is used, this batch is ${money(worst)} — more than the ${money(Math.max(0, fund.available - fund.saved))} left in the Nearest Cards fund after cards already saved.`
+    : ` If every card is used, this batch is ${money(worst)} of the ${money(fund.available - fund.saved)} left in the fund.`;
+  return { ok: `"${name}" — ${count} card${count === 1 ? "" : "s"} made. Download the file for your printer below.${fundNote}` };
 }
 
 /** Owners: turn a whole batch off (cards not yet added can't be used) or back on. */

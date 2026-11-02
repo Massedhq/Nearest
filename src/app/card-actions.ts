@@ -3,9 +3,8 @@ import { revalidatePath } from "next/cache";
 import { and, eq, inArray } from "drizzle-orm";
 import { db, bookings } from "@/db";
 import { requireBrowsingStudent } from "@/lib/student";
-import { addCardToAccount, cardLabel, planWithCard, setBookingCard } from "@/lib/nearest-cards";
+import { addCardToAccount, planWithCard, setBookingCard } from "@/lib/nearest-cards";
 import { creditBalances } from "@/lib/credits";
-import { money } from "@/lib/time";
 
 type FormState = { error?: string; ok?: string };
 
@@ -17,8 +16,7 @@ export async function addNearestCard(_: FormState, form: FormData): Promise<Form
   const back = String(form.get("back") ?? "");
   if (back.startsWith("/") && !back.startsWith("//")) revalidatePath(back.split("?")[0]);
   revalidatePath("/cards");
-  const what = r.kind === "free" ? `${cardLabel(r.kind)} saved — it covers one service up to ${money(r.amountCents)}` : `${cardLabel(r.kind)} saved — ${money(r.amountCents)} off one booking`;
-  return { ok: `${what} (•••• ${r.last4}). It's on your account, and it's only used when you choose it for a booking.` };
+  return { ok: "Your card was successfully saved to your account. You may use it anytime during checkout." };
 }
 
 /** The student picks a card for a booking that's a request or waiting for payment — or takes it off ("none"). */
