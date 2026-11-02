@@ -2,7 +2,7 @@ import "server-only";
 import { createHmac, randomBytes } from "crypto";
 import { Resend } from "resend";
 import { and, eq, inArray, isNotNull, isNull, lte, sql } from "drizzle-orm";
-import { db, prospects, outreachTemplates, outreachBatches, outreachLinks, outreachSuppression, users, adminNotifications } from "@/db";
+import { db, prospects, outreachTemplates, outreachBatches, outreachLinks, outreachSuppression, users, adminNotifications, platformSettings } from "@/db";
 import { getSettings, getFlag } from "./settings";
 import { logProspect, notifyAdmins, normEmail } from "./outreach";
 
@@ -141,13 +141,61 @@ ${body.split(/\n\s*\n/).map((para) => `<p style="margin:0 0 14px">${esc(para).re
   return { sent: true };
 }
 
+type SendResult = { result: "sent" | "skipped" | "failed"; reason?: string };
+
+/** Send the next email (first, follow-up 1 or 2) to one prospect and move their schedule on. Shared by the 15-minute run and Email now. */
+export async function sendNextEmail(p: typeof prospects.$inferSelect, now = new Date()): Promise<SendResult> {
+  const s = await getSettings();
+  const f1 = Number(s["outreach.follow1_days"] ?? 3), f2 = Number(s["outreach.follow2_days"] ?? 4);
+  const why = await cantEmail(p);
+  if (why) {
+    await db.update(prospects).set({ nextEmailAt: null, ...(why === "market_full" ? { status: "market_full" } : {}), updatedAt: now }).where(eq(prospects.id, p.id));
+    await logProspect(p.id, "skipped", `Not emailed: ${why.replace("_", " ")}.`, null);
+    return { result: "skipped", reason: why.replace("_", " ") };
+  }
+  if (p.emailsSent >= 3) return { result: "skipped", reason: "all 3 emails already sent" };
+  const key: TemplateKey = p.emailsSent === 0 ? "first" : p.emailsSent === 1 ? "follow1" : "follow2";
+  const r = await sendOutreach(p, key);
+  if (!r.sent) {
+    await logProspect(p.id, "email_failed", r.reason ?? "Send failed.", null);
+    await db.update(prospects).set({ nextEmailAt: new Date(now.getTime() + 3600000) }).where(eq(prospects.id, p.id));
+    return { result: "failed", reason: r.reason ?? "Send failed." };
+  }
+  const n = p.emailsSent + 1;
+  await db.update(prospects).set({
+    emailsSent: n, lastContactAt: now, linkSentAt: now, updatedAt: now,
+    status: ["scheduled", "approved", "contacted", "link_sent"].includes(p.status) ? "link_sent" : p.status,
+    nextEmailAt: n === 1 ? new Date(now.getTime() + f1 * 86400000) : n === 2 ? new Date(now.getTime() + f2 * 86400000) : null,
+  }).where(eq(prospects.id, p.id));
+  return { result: "sent" };
+}
+
+export const LAST_RUN_KEY = "outreach.last_run";
+export type LastRun = { at: string; started: number; sent: number; skipped: number; failed: number; lastError?: string };
+
+/** Everything that stops outreach emails from going out, in plain words. Empty = ready to send. */
+export async function outreachProblems(): Promise<string[]> {
+  const out: string[] = [];
+  if (!process.env.RESEND_API_KEY) out.push("Email isn't connected: RESEND_API_KEY is missing in Vercel → Settings → Environment Variables.");
+  if (!process.env.CRON_SECRET) out.push("The 15-minute sender can't run: CRON_SECRET is missing in Vercel → Settings → Environment Variables. Use Email now until it's added.");
+  const { address } = await getTemplates();
+  if (!address.trim()) out.push("Your mailing address is missing on Outreach → Templates (required by law — nothing sends without it).");
+  if (await getFlag("outreach.paused")) out.push("All outreach is paused. Tap Resume all outreach.");
+  return out;
+}
+
+export async function lastOutreachRun(): Promise<LastRun | null> {
+  const row = await db.query.platformSettings.findFirst({ where: eq(platformSettings.key, LAST_RUN_KEY) });
+  return (row?.value as LastRun | undefined) ?? null;
+}
+
 /** Runs every 15 minutes: starts scheduled batches, sends due emails and follow-ups, closes finished batches, warns on low queues. */
 export async function runOutreach() {
-  const out = { started: 0, sent: 0, skipped: 0, lowAlerts: 0 };
-  if (await getFlag("outreach.paused")) return out;
+  const out = { started: 0, sent: 0, skipped: 0, failed: 0, lowAlerts: 0 };
+  let lastError: string | undefined;
+  if (await getFlag("outreach.paused")) { await saveLastRun(out, "All outreach is paused."); return out; }
   const s = await getSettings();
   const perRun = Math.max(1, Number(s["outreach.per_run"] ?? 40));
-  const f1 = Number(s["outreach.follow1_days"] ?? 3), f2 = Number(s["outreach.follow2_days"] ?? 4);
   const now = new Date();
   // 1) Scheduled batches whose start time arrived.
   const due = await db.update(outreachBatches).set({ status: "running" }).where(and(eq(outreachBatches.status, "scheduled"), lte(outreachBatches.startAt, now))).returning();
@@ -160,23 +208,10 @@ export async function runOutreach() {
     .where(and(eq(outreachBatches.status, "running"), isNotNull(prospects.nextEmailAt), lte(prospects.nextEmailAt, now), eq(prospects.paused, false), sql`${prospects.emailsSent} < 3`))
     .orderBy(prospects.nextEmailAt).limit(perRun);
   for (const { p } of rows) {
-    const why = await cantEmail(p);
-    if (why) {
-      await db.update(prospects).set({ nextEmailAt: null, ...(why === "market_full" ? { status: "market_full" } : {}), updatedAt: now }).where(eq(prospects.id, p.id));
-      await logProspect(p.id, "skipped", `Not emailed: ${why.replace("_", " ")}.`, null);
-      out.skipped++;
-      continue;
-    }
-    const key: TemplateKey = p.emailsSent === 0 ? "first" : p.emailsSent === 1 ? "follow1" : "follow2";
-    const r = await sendOutreach(p, key);
-    if (!r.sent) { await logProspect(p.id, "email_failed", r.reason ?? "Send failed.", null); await db.update(prospects).set({ nextEmailAt: new Date(now.getTime() + 3600000) }).where(eq(prospects.id, p.id)); continue; }
-    const n = p.emailsSent + 1;
-    await db.update(prospects).set({
-      emailsSent: n, lastContactAt: now, linkSentAt: now, updatedAt: now,
-      status: ["scheduled", "approved", "contacted", "link_sent"].includes(p.status) ? "link_sent" : p.status,
-      nextEmailAt: n === 1 ? new Date(now.getTime() + f1 * 86400000) : n === 2 ? new Date(now.getTime() + f2 * 86400000) : null,
-    }).where(eq(prospects.id, p.id));
-    out.sent++;
+    const r = await sendNextEmail(p, now);
+    if (r.result === "sent") out.sent++;
+    else if (r.result === "skipped") out.skipped++;
+    else { out.failed++; lastError = r.reason; }
   }
   // 3) No reply 7 days after the last follow-up → "No response".
   await db.update(prospects).set({ status: "no_response", updatedAt: now })
@@ -198,5 +233,11 @@ export async function runOutreach() {
       : { kind: "queue_low", title: "Outreach queue low", body: `You have ${n} uncontacted prospect${n === 1 ? "" : "s"} left. Add more to keep recruiting.`, href: "/admin/outreach/import" }, [id]);
     out.lowAlerts++;
   }
+  await saveLastRun(out, lastError);
   return out;
+}
+
+async function saveLastRun(o: { started: number; sent: number; skipped: number; failed: number }, lastError?: string) {
+  const value: LastRun = { at: new Date().toISOString(), started: o.started, sent: o.sent, skipped: o.skipped, failed: o.failed, ...(lastError ? { lastError } : {}) };
+  await db.insert(platformSettings).values({ key: LAST_RUN_KEY, value }).onConflictDoUpdate({ target: platformSettings.key, set: { value, updatedAt: new Date() } }).catch(() => {});
 }

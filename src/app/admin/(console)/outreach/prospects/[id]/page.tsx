@@ -9,7 +9,7 @@ import { OutreachNav } from "@/components/OutreachNav";
 import { ActionForm } from "@/components/ActionForm";
 import { requireAdmin } from "@/lib/admin";
 import { outreachScope, PROSPECT_STATUSES, SOURCES } from "@/lib/outreach";
-import { updateProspect, doNotContact, setProspectPaused, replyToProspect, setAiMode, answerWithAi } from "@/app/admin/outreach-actions";
+import { updateProspect, doNotContact, setProspectPaused, replyToProspect, setAiMode, answerWithAi, emailProspectNow } from "@/app/admin/outreach-actions";
 
 export const metadata = { title: "Prospect" };
 
@@ -121,6 +121,9 @@ export default async function ProspectDetail({ params }: { params: Promise<{ id:
           <div className="row between small"><span className="muted">Next email</span><span>{p.paused ? "Paused" : p.nextEmailAt ? when(p.nextEmailAt) : "None scheduled"}</span></div>
           <div className="row between small"><span className="muted">Invite link sent</span><span>{when(p.linkSentAt)}</span></div>
           <div className="row between small"><span className="muted">Invite link opened</span><span>{when(p.linkClickedAt)}</span></div>
+          {mine && p.email && !p.paused && p.emailsSent < 3 && !["registered", "profile_complete", "opted_out", "declined", "ineligible", "market_full", "duplicate"].includes(p.status) && (
+            <ActionForm action={emailProspectNow} submitLabel={p.emailsSent === 0 ? "Email them now" : "Send the next follow-up now"} buttonClass="btn sm" className="col g4"><input type="hidden" name="id" value={p.id} /></ActionForm>
+          )}
           {!["registered", "profile_complete", "opted_out"].includes(p.status) && (
             <form action={setProspectPaused}><input type="hidden" name="id" value={p.id} /><input type="hidden" name="paused" value={p.paused ? "0" : "1"} /><button className={p.paused ? "btn sm" : "btn ghost sm"} type="submit">{p.paused ? "Resume emails" : "Pause emails"}</button></form>
           )}

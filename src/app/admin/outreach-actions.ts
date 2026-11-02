@@ -218,6 +218,63 @@ export async function createBatch(_: FormState, form: FormData): Promise<FormSta
   return { ok: `"${name}": ${ready.length} prospect${ready.length === 1 ? "" : "s"} — ${t}.` };
 }
 
+/** Email now: put the prospect in a running batch (so follow-ups continue on their own) and send their next email immediately. */
+export async function emailProspectNow(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireAdmin();
+  const { outreachBatches } = await import("@/db");
+  const { sendNextEmail, outreachProblems } = await import("@/lib/outreach-mail");
+  const id = s(form, "id", 40);
+  const p = await db.query.prospects.findFirst({ where: eq(prospects.id, id) });
+  if (!p || !(await canTouch(user.id, p.recruiterId))) return { error: "Prospect not found." };
+  const blocked = (await outreachProblems()).filter((m) => !m.startsWith("The 15-minute sender"));
+  if (blocked.length) return { error: blocked[0] };
+  if (!p.email) return { error: "This prospect has no email address. Add one with Save above, then try again." };
+  if (p.emailsSent >= 3) return { error: "All 3 emails have already gone to them." };
+  if (p.paused) return { error: "Their emails are paused — tap Resume emails first." };
+  // Not in a batch (or their batch was cancelled/finished)? Give them a one-person running batch so follow-ups keep going.
+  const batch = p.batchId ? await db.query.outreachBatches.findFirst({ where: eq(outreachBatches.id, p.batchId) }) : null;
+  if (!batch || ["cancelled", "done"].includes(batch.status)) {
+    const [b] = await db.insert(outreachBatches).values({ recruiterId: p.recruiterId ?? user.id, name: `Email now — ${p.name}`.slice(0, 80), status: "running", startAt: new Date() }).returning();
+    await db.update(prospects).set({ batchId: b.id, updatedAt: new Date() }).where(eq(prospects.id, p.id));
+  } else if (batch.status !== "running") {
+    await db.update(outreachBatches).set({ status: "running" }).where(eq(outreachBatches.id, batch.id));
+  }
+  const fresh = (await db.query.prospects.findFirst({ where: eq(prospects.id, p.id) }))!;
+  const r = await sendNextEmail(fresh);
+  revalidatePath(`/admin/outreach/prospects/${p.id}`);
+  revalidatePath("/admin/outreach/queue");
+  if (r.result === "sent") return { ok: `Sent to ${p.email}. Follow-ups will go out on schedule.` };
+  return { error: r.result === "skipped" ? `Not sent: ${r.reason}.` : `Email didn't send: ${r.reason}` };
+}
+
+/** Email all my Ready prospects now (up to 25 at a time) — no batch setup, no waiting for the 15-minute run. */
+export async function emailReadyNow(_: FormState, form: FormData): Promise<FormState> {
+  void form;
+  const { user } = await requireAdmin();
+  const { outreachBatches } = await import("@/db");
+  const { isNull, sql } = await import("drizzle-orm");
+  const { sendNextEmail, outreachProblems } = await import("@/lib/outreach-mail");
+  const blocked = (await outreachProblems()).filter((m) => !m.startsWith("The 15-minute sender"));
+  if (blocked.length) return { error: blocked[0] };
+  const ready = await db.select().from(prospects)
+    .where(and(eq(prospects.recruiterId, user.id), eq(prospects.status, "approved"), isNull(prospects.batchId), sql`${prospects.emailNorm} is not null`, eq(prospects.paused, false)))
+    .orderBy(prospects.createdAt).limit(25);
+  if (!ready.length) return { error: "You have no Ready prospects with an email. Add some on Add prospect or Bulk import." };
+  const [b] = await db.insert(outreachBatches).values({ recruiterId: user.id, name: `Email now ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Chicago" })}`, status: "running", startAt: new Date() }).returning();
+  let sent = 0;
+  const problems: string[] = [];
+  for (const p of ready) {
+    await db.update(prospects).set({ batchId: b.id, status: "scheduled", updatedAt: new Date() }).where(eq(prospects.id, p.id));
+    const r = await sendNextEmail({ ...p, batchId: b.id, status: "scheduled" });
+    if (r.result === "sent") sent++;
+    else problems.push(`${p.name}: ${r.reason}`);
+  }
+  revalidatePath("/admin/outreach/queue");
+  const more = problems.length ? ` Not sent — ${problems.slice(0, 3).join("; ")}${problems.length > 3 ? ` and ${problems.length - 3} more` : ""}.` : "";
+  if (!sent) return { error: `Nothing went out.${more}` };
+  return { ok: `Sent ${sent} email${sent === 1 ? "" : "s"}. Follow-ups go out on schedule.${more}` };
+}
+
 /** Pause, resume or cancel a batch. */
 export async function setBatchStatus(form: FormData) {
   const { user } = await requireAdmin();

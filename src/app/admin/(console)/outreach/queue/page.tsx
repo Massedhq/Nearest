@@ -1,14 +1,14 @@
 import Link from "next/link";
-import { desc, eq, sql } from "drizzle-orm";
-import { db, prospects, outreachBatches, users } from "@/db";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { db, prospects, prospectEvents, outreachBatches, users } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
 import { ActionForm } from "@/components/ActionForm";
 import { OutreachNav } from "@/components/OutreachNav";
 import { requireAdmin } from "@/lib/admin";
 import { getFlag } from "@/lib/settings";
 import { outreachScope } from "@/lib/outreach";
-import { getTemplates } from "@/lib/outreach-mail";
-import { createBatch, setBatchStatus, setOutreachPaused } from "@/app/admin/outreach-actions";
+import { lastOutreachRun, outreachProblems } from "@/lib/outreach-mail";
+import { createBatch, emailReadyNow, setBatchStatus, setOutreachPaused } from "@/app/admin/outreach-actions";
 
 export const metadata = { title: "Outreach queue" };
 
@@ -20,9 +20,12 @@ export default async function OutreachQueue({ searchParams }: { searchParams: Pr
   const { isMain } = await outreachScope(user.id);
   const everyone = isMain && (await searchParams).who === "all";
   const mine = everyone ? undefined : eq(prospects.recruiterId, user.id);
-  const [paused, { address }, counts, batches] = await Promise.all([
+  const [paused, problems, lastRun, recentIssues, counts, batches] = await Promise.all([
     getFlag("outreach.paused"),
-    getTemplates(),
+    outreachProblems(),
+    lastOutreachRun(),
+    db.select({ e: prospectEvents, name: prospects.name, pid: prospects.id }).from(prospectEvents).innerJoin(prospects, eq(prospects.id, prospectEvents.prospectId))
+      .where(and(inArray(prospectEvents.kind, ["email_failed", "skipped"]), mine, sql`${prospectEvents.createdAt} > now() - interval '7 days'`)).orderBy(desc(prospectEvents.createdAt)).limit(10),
     db.select({
       ready: sql<number>`count(*) filter (where ${prospects.status} = 'approved' and ${prospects.batchId} is null and ${prospects.emailNorm} is not null)::int`,
       scheduled: sql<number>`count(*) filter (where ${prospects.status} in ('approved','scheduled') and ${prospects.batchId} is not null and ${prospects.emailsSent} = 0)::int`,
@@ -41,21 +44,47 @@ export default async function OutreachQueue({ searchParams }: { searchParams: Pr
     }).from(outreachBatches).leftJoin(users, eq(users.id, outreachBatches.recruiterId))
       .where(everyone ? undefined : eq(outreachBatches.recruiterId, user.id)).orderBy(desc(outreachBatches.createdAt)).limit(40),
   ]);
+  const ago = (iso: string) => { const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000); return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`; };
+  const stale = !lastRun || Date.now() - new Date(lastRun.at).getTime() > 45 * 60000;
   return (
     <>
       <AdminHead eyebrow="Professional Outreach" title="Outreach queue" />
       <OutreachNav at="queue" />
       {isMain && <div className="chips"><Link className={`chip${!everyone ? " on" : ""}`} href="/admin/outreach/queue">Mine</Link><Link className={`chip${everyone ? " on" : ""}`} href="/admin/outreach/queue?who=all">Everyone</Link></div>}
 
-      <div className={`card ${paused ? "warn" : ""}`} style={{ gap: 6 }}>
+      <div className={`card ${paused || problems.length || stale ? "warn" : ""}`} style={{ gap: 8 }}>
         <div className="row between" style={{ flexWrap: "wrap", gap: 8 }}>
-          <span className="small"><span className="b">{paused ? "All outreach emails are paused." : "Outreach is on."}</span> Emails go out every 15 minutes for running batches.</span>
+          <span className="small"><span className="b">{problems.length ? "Emails can't go out yet." : paused ? "All outreach emails are paused." : "Outreach is on."}</span> Emails go out every 15 minutes for running batches.</span>
           {role === "OWNER" && (
             <form action={setOutreachPaused}><input type="hidden" name="paused" value={paused ? "0" : "1"} /><button className={paused ? "btn sm" : "btn ghost sm"} type="submit">{paused ? "Resume all outreach" : "Pause all outreach"}</button></form>
           )}
         </div>
-        {!address && <span className="xs" style={{ color: "#E3C58A" }}>⚠ Add your mailing address on Templates — emails won&apos;t send without it.</span>}
+        {problems.map((m) => <span key={m} className="xs" style={{ color: "#E3C58A" }}>⚠ {m}</span>)}
+        <span className="xs muted">
+          {lastRun
+            ? `Last automatic run: ${ago(lastRun.at)} — ${lastRun.sent} sent, ${lastRun.skipped} skipped, ${lastRun.failed} failed${lastRun.lastError ? ` (last error: ${lastRun.lastError})` : ""}.`
+            : "The automatic sender hasn't run yet."}
+          {stale && " It should run every 15 minutes — if this stays old, check that the cron job is on in Vercel → Settings → Cron Jobs. Email now below works either way."}
+        </span>
       </div>
+
+      <div className="card" style={{ gap: 8 }}>
+        <span className="eyebrow">Email now</span>
+        <span className="xs muted">Sends the first email right now to your Ready prospects that have an email (up to 25 at a time) — no batch to set up, no waiting. Follow-ups then go out on schedule by themselves.</span>
+        <ActionForm action={emailReadyNow} submitLabel={`Email my ${counts.ready} Ready prospect${counts.ready === 1 ? "" : "s"} now`} buttonClass="btn sm" className="col g8"><span /></ActionForm>
+      </div>
+
+      {recentIssues.length > 0 && (
+        <div className="card" style={{ gap: 6 }}>
+          <span className="eyebrow">Not sent in the last 7 days</span>
+          {recentIssues.map(({ e, name, pid }) => (
+            <div key={e.id} className="row between small" style={{ gap: 8, borderTop: "1px solid #1C1C1F", paddingTop: 6 }}>
+              <span><Link className="link" href={`/admin/outreach/prospects/${pid}`}>{name}</Link> — {e.detail}</span>
+              <span className="xs muted" style={{ flex: "none" }}>{e.createdAt.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Chicago" })}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="kpis k4">
         <div className="card" style={{ gap: 4 }}><span className="xs muted">Ready to contact</span><span className="stat">{counts.ready}</span>{counts.noEmail > 0 && <span className="xs muted">+{counts.noEmail} with phone only</span>}</div>

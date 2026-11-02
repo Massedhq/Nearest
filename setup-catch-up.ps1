@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Student campaign card now says Join the campaign (Your campaign once joined); Nearest Store left out for now - partner link-page shop unchanged"
+git commit -q -m "Outreach: Email now buttons (queue + each prospect), plain status of what blocks sending, last run and not-sent reasons; cron jobs isolated so outreach always runs"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""
