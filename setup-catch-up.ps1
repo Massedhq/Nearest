@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Google brand links: site now lists @usenearest and @use_nearest (Instagram), the Facebook page and @usenearest TikTok as official Nearest profiles; footer links to all four. Includes Outreach Email now fixes"
+git commit -q -m "Nearest Cards: printed discount (3-digit) and free (4-digit) cards students add in Account - Cards and activations; owner batches, printer file, lookups; pros see card use; Terms now Nearest, LLC; plus brand links and Outreach Email now"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

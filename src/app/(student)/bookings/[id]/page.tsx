@@ -12,6 +12,7 @@ import { TopBar } from "@/components/TopBar";
 import { ActionForm } from "@/components/ActionForm";
 import { Icon } from "@/components/Icon";
 import { cancelMyBooking, resumePayment, abandonBooking, payAcceptedBooking } from "@/app/book-actions";
+import { NearestCardForm } from "@/components/NearestCardForm";
 import Link from "next/link";
 import { addressUnlocked, checkinOpen, finishOpen } from "@/lib/appointment";
 import { studentCheckIn } from "@/app/day-actions";
@@ -88,6 +89,14 @@ export default async function Booking({ params, searchParams }: { params: Promis
           <div className="row between small muted"><span>Paid by card</span><span className="num">{money(b.chargedCents)}</span></div>
           <div className="row between small muted"><span>{b.status === "completed" ? "Released to your professional" : b.status === "requested" ? "Nothing charged yet — you pay after the professional accepts" : "Held until you release it"}</span><Icon name={b.status === "completed" ? "check" : "lock"} size="s" /></div>
         </div>
+
+        {["requested", "pending_payment"].includes(b.status) && !b.bundleId && (
+          <details className="card" style={{ gap: 10 }}>
+            <summary className="b small" style={{ cursor: "pointer" }}>Have a Nearest Card? Add it here</summary>
+            <span className="xs muted">Its value is saved on your account and taken off what you pay for this booking.</span>
+            <NearestCardForm back={`/bookings/${b.id}`} bookingId={b.id} label="Add card" />
+          </details>
+        )}
 
         {b.status === "pending_payment" && (
           <div className="col" style={{ gap: 10 }}>

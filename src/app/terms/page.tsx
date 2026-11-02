@@ -2,14 +2,14 @@ import { LegalPage } from "@/components/LegalPage";
 
 export const metadata = { title: "Terms of Service", description: "The Terms of Service for Nearest, the student beauty, wellness and self-care booking platform at usenearest.com.", alternates: { canonical: "https://www.usenearest.com/terms" } };
 
-const ENTITY = "Nearest";
+const ENTITY = "Nearest, LLC";
 const ADDRESS = "5729 Lebanon Rd #144605, Frisco, Texas 75034";
 
 export default function Terms() {
   return (
     <LegalPage
       title="Terms of Service"
-      updated="October 27, 2026"
+      updated="November 2, 2026"
       other={{ href: "/privacy", label: "Privacy Policy" }}
       intro={[
         `These Terms of Service ("Terms") are an agreement between you and ${ENTITY}, doing business as Nearest ("Nearest," "we," "us"). They apply whenever you use usenearest.com, the Nearest app, or any related service (together, the "Service").`,
@@ -76,6 +76,7 @@ export default function Terms() {
             ],
             "Promotions. Nearest campaigns (such as the student launch campaign) have their own published terms shown on the campaign page, which you accept when you join. Campaign rewards are one per student. The launch campaign reward is Nearest credit, added to an approved student's account once; it can be used toward services booked with any Professional on Nearest (not Bundle Me bookings), is non-transferable, has no cash value and can't be withdrawn. Professionals are paid their normal price when a Student pays with campaign credit. Taking part is optional and doesn't affect ordinary access to your Nearest account, and a campaign waitlist entry does not reserve a reward.", "Prices shown to Students include Nearest's $5.00 booking fee for each service (the Nearest service fee described in Section 10), so the total is shown before you pay and there are no surprise charges at checkout. Professionals bear card-processing fees, as described in Section 10.",
             "Bundle my booking. Students may build a bundle of services from different Professionals for the same week within a budget they set. Nearest's suggestions are based on the prices and availability Professionals list and aren't guaranteed until each appointment is booked and paid. Each appointment in a bundle is a separate booking with its own Professional and follows these Terms, including cancellation, deposit and no-show rules. Credits and invite rewards can't be used on bundle bookings. Bundles that aren't booked are saved for 14 days and then cleared.",
+            "Nearest Cards. Nearest may give out printed promotional Nearest Cards (no purchase required). A card must be added to a Nearest student account before it can be used: sign in, open Account → Cards & activations, and enter the 16-digit number from the front and the code from the back (3 digits on discount cards, 4 digits on free cards). Once added, the card's value becomes general Nearest credit on that account and is applied automatically at checkout to services booked with any Professional (not Bundle my booking bookings). A discount card takes its stated amount off; a free card covers a service up to its stated amount, and you pay anything above that. Each card works once, only one card from the same group may be added per Student, and a card must be added by the Valid thru date printed on it; once added, the credit follows the rules for credits in Section 7. Nearest Cards are not credit cards, debit cards or gift cards purchased for value; they have no cash value and can't be sold, transferred, exchanged for cash or replaced if lost before they're added. Too many wrong codes lock a card for security. Nearest may turn off cards that were lost, stolen, copied or obtained or used in violation of these Terms, and may remove credit added from such a card. Professionals are paid their full price when a Student uses a Nearest Card.",
             "Invite rewards. A verified Student may share a personal invite link. When someone signs up through it and is verified as a Student, both Students receive a $5 invite reward. Each invite reward takes $5 off one booking — only one reward per booking, they can't be combined, and they apply only to a Student's first booking with a given Professional (not Model Calls). Invite rewards have no cash value, can't be transferred, and return to your account if the booking is cancelled or never paid. Nearest may withhold or remove rewards earned through fake, duplicate or self-made accounts.",
           ],
         },

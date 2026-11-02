@@ -35,6 +35,8 @@ export async function confirmBooking(bookingId: string, charge?: { chargeId: str
   if (b.creditProCents) used.push({ studentId: b.studentId, proId: b.proId, amountCents: -b.creditProCents, reason: `Used on ${bookingCode(b.number)}`, bookingId: b.id });
   if (b.creditGeneralCents) used.push({ studentId: b.studentId, proId: null, amountCents: -b.creditGeneralCents, reason: `Used on ${bookingCode(b.number)}`, bookingId: b.id });
   if (used.length) await db.insert(credits).values(used);
+  // Nearest Cards: record which added cards paid toward this booking (the professional sees it on the appointment).
+  if (b.creditGeneralCents) { try { await (await import("./nearest-cards")).linkCardsToBooking(b); } catch (e) { console.error("nearest cards", e); } }
 
   if (b.modelCallId) {
     const [spot] = await db

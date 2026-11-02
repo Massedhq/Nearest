@@ -2,14 +2,14 @@ import { LegalPage } from "@/components/LegalPage";
 
 export const metadata = { title: "Privacy Policy", description: "How Nearest, the student beauty, wellness and self-care booking platform, collects, uses and protects personal information.", alternates: { canonical: "https://www.usenearest.com/privacy" } };
 
-const ENTITY = "Nearest";
+const ENTITY = "Nearest, LLC";
 const ADDRESS = "5729 Lebanon Rd #144605, Frisco, Texas 75034";
 
 export default function Privacy() {
   return (
     <LegalPage
       title="Privacy Policy"
-      updated="October 27, 2026"
+      updated="November 2, 2026"
       other={{ href: "/terms", label: "Terms of Service" }}
       intro={[
         `This Privacy Policy explains how ${ENTITY}, doing business as Nearest ("Nearest," "we," "us"), collects, uses, shares and protects personal information when you use usenearest.com and the Nearest app (the "Service"), and the choices and rights you have.`,

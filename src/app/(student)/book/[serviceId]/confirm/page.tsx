@@ -6,6 +6,7 @@ import { isAdult } from "@/lib/age";
 import { liveProWhere } from "@/lib/search";
 import { openSlots } from "@/lib/availability";
 import { creditBalances, applyCredits } from "@/lib/credits";
+import { NearestCardForm } from "@/components/NearestCardForm";
 import { getSettings } from "@/lib/settings";
 import { chicagoToUtc, fmtDate, fmtTime, money } from "@/lib/time";
 import { TopBar } from "@/components/TopBar";
@@ -78,6 +79,13 @@ export default async function Confirm({ params, searchParams }: { params: Promis
         {travels && <div className="card small"><span>{pro.serviceMode === "both" && pro.addressLine ? `If they come to you, a ${money(pro.travelFeeCents ?? 3500)} travel fee is added to this price.` : `Includes a ${money(pro.travelFeeCents ?? 3500)} travel fee at checkout — your professional comes to you.`}</span></div>}
         {bundleItem && <div className="card small"><span><span className="b">Bundle booking.</span> Credits and invite rewards can&apos;t be used on bundle bookings — they stay in your account for single bookings.</span></div>}
         <div className="card small"><span><span className="b">Nothing is charged now.</span> Your request goes to the professional to confirm. Once they accept, you&apos;ll pay to lock in your appointment.</span></div>
+        {!bundleItem && (
+          <details className="card" style={{ gap: 10 }}>
+            <summary className="b small" style={{ cursor: "pointer" }}>Have a Nearest Card? Add it here</summary>
+            <span className="xs muted">Its value is saved on your account and taken off this total right away.</span>
+            <NearestCardForm back={`/book/${svc.id}/confirm?day=${day}&time=${time}${q}`} label="Add card" />
+          </details>
+        )}
         <PriceBox price={price} deposit={deposit} pro={use.pro} general={use.general} charge={use.charge} invite={inv?.cents ?? 0} />
         <Terms deposit={deposit} cutoffHours={Number(s["cancel.cutoff_hours"])} graceMin={Number(s["appt.grace_minutes"])} />
         <ActionForm action={bookService} submitLabel="Send booking request">

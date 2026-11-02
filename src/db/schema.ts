@@ -1510,3 +1510,40 @@ export const partnerOrders = pgTable("partner_orders", {
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("partner_orders_seller_idx").on(t.sellerId), index("partner_orders_session_idx").on(t.stripeSessionId)]);
 
+
+// ── Nearest Cards (2026-11-02): printed promotional cards students add to their account (Account → Cards & activations).
+// Discount cards: 16-digit number + 3-digit code, $10–$30. Free cards: 16-digit number + 4-digit code, cover a service up to the batch amount.
+// Adding a card turns it into general Nearest credit (applied automatically at checkout). Owners create batches in Admin → Nearest Cards.
+export const nearestCardBatches = pgTable("nearest_card_batches", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  kind: text("kind").notNull(), // discount | free
+  amountCents: integer("amount_cents").notNull(),
+  count: integer("count").notNull(),
+  validThru: ts("valid_thru").notNull(), // last moment the card can be added (end of the printed month, Central time)
+  status: text("status").notNull().default("active"), // active | off
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+export const nearestCards = pgTable("nearest_cards", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  batchId: uuid("batch_id").notNull().references(() => nearestCardBatches.id),
+  number: text("number").notNull(), // 16 digits, no spaces
+  code: text("code").notNull(), // 3 digits (discount) or 4 digits (free)
+  status: text("status").notNull().default("issued"), // issued | activated | off | locked
+  failedAttempts: integer("failed_attempts").notNull().default(0),
+  studentId: uuid("student_id").references(() => users.id),
+  activatedAt: ts("activated_at"),
+  creditId: uuid("credit_id"),
+  usedBookingId: uuid("used_booking_id"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [uniqueIndex("nearest_cards_number_idx").on(t.number), index("nearest_cards_batch_idx").on(t.batchId), index("nearest_cards_student_idx").on(t.studentId)]);
+
+export const nearestCardAttempts = pgTable("nearest_card_attempts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  last4: text("last4"),
+  ok: boolean("ok").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("nearest_card_attempts_user_idx").on(t.userId, t.createdAt)]);
