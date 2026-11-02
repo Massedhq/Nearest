@@ -1,6 +1,6 @@
 import "server-only";
 import { randomInt } from "crypto";
-import { and, asc, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { db, credits, nearestCardBatches, nearestCards, nearestCardAttempts } from "@/db";
 import { MAX_PRICE_CENTS } from "./pricing";
 import { chicagoToUtc } from "./time";
@@ -8,8 +8,10 @@ import { chicagoToUtc } from "./time";
 /**
  * Nearest Cards — printed promotional cards (no cash value) that students add to their account.
  * Discount cards: 16-digit number + 3-digit code, worth $10–$30. Free cards: 16-digit number + 4-digit code, cover a
- * service up to the batch amount. Adding a card creates general Nearest credit, which checkout applies automatically,
- * so a lost card can't be used by anyone else once it's on an account.
+ * service up to the batch amount. Adding a card SAVES it on the student's account (so a lost card can't be used by anyone
+ * else). It is never applied automatically: the student chooses it on the booking they want (confirm page or a booking
+ * waiting for payment). One card = one booking. Its value is written into the booking's credit_general_cents and
+ * confirmBooking adds it as credit first, so payouts, cancellations and refunds treat it like general credit.
  */
 export const CARD_LIMITS = {
   discountMin: 1000, discountMax: 3000, // $10–$30
@@ -69,10 +71,10 @@ export async function createCardBatch(input: { name: string; kind: CardKind; amo
   return batch;
 }
 
-export type AddResult = { ok: true; amountCents: number; kind: CardKind; last4: string } | { ok: false; error: string };
+export type AddResult = { ok: true; amountCents: number; kind: CardKind; last4: string; id: string } | { ok: false; error: string };
 const WRONG = "That card number and code don't match. Check both and try again — the code is the 3 or 4 digits on the back.";
 
-/** A student adds a card to their account: checks everything, then turns it into general Nearest credit (once). */
+/** A student adds a card to their account: checks everything, then saves it there (no credit yet — they choose a booking). */
 export async function addCardToAccount(userId: string, rawNumber: string, rawCode: string): Promise<AddResult> {
   const number = digits(rawNumber), code = digits(rawCode);
   const hourAgo = new Date(Date.now() - 3600000);
@@ -91,7 +93,7 @@ export async function addCardToAccount(userId: string, rawNumber: string, rawCod
   const row = (await db.select({ c: nearestCards, b: nearestCardBatches }).from(nearestCards).innerJoin(nearestCardBatches, eq(nearestCardBatches.id, nearestCards.batchId)).where(eq(nearestCards.number, number)).limit(1))[0];
   if (!row) { await miss(); return { ok: false, error: WRONG }; }
   const { c, b } = row;
-  if (c.status === "activated") return c.studentId === userId ? { ok: false, error: "This card is already on your account — its value is in My credits." } : { ok: false, error: "This card was already added to another account. Each card works once." };
+  if (c.status === "activated") return c.studentId === userId ? { ok: false, error: "This card is already saved on your account — choose it when you pay for a booking." } : { ok: false, error: "This card was already added to another account. Each card works once." };
   if (c.status === "locked") return { ok: false, error: "This card is locked for security. Email support@usenearest.com and we'll help." };
   if (c.code !== code) { await miss(c.id); return { ok: false, error: WRONG }; }
   if (c.status === "off" || b.status === "off") return { ok: false, error: "This card has been turned off. Email support@usenearest.com if you think that's a mistake." };
@@ -102,37 +104,87 @@ export async function addCardToAccount(userId: string, rawNumber: string, rawCod
   const [claimed] = await db.update(nearestCards).set({ status: "activated", studentId: userId, activatedAt: new Date() })
     .where(and(eq(nearestCards.id, c.id), eq(nearestCards.status, "issued"))).returning();
   if (!claimed) return { ok: false, error: "This card was already added to another account. Each card works once." };
-  const label = cardLabel(b.kind);
-  const [cr] = await db.insert(credits).values({ studentId: userId, proId: null, amountCents: b.amountCents, reason: `${label} •••• ${last4(number)} added` }).returning();
-  await db.update(nearestCards).set({ creditId: cr.id }).where(eq(nearestCards.id, c.id));
   await db.insert(nearestCardAttempts).values({ userId, last4: last4(number), ok: true });
-  return { ok: true, amountCents: b.amountCents, kind: b.kind as CardKind, last4: last4(number) };
+  return { ok: true, amountCents: b.amountCents, kind: b.kind as CardKind, last4: last4(number), id: c.id };
 }
 
-/** After a booking is paid: note which of the student's added cards paid toward it (oldest first), so the pro sees it. */
-export async function linkCardsToBooking(b: { id: string; studentId: string; creditGeneralCents: number }) {
-  if (!b.creditGeneralCents) return [];
-  const mine = await db.select({ c: nearestCards, amount: nearestCardBatches.amountCents }).from(nearestCards).innerJoin(nearestCardBatches, eq(nearestCardBatches.id, nearestCards.batchId))
-    .where(and(eq(nearestCards.studentId, b.studentId), eq(nearestCards.status, "activated"), isNull(nearestCards.usedBookingId))).orderBy(asc(nearestCards.activatedAt));
-  const ids: string[] = [];
-  let covered = 0;
-  for (const { c, amount } of mine) {
-    if (covered >= b.creditGeneralCents) break;
-    ids.push(c.id);
-    covered += amount;
-  }
-  if (ids.length) await db.update(nearestCards).set({ usedBookingId: b.id }).where(and(inArray(nearestCards.id, ids), isNull(nearestCards.usedBookingId)));
-  return ids;
-}
+// A card is FREE when it isn't tied to a booking, or its booking ended without being paid (expired, declined, cancelled
+// before payment). It's SAVED while its booking is a request or waiting for payment, and USED once that booking is paid.
+const FREE_SQL = sql`(${nearestCards.usedBookingId} is null or not exists (select 1 from bookings bk where bk.id = ${nearestCards.usedBookingId} and (bk.paid_at is not null or bk.status in ('requested','pending_payment'))))`;
 
-/** Cards that paid toward a booking (for the professional's appointment page). */
-export async function cardsForBooking(bookingId: string) {
-  return db.select({ kind: nearestCardBatches.kind, amountCents: nearestCardBatches.amountCents }).from(nearestCards)
-    .innerJoin(nearestCardBatches, eq(nearestCardBatches.id, nearestCards.batchId)).where(eq(nearestCards.usedBookingId, bookingId));
-}
+export type CardState = "ready" | "saved" | "used";
 
-/** A student's added cards, newest first. */
+/** A student's added cards, newest first, with whether each is ready, saved for a booking or used. */
 export async function myCards(userId: string) {
-  return db.select({ c: nearestCards, b: nearestCardBatches }).from(nearestCards).innerJoin(nearestCardBatches, eq(nearestCardBatches.id, nearestCards.batchId))
-    .where(eq(nearestCards.studentId, userId)).orderBy(desc(nearestCards.activatedAt));
+  const rows = await db.select({
+    c: nearestCards, b: nearestCardBatches,
+    bStatus: sql<string | null>`(select bk.status::text from bookings bk where bk.id = ${nearestCards.usedBookingId})`,
+    bPaid: sql<boolean>`coalesce((select bk.paid_at is not null from bookings bk where bk.id = ${nearestCards.usedBookingId}), false)`,
+  }).from(nearestCards).innerJoin(nearestCardBatches, eq(nearestCardBatches.id, nearestCards.batchId))
+    .where(and(eq(nearestCards.studentId, userId), eq(nearestCards.status, "activated"))).orderBy(desc(nearestCards.activatedAt));
+  return rows.map((r) => {
+    const state: CardState = !r.c.usedBookingId ? "ready" : r.bPaid ? "used" : r.bStatus === "requested" || r.bStatus === "pending_payment" ? "saved" : "ready";
+    return { ...r, state, bookingId: state === "ready" ? null : r.c.usedBookingId };
+  });
+}
+
+/** Cards the student can choose for a booking right now (plus the one already on this booking, if any). */
+export async function usableCards(userId: string, bookingId?: string) {
+  return (await myCards(userId)).filter((x) => x.state === "ready" || (bookingId && x.bookingId === bookingId));
+}
+
+/** How a booking's total is paid when the student chose a card: card first, then credit with the pro, then general credit. */
+export function planWithCard(due: number, bal: { pro: number; general: number }, cardAmount: number) {
+  let card = Math.min(Math.max(cardAmount, 0), due);
+  let pro = Math.min(bal.pro, due - card);
+  let general = Math.min(bal.general, due - card - pro);
+  let charge = due - card - pro - general;
+  if (charge > 0 && charge < 50) {
+    // Card payments have a $0.50 minimum: give back a little credit (and then card value) so the charge is $0.50.
+    let giveBack = 50 - charge;
+    const g = Math.min(general, giveBack); general -= g; giveBack -= g;
+    const p = Math.min(pro, giveBack); pro -= p; giveBack -= p;
+    card -= Math.min(card, giveBack);
+    charge = due - card - pro - general;
+  }
+  return { card, pro, general: general + card, charge }; // general includes the card (see the header note)
+}
+
+/**
+ * Put a card on a booking (or take it off with cardId null). Reserves the card atomically so it can't be on two
+ * bookings. Returns the card's amount (0 when none) or an error.
+ */
+export async function setBookingCard(userId: string, bookingId: string, cardId: string | null): Promise<{ ok: true; amountCents: number; kind?: CardKind; last4?: string } | { ok: false; error: string }> {
+  // Release whatever card this booking held.
+  await db.update(nearestCards).set({ usedBookingId: null }).where(and(eq(nearestCards.usedBookingId, bookingId), eq(nearestCards.studentId, userId)));
+  if (!cardId) return { ok: true, amountCents: 0 };
+  const [card] = await db.update(nearestCards).set({ usedBookingId: bookingId })
+    .where(and(eq(nearestCards.id, cardId), eq(nearestCards.studentId, userId), eq(nearestCards.status, "activated"), FREE_SQL)).returning();
+  if (!card) return { ok: false, error: "That card is already being used on another booking, or isn't on your account." };
+  const batch = (await db.query.nearestCardBatches.findFirst({ where: eq(nearestCardBatches.id, card.batchId) }))!;
+  return { ok: true, amountCents: batch.amountCents, kind: batch.kind as CardKind, last4: last4(card.number) };
+}
+
+/** On confirm: the chosen card's value becomes credit right before the booking uses it (net zero, keeps the books straight). */
+export async function creditCardForBooking(b: { id: string; studentId: string; cardId: string | null; cardCents: number }, code: string) {
+  if (!b.cardId || b.cardCents <= 0) return;
+  const card = await db.query.nearestCards.findFirst({ where: eq(nearestCards.id, b.cardId) });
+  const batch = card ? await db.query.nearestCardBatches.findFirst({ where: eq(nearestCardBatches.id, card.batchId) }) : null;
+  const [cr] = await db.insert(credits).values({ studentId: b.studentId, proId: null, amountCents: b.cardCents, reason: `${cardLabel(batch?.kind ?? "discount")} •••• ${card ? last4(card.number) : ""} used on ${code}`, bookingId: b.id }).returning();
+  if (card) await db.update(nearestCards).set({ creditId: cr.id, usedBookingId: b.id }).where(eq(nearestCards.id, card.id));
+}
+
+/** The card a booking used (for the professional's appointment page). */
+export async function cardForBooking(b: { cardId: string | null; cardCents: number }) {
+  if (!b.cardId || b.cardCents <= 0) return null;
+  const row = (await db.select({ kind: nearestCardBatches.kind }).from(nearestCards).innerJoin(nearestCardBatches, eq(nearestCardBatches.id, nearestCards.batchId)).where(eq(nearestCards.id, b.cardId)).limit(1))[0];
+  return row ? { kind: row.kind, amountCents: b.cardCents } : null;
+}
+
+/** The full value of the card a booking holds (0 if none, or if the card is no longer tied to that booking). */
+export async function cardAmount(cardId: string | null, bookingId: string) {
+  if (!cardId) return 0;
+  const row = (await db.select({ amount: nearestCardBatches.amountCents }).from(nearestCards).innerJoin(nearestCardBatches, eq(nearestCardBatches.id, nearestCards.batchId))
+    .where(and(eq(nearestCards.id, cardId), eq(nearestCards.usedBookingId, bookingId))).limit(1))[0];
+  return row?.amount ?? 0;
 }

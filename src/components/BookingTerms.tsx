@@ -1,13 +1,14 @@
 import { Icon } from "./Icon";
 import { money } from "@/lib/time";
 
-export function PriceBox({ price, deposit, pro, general, charge, invite = 0 }: { price: number; deposit: number; pro: number; general: number; charge: number; invite?: number }) {
+export function PriceBox({ price, deposit, pro, general, charge, invite = 0, card = 0, cardLabel }: { price: number; deposit: number; pro: number; general: number; charge: number; invite?: number; card?: number; cardLabel?: string }) {
   return (
     <div className="card">
       <div className="row between"><span>Service</span><span className="num">{money(price)}</span></div>
       {invite > 0 && <div className="row between" style={{ color: "#8FD3A8" }}><span>Invite reward — thanks for sharing Nearest</span><span className="num">−{money(invite)}</span></div>}
       {pro > 0 && <div className="row between muted"><span>Credit with this professional</span><span className="num">−{money(pro)}</span></div>}
-      {general > 0 && <div className="row between muted"><span>Nearest credit</span><span className="num">−{money(general)}</span></div>}
+      {card > 0 && <div className="row between" style={{ color: "#8FD3A8" }}><span>{cardLabel ?? "Nearest Card"}</span><span className="num">−{money(card)}</span></div>}
+      {general - card > 0 && <div className="row between muted"><span>Nearest credit</span><span className="num">−{money(general - card)}</span></div>}
       <hr className="hr" />
       <div className="row between b"><span>Total due today</span><span className="num">{money(charge)}</span></div>
       <span className="xs muted">

@@ -479,6 +479,10 @@ export const bookings = pgTable("bookings", {
   creditGeneralCents: integer("credit_general_cents").notNull().default(0),
   // Student invite reward used on this booking: $5 off, funded by the professional (first booking with them only).
   inviteDiscountCents: integer("invite_discount_cents").notNull().default(0),
+  // Nearest Card the student CHOSE for this booking (never automatic). card_cents is included in credit_general_cents;
+  // confirmBooking adds it as credit first, so payouts, cancellations and refunds treat it like general credit.
+  cardId: uuid("card_id"),
+  cardCents: integer("card_cents").notNull().default(0),
   serviceFeeCents: integer("service_fee_cents").notNull().default(0), // Nearest's service fee in this price — kept when the booking completes
   // Launch campaign reward booking: the student pays $0; Nearest pays the pro campaign_payout_cents when it completes.
   campaignEntryId: uuid("campaign_entry_id"),

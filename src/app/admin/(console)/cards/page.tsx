@@ -23,13 +23,13 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
     db.select({
       b: nearestCardBatches,
       added: sql<number>`(select count(*)::int from nearest_cards c where c.batch_id = ${nearestCardBatches.id} and c.status = 'activated')`,
-      used: sql<number>`(select count(*)::int from nearest_cards c where c.batch_id = ${nearestCardBatches.id} and c.used_booking_id is not null)`,
+      used: sql<number>`(select count(*)::int from nearest_cards c where c.batch_id = ${nearestCardBatches.id} and c.credit_id is not null)`,
     }).from(nearestCardBatches).orderBy(desc(nearestCardBatches.createdAt)).limit(100),
     db.select({
       made: sql<number>`count(*)::int`,
       added: sql<number>`count(*) filter (where ${nearestCards.status} = 'activated')::int`,
-      used: sql<number>`count(*) filter (where ${nearestCards.usedBookingId} is not null)::int`,
-      value: sql<number>`coalesce(sum(${nearestCardBatches.amountCents}) filter (where ${nearestCards.status} = 'activated'), 0)::int`,
+      used: sql<number>`count(*) filter (where ${nearestCards.creditId} is not null)::int`,
+      value: sql<number>`(select coalesce(sum(bk.card_cents), 0)::int from bookings bk where bk.card_id is not null and bk.paid_at is not null)`,
     }).from(nearestCards).innerJoin(nearestCardBatches, eq(nearestCardBatches.id, nearestCards.batchId)).then((r) => r[0]),
     q.length >= 4
       ? db.select({ c: nearestCards, b: nearestCardBatches, first: users.firstName, last: users.lastName }).from(nearestCards)
@@ -46,7 +46,7 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
       <td>{cardLabel(b.kind)} • {b.name}</td>
       <td>{STATUS[c.status] ?? c.status}{c.failedAttempts > 0 && c.status !== "activated" ? ` • ${c.failedAttempts} wrong code${c.failedAttempts === 1 ? "" : "s"}` : ""}</td>
       <td>{c.studentId ? ([first, last].filter(Boolean).join(" ") || "Student") : "—"}{c.activatedAt ? <div className="xs muted">added {fmtDate(c.activatedAt)}</div> : null}</td>
-      <td>{c.usedBookingId ? <span className="xs">Booking {c.usedBookingId.slice(0, 8).toUpperCase()}</span> : "—"}</td>
+      <td>{c.usedBookingId ? <span className="xs">{c.creditId ? "Paid booking" : "Chosen for a booking (not paid yet)"} {c.usedBookingId.slice(0, 8).toUpperCase()}</span> : "—"}</td>
       <td>
         {(c.status === "issued" || c.status === "locked") && <form action={setCardStatus}><input type="hidden" name="id" value={c.id} /><input type="hidden" name="to" value="off" /><button className="btn ghost sm" type="submit">Turn off</button></form>}
         {(c.status === "off" || c.status === "locked") && <form action={setCardStatus}><input type="hidden" name="id" value={c.id} /><input type="hidden" name="to" value="on" /><button className="btn sm" type="submit">{c.status === "locked" ? "Unlock" : "Turn back on"}</button></form>}
@@ -58,9 +58,9 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
       <AdminHead eyebrow="Business" title="Nearest Cards" />
       <div className="kpis k4">
         <div className="card" style={{ gap: 4 }}><span className="xs muted">Cards made</span><span className="stat">{totals.made}</span></div>
-        <div className="card" style={{ gap: 4 }}><span className="xs muted">Added by students</span><span className="stat">{totals.added}</span></div>
+        <div className="card" style={{ gap: 4 }}><span className="xs muted">Saved by students</span><span className="stat">{totals.added}</span></div>
         <div className="card" style={{ gap: 4 }}><span className="xs muted">Used on a booking</span><span className="stat">{totals.used}</span></div>
-        <div className="card" style={{ gap: 4 }}><span className="xs muted">Value added to accounts</span><span className="stat">{money(totals.value)}</span></div>
+        <div className="card" style={{ gap: 4 }}><span className="xs muted">Card value used on paid bookings</span><span className="stat">{money(totals.value)}</span></div>
       </div>
 
       <div className="card" style={{ gap: 10 }}>

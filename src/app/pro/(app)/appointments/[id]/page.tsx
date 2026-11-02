@@ -35,7 +35,7 @@ export default async function ProAppointment({ params, searchParams }: { params:
   const noShowAt = await noShowAllowedAt(b);
   const canNoShow = b.status === "confirmed" && !b.checkedInAt && Date.now() >= noShowAt.getTime();
   const total = b.chargedCents + b.creditProCents + b.creditGeneralCents;
-  const cardsUsed = b.creditGeneralCents > 0 ? await (await import("@/lib/nearest-cards")).cardsForBooking(b.id) : [];
+  const cardUsed = await (await import("@/lib/nearest-cards")).cardForBooking(b);
   const live = b.status === "confirmed";
 
   return (
@@ -76,7 +76,7 @@ export default async function ProAppointment({ params, searchParams }: { params:
           <hr className="hr" />
           <div className="row between"><span>Price</span><span className="b">{money(b.priceCents)}</span></div>
           {b.inviteDiscountCents > 0 && <div className="row between"><span>Student invite reward</span><span className="b">−{money(b.inviteDiscountCents)}</span></div>}
-          {cardsUsed.length > 0 && <div className="row between"><span>{cardsUsed.some((c) => c.kind === "free") ? "Paid with a Nearest Free Card" : "Paid partly with a Nearest Card"}</span><span className="xs muted">You&apos;re still paid your full price</span></div>}
+          {cardUsed && <div className="row between"><span>{cardUsed.kind === "free" ? "Paid with a Nearest Free Card" : "Paid partly with a Nearest Card"}</span><span className="xs muted">You&apos;re still paid your full price</span></div>}
           {b.serviceFeeCents > 0 && <div className="row between"><span>Booking fee</span><span className="b">−{money(b.serviceFeeCents)}</span></div>}
           <span className="xs muted">{b.status === "completed" ? "Released to you" : "Paid in full • held until the student releases it"}</span>
         </div>

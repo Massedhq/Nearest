@@ -31,12 +31,12 @@ export async function confirmBooking(bookingId: string, charge?: { chargeId: str
   if (b.bundleId) { try { await (await import("./bundles")).onBundleBookingConfirmed(b); } catch (e) { console.error("bundle", e); } }
   if (b.campaignEntryId) { try { await (await import("./campaign-reward")).markRewardRedeemed(b); } catch (e) { console.error("campaign reward", e); } }
 
+  // The Nearest Card the student chose: its value becomes credit first, then the general credit below uses it.
+  if (b.cardId && b.cardCents > 0) await (await import("./nearest-cards")).creditCardForBooking(b, bookingCode(b.number));
   const used = [];
   if (b.creditProCents) used.push({ studentId: b.studentId, proId: b.proId, amountCents: -b.creditProCents, reason: `Used on ${bookingCode(b.number)}`, bookingId: b.id });
   if (b.creditGeneralCents) used.push({ studentId: b.studentId, proId: null, amountCents: -b.creditGeneralCents, reason: `Used on ${bookingCode(b.number)}`, bookingId: b.id });
   if (used.length) await db.insert(credits).values(used);
-  // Nearest Cards: record which added cards paid toward this booking (the professional sees it on the appointment).
-  if (b.creditGeneralCents) { try { await (await import("./nearest-cards")).linkCardsToBooking(b); } catch (e) { console.error("nearest cards", e); } }
 
   if (b.modelCallId) {
     const [spot] = await db

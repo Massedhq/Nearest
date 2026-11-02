@@ -19,29 +19,31 @@ export default async function CardsPage() {
       <div className="body">
         <div className="card" style={{ gap: 6 }}>
           <span className="eyebrow">Add a Nearest Card</span>
-          <span className="small">Type the 16-digit number from the front and the code from the back. Once it&apos;s added, its value is saved on your account — so if you lose the card, you don&apos;t lose the value.</span>
+          <span className="small">Type the 16-digit number from the front and the code from the back. Once it&apos;s saved here, losing the card doesn&apos;t matter — and it&apos;s only used when you choose it for a booking.</span>
           <NearestCardForm back="/cards" />
         </div>
         {!canBook && finishStep && (
           <Link className="card warn small" href={finishStep} style={{ textDecoration: "none", color: "inherit" }}>
-            <span><span className="b">Finish verifying to book.</span> You can add cards now; they&apos;re used when you book after you&apos;re verified.</span>
+            <span><span className="b">Finish verifying to book.</span> You can save cards now and use them on a booking once you&apos;re verified.</span>
           </Link>
         )}
         {cards.length > 0 && <h3 className="eyebrow p">My cards</h3>}
-        {cards.map(({ c, b }) => (
+        {cards.map(({ c, b, state, bookingId }) => (
           <div key={c.id} className="card" style={{ gap: 4 }}>
-            <div className="row between"><span className="b">{cardLabel(b.kind)} •••• {c.number.slice(-4)}</span><span className={`tag ${c.usedBookingId ? "" : "ok"}`}>{c.usedBookingId ? "Used" : "On your account"}</span></div>
+            <div className="row between"><span className="b">{cardLabel(b.kind)} •••• {c.number.slice(-4)}</span><span className={`tag ${state === "ready" ? "ok" : state === "saved" ? "warn" : ""}`}>{state === "ready" ? "Ready to use" : state === "saved" ? "Chosen for a booking" : "Used"}</span></div>
             <span className="small">{b.kind === "free" ? `Covers a service up to ${money(b.amountCents)}` : `${money(b.amountCents)} off`}</span>
             <span className="xs muted">Added {c.activatedAt ? fmtDate(c.activatedAt) : ""} • card valid thru {validThruLabel(b.validThru)}</span>
-            {c.usedBookingId && <Link className="link xs" href={`/bookings/${c.usedBookingId}`}>See the booking it paid for</Link>}
+            {bookingId && <Link className="link xs" href={`/bookings/${bookingId}`}>{state === "used" ? "See the booking it paid for" : "See the booking (you can switch or remove the card there)"}</Link>}
           </div>
         ))}
         <div className="card small" style={{ gap: 6 }}>
           <span className="b">How it works</span>
-          <span>• The card&apos;s value goes into My credits and is taken off your total automatically when you pay for a booking — no extra step.</span>
+          <span>• Your card is never used automatically. When you book, choose it under &quot;Use a Nearest Card on this booking?&quot; — or pick it later on the booking before you pay. You can switch or remove it until you pay.</span>
+          <span>• One card covers one booking. If the booking costs less than the card, the rest isn&apos;t kept, so save bigger cards for bigger bookings.</span>
+          <span>• If that booking expires or is declined before you pay, the card is ready to use again. If you cancel after paying, the card&apos;s part comes back as Nearest credit like the rest of your payment.</span>
           <span>• A free card covers your service up to its amount; anything above that is what you pay.</span>
           <span>• Each card works once, and only one card from the same group per student.</span>
-          <span>• Add it before the Valid thru date on the card. Once it&apos;s on your account, the credit stays.</span>
+          <span>• Save it to your account before the Valid thru date on the card. Once it&apos;s saved, it stays until you use it.</span>
           <span>• Nearest Cards are promotional: no cash value, can&apos;t be sold or exchanged for cash, and can&apos;t be used on Bundle bookings.</span>
           <Link className="link small" href="/credits">See My credits</Link>
         </div>

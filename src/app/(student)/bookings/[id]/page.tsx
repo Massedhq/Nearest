@@ -13,6 +13,8 @@ import { ActionForm } from "@/components/ActionForm";
 import { Icon } from "@/components/Icon";
 import { cancelMyBooking, resumePayment, abandonBooking, payAcceptedBooking } from "@/app/book-actions";
 import { NearestCardForm } from "@/components/NearestCardForm";
+import { chooseBookingCard } from "@/app/card-actions";
+import { usableCards, cardLabel } from "@/lib/nearest-cards";
 import Link from "next/link";
 import { addressUnlocked, checkinOpen, finishOpen } from "@/lib/appointment";
 import { studentCheckIn } from "@/app/day-actions";
@@ -40,6 +42,8 @@ export default async function Booking({ params, searchParams }: { params: Promis
   const shareLink = proLink((await ensureProSlug(b.proId)) ?? b.proId);
   const s = await getSettings();
   const total = b.chargedCents + b.creditProCents + b.creditGeneralCents;
+  const canPickCard = ["requested", "pending_payment"].includes(b.status) && !b.bundleId;
+  const myCards = canPickCard ? await usableCards(user.id, b.id) : [];
   const hoursAway = (b.startsAt.getTime() - Date.now()) / 3600000;
   const early = hoursAway >= Number(s["cancel.cutoff_hours"]);
   const started = hoursAway <= 0;
@@ -85,17 +89,31 @@ export default async function Booking({ params, searchParams }: { params: Promis
         </div>
         <div className="card">
           <div className="row between"><span>Service</span><span className="num">{money(b.priceCents)}</span></div>
-          {b.creditProCents + b.creditGeneralCents > 0 && <div className="row between small muted"><span>Paid with credit</span><span className="num">{money(b.creditProCents + b.creditGeneralCents)}</span></div>}
+          {b.cardCents > 0 && <div className="row between small" style={{ color: "#8FD3A8" }}><span>Nearest Card</span><span className="num">−{money(b.cardCents)}</span></div>}
+          {b.creditProCents + b.creditGeneralCents - b.cardCents > 0 && <div className="row between small muted"><span>Paid with credit</span><span className="num">{money(b.creditProCents + b.creditGeneralCents - b.cardCents)}</span></div>}
           <div className="row between small muted"><span>Paid by card</span><span className="num">{money(b.chargedCents)}</span></div>
           <div className="row between small muted"><span>{b.status === "completed" ? "Released to your professional" : b.status === "requested" ? "Nothing charged yet — you pay after the professional accepts" : "Held until you release it"}</span><Icon name={b.status === "completed" ? "check" : "lock"} size="s" /></div>
         </div>
 
-        {["requested", "pending_payment"].includes(b.status) && !b.bundleId && (
-          <details className="card" style={{ gap: 10 }}>
-            <summary className="b small" style={{ cursor: "pointer" }}>Have a Nearest Card? Add it here</summary>
-            <span className="xs muted">Its value is saved on your account and taken off what you pay for this booking.</span>
-            <NearestCardForm back={`/bookings/${b.id}`} bookingId={b.id} label="Add card" />
-          </details>
+        {canPickCard && (
+          <div className="card" style={{ gap: 10 }}>
+            <span className="b small">Use a Nearest Card on this booking?</span>
+            {myCards.length > 0 ? (
+              <div className="col" style={{ gap: 8 }}>
+                <form action={chooseBookingCard}><input type="hidden" name="bookingId" value={b.id} /><input type="hidden" name="cardId" value="" /><button className={`chip${!b.cardId ? " on" : ""}`} type="submit" style={{ width: "100%" }}>Don&apos;t use a card</button></form>
+                {myCards.map((x) => (
+                  <form key={x.c.id} action={chooseBookingCard}><input type="hidden" name="bookingId" value={b.id} /><input type="hidden" name="cardId" value={x.c.id} />
+                    <button className={`chip${b.cardId === x.c.id ? " on" : ""}`} type="submit" style={{ width: "100%" }}>{cardLabel(x.b.kind)} •••• {x.c.number.slice(-4)} — {x.b.kind === "free" ? `covers up to ${money(x.b.amountCents)}` : `${money(x.b.amountCents)} off`}</button>
+                  </form>
+                ))}
+                <span className="xs muted">Only the card you choose is used, and only on this booking. One card per booking — any value it doesn&apos;t cover here isn&apos;t kept.</span>
+              </div>
+            ) : <span className="xs muted">No Nearest Card saved on your account.</span>}
+            <details style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <summary className="link small" style={{ cursor: "pointer" }}>Add a Nearest Card</summary>
+              <NearestCardForm back={`/bookings/${b.id}`} label="Save card to my account" />
+            </details>
+          </div>
         )}
 
         {b.status === "pending_payment" && (

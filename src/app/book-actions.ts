@@ -10,7 +10,7 @@ import { studentSuspendedUntil } from "@/lib/enforcement";
 import { requireVerifiedStudent } from "@/lib/student";
 import { liveProWhere } from "@/lib/search";
 import { openSlots } from "@/lib/availability";
-import { creditBalances, applyCredits } from "@/lib/credits";
+import { creditBalances } from "@/lib/credits";
 import { inviteRewardFor, reserveInviteReward, restoreInviteRewards } from "@/lib/student-invites";
 import { confirmBooking, cancelByStudent, releasePayment, bookingCode, releaseHold, releaseMyHolds } from "@/lib/bookings";
 import { getSettings } from "@/lib/settings";
@@ -71,6 +71,7 @@ async function createAndPay(opts: {
   serviceName: string; startsAt: Date; durationMin: number; priceCents: number; where: Where; travelFeeCents?: number;
   serviceFeeCents?: number; // Nearest's service fee inside priceCents (kept when the booking completes; Model Calls too, except ones published before the fee)
   bundleId?: string;
+  cardId?: string; // the Nearest Card the student chose for this booking (never automatic)
   addons?: { id: string; name: string; priceCents: number; extraMin: number }[]; // included in priceCents and durationMin
 }): Promise<FormState> {
   if (opts.priceCents > MAX_PRICE_CENTS) return { error: `This is priced above Nearest's $${MAX_PRICE_CENTS / 100} student limit, so it can't be booked.` };
@@ -84,7 +85,16 @@ async function createAndPay(opts: {
   const bal = opts.bundleId ? { pro: 0, general: 0 } : await creditBalances(opts.studentId, opts.proId);
   // Invite reward: $5 off a student's first booking with this pro (services only, one per booking). The pro funds it.
   const inv = opts.serviceId && !opts.bundleId ? await inviteRewardFor(opts.studentId, opts.proId, opts.priceCents) : null;
-  let use = applyCredits(opts.priceCents - (inv?.cents ?? 0), bal);
+  // Nearest Card: only when the student picked one. Reserved for this booking (so it can't be used twice) before the insert.
+  const newId = crypto.randomUUID();
+  const cards = await import("@/lib/nearest-cards");
+  let cardAmt = 0;
+  if (opts.cardId && !opts.bundleId) {
+    const r = await cards.setBookingCard(opts.studentId, newId, opts.cardId);
+    if (!r.ok) return { error: r.error };
+    cardAmt = r.amountCents;
+  }
+  let use = cards.planWithCard(opts.priceCents - (inv?.cents ?? 0), bal, cardAmt);
   const endsAt = new Date(opts.startsAt.getTime() + opts.durationMin * 60000);
   await releaseMyHolds(opts.studentId); // an old unfinished payment never blocks a new booking (accepted requests are kept)
   // Every booking starts as a request: nothing is charged now. The professional accepts (activating their membership
@@ -93,6 +103,7 @@ async function createAndPay(opts: {
   const isRequest = true;
 
   const [b] = await db.insert(bookings).values({
+    id: newId, cardId: use.card > 0 ? opts.cardId : null, cardCents: use.card,
     studentId: opts.studentId, proId: opts.proId, serviceId: opts.serviceId ?? null, modelCallId: opts.modelCallId ?? null,
     serviceName: opts.serviceName, startsAt: opts.startsAt, endsAt, priceCents: opts.priceCents, travelFeeCents: travelFee, depositCents: deposit,
     addons: opts.addons?.length ? opts.addons : null, addonsCents: (opts.addons ?? []).reduce((t, a) => t + a.priceCents, 0),
@@ -104,8 +115,8 @@ async function createAndPay(opts: {
     if (await reserveInviteReward(inv.id, b.id)) await db.update(bookings).set({ inviteRewardId: inv.id }).where(eq(bookings.id, b.id));
     else {
       // The reward was just used elsewhere: book at the full price instead.
-      use = applyCredits(opts.priceCents, bal);
-      await db.update(bookings).set({ inviteDiscountCents: 0, creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge }).where(eq(bookings.id, b.id));
+      use = cards.planWithCard(opts.priceCents, bal, cardAmt);
+      await db.update(bookings).set({ inviteDiscountCents: 0, cardCents: use.card, creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge }).where(eq(bookings.id, b.id));
       b.chargedCents = use.charge; b.creditProCents = use.pro; b.creditGeneralCents = use.general; b.inviteDiscountCents = 0;
     }
   }
@@ -135,8 +146,9 @@ export async function payAcceptedBooking(form: FormData) {
   const b = await db.query.bookings.findFirst({ where: and(eq(bookings.id, id), eq(bookings.studentId, user.id)) });
   if (!b || b.status !== "pending_payment" || !b.respondedAt || (b.holdExpiresAt && b.holdExpiresAt.getTime() < Date.now())) redirect(`/bookings/${id}`);
   const bal = b.bundleId ? { pro: 0, general: 0 } : await creditBalances(user.id, b.proId);
-  const use = applyCredits(b.priceCents - b.inviteDiscountCents, bal);
-  await db.update(bookings).set({ creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge }).where(eq(bookings.id, id));
+  const cards = await import("@/lib/nearest-cards");
+  const use = cards.planWithCard(b.priceCents - b.inviteDiscountCents, bal, b.bundleId ? 0 : await cards.cardAmount(b.cardId, b.id));
+  await db.update(bookings).set({ cardCents: use.card, cardId: use.card > 0 ? b.cardId : null, creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge }).where(eq(bookings.id, id));
   if (use.charge === 0) { await confirmBooking(id); redirect(`/bookings/${id}?booked=1`); }
   if (!stripeEnabled()) redirect(`/bookings/${id}?payment=unavailable`);
   const pro = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, b.proId) });
@@ -171,7 +183,8 @@ export async function bookService(_: FormState, form: FormData): Promise<FormSta
     if (!bi.days.includes(day)) return { error: "Pick a day during your bundle week." };
     bundleId = bi.bundle.id;
   }
-  return createAndPay({ where, travelFeeCents: pro.travelFeeCents ?? 3500, bundleId,
+  const cardId = String(form.get("cardId") ?? "");
+  return createAndPay({ where, travelFeeCents: pro.travelFeeCents ?? 3500, bundleId, cardId: /^[0-9a-f-]{36}$/.test(cardId) ? cardId : undefined,
     studentId: user.id, email: user.email, proId: svc.userId, proName: pro.businessName ?? "your professional", serviceId: svc.id,
     serviceName: withAddons(svc.name, picked.list), startsAt: chicagoToUtc(day, time), durationMin: svc.durationMin + picked.minutes, priceCents: svc.priceCents + picked.cents,
     serviceFeeCents: svc.proPriceCents == null ? 0 : svc.serviceFeeCents, addons: picked.list,
