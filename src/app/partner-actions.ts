@@ -37,7 +37,8 @@ export async function applyPartner(_: FormState, form: FormData): Promise<FormSt
 
   const [row] = await db.insert(partnerApplications).values({ name, email, instagram: instagram || null, city, state: state || null, specialty, about: about || null, ip }).returning();
   try {
-    await notifyAdmins({ kind: "partner", title: "New Nearest Partner application", body: `${name} · ${specialty} · ${city}${state ? `, ${state}` : ""}${instagram ? ` · @${instagram}` : ""}`, href: `/admin/partners#a-${row.id}` });
+    const mainId = await (await import("@/lib/partner")).mainOwnerId(); // partner pages are the main owner's alone
+    await notifyAdmins({ kind: "partner", title: "New Nearest Partner application", body: `${name} · ${specialty} · ${city}${state ? `, ${state}` : ""}${instagram ? ` · @${instagram}` : ""}`, href: `/admin/partners#a-${row.id}` }, mainId ? [mainId] : undefined);
   } catch { /* never block the applicant */ }
   sendEmail({
     to: email, subject: "We got your Nearest Partner application", eyebrow: "Nearest Partner", heading: `Thanks, ${name.split(" ")[0]}.`,

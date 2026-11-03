@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -q -m "Nearest Cards: fund set aside from each completed booking fee shows what can be given back; simpler card saved message; students choose cards per booking; plus brand links and Outreach Email now"
+git commit -q -m "Partner pages and Nearest Cards are main-owner only (pages, actions, menu, alerts, guide); Nearest Cards fund; students choose cards per booking; plus brand links and Outreach Email now"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

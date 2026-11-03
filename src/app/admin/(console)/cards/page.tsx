@@ -1,9 +1,8 @@
-import { notFound } from "next/navigation";
 import { desc, eq, like, or, sql } from "drizzle-orm";
 import { db, nearestCardBatches, nearestCards, users } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
 import { ActionForm } from "@/components/ActionForm";
-import { requireAdmin } from "@/lib/admin";
+import { requireMainOwner } from "@/lib/admin";
 import { cardLabel, cardFund, digits, groupNumber, validThruLabel, CARD_LIMITS } from "@/lib/nearest-cards";
 import { createCards, setCardBatchStatus, setCardStatus } from "@/app/admin/card-actions";
 import { fmtDate, money } from "@/lib/time";
@@ -16,8 +15,7 @@ const STATUS: Record<string, string> = { issued: "Not added yet", activated: "On
 
 /** Owners: make batches of printed Nearest Cards, download the printer file, and look up any card. */
 export default async function AdminCards({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const { role } = await requireAdmin();
-  if (role !== "OWNER") notFound();
+  await requireMainOwner({ page: true });
   const q = digits((await searchParams).q ?? "").slice(0, 16);
   const [fund, batches, totals, found, locked] = await Promise.all([
     cardFund(),

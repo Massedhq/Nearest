@@ -63,6 +63,7 @@ function servicesFromPrices(prices: string, categoryId: number) {
  */
 export async function createBuiltProfile(form: FormData): Promise<{ error: string } | { userId: string; next: string; handoff?: "setup" }> {
   const { user } = await owner();
+  if (form.get("partner") === "1" && !(await (await import("@/lib/admin")).isMainOwner(user.id))) return { error: "Only the main owner can add partners." };
   const firstName = str(form, "firstName", 60), lastName = str(form, "lastName", 60);
   const email = str(form, "email", 160).toLowerCase();
   const phone = str(form, "phone", 30) || null;

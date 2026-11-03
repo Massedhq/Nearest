@@ -8,7 +8,7 @@ import { approvePro } from "@/app/admin/pro-actions";
 import { PRO_STATUS_LABEL } from "@/components/CredentialCard";
 import { ActionForm } from "@/components/ActionForm";
 import { remindProSetup } from "@/app/admin/reminder-actions";
-import { requireAdmin } from "@/lib/admin";
+import { requireAdmin, isMainOwner } from "@/lib/admin";
 import { setupSteps } from "@/lib/pro";
 import { isOwnerBusiness, ENTRY, type EntryType } from "@/lib/entry";
 import { proStanding } from "@/lib/enforcement";
@@ -35,7 +35,8 @@ const Tag = ({ ok, children }: { ok: boolean | null; children: React.ReactNode }
 
 /** Everything about one professional, in one place — opened from Professionals → Review account. */
 export default async function ReviewPro({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdmin();
+  const { user: viewerUser } = await requireAdmin();
+  const isMain = await isMainOwner(viewerUser.id); // Nearest Partner tools are the main owner's alone
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const [row] = await db.select({ u: users, p: professionalProfiles, city: cities.name }).from(professionalProfiles)
@@ -152,7 +153,7 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
           <Row k="Confirmed incidents" v={`${standing.incidents} of ${standing.limit}`} />
         </div>
 
-        <div className="card" style={{ gap: 8 }}>
+        {isMain && (<div className="card" style={{ gap: 8 }}>
           <span className="eyebrow">Nearest Partner</span>
           {partnerPage ? (
             <>
@@ -165,7 +166,7 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
               <span className="small muted">Adds a partner page (link-in-bio, videos, shop) to this account. Their profile, bookings and sign-in stay the same{p.entryType === "AMBASSADOR" ? ", and their free Ambassador account stays free" : ""}. They&apos;re told by email and in the app. Owners only.</span>
             </ActionForm>
           )}
-        </div>
+        </div>)}
       </div>
 
       <div className="acols even">

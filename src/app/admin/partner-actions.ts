@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { and, eq, sql } from "drizzle-orm";
 import { db, partnerApplications, partnerPages, users } from "@/db";
-import { requireAdmin } from "@/lib/admin";
+import { requireMainOwner } from "@/lib/admin";
 import { logActivity } from "@/lib/log";
 import { sendEmail } from "@/lib/email";
 import { inbox } from "@/lib/inbox";
@@ -14,7 +14,7 @@ const UUID = /^[0-9a-f-]{36}$/;
 
 /** Owner: approve or decline a Nearest Partner application (approve also opens the page for a matching pro account). */
 export async function decidePartnerApplication(_: FormState, form: FormData): Promise<FormState> {
-  const { user } = await requireAdmin({ owner: true });
+  const { user } = await requireMainOwner();
   const id = String(form.get("id") ?? "");
   const to = String(form.get("to") ?? "");
   const note = String(form.get("note") ?? "").trim().slice(0, 500) || null;
@@ -51,7 +51,7 @@ export async function decidePartnerApplication(_: FormState, form: FormData): Pr
 
 /** Owner: pause or resume a partner page (paused pages are hidden from the public). */
 export async function setPartnerPagePaused(_: FormState, form: FormData): Promise<FormState> {
-  const { user } = await requireAdmin({ owner: true });
+  const { user } = await requireMainOwner();
   const id = String(form.get("userId") ?? "");
   const pause = form.get("pause") === "1";
   if (!UUID.test(id)) return { error: "Not found." };
@@ -65,7 +65,7 @@ export async function setPartnerPagePaused(_: FormState, form: FormData): Promis
 
 /** Owner: refund a partner shop order that hasn't been paid out to the seller yet. */
 export async function refundPartnerOrder(_: FormState, form: FormData): Promise<FormState> {
-  const { user } = await requireAdmin({ owner: true });
+  const { user } = await requireMainOwner();
   const id = String(form.get("id") ?? "");
   if (!UUID.test(id)) return { error: "Not found." };
   const { refundShopOrder } = await import("@/lib/shop");
@@ -83,7 +83,7 @@ export async function refundPartnerOrder(_: FormState, form: FormData): Promise<
 
 /** Add a partner → "They'll set it up themselves": leave builder mode and email their setup link. */
 export async function partnerSetupHandoff(userId: string): Promise<{ ok: true } | { error: string }> {
-  const { user } = await requireAdmin({ owner: true });
+  const { user } = await requireMainOwner();
   if (!UUID.test(userId)) return { error: "Not found." };
   const { cookies } = await import("next/headers");
   const { BUILD_COOKIE } = await import("@/lib/build-mode");
@@ -96,7 +96,7 @@ export async function partnerSetupHandoff(userId: string): Promise<{ ok: true } 
 
 /** Owner: email one of the three links to a partner they added (setup / finish / approve). */
 export async function sendPartnerLink(_: FormState, form: FormData): Promise<FormState> {
-  const { user } = await requireAdmin({ owner: true });
+  const { user } = await requireMainOwner();
   const id = String(form.get("userId") ?? "");
   const mode = String(form.get("mode") ?? "");
   const { isHandoffMode, sendPartnerHandoff } = await import("@/lib/partner-handoff");
@@ -115,7 +115,7 @@ export async function sendPartnerLink(_: FormState, form: FormData): Promise<For
  * profile, bookings and free status stay as they are; a published partner page is added and they're told.
  */
 export async function switchToPartner(_: FormState, form: FormData): Promise<FormState> {
-  const { user } = await requireAdmin({ owner: true });
+  const { user } = await requireMainOwner();
   const id = String(form.get("userId") ?? "");
   if (!UUID.test(id)) return { error: "Not found." };
   const { professionalProfiles, cities } = await import("@/db");

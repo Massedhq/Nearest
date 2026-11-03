@@ -1,13 +1,13 @@
 import { asc, eq } from "drizzle-orm";
 import { db, nearestCardBatches, nearestCards } from "@/db";
-import { requireAdmin } from "@/lib/admin";
+import { requireAdmin, isMainOwner } from "@/lib/admin";
 import { logActivity } from "@/lib/log";
 import { cardLabel, groupNumber, validThruLabel } from "@/lib/nearest-cards";
 
 /** Owners: the printer file for one batch of Nearest Cards (CSV: number, code, value, valid thru). Every download is logged. */
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { user, role } = await requireAdmin();
-  if (role !== "OWNER") return new Response("Only owners can download card files.", { status: 403 });
+  const { user } = await requireAdmin();
+  if (!(await isMainOwner(user.id))) return new Response("Only the main owner can download card files.", { status: 403 });
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) return new Response("Not found", { status: 404 });
   const batch = await db.query.nearestCardBatches.findFirst({ where: eq(nearestCardBatches.id, id) });

@@ -155,7 +155,7 @@ export async function acceptBuiltProfile(_: FormState, form: FormData): Promise<
         button: { label: "Open my partner page", url: `${SITE_URL}/pro/partner?welcome=1` },
       });
       const { notifyAdmins } = await import("@/lib/outreach");
-      await notifyAdmins({ kind: "partner", title: "Partner approved their page", body: `${[user.firstName, user.lastName].filter(Boolean).join(" ")} approved the page you built — it's live.`, href: `/admin/partners?show=added#p-${user.id}` }, partner.addedBy ? [partner.addedBy] : undefined);
+      await notifyAdmins({ kind: "partner", title: "Partner approved their page", body: `${[user.firstName, user.lastName].filter(Boolean).join(" ")} approved the page you built — it's live.`, href: `/admin/partners?show=added#p-${user.id}` }, await (async () => { const m = await (await import("@/lib/partner")).mainOwnerId(); return m ? [m] : partner.addedBy ? [partner.addedBy] : undefined; })());
     } catch (e) { console.error("partner approve email", e); }
     redirect("/pro/partner?welcome=1");
   }

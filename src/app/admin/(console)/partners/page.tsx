@@ -5,7 +5,7 @@ import { AdminHead } from "@/components/AdminHead";
 import { ActionForm } from "@/components/ActionForm";
 import { CopyButton } from "@/components/CopyButton";
 import { BuildProfileForm } from "@/components/BuildProfileForm";
-import { requireAdmin } from "@/lib/admin";
+import { requireMainOwner } from "@/lib/admin";
 import { fmtDate, money } from "@/lib/time";
 import { personName } from "@/lib/pro-name";
 import { setupSteps } from "@/lib/pro";
@@ -30,7 +30,7 @@ type View = (typeof VIEWS)[number][0];
  * orders, and the links and demos to share.
  */
 export default async function PartnersAdmin({ searchParams }: { searchParams: Promise<{ show?: string; view?: string; app?: string }> }) {
-  await requireAdmin({ owner: true });
+  await requireMainOwner({ page: true });
   const sp = await searchParams;
   const view: View = (VIEWS.some(([k]) => k === sp.view) ? sp.view : sp.show === "added" ? "added" : sp.show && APP_TABS.some(([k]) => k === sp.show) ? "applications" : "added") as View;
   const appTab = APP_TABS.some(([k]) => k === (sp.app ?? sp.show)) ? (sp.app ?? sp.show)! : "new";

@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { and, eq, inArray } from "drizzle-orm";
 import { db, nearestCardBatches, nearestCards } from "@/db";
-import { requireAdmin } from "@/lib/admin";
+import { requireMainOwner } from "@/lib/admin";
 import { logActivity } from "@/lib/log";
 import { money } from "@/lib/time";
 import { batchProblem, createCardBatch, endOfMonth, type CardKind } from "@/lib/nearest-cards";
@@ -11,13 +11,13 @@ type FormState = { error?: string; ok?: string };
 const s = (f: FormData, k: string, max = 120) => String(f.get(k) ?? "").trim().slice(0, max);
 
 async function owner() {
-  try { return (await requireAdmin({ owner: true })).user; } catch { return null; }
+  try { return (await requireMainOwner()).user; } catch { return null; }
 }
 
 /** Owners: make a batch of cards to print. */
 export async function createCards(_: FormState, form: FormData): Promise<FormState> {
   const user = await owner();
-  if (!user) return { error: "Only an owner can make Nearest Cards." };
+  if (!user) return { error: "Only the main owner can make Nearest Cards." };
   const kind = (s(form, "kind", 10) === "free" ? "free" : "discount") as CardKind;
   const amountCents = Math.round(Number(s(form, "amount", 10).replace(/[$,\s]/g, "")) * 100);
   const count = Number(s(form, "count", 6));
