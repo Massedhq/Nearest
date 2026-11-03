@@ -4,6 +4,7 @@ import { db, users, invitations, activityLog, professionalProfiles, studentProfi
 import { money } from "@/lib/time";
 import { AdminHead } from "@/components/AdminHead";
 import { StatusPanel } from "@/components/StatusPanel";
+import { ShareLinks } from "@/components/ShareLinks";
 import { requireAdmin } from "@/lib/admin";
 import { getSettings } from "@/lib/settings";
 import { foundingCount, expireStaleInvites } from "@/lib/invites";
@@ -67,6 +68,7 @@ export default async function CommandCenter() {
               <div className="card" style={{ background: "#0A0A0B", gap: 8 }}><span className="stat">{activeCities}</span><span className="xs muted">Cities with a First In pro</span></div>
             </div>
           </div>
+          <ShareLinks userId={user.id} compact />
           <div className="card" style={{ gap: 10 }}>
             <div className="row between"><span className="eyebrow">Recent admin activity</span><Link className="link small" href="/admin/team">Full activity log</Link></div>
             {recent.length === 0 && <span className="small muted">No admin activity yet.</span>}

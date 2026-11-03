@@ -45,6 +45,7 @@ export const users = pgTable("users", {
   repId: uuid("rep_id"), // sales rep whose link brought them (Sales Board) — never changes after sign-up
   inviteCode: text("invite_code"), // students: their "Invite friends" link code (usenearest.com/?friend=CODE)
   invitedBy: uuid("invited_by"), // students: the student whose invite link they signed up through
+  referredByPartner: uuid("referred_by_partner"), // students: the owner whose share link (?ref=CODE) brought them — never changes
   smsOptInAt: ts("sms_opt_in_at"), // agreed at sign-up to receive text updates (texting isn't on yet — saved for later)
   createdAt: ts("created_at").notNull().defaultNow(),
   updatedAt: ts("updated_at").notNull().defaultNow(),

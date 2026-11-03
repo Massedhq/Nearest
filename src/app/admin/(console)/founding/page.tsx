@@ -15,6 +15,7 @@ import { SpecialInviteForm } from "./SpecialInviteForm";
 import { expiryLabel } from "@/lib/invite-expiry";
 import { mainOwnerId } from "@/lib/partner";
 import { CopyLink } from "./CopyLink";
+import { ShareLinks } from "@/components/ShareLinks";
 
 export const metadata = { title: "First In" };
 
@@ -64,6 +65,7 @@ export default async function Founding({ searchParams }: { searchParams: Promise
           <CopyLink url={`${origin}/pro/invite/${newCode}`} />
         </div>
       )}
+      <ShareLinks userId={user.id} />
       <div className="acols">
         <div className="card" style={{ gap: 14 }}>
           <div className="row between"><span className="stat" style={{ fontSize: 54 }}>{fi.registered} / {fi.capacity}</span><span className={`tag ${fi.open ? "ok" : "bad"}`}>{fi.open ? "Open" : "Closed"}</span></div>

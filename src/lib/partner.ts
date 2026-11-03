@@ -47,6 +47,12 @@ export async function mainOwnerId() {
   return (envEmail && list.find((p) => p.email?.toLowerCase() === envEmail)?.userId) || list[0]?.userId || null;
 }
 
+/** The owner whose share link (?ref=CODE, remembered 30 days in the nearest_ref cookie) this visitor opened, if any. */
+export async function partnerFromCookie() {
+  const { cookies } = await import("next/headers");
+  return partnerByCode((await cookies()).get("nearest_ref")?.value);
+}
+
 export async function partnerByCode(code: string | null | undefined) {
   if (!code) return null;
   const row = await db.query.adminMembers.findFirst({ where: and(eq(adminMembers.partnerCode, code.trim().toUpperCase()), eq(adminMembers.active, true)) });
