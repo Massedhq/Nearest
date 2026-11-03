@@ -166,3 +166,41 @@ export async function holdAgain(holdId: string) {
   const [h] = await db.update(enrollmentHolds).set({ status: "held", heldAt: new Date() }).where(and(eq(enrollmentHolds.id, holdId), eq(enrollmentHolds.status, "released"))).returning();
   return h ?? null;
 }
+
+// The "never finished registering" rule, without the waiting period: no Professional Terms, no ID sent, never submitted.
+const UNFINISHED_SQL = sql`u.account_type = 'professional'
+  and p.entry_paid_at is null and p.pro_terms_accepted_at is null
+  and p.identity_status = 'unverified' and p.review_status = 'draft'
+  and not exists (select 1 from admin_members a where a.user_id = u.id and a.active)`;
+
+/** Every professional account that never finished registering and isn't on hold right now — any age (for owners to move by hand). */
+export async function unfinishedAccounts(q?: string) {
+  const like = q ? `%${q.toLowerCase()}%` : null;
+  const r = await db.execute<{ id: string; email: string | null; first: string | null; last: string | null; business: string | null; built: boolean; created: Date; sent: Date | null }>(sql`
+    select u.id, lower(u.email) as email, u.first_name as first, u.last_name as last, p.business_name as business, (p.built_by is not null) as built, u.created_at as created, p.claim_sent_at as sent
+    from users u join professional_profiles p on p.user_id = u.id
+    where ${UNFINISHED_SQL}
+      and not exists (select 1 from enrollment_holds h where h.kind = 'account' and h.subject_id = u.id::text and h.status = 'held')
+      ${like ? sql`and (lower(coalesce(u.first_name,'') || ' ' || coalesce(u.last_name,'')) like ${like} or lower(coalesce(u.email,'')) like ${like} or lower(coalesce(p.business_name,'')) like ${like})` : sql``}
+    order by u.created_at asc limit 300`);
+  return r.rows;
+}
+
+/** Owner moves one unfinished account onto hold right now, without waiting for the nightly check or the waiting period. */
+export async function holdAccountNow(userId: string): Promise<{ ok: true; id: string } | { error: string }> {
+  const r = await db.execute<{ id: string; email: string | null; first: string | null; last: string | null; created: Date; built: boolean }>(sql`
+    select u.id, lower(u.email) as email, u.first_name as first, u.last_name as last, u.created_at as created, (p.built_by is not null) as built
+    from users u join professional_profiles p on p.user_id = u.id where u.id = ${userId}::uuid and ${UNFINISHED_SQL}`);
+  const a = r.rows[0];
+  if (!a) return { error: "Only accounts that never finished registering can be put on hold (no Professional Terms accepted, no ID sent, never submitted)." };
+  if (await activeHold({ userId })) return { error: "They're already on hold." };
+  const created = new Date(a.created).toLocaleDateString("en-US", { timeZone: "America/Chicago", month: "short", day: "numeric", year: "numeric" });
+  const reason = `Moved to hold by an owner — ${a.built ? "Nearest built this profile and it was never claimed and accepted" : `account created ${created}, never finished registering (no Professional Terms, no ID, never submitted)`}.`;
+  const ins = await db.execute<{ id: string }>(sql`
+    insert into enrollment_holds (kind, subject_id, user_id, email, name, reason, status, held_at)
+    values ('account', ${a.id}, ${a.id}::uuid, ${a.email}, ${[a.first, a.last].filter(Boolean).join(" ") || null}, ${reason}, 'held', now())
+    on conflict (kind, subject_id) do update set status = 'held', held_at = now(), reason = excluded.reason, email = coalesce(excluded.email, enrollment_holds.email)
+      where enrollment_holds.status = 'released'
+    returning id`);
+  return ins.rows[0] ? { ok: true, id: ins.rows[0].id } : { error: "They're already on hold." };
+}

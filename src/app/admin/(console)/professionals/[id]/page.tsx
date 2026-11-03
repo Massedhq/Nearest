@@ -9,6 +9,7 @@ import { PRO_STATUS_LABEL } from "@/components/CredentialCard";
 import { ActionForm } from "@/components/ActionForm";
 import { remindProSetup } from "@/app/admin/reminder-actions";
 import { requireAdmin, isMainOwner } from "@/lib/admin";
+import { holdAccountNowAction } from "@/app/admin/enrollment-hold-actions";
 import { setupSteps } from "@/lib/pro";
 import { isOwnerBusiness, ENTRY, type EntryType } from "@/lib/entry";
 import { proStanding } from "@/lib/enforcement";
@@ -117,6 +118,12 @@ export default async function ReviewPro({ params }: { params: Promise<{ id: stri
             <div className="col g4"><span className="b">{u.firstName} {u.lastName}</span><span className="xs muted">{u.email ?? "no email"}{u.phone ? ` • ${u.phone}` : ""}</span></div>
           </div>
           {enrollmentHold && <Link className="small" href={`/admin/enrollment-holds#h-${enrollmentHold.id}`} style={{ color: "#E3C58A" }}>On enrollment hold since {fmtDate(enrollmentHold.heldAt)} — registration closed for them{enrollmentHold.attempts ? ` • ${enrollmentHold.attempts} attempt${enrollmentHold.attempts === 1 ? "" : "s"} to get back in` : ""}. Open Enrollment holds to release them.</Link>}
+          {!enrollmentHold && p.entryPaidAt == null && p.proTermsAcceptedAt == null && p.identityStatus === "unverified" && p.reviewStatus === "draft" && (
+            <ActionForm action={holdAccountNowAction} submitLabel="Move to enrollment hold now" buttonClass="btn ghost sm" className="col g4">
+              <input type="hidden" name="userId" value={p.userId} />
+              <span className="xs muted">They never finished registering. This closes registration for them now instead of waiting for the automatic check.</span>
+            </ActionForm>
+          )}
           {nameIssue && <span className="small" role="alert" style={{ color: "#E3C58A" }}>Legal name problem: {nameIssue}</span>}
           <details open={Boolean(nameIssue)}>
             <summary className="link xs">Correct legal name</summary>

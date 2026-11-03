@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { db, partnerApplications, proServices, users } from "@/db";
 import { requirePro } from "@/lib/pro";
@@ -20,26 +21,7 @@ export default async function PartnerEditor({ searchParams }: { searchParams: Pr
   const welcome = (await searchParams).welcome === "1";
   const page = await partnerPageFor(user.id);
 
-  if (!page) {
-    const u = await db.query.users.findFirst({ where: eq(users.id, user.id), columns: { email: true } });
-    const app = u?.email ? (await db.select().from(partnerApplications).where(eq(partnerApplications.email, normEmail(u.email))).orderBy(desc(partnerApplications.createdAt)).limit(1))[0] : undefined;
-    return (
-      <div className="scr">
-        <TopBar title="Partner page" back="/pro/business" />
-        <div className="body">
-          <div className="card" style={{ gap: 10 }}>
-            <span className="disp h2">Nearest Partner</span>
-            <span className="small">A link-in-bio page with your services, Model Calls, videos and shop links — booking happens on Nearest. For beauty educators and creators.</span>
-            {app?.status === "new" && <span className="tag warn" style={{ alignSelf: "flex-start" }}>Application in review</span>}
-            {app?.status === "declined" && <span className="small muted">Your last application wasn&apos;t approved{app.note ? `: ${app.note}` : "."}</span>}
-            {app?.status !== "new" && <Link className="btn" href={`${PARTNER_APPLY_PATH}#apply`}>Apply to become a partner</Link>}
-            <Link className="btn ghost" href={PARTNER_DEMO_PATH}>See the demo</Link>
-            <span className="small muted">Apply with the email you use to sign in ({u?.email}).</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (!page) redirect("/pro/business"); // partner accounts are switched on by Nearest — nothing to apply for here
 
   const [services, slug] = await Promise.all([
     db.select().from(proServices).where(and(eq(proServices.userId, user.id), eq(proServices.active, true))).orderBy(asc(proServices.sort)),

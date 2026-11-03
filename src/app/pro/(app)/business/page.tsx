@@ -50,7 +50,7 @@ export default async function Business() {
           {LINKS.map(([icon, text, href]) => (
             <Link key={href} className="item" href={href}><Icon name={icon} /><span className="grow">{text}</span><Icon name="right" size="s" /></Link>
           ))}
-          <Link className="item" href="/pro/partner"><Icon name="link" /><span className="grow">Partner page</span>{partner && <span className={`tag ${partner.published && !partner.pausedAt ? "ok" : ""}`}>{partner.pausedAt ? "Paused" : partner.published ? "Live" : "Hidden"}</span>}<Icon name="right" size="s" /></Link>
+          {partner && <Link className="item" href="/pro/partner"><Icon name="link" /><span className="grow">Partner page</span>{partner && <span className={`tag ${partner.published && !partner.pausedAt ? "ok" : ""}`}>{partner.pausedAt ? "Paused" : partner.published ? "Live" : "Hidden"}</span>}<Icon name="right" size="s" /></Link>}
           <Link className="item" href="/pro/updates"><Icon name="bell" /><span className="grow">Updates</span>{updateCount > 0 && <span className="tag warn">{updateCount} to review</span>}<Icon name="right" size="s" /></Link>
           <Link className="item" href="/pro/account-status"><Icon name="shield" /><span className="grow">Account status</span>{fineCount > 0 && <span className="tag warn">{fineCount} fine{fineCount === 1 ? "" : "s"}</span>}{standing.suspendedUntil && <span className="tag bad">Suspended</span>}<Icon name="right" size="s" /></Link>
           {viewer.admin && <Link className="item" href="/workspace"><Icon name="switch" /><span className="grow">Switch workspace</span><Icon name="right" size="s" /></Link>}

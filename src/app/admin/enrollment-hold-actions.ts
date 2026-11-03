@@ -41,3 +41,17 @@ export async function runEnrollmentHoldsNow(_: FormState): Promise<FormState> {
   revalidatePath("/admin/enrollment-holds");
   return { ok: `Checked. Newly on hold: ${r.accounts} account${r.accounts === 1 ? "" : "s"}, ${r.invitations} invitation${r.invitations === 1 ? "" : "s"}, ${r.outreach} registration link${r.outreach === 1 ? "" : "s"}.` };
 }
+
+/** Owner: move one account that never finished registering onto hold now (no waiting period). */
+export async function holdAccountNowAction(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireAdmin({ owner: true });
+  const userId = String(form.get("userId") ?? "");
+  if (!/^[0-9a-f-]{36}$/.test(userId)) return { error: "Not found." };
+  const { holdAccountNow } = await import("@/lib/enrollment-holds");
+  const r = await holdAccountNow(userId);
+  if ("error" in r) return { error: r.error };
+  await logActivity({ actorUserId: user.id, action: "enrollment_hold.moved_by_owner", targetType: "enrollment_hold", targetId: r.id, before: { status: "not held" }, after: { status: "held", userId } });
+  revalidatePath("/admin/enrollment-holds");
+  revalidatePath(`/admin/professionals/${userId}`);
+  return { ok: "Moved to enrollment hold. If they sign in, they'll see that enrollment is closed and you'll see the attempt here." };
+}

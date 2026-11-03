@@ -12,7 +12,7 @@ import { setupSteps } from "@/lib/pro";
 import { HANDOFF, HANDOFF_MODES, type HandoffMode } from "@/lib/partner-handoff";
 import { partnerApplyLink, partnerDemoLink, partnerSetupDemoLink, partnerPageLink, partnerPagePath, PARTNER_DEMO_PATH, PARTNER_SETUP_DEMO_PATH, PARTNER_APPLY_PATH } from "@/lib/partners";
 import { LinkSender } from "@/components/LinkSender";
-import { decidePartnerApplication, setPartnerPagePaused, refundPartnerOrder, sendPartnerLink } from "@/app/admin/partner-actions";
+import { decidePartnerApplication, setPartnerPagePaused, refundPartnerOrder, sendPartnerLink, switchToPartner } from "@/app/admin/partner-actions";
 import { editBuiltProfile } from "@/app/admin/build-actions";
 import { sellerAmount } from "@/lib/shop";
 import { SITE_URL } from "@/lib/public/site";
@@ -29,7 +29,7 @@ type View = (typeof VIEWS)[number][0];
  * yourself (build their profile, send their setup / finish / approve link), applications, every partner page, shop
  * orders, and the links and demos to share.
  */
-export default async function PartnersAdmin({ searchParams }: { searchParams: Promise<{ show?: string; view?: string; app?: string }> }) {
+export default async function PartnersAdmin({ searchParams }: { searchParams: Promise<{ show?: string; view?: string; app?: string; find?: string }> }) {
   await requireMainOwner({ page: true });
   const sp = await searchParams;
   const view: View = (VIEWS.some(([k]) => k === sp.view) ? sp.view : sp.show === "added" ? "added" : sp.show && APP_TABS.some(([k]) => k === sp.show) ? "applications" : "added") as View;
@@ -46,7 +46,7 @@ export default async function PartnersAdmin({ searchParams }: { searchParams: Pr
       <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
         {VIEWS.map(([k, l]) => <a key={k} className={`chip${view === k ? " on" : ""}`} href={`/admin/partners?view=${k}`}>{l}{k === "added" ? ` (${addedCount[0]?.n ?? 0})` : k === "applications" && count("new") ? ` (${count("new")} new)` : ""}</a>)}
       </div>
-      {view === "added" && <Added />}
+      {view === "added" && <Added find={(sp.find ?? "").trim().slice(0, 80)} />}
       {view === "applications" && <Applications tab={appTab} count={count} />}
       {view === "pages" && <Pages />}
       {view === "orders" && <Orders />}
@@ -56,7 +56,7 @@ export default async function PartnersAdmin({ searchParams }: { searchParams: Pr
 }
 
 /** Partners an owner added: add one, build their profile, and send one of the three links. */
-async function Added() {
+async function Added({ find }: { find: string }) {
   const [cats, cityList, rows] = await Promise.all([
     db.select({ id: categories.id, name: categories.name }).from(categories).where(eq(categories.active, true)).orderBy(asc(categories.sort), asc(categories.name)),
     db.select({ id: cities.id, name: cities.name, state: cities.state }).from(cities).where(eq(cities.active, true)).orderBy(asc(cities.state), asc(cities.name)),
@@ -66,9 +66,31 @@ async function Added() {
   ]);
   const left = new Map(await Promise.all(rows.map(async (r) => [r.u.id, (await setupSteps(r.u.id)).filter((s) => !s.done && !s.optional && s.key !== "identity")] as const)));
   const day = (d: Date | null) => (d ? fmtDate(d, { month: "short", day: "numeric" }) : "");
+  // Switch someone who's already a professional on Nearest: search by name, business or email.
+  const like = `%${find.toLowerCase()}%`;
+  const found = find.length >= 2 ? await db.select({ u: users, p: professionalProfiles }).from(professionalProfiles).innerJoin(users, eq(users.id, professionalProfiles.userId))
+    .where(sql`${users.accountType} = 'professional' and not exists (select 1 from partner_pages pp where pp.user_id = ${users.id})
+      and (lower(coalesce(${users.firstName},'') || ' ' || coalesce(${users.lastName},'')) like ${like} or lower(coalesce(${users.email},'')) like ${like} or lower(coalesce(${professionalProfiles.businessName},'')) like ${like} or lower(coalesce(${professionalProfiles.displayName},'')) like ${like})`)
+    .limit(12) : [];
 
   return (
     <>
+      <div className="card" style={{ gap: 8, maxWidth: 760 }}>
+        <span className="b">Switch an existing professional to a partner</span>
+        <span className="small muted">Already on Nearest (regular or Ambassador)? Find them and tap the button — their profile, bookings and sign-in stay the same, they get a partner page, and they&apos;re told by email and in the app. Professionals can&apos;t apply from their app; only you switch them.</span>
+        <form method="get" className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          <input type="hidden" name="view" value="added" />
+          <input name="find" defaultValue={find} placeholder="Name, business or email" className="ainput" style={{ flex: 1, minWidth: 200 }} />
+          <button className="btn ghost sm" type="submit" style={{ width: "auto" }}>Find</button>
+        </form>
+        {find.length >= 2 && found.length === 0 && <span className="small muted">No professional matches “{find}” (or they&apos;re already a partner).</span>}
+        {found.map(({ u, p }) => (
+          <div key={u.id} className="row between" style={{ gap: 8, flexWrap: "wrap", borderTop: "1px solid #1C1C1F", paddingTop: 8 }}>
+            <span className="small"><span className="b">{[u.firstName, u.lastName].filter(Boolean).join(" ") || "No name"}</span>{p.businessName ? ` · ${p.businessName}` : ""}<span className="muted"> · {u.email}{p.entryType === "AMBASSADOR" ? " · Ambassador" : ""}</span></span>
+            <ActionForm action={switchToPartner} submitLabel="Switch to partner" buttonClass="btn sm" className="col g4"><input type="hidden" name="userId" value={u.id} /></ActionForm>
+          </div>
+        ))}
+      </div>
       <div className="card" style={{ gap: 6, maxWidth: 760 }}>
         <span className="b">Found someone on Instagram? Add them here.</span>
         <span className="small">They&apos;re approved as a partner right away. Then pick how their profile gets done:</span>

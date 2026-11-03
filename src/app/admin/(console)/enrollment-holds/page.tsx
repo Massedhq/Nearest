@@ -5,8 +5,8 @@ import { AdminHead } from "@/components/AdminHead";
 import { ActionForm } from "@/components/ActionForm";
 import { requireAdmin } from "@/lib/admin";
 import { fmtDate } from "@/lib/time";
-import { ACTION_LABEL, CLOSED_MESSAGE, KIND_LABEL, holdDays } from "@/lib/enrollment-holds";
-import { releaseEnrollmentHold, reholdEnrollment, runEnrollmentHoldsNow } from "@/app/admin/enrollment-hold-actions";
+import { ACTION_LABEL, CLOSED_MESSAGE, KIND_LABEL, holdDays, unfinishedAccounts } from "@/lib/enrollment-holds";
+import { releaseEnrollmentHold, reholdEnrollment, runEnrollmentHoldsNow, holdAccountNowAction } from "@/app/admin/enrollment-hold-actions";
 
 export const metadata = { title: "Enrollment holds" };
 export const dynamic = "force-dynamic";
@@ -21,10 +21,11 @@ export default async function EnrollmentHolds({ searchParams }: { searchParams: 
   const { role } = await requireAdmin();
   const owner = role === "OWNER";
   const sp = await searchParams;
-  const show = sp.show === "released" ? "released" : sp.show === "trying" ? "trying" : "held";
+  const show = sp.show === "released" ? "released" : sp.show === "trying" ? "trying" : sp.show === "unfinished" ? "unfinished" : "held";
   const days = await holdDays();
   const q = (sp.q ?? "").trim().toLowerCase();
-  const rows = await db.select().from(enrollmentHolds)
+  const unfinished = show === "unfinished" ? await unfinishedAccounts(q || undefined) : [];
+  const rows = show === "unfinished" ? [] : await db.select().from(enrollmentHolds)
     .where(sql`${enrollmentHolds.status} = ${show === "released" ? "released" : "held"}
       ${show === "trying" ? sql`and ${enrollmentHolds.attempts} > 0` : sql``}
       ${sp.kind && KIND_LABEL[sp.kind] ? sql`and ${enrollmentHolds.kind} = ${sp.kind}` : sql``}
@@ -50,6 +51,7 @@ export default async function EnrollmentHolds({ searchParams }: { searchParams: 
         {tab("held", `On hold (${counts.held})`)}
         {tab("trying", `Trying to get back in (${counts.trying})`)}
         {tab("released", `Released (${counts.released})`)}
+        {tab("unfinished", "Never finished — not on hold yet")}
       </div>
       <form className="row" method="get" style={{ gap: 8, flexWrap: "wrap" }}>
         <input type="hidden" name="show" value={show} />
@@ -62,7 +64,28 @@ export default async function EnrollmentHolds({ searchParams }: { searchParams: 
           <span className="xs muted">The check also runs automatically every night.</span>
         </ActionForm>
       )}
-      {rows.length === 0 && <div className="card"><span className="small muted">{show === "released" ? "No one has been released yet." : "No one is on hold."}</span></div>}
+      {show === "unfinished" && (
+        <>
+          <span className="small muted">Every professional account that never accepted the Professional Terms, never sent an ID and never submitted — at any age, including ones newer than {days} days that the nightly check hasn&apos;t reached yet. Tap Move to hold to close registration for them now.</span>
+          {unfinished.length === 0 && <div className="card"><span className="small muted">Everyone who hasn&apos;t finished is already on hold.</span></div>}
+          {unfinished.map((a) => (
+            <div key={a.id} className="card" style={{ gap: 6 }}>
+              <div className="row between" style={{ flexWrap: "wrap", gap: 8 }}>
+                <span className="b">{[a.first, a.last].filter(Boolean).join(" ") || "No name"}{a.email ? <span className="muted small"> • {a.email}</span> : null}</span>
+                <span className="tag">{Math.max(0, Math.floor((Date.now() - new Date(a.created).getTime()) / 86400000))} days since sign-up</span>
+              </div>
+              <span className="xs muted">{a.business ? `${a.business} • ` : ""}{a.built ? `Profile built by Nearest${a.sent ? ` • link sent ${fmtDate(new Date(a.sent), { month: "short", day: "numeric", year: "numeric" })}` : " • link never sent"}` : `Signed up ${fmtDate(new Date(a.created), { month: "short", day: "numeric", year: "numeric" })}`}</span>
+              <Link className="link xs" href={`/admin/professionals/${a.id}`}>Open their account</Link>
+              {owner && (
+                <ActionForm action={holdAccountNowAction} submitLabel="Move to hold" buttonClass="btn sm" className="col g4">
+                  <input type="hidden" name="userId" value={a.id} />
+                </ActionForm>
+              )}
+            </div>
+          ))}
+        </>
+      )}
+      {show !== "unfinished" && rows.length === 0 && <div className="card"><span className="small muted">{show === "released" ? "No one has been released yet." : "No one is on hold."}</span></div>}
       {rows.map((h) => {
         const mine = attempts.filter((a) => a.holdId === h.id);
         return (
