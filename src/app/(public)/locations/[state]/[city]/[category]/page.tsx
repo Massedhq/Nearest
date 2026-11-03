@@ -52,7 +52,7 @@ export default async function CategoryCityPage({ params }: { params: Promise<{ s
           <Link key={p.userId} className="pub-card" href={`/pro-${p.slug}`}>
             <span style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 8 }}>
               {p.photo
-                ? <Image src={p.photo} alt={p.business} width={52} height={52} style={{ borderRadius: 26, objectFit: "cover", flex: "none" }} />
+                ? <Image src={p.photo} alt={`${p.business}, ${seo.singular} in ${c.name}, ${c.state}`} width={52} height={52} style={{ borderRadius: 26, objectFit: "cover", flex: "none" }} />
                 : <span aria-hidden="true" style={{ width: 52, height: 52, borderRadius: 26, background: "#1C1A16", display: "flex", alignItems: "center", justifyContent: "center", flex: "none", color: "#E3C58A" }}>{p.business.slice(0, 2).toUpperCase()}</span>}
               <span style={{ display: "flex", flexDirection: "column" }}>
                 <strong style={{ marginBottom: 0 }}>{p.business}</strong>

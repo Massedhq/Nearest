@@ -17,6 +17,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // so Google rechecks a professional's page when something on it changes.
   const pros = await db.select({
     slug: professionalProfiles.slug,
+    // Image sitemap (Google Images): profile photo + up to 10 portfolio photos (images only, never videos).
+    photo: professionalProfiles.photoUrl,
+    work: sql<string[] | null>`(select array_agg(x.url) from (select pi.url from portfolio_items pi where pi.user_id = ${professionalProfiles.userId} and pi.kind = 'image'
+      order by pi.featured desc, pi.sort asc limit 10) x)`,
     updated: sql<string | null>`greatest(
       (select max(s.created_at) from pro_services s where s.user_id = ${professionalProfiles.userId}),
       (select max(pi.created_at) from portfolio_items pi where pi.user_id = ${professionalProfiles.userId}),
@@ -35,7 +39,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...cities.map((c) => ({ url: abs(`/locations/${c.stateSlug}/${c.slug}`), changeFrequency: "weekly" as const, priority: 0.5 })),
     // "Nail Techs in Frisco, TX" — every city + category with a live professional.
     ...cities.flatMap((c) => c.categories.map((cat) => ({ url: abs(`/locations/${c.stateSlug}/${c.slug}/${categorySeo(cat).slug}`), changeFrequency: "weekly" as const, priority: 0.6 }))),
-    ...pros.map((p) => ({ url: abs(`/pro-${p.slug}`), ...(p.updated ? { lastModified: new Date(p.updated) } : {}), changeFrequency: "weekly" as const, priority: 0.7 })),
+    ...pros.map((p) => {
+      const images = [...(p.photo ? [p.photo] : []), ...(p.work ?? [])];
+      return { url: abs(`/pro-${p.slug}`), ...(p.updated ? { lastModified: new Date(p.updated) } : {}), changeFrequency: "weekly" as const, priority: 0.7, ...(images.length ? { images } : {}) };
+    }),
     ...partnerSlugs.map((slug) => ({ url: abs(`/link/${slug}`), changeFrequency: "weekly" as const, priority: 0.6 })),
     { url: abs("/terms"), changeFrequency: "yearly", priority: 0.2 },
     { url: abs("/privacy"), changeFrequency: "yearly", priority: 0.2 },

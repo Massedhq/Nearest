@@ -84,7 +84,7 @@ export async function PartnerPageView({ r, preview = false }: { r: NonNullable<A
             <span style={eyebrow}>Top services</span>
             {services.map((s) => (
               <Link key={s.id} href={bookHref} style={tile}>
-                {s.photoUrl ? <Image src={s.photoUrl} alt="" width={48} height={48} style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", flex: "none" }} /> : <span style={{ width: 48, height: 48, borderRadius: 8, background: "#1C1C1F", flex: "none" }} />}
+                {s.photoUrl ? <Image src={s.photoUrl} alt={`${s.name} by ${name}`} width={48} height={48} style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", flex: "none" }} /> : <span style={{ width: 48, height: 48, borderRadius: 8, background: "#1C1C1F", flex: "none" }} />}
                 <span style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}><span style={{ fontSize: 14, fontWeight: 800 }}>{s.name}{s.adultsOnly ? " (18+)" : ""}</span><span style={{ fontSize: 12, color: "#B8B2A7" }}>{money(s.priceCents)} · {s.durationMin} min</span></span>
                 <span style={{ fontSize: 12, fontWeight: 800, color: ACCENT }}>Book</span>
               </Link>

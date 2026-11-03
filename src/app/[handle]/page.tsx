@@ -41,7 +41,10 @@ export async function generateMetadata({ params }: { params: Promise<{ handle: s
   const title = { absolute: `${name} — ${role}${where ? ` in ${where}` : ""} | Nearest` };
   const description = `${name}${r.p.displayName && r.p.displayName !== name ? ` (${r.p.displayName})` : ""} is a verified ${role.toLowerCase()}${where ? ` in ${where}` : ""} on Nearest.${svc.length ? ` ${svc.slice(0, 3).map((x) => x.name).join(", ")}${from != null ? ` from ${money(from)}` : ""}.` : ""} See their work and book with a free student account.`;
   const url = abs(`/pro-${r.p.slug ?? r.p.userId}`);
-  return { title, description, alternates: { canonical: url }, robots: { index: true, follow: true }, openGraph: { title: title.absolute, description, url, siteName: "Nearest", ...(r.p.photoUrl ? { images: [r.p.photoUrl] } : {}) } };
+  const work = await db.select({ url: portfolioItems.url }).from(portfolioItems).where(and(eq(portfolioItems.userId, r.p.userId), eq(portfolioItems.kind, "image")))
+    .orderBy(desc(portfolioItems.featured), asc(portfolioItems.sort)).limit(3);
+  const ogImages = [...(r.p.photoUrl ? [r.p.photoUrl] : []), ...work.map((w) => w.url)];
+  return { title, description, alternates: { canonical: url }, robots: { index: true, follow: true }, openGraph: { title: title.absolute, description, url, siteName: "Nearest", ...(ogImages.length ? { images: ogImages } : {}) } };
 }
 
 /** Public booking link (usenearest.com/pro-<name>): anyone can see it; verified students go straight to the full profile. */
@@ -65,7 +68,9 @@ export default async function ProLink({ params }: { params: Promise<{ handle: st
   const id = r.p.userId;
   const [services, photos, [rating], owner] = await Promise.all([
     db.select().from(proServices).where(and(eq(proServices.userId, id), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS))).orderBy(asc(proServices.sort)).limit(8),
-    db.select({ url: portfolioItems.url }).from(portfolioItems).where(and(eq(portfolioItems.userId, id), eq(portfolioItems.kind, "image"))).orderBy(desc(portfolioItems.featured), asc(portfolioItems.sort)).limit(6),
+    // Up to the 10-photo portfolio limit. Each photo carries the service it shows, so Google Images gets a real description.
+    db.select({ url: portfolioItems.url, service: proServices.name }).from(portfolioItems).leftJoin(proServices, eq(proServices.id, portfolioItems.serviceId))
+      .where(and(eq(portfolioItems.userId, id), eq(portfolioItems.kind, "image"))).orderBy(desc(portfolioItems.featured), asc(portfolioItems.sort)).limit(10),
     db.select({ avg: sql<number | null>`avg(${reviews.rating})::float`, n: sql<number>`count(*)::int` }).from(reviews).where(eq(reviews.proId, id)),
     db.query.users.findFirst({ where: eq(users.id, id) }),
   ]);
@@ -76,6 +81,11 @@ export default async function ProLink({ params }: { params: Promise<{ handle: st
   const main = allCats.find((c) => c.name !== "Other")?.name ? await mainCategory(id) : null;
   const seo = main ? categorySeo(main) : null;
   const cityHref = r.city && r.state ? `/locations/${stateSlug(r.state)}/${citySlug(r.city)}` : null;
+  // Photo descriptions for Google Images: "Gel X Full Set by Nailed by Avy, Nail Tech in Frisco, TX".
+  const biz = r.p.businessName ?? r.p.displayName ?? "Professional";
+  const roleLine = `${seo?.singular ?? "Beauty Professional"}${r.city ? ` in ${r.city}${r.state ? `, ${r.state}` : ""}` : ""}`;
+  const photoAlt = (service: string | null) => `${service ?? `${seo?.singular ?? "Beauty"} work`} by ${biz}, ${roleLine}`;
+  const pageUrl = abs(`/pro-${r.p.slug ?? id}`);
   const crumbs = [{ name: "Home", href: "/" }, { name: "Locations", href: "/locations" }, ...(cityHref ? [{ name: `${r.city}, ${r.state}`, href: cityHref }] : []), ...(cityHref && seo ? [{ name: seo.plural, href: `${cityHref}/${seo.slug}` }] : []), { name: r.p.businessName ?? "Professional", href: `/pro-${r.p.slug ?? id}` }];
   return (
     <div className="scr">
@@ -83,7 +93,7 @@ export default async function ProLink({ params }: { params: Promise<{ handle: st
         <Link href="/" className="row" style={{ gap: 8, textDecoration: "none", color: "inherit" }}><Image src="/brand/nearest-monogram.png" alt="" width={32} height={32} /><span className="disp">Nearest</span></Link>
         <div className="card" style={{ gap: 12 }}>
           <div className="row" style={{ gap: 12 }}>
-            {r.p.photoUrl ? <Image src={r.p.photoUrl} alt="" width={64} height={64} style={{ borderRadius: 32, objectFit: "cover" }} /> : <div className="avatar">{(r.p.businessName ?? owner?.firstName ?? "N").slice(0, 2).toUpperCase()}</div>}
+            {r.p.photoUrl ? <Image src={r.p.photoUrl} alt={`${biz}, ${roleLine}`} width={64} height={64} style={{ borderRadius: 32, objectFit: "cover" }} /> : <div className="avatar">{(r.p.businessName ?? owner?.firstName ?? "N").slice(0, 2).toUpperCase()}</div>}
             <div className="col g4">
               <h1 className="disp h2 row" style={{ margin: 0, gap: 6 }}>{r.p.businessName}<span className="badge" role="img" aria-label="Approved by Nearest" title="Approved by Nearest"><Icon name="shield" /></span></h1>
               {seo && <span className="small b" style={{ color: "#E3C58A" }}>{seo.singular}{r.city ? ` in ${r.city}${r.state ? `, ${r.state}` : ""}` : ""}</span>}
@@ -92,7 +102,7 @@ export default async function ProLink({ params }: { params: Promise<{ handle: st
             </div>
           </div>
           {r.p.bio && <p className="small p" style={{ margin: 0 }}>{r.p.bio}</p>}
-          {photos.length > 0 && <div className="grid3">{photos.map((ph) => <div key={ph.url} className="ph" style={{ height: 104, padding: 0 }}><Image src={ph.url} alt="Work by this professional" fill sizes="140px" style={{ objectFit: "cover" }} /></div>)}</div>}
+          {photos.length > 0 && <div className="grid3">{photos.map((ph) => <a key={ph.url} href={ph.url} target="_blank" rel="noopener" className="ph" style={{ height: 104, padding: 0, display: "block", position: "relative" }}><Image src={ph.url} alt={photoAlt(ph.service)} title={photoAlt(ph.service)} fill sizes="(max-width: 480px) 33vw, 160px" style={{ objectFit: "cover" }} /></a>)}</div>}
         </div>
         {services.length > 0 && (
           <div className="card" style={{ gap: 6 }}>
@@ -112,6 +122,14 @@ export default async function ProLink({ params }: { params: Promise<{ handle: st
           </nav>
         )}
         {cityHref && seo && <Link className="link small" href={`${cityHref}/${seo.slug}`}>More {seo.plural.toLowerCase()} in {r.city} on Nearest</Link>}
+        {photos.length > 0 && (
+          // Image credits for Google Images (who made the work, which page it belongs to). No business/rating schema — owner rule.
+          <JsonLd data={{ "@context": "https://schema.org", "@graph": photos.map((ph) => ({
+            "@type": "ImageObject", contentUrl: ph.url, name: photoAlt(ph.service), caption: photoAlt(ph.service),
+            creditText: biz, creator: { "@type": "Organization", name: biz, url: pageUrl }, acquireLicensePage: pageUrl,
+            copyrightNotice: `© ${biz}`, representativeOfPage: false,
+          })) }} />
+        )}
         <JsonLd data={{ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: crumbs.map((c, i) => ({ "@type": "ListItem", position: i + 1, name: c.name, item: abs(c.href) })) }} />
       </div>
     </div>
