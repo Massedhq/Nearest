@@ -3,8 +3,9 @@ import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 /**
  * Locations for the public site — only cities with at least one professional students can book right now
- * (same rule as student search, liveProWhere). Nothing about individual professionals is exposed: just the city,
- * its market and which service categories are listed there.
+ * (same rule as student search, liveProWhere): the city, its market and which service categories are listed there.
+ * The professionals themselves are listed by src/lib/public/directory.ts (business name, photo, services, prices —
+ * the same things their public share page shows; never an address or contact details).
  */
 export type ActiveCity = { id: number; name: string; state: string; stateSlug: string; slug: string; county: string | null; market: string | null; categories: string[] };
 

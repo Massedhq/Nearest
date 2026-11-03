@@ -9,6 +9,9 @@ import { money } from "@/lib/time";
 import { MAX_PRICE_CENTS } from "@/lib/pricing";
 import { Icon } from "@/components/Icon";
 import { abs } from "@/lib/public/site";
+import { categorySeo, mainCategory } from "@/lib/public/directory";
+import { citySlug, stateSlug } from "@/lib/public/locations";
+import { JsonLd } from "@/components/public/JsonLd";
 
 export const dynamic = "force-dynamic";
 
@@ -27,10 +30,18 @@ export async function generateMetadata({ params }: { params: Promise<{ handle: s
   const { handle } = await params;
   const r = await findPro(handle);
   if (!r) return { title: "Nearest" };
-  const title = `${r.p.businessName ?? "Professional"}${r.city ? ` in ${r.city}` : ""} on Nearest`;
-  const description = `Book ${r.p.businessName ?? "this professional"}${r.city ? ` in ${r.city}${r.state ? `, ${r.state}` : ""}` : ""} on Nearest — verified beauty, wellness and self-care professionals students can book near them.`;
+  // Written the way people search: "Nailed by Avy — Nail Tech in Frisco, TX".
+  const main = await mainCategory(r.p.userId);
+  const role = main ? categorySeo(main).singular : "Beauty Professional";
+  const name = r.p.businessName ?? r.p.displayName ?? "Professional";
+  const where = r.city ? `${r.city}${r.state ? `, ${r.state}` : ""}` : "";
+  const svc = await db.select({ name: proServices.name, price: proServices.priceCents }).from(proServices)
+    .where(and(eq(proServices.userId, r.p.userId), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS))).orderBy(asc(proServices.sort)).limit(4);
+  const from = svc.length ? Math.min(...svc.map((x) => x.price)) : null;
+  const title = { absolute: `${name} — ${role}${where ? ` in ${where}` : ""} | Nearest` };
+  const description = `${name}${r.p.displayName && r.p.displayName !== name ? ` (${r.p.displayName})` : ""} is a verified ${role.toLowerCase()}${where ? ` in ${where}` : ""} on Nearest.${svc.length ? ` ${svc.slice(0, 3).map((x) => x.name).join(", ")}${from != null ? ` from ${money(from)}` : ""}.` : ""} See their work and book with a free student account.`;
   const url = abs(`/pro-${r.p.slug ?? r.p.userId}`);
-  return { title, description, alternates: { canonical: url }, openGraph: { title, description, url, ...(r.p.photoUrl ? { images: [r.p.photoUrl] } : {}) } };
+  return { title, description, alternates: { canonical: url }, robots: { index: true, follow: true }, openGraph: { title: title.absolute, description, url, siteName: "Nearest", ...(r.p.photoUrl ? { images: [r.p.photoUrl] } : {}) } };
 }
 
 /** Public booking link (usenearest.com/pro-<name>): anyone can see it; verified students go straight to the full profile. */
@@ -62,6 +73,10 @@ export default async function ProLink({ params }: { params: Promise<{ handle: st
     .where(and(eq(proServices.userId, id), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS))).orderBy(asc(categories.sort), asc(categories.name));
   const offers = allCats.map((c) => c.name); // every service category they offer, under their name
   const next = encodeURIComponent(`/p/${id}`);
+  const main = allCats.find((c) => c.name !== "Other")?.name ? await mainCategory(id) : null;
+  const seo = main ? categorySeo(main) : null;
+  const cityHref = r.city && r.state ? `/locations/${stateSlug(r.state)}/${citySlug(r.city)}` : null;
+  const crumbs = [{ name: "Home", href: "/" }, { name: "Locations", href: "/locations" }, ...(cityHref ? [{ name: `${r.city}, ${r.state}`, href: cityHref }] : []), ...(cityHref && seo ? [{ name: seo.plural, href: `${cityHref}/${seo.slug}` }] : []), { name: r.p.businessName ?? "Professional", href: `/pro-${r.p.slug ?? id}` }];
   return (
     <div className="scr">
       <div className="body" style={{ gap: 16 }}>
@@ -71,6 +86,7 @@ export default async function ProLink({ params }: { params: Promise<{ handle: st
             {r.p.photoUrl ? <Image src={r.p.photoUrl} alt="" width={64} height={64} style={{ borderRadius: 32, objectFit: "cover" }} /> : <div className="avatar">{(r.p.businessName ?? owner?.firstName ?? "N").slice(0, 2).toUpperCase()}</div>}
             <div className="col g4">
               <h1 className="disp h2 row" style={{ margin: 0, gap: 6 }}>{r.p.businessName}<span className="badge" role="img" aria-label="Approved by Nearest" title="Approved by Nearest"><Icon name="shield" /></span></h1>
+              {seo && <span className="small b" style={{ color: "#E3C58A" }}>{seo.singular}{r.city ? ` in ${r.city}${r.state ? `, ${r.state}` : ""}` : ""}</span>}
               {offers.length > 0 && <span className="small" style={{ color: "#D8D2C6" }}>{offers.join(" • ")}</span>}
               <span className="small muted row" style={{ gap: 6 }}><Icon name="pin" size="s" /> {r.city ?? "Texas"}{rating.n ? ` • ★ ${Number(rating.avg).toFixed(1)} (${rating.n})` : ""}</span>
             </div>
@@ -90,6 +106,13 @@ export default async function ProLink({ params }: { params: Promise<{ handle: st
           <Link className="btn dark" href={`/sign-up?redirect_url=${next}`}>Create a student account</Link>
           <Link className="link small" href={`/sign-in?redirect_url=${next}`} style={{ textAlign: "center" }}>Already on Nearest? Sign in</Link>
         </div>
+        {cityHref && (
+          <nav aria-label="Breadcrumb" className="small muted" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {crumbs.slice(0, -1).map((c) => <span key={c.href}><Link className="link" href={c.href}>{c.name}</Link> ›</span>)}<span>{r.p.businessName}</span>
+          </nav>
+        )}
+        {cityHref && seo && <Link className="link small" href={`${cityHref}/${seo.slug}`}>More {seo.plural.toLowerCase()} in {r.city} on Nearest</Link>}
+        <JsonLd data={{ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: crumbs.map((c, i) => ({ "@type": "ListItem", position: i + 1, name: c.name, item: abs(c.href) })) }} />
       </div>
     </div>
   );

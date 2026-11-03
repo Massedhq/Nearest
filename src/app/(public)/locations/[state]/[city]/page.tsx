@@ -5,6 +5,7 @@ import { ProCta, StudentCta } from "@/components/public/Cta";
 import { activeCities, cityOpenings, STATE_NAMES } from "@/lib/public/locations";
 import { publicFacts, usd } from "@/lib/public/facts";
 import { pageMeta } from "@/lib/public/meta";
+import { categorySeo, cityPros } from "@/lib/public/directory";
 
 export const revalidate = 3600;
 // Rendered on first visit, then cached for an hour; only cities with a live professional resolve (others 404).
@@ -27,7 +28,7 @@ export default async function CityPage({ params }: { params: Promise<{ state: st
   const { state, city } = await params;
   const c = await find(state, city);
   if (!c) notFound();
-  const [all, openings, f] = await Promise.all([activeCities(), cityOpenings(c.id), publicFacts()]);
+  const [all, openings, f, pros] = await Promise.all([activeCities(), cityOpenings(c.id), publicFacts(), cityPros(c.id)]);
   const st = STATE_NAMES[c.state] ?? c.state;
   const nearby = all.filter((x) => x.id !== c.id && (x.county === c.county || (c.market && x.market === c.market))).slice(0, 8);
   return (
@@ -38,7 +39,11 @@ export default async function CityPage({ params }: { params: Promise<{ state: st
       <p className="pub-lede">Nearest is live in {c.name}: verified students can book independent professionals here. Availability changes as professionals join, pause or go offline.</p>
 
       <h2>Services listed in {c.name}</h2>
-      {c.categories.length ? <p>{c.categories.map((x) => <span key={x} className="pub-tag ok">{x}</span>)}</p> : <p>Professionals are listed here; sign in to see services.</p>}
+      {c.categories.length ? <p>{c.categories.map((x) => <Link key={x} className="pub-tag ok" href={`/locations/${c.stateSlug}/${c.slug}/${categorySeo(x).slug}`}>{categorySeo(x).plural}</Link>)}</p> : <p>Professionals are listed here; sign in to see services.</p>}
+      {pros.length > 0 && (<>
+        <h2>Professionals in {c.name}</h2>
+        <ul>{pros.map((p) => <li key={p.userId}><Link href={`/pro-${p.slug}`}>{p.business}</Link>{p.categories.length ? ` — ${p.categories.map((x) => categorySeo(x).singular).join(", ")}` : ""}</li>)}</ul>
+      </>)}
       <p>Prices are set by each professional, with every service up to {usd(f.capDollars)} for students including add-ons. Sign in to see individual professionals, their work, prices and open times.</p>
 
       <h2>Booking in {c.name}</h2>
