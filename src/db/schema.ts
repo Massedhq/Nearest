@@ -1572,7 +1572,6 @@ export const learnClasses = pgTable("learn_classes", {
   educatorLink: text("educator_link"), // their Instagram/TikTok/website
   description: text("description"),
   category: text("category"), // e.g. Hair Styling
-  priceCents: integer("price_cents"), // what a professional will pay for 30 days of access (integer cents)
   coverUrl: text("cover_url"),
   coverAccess: text("cover_access"), // private | public (unlisted fallback)
   videoUrl: text("video_url"),

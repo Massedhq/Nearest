@@ -16,11 +16,7 @@ export const LEARN_LIMITS = {
   videoTypes: ["video/mp4", "video/quicktime", "video/webm"],
   coverTypes: ["image/jpeg", "image/png", "image/webp"],
   accessDays: 30, // planned: a purchase opens a class for 30 days
-  minPriceCents: 100, // $1
-  maxPriceCents: 100000, // $1,000
 };
-
-export const learnPrice = (cents: number | null | undefined) => (cents == null ? null : `$${(cents / 100).toFixed(cents % 100 ? 2 : 0)}`);
 
 export const LEARN_STATUS: Record<string, string> = { draft: "Draft", published: "Shown to professionals", hidden: "Hidden" };
 
@@ -39,7 +35,7 @@ export async function allClasses() {
 /** What professionals see on Learn at Nearest while it's coming soon: published classes, no video. */
 export async function publishedClasses() {
   try {
-    return await db.select({ id: learnClasses.id, title: learnClasses.title, educatorName: learnClasses.educatorName, educatorLink: learnClasses.educatorLink, description: learnClasses.description, category: learnClasses.category, priceCents: learnClasses.priceCents, hasCover: learnClasses.coverUrl })
+    return await db.select({ id: learnClasses.id, title: learnClasses.title, educatorName: learnClasses.educatorName, educatorLink: learnClasses.educatorLink, description: learnClasses.description, category: learnClasses.category, hasCover: learnClasses.coverUrl })
       .from(learnClasses).where(eq(learnClasses.status, "published")).orderBy(asc(learnClasses.sort), desc(learnClasses.createdAt));
   } catch (e) {
     console.warn("learn classes unavailable —", (e as Error).message?.split("\n")[0]);
@@ -52,7 +48,6 @@ export function publishProblems(c: typeof learnClasses.$inferSelect): string[] {
   const out: string[] = [];
   if (!c.title.trim()) out.push("a title");
   if (!c.educatorName.trim()) out.push("the educator's name");
-  if (c.priceCents == null) out.push("a price");
   if (!c.coverUrl) out.push("a cover");
   if (!c.videoUrl) out.push("the class video");
   if (!c.licenseConfirmedAt) out.push("confirmation that you have a written agreement with the educator");
