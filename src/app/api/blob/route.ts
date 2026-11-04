@@ -13,6 +13,13 @@ export async function POST(request: Request) {
       onBeforeGenerateToken: async (pathname) => {
         const viewer = await getProViewer();
         const u = viewer?.user;
+        // Owners: Learn at Nearest class videos and covers (stored private; only streamed through /api/learn/[id]).
+        if (u && viewer?.admin?.role === "OWNER" && pathname.startsWith(`learn/${u.id}/`)) {
+          const { LEARN_LIMITS } = await import("@/lib/learn");
+          if (pathname.startsWith(`learn/${u.id}/video/`)) return { allowedContentTypes: LEARN_LIMITS.videoTypes, maximumSizeInBytes: LEARN_LIMITS.videoBytes, addRandomSuffix: true };
+          if (pathname.startsWith(`learn/${u.id}/cover/`)) return { allowedContentTypes: LEARN_LIMITS.coverTypes, maximumSizeInBytes: LEARN_LIMITS.coverBytes, addRandomSuffix: true };
+          throw new Error("Invalid upload.");
+        }
         // Pros upload portfolio/profile photos; students upload their appointment result photo.
         const ok = u && (((await proAccess(viewer)) && pathname.startsWith(`pros/${u.id}/`)) || ((u.accountType === "student" || viewer?.admin?.role === "OWNER") && pathname.startsWith(`students/${u.id}/`)));
         if (!ok) throw new Error("Invalid upload.");

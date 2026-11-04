@@ -1561,3 +1561,29 @@ export const nearestCardFund = pgTable("nearest_card_fund", {
   amountCents: integer("amount_cents").notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [uniqueIndex("nearest_card_fund_booking_idx").on(t.bookingId)]);
+
+// Learn at Nearest (COMING SOON — professionals only). Classes an owner uploads under a written license from the
+// educator. Video and cover are stored private and only ever served through /api/learn/[id]/video|cover to signed-in
+// professionals and admins inside the app — never a public link.
+export const learnClasses = pgTable("learn_classes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  title: text("title").notNull(),
+  educatorName: text("educator_name").notNull(), // credited on the class
+  educatorLink: text("educator_link"), // their Instagram/TikTok/website
+  description: text("description"),
+  category: text("category"), // e.g. Hair Styling
+  priceCents: integer("price_cents"), // what a professional will pay for 30 days of access (integer cents)
+  coverUrl: text("cover_url"),
+  coverAccess: text("cover_access"), // private | public (unlisted fallback)
+  videoUrl: text("video_url"),
+  videoAccess: text("video_access"),
+  videoName: text("video_name"),
+  videoSize: doublePrecision("video_size"), // bytes
+  // The owner confirmed a written agreement with the educator to host and sell this class (required to publish).
+  licenseConfirmedAt: ts("license_confirmed_at"),
+  status: text("status").notNull().default("draft"), // draft | published | hidden
+  sort: integer("sort").notNull().default(0),
+  createdBy: uuid("created_by").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+}, (t) => [index("learn_classes_status_idx").on(t.status)]);
