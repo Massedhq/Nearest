@@ -7,14 +7,17 @@ import { chicagoToUtc } from "./time";
 
 /**
  * Nearest Cards — printed promotional cards (no cash value) that students add to their account.
- * Discount cards: 16-digit number + 3-digit code, worth $10–$30. Free cards: 16-digit number + 4-digit code, cover a
+ * Discount cards: 16-digit number + 3-digit code, worth $5–$30. Free cards: 16-digit number + 4-digit code, cover a
  * service up to the batch amount. Adding a card SAVES it on the student's account (so a lost card can't be used by anyone
  * else). It is never applied automatically: the student chooses it on the booking they want (confirm page or a booking
- * waiting for payment). One card = one booking. Its value is written into the booking's credit_general_cents and
- * confirmBooking adds it as credit first, so payouts, cancellations and refunds treat it like general credit.
+ * waiting for payment). One card = one booking. Its value is written into the booking's credit_general_cents (and
+ * promo_cents) and confirmBooking adds it as PROMOTIONAL credit first. Since 2026-11-04 cards are honored by the
+ * professional (it comes out of that booking's payout), cover the SERVICE only (the student still pays the booking fee
+ * and deposit), work only with professionals who accepted those Terms, and a Free Card only on the professional's one
+ * free service — see src/lib/promo.ts. Credit only, no cash value.
  */
 export const CARD_LIMITS = {
-  discountMin: 1000, discountMax: 3000, // $10–$30
+  discountMin: 500, discountMax: 3000, // $5–$30
   freeMax: MAX_PRICE_CENTS, // a free card never covers more than the $150 student price cap
   batchMax: 5000,
   triesPerHour: 5, // wrong number/code tries per student per hour
@@ -50,7 +53,7 @@ const newCode = (kind: CardKind) => String(randomInt(0, kind === "free" ? 10000 
 export function batchProblem(b: { kind: string; amountCents: number; count: number; validThru: Date | null }) {
   if (b.kind !== "discount" && b.kind !== "free") return "Choose Discount card or Free card.";
   if (!Number.isInteger(b.amountCents)) return "Enter the card value.";
-  if (b.kind === "discount" && (b.amountCents < CARD_LIMITS.discountMin || b.amountCents > CARD_LIMITS.discountMax)) return "Discount cards are $10 to $30.";
+  if (b.kind === "discount" && (b.amountCents < CARD_LIMITS.discountMin || b.amountCents > CARD_LIMITS.discountMax)) return "Discount cards are $5 to $30.";
   if (b.kind === "free" && (b.amountCents < 100 || b.amountCents > CARD_LIMITS.freeMax)) return `A free card covers a service up to an amount from $1 to $${CARD_LIMITS.freeMax / 100}.`;
   if (!Number.isInteger(b.count) || b.count < 1 || b.count > CARD_LIMITS.batchMax) return `Make 1 to ${CARD_LIMITS.batchMax} cards at a time.`;
   if (!b.validThru) return "Choose the Valid thru month printed on the cards.";
@@ -133,21 +136,29 @@ export async function usableCards(userId: string, bookingId?: string) {
   return (await myCards(userId)).filter((x) => x.state === "ready" || (bookingId && x.bookingId === bookingId));
 }
 
-/** How a booking's total is paid when the student chose a card: card first, then credit with the pro, then general credit. */
-export function planWithCard(due: number, bal: { pro: number; general: number }, cardAmount: number) {
-  let card = Math.min(Math.max(cardAmount, 0), due);
-  let pro = Math.min(bal.pro, due - card);
-  let general = Math.min(bal.general, due - card - pro);
-  let charge = due - card - pro - general;
+/**
+ * How a booking's total is paid when the student chose a card: card first, then promotional credit, then credit with the
+ * pro, then general credit. The card and promotional credit together never go past `cap` — the service only (promoCap in
+ * src/lib/promo.ts), so the student always pays the booking fee and deposit.
+ */
+export function planWithCard(due: number, bal: { pro: number; general: number; promo?: number }, cardAmount: number, cap: number = due) {
+  const limit = Math.max(0, Math.min(cap, due));
+  let card = Math.min(Math.max(cardAmount, 0), limit);
+  let promo = Math.min(Math.max(bal.promo ?? 0, 0), limit - card);
+  let pro = Math.min(bal.pro, due - card - promo);
+  let general = Math.min(bal.general, due - card - promo - pro);
+  let charge = due - card - promo - pro - general;
   if (charge > 0 && charge < 50) {
-    // Card payments have a $0.50 minimum: give back a little credit (and then card value) so the charge is $0.50.
+    // Card payments have a $0.50 minimum: give back a little credit (then promo, then card value) so the charge is $0.50.
     let giveBack = 50 - charge;
     const g = Math.min(general, giveBack); general -= g; giveBack -= g;
     const p = Math.min(pro, giveBack); pro -= p; giveBack -= p;
+    const pr = Math.min(promo, giveBack); promo -= pr; giveBack -= pr;
     card -= Math.min(card, giveBack);
-    charge = due - card - pro - general;
+    charge = due - card - promo - pro - general;
   }
-  return { card, pro, general: general + card, charge }; // general includes the card (see the header note)
+  // general includes the card and promotional credit (see the header note); promoCents is the professional-honored part.
+  return { card, promo, pro, general: general + card + promo, charge, promoCents: card + promo };
 }
 
 /**
@@ -170,7 +181,7 @@ export async function creditCardForBooking(b: { id: string; studentId: string; c
   if (!b.cardId || b.cardCents <= 0) return;
   const card = await db.query.nearestCards.findFirst({ where: eq(nearestCards.id, b.cardId) });
   const batch = card ? await db.query.nearestCardBatches.findFirst({ where: eq(nearestCardBatches.id, card.batchId) }) : null;
-  const [cr] = await db.insert(credits).values({ studentId: b.studentId, proId: null, amountCents: b.cardCents, reason: `${cardLabel(batch?.kind ?? "discount")} •••• ${card ? last4(card.number) : ""} used on ${code}`, bookingId: b.id }).returning();
+  const [cr] = await db.insert(credits).values({ studentId: b.studentId, proId: null, promo: true, amountCents: b.cardCents, reason: `${cardLabel(batch?.kind ?? "discount")} •••• ${card ? last4(card.number) : ""} used on ${code}`, bookingId: b.id }).returning();
   if (card) await db.update(nearestCards).set({ creditId: cr.id, usedBookingId: b.id }).where(eq(nearestCards.id, card.id));
 }
 

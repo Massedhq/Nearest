@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { db, learnClasses } from "@/db";
 import { requireAdmin } from "@/lib/admin";
 import { logActivity } from "@/lib/log";
-import { ownLearnUrl, publishProblems } from "@/lib/learn";
+import { LEARN_LIMITS, ownLearnUrl, publishProblems } from "@/lib/learn";
 
 type FormState = { error?: string; ok?: string };
 const s = (f: FormData, k: string, max = 200) => String(f.get(k) ?? "").trim().slice(0, max);
@@ -31,6 +31,9 @@ export async function saveLearnClass(_: FormState, form: FormData): Promise<Form
   if (s(form, "educatorLink", 300) && !educatorLink) return { error: "That educator link doesn't look right. Paste the full link, like instagram.com/theirname." };
   if (!title) return { error: "Add a title." };
   if (!educatorName) return { error: "Add the educator's name so they get credit." };
+  const priceRaw = s(form, "price", 12).replace(/[$,\s]/g, "");
+  const priceCents = priceRaw ? Math.round(Number(priceRaw) * 100) : null;
+  if (priceRaw && (!Number.isFinite(priceCents) || priceCents! < LEARN_LIMITS.minPriceCents || priceCents! > LEARN_LIMITS.maxPriceCents)) return { error: "Set a price between $1 and $1,000." };
   const coverUrl = s(form, "cover", 600), videoUrl = s(form, "video", 600);
   if (coverUrl && !ownLearnUrl(coverUrl, user.id, "cover")) return { error: "Upload the cover again — that file isn't one of your uploads." };
   if (videoUrl && !ownLearnUrl(videoUrl, user.id, "video")) return { error: "Upload the video again — that file isn't one of your uploads." };
@@ -39,7 +42,7 @@ export async function saveLearnClass(_: FormState, form: FormData): Promise<Form
   const before = id ? await db.query.learnClasses.findFirst({ where: eq(learnClasses.id, id) }) : null;
   if (id && !before) return { error: "That class no longer exists." };
   const values = {
-    title, educatorName, educatorLink, category, description,
+    title, educatorName, educatorLink, category, description, priceCents,
     ...(coverUrl && coverUrl !== before?.coverUrl ? { coverUrl, coverAccess: s(form, "cover_access", 10) === "public" ? "public" : "private" } : {}),
     ...(videoUrl && videoUrl !== before?.videoUrl ? { videoUrl, videoAccess: s(form, "video_access", 10) === "public" ? "public" : "private", videoName: s(form, "video_name", 160) || null, videoSize: Number(s(form, "video_size", 20)) || null } : {}),
     licenseConfirmedAt: licensed ? (before?.licenseConfirmedAt ?? new Date()) : null,
@@ -49,12 +52,12 @@ export async function saveLearnClass(_: FormState, form: FormData): Promise<Form
     // Taking away the license confirmation hides a class that was showing.
     const status = !licensed && before.status === "published" ? "hidden" : before.status;
     await db.update(learnClasses).set({ ...values, status }).where(eq(learnClasses.id, before.id));
-    await logActivity({ actorUserId: user.id, action: "learn.class_saved", targetType: "learn_class", targetId: before.id, before: { title: before.title, educator: before.educatorName, status: before.status, licensed: Boolean(before.licenseConfirmedAt) }, after: { title, educator: educatorName, status, licensed } });
+    await logActivity({ actorUserId: user.id, action: "learn.class_saved", targetType: "learn_class", targetId: before.id, before: { title: before.title, educator: before.educatorName, priceCents: before.priceCents, status: before.status, licensed: Boolean(before.licenseConfirmedAt) }, after: { title, educator: educatorName, priceCents, status, licensed } });
     revalidatePath("/admin/learn"); revalidatePath(`/admin/learn/${before.id}`); revalidatePath("/pro/learn");
     return { ok: "Saved." };
   }
   const [row] = await db.insert(learnClasses).values({ ...values, createdBy: user.id }).returning();
-  await logActivity({ actorUserId: user.id, action: "learn.class_added", targetType: "learn_class", targetId: row.id, after: { title, educator: educatorName, licensed } });
+  await logActivity({ actorUserId: user.id, action: "learn.class_added", targetType: "learn_class", targetId: row.id, after: { title, educator: educatorName, priceCents, licensed } });
   revalidatePath("/admin/learn");
   redirect(`/admin/learn/${row.id}?added=1`);
 }

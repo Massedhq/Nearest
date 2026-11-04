@@ -13,6 +13,7 @@ import { proStanding } from "@/lib/enforcement";
 import { Bell } from "@/components/Inbox";
 import { GoLiveCard } from "@/components/GoLiveCard";
 import { ProProtectionCard } from "@/components/ProProtectionCard";
+import { ProCampaignCard } from "@/components/ProCampaignCard";
 import { PhoneAlerts } from "@/components/PhoneAlerts";
 import { ProSpotCard } from "@/components/ProSpotCard";
 import { unreadCount } from "@/lib/inbox";
@@ -109,6 +110,7 @@ export default async function ProHome({ searchParams }: { searchParams: Promise<
 
         {!building && <PhoneAlerts compact />}
         {approved && <GoLiveCard profile={profile} />}
+        <ProCampaignCard profile={profile} />
         <ProProtectionCard profile={profile} />
 
         {upcoming.filter((b) => b.checkedInAt && !b.startedAt).map((b) => (

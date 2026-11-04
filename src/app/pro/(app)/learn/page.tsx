@@ -1,7 +1,7 @@
 import { requirePro } from "@/lib/pro";
 import { TopBar } from "@/components/TopBar";
 import { Icon } from "@/components/Icon";
-import { publishedClasses } from "@/lib/learn";
+import { learnPrice, publishedClasses } from "@/lib/learn";
 
 export const metadata = { title: "Learn at Nearest" };
 
@@ -42,6 +42,7 @@ export default async function LearnPage() {
                     <span style={{ position: "absolute", inset: "auto 0 0 0", padding: "28px 10px 10px", background: "linear-gradient(transparent, rgba(0,0,0,.8))", display: "flex", alignItems: "center", gap: 6 }}><Icon name="lock" size="s" /><span className="xs b">Opens soon</span></span>
                   </div>
                   <span className="small b">{c.title}</span>
+                  {learnPrice(c.priceCents) && <span className="small b" style={{ color: "#E3C58A" }}>{learnPrice(c.priceCents)} <span className="xs muted" style={{ fontWeight: 500 }}>• 30 days</span></span>}
                   <span className="xs muted">by {c.educatorLink ? <a className="link" href={c.educatorLink} target="_blank" rel="noopener noreferrer">{c.educatorName}</a> : c.educatorName}{c.category ? ` • ${c.category}` : ""}</span>
                 </div>
               ))}

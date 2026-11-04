@@ -31,11 +31,14 @@ export async function confirmBooking(bookingId: string, charge?: { chargeId: str
   if (b.bundleId) { try { await (await import("./bundles")).onBundleBookingConfirmed(b); } catch (e) { console.error("bundle", e); } }
   if (b.campaignEntryId) { try { await (await import("./campaign-reward")).markRewardRedeemed(b); } catch (e) { console.error("campaign reward", e); } }
 
-  // The Nearest Card the student chose: its value becomes credit first, then the general credit below uses it.
+  // The Nearest Card the student chose: its value becomes promotional credit first, then the rows below use it.
   if (b.cardId && b.cardCents > 0) await (await import("./nearest-cards")).creditCardForBooking(b, bookingCode(b.number));
   const used = [];
-  if (b.creditProCents) used.push({ studentId: b.studentId, proId: b.proId, amountCents: -b.creditProCents, reason: `Used on ${bookingCode(b.number)}`, bookingId: b.id });
-  if (b.creditGeneralCents) used.push({ studentId: b.studentId, proId: null, amountCents: -b.creditGeneralCents, reason: `Used on ${bookingCode(b.number)}`, bookingId: b.id });
+  const promo = Math.min(b.promoCents, b.creditGeneralCents); // card + promotional credit (honored by the pro)
+  const ownGeneral = b.creditGeneralCents - promo; // the student's own general credit
+  if (b.creditProCents) used.push({ studentId: b.studentId, proId: b.proId, amountCents: -b.creditProCents, reason: `Used on ${bookingCode(b.number)}`, bookingId: b.id, promo: false });
+  if (ownGeneral) used.push({ studentId: b.studentId, proId: null, amountCents: -ownGeneral, reason: `Used on ${bookingCode(b.number)}`, bookingId: b.id, promo: false });
+  if (promo) used.push({ studentId: b.studentId, proId: null, amountCents: -promo, reason: `Used on ${bookingCode(b.number)}`, bookingId: b.id, promo: true });
   if (used.length) await db.insert(credits).values(used);
 
   if (b.modelCallId) {
@@ -99,18 +102,20 @@ export async function confirmFromCheckout(sessionId: string) {
 }
 
 const total = (b: typeof bookings.$inferSelect) => b.chargedCents + b.creditProCents + b.creditGeneralCents;
+/** Promotional value on a booking (Nearest Card + promotional credit) — honored by the professional, service only. */
+const promoOf = (b: typeof bookings.$inferSelect) => Math.min(b.promoCents ?? 0, b.creditGeneralCents);
 
 /**
  * Card processing on this booking — always paid from the pro's side, never absorbed by Nearest:
  *  - the part paid by card: Stripe's actual fee on this payment (stripe_fee_cents);
  *  - the part paid with Nearest credit: that money came from an earlier card payment whose fee Stripe already kept,
  *    so its share of processing is carried over (standard card rate: 2.9%, plus 30¢ when credit pays the whole booking).
- * A free launch-campaign booking has none.
+ * A free launch-campaign booking has none, and promotional value (cards, promo credit) carries none — it isn't money.
  */
 const CARD_RATE = 0.029, CARD_FIXED_CENTS = 30;
 export function processingFeeCents(b: typeof bookings.$inferSelect) {
   if (b.campaignEntryId) return 0;
-  const creditPart = b.creditProCents + b.creditGeneralCents;
+  const creditPart = b.creditProCents + b.creditGeneralCents - promoOf(b);
   const creditFee = creditPart > 0 ? Math.round(creditPart * CARD_RATE) + (b.chargedCents === 0 ? CARD_FIXED_CENTS : 0) : 0;
   return (b.stripeFeeCents ?? 0) + creditFee;
 }
@@ -139,7 +144,11 @@ export async function cancelByStudent(bookingId: string, studentId: string) {
   const back = [];
   const proPart = b.chargedCents + b.creditProCents - forfeit;
   if (proPart > 0) back.push({ studentId, proId: b.proId, amountCents: proPart, reason: `Cancelled ${bookingCode(b.number)}`, bookingId: b.id });
-  if (b.creditGeneralCents > 0) back.push({ studentId, proId: null, amountCents: b.creditGeneralCents, reason: `Cancelled ${bookingCode(b.number)}`, bookingId: b.id });
+  // General credit comes back as it was spent: the student's own credit as general credit, promotional value (card,
+  // campaign reward) as promotional credit — still honored by professionals, still no cash value.
+  const promoBack = promoOf(b);
+  if (b.creditGeneralCents - promoBack > 0) back.push({ studentId, proId: null, amountCents: b.creditGeneralCents - promoBack, reason: `Cancelled ${bookingCode(b.number)}`, bookingId: b.id, promo: false });
+  if (promoBack > 0) back.push({ studentId, proId: null, amountCents: promoBack, reason: `Cancelled ${bookingCode(b.number)} (promotional credit)`, bookingId: b.id, promo: true });
   if (back.length) await db.insert(credits).values(back);
   await freeSpot(b);
 
@@ -173,7 +182,9 @@ export async function cancelAsProFault(bookingId: string, reason: string, proId?
   const [b] = await db.update(bookings).set({ status: "cancelled_pro", cancelledAt: new Date() }).where(where).returning();
   if (b) await restoreInviteRewards();
   if (!b) return { error: "This appointment can't be cancelled." };
-  if (total(b) > 0) await db.insert(credits).values({ studentId: b.studentId, proId: null, amountCents: total(b), reason: `${reason} (${bookingCode(b.number)})`, bookingId: b.id });
+  const promoBack = promoOf(b);
+  if (total(b) - promoBack > 0) await db.insert(credits).values({ studentId: b.studentId, proId: null, amountCents: total(b) - promoBack, reason: `${reason} (${bookingCode(b.number)})`, bookingId: b.id });
+  if (promoBack > 0) await db.insert(credits).values({ studentId: b.studentId, proId: null, promo: true, amountCents: promoBack, reason: `${reason} (${bookingCode(b.number)}, promotional credit)`, bookingId: b.id });
   if (heldSpot) await freeSpot(b); // a booking that never got a spot must not give one back
   try { await (await import("./notify")).notifyCancelled(b, "pro"); } catch (e) { console.error(e); }
   return { ok: "Cancelled. The student received the full amount as Nearest credit." };
@@ -188,7 +199,8 @@ export async function releasePayment(bookingId: string, studentId: string) {
   const pro = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, b.proId) });
   // Launch campaign reward: the student paid $0 and Nearest pays the agreed campaign payout (no fees taken from it).
   // Nearest keeps its service fee; card processing (including on any credit used) comes out of the pro's side.
-  const gross = b.campaignEntryId ? b.campaignPayoutCents : Math.max(0, total(b) - b.serviceFeeCents - processingFeeCents(b));
+  // Promotional value (Nearest Card, promotional credit) is honored by the pro, so it isn't paid out.
+  const gross = b.campaignEntryId ? b.campaignPayoutCents : Math.max(0, total(b) - promoOf(b) - b.serviceFeeCents - processingFeeCents(b));
   const amount = gross - (await collectDues(pro, b.id, gross)); // pay-from-bookings membership comes out first
   let transferId: string | null = null;
   if (amount > 0) {

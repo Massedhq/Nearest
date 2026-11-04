@@ -3,13 +3,18 @@ import { and, asc, eq, gte } from "drizzle-orm";
 import { db, campaignOffers, professionalProfiles, proServices } from "@/db";
 import { CAMPAIGN_KEY } from "./campaign";
 
-/** The free campaign service must be one of the professional's services listed at $25 or more. */
+/**
+ * The professional's ONE free service (restored 2026-11-04, owner rule): each professional picks one of their services
+ * listed at $25 or more and gives it free ONE time, ever, to a student who brings a Nearest Free Card. The student still
+ * pays the booking fee and deposit (src/lib/promo.ts). New pros agree on the last setup page; earlier pros from the
+ * home-screen card.
+ */
 export const MIN_REWARD_CENTS = 2500;
-export const DEFAULT_FREE_APPOINTMENTS = 5;
-export const MAX_FREE_APPOINTMENTS = 50;
+export const DEFAULT_FREE_APPOINTMENTS = 1;
+export const MAX_FREE_APPOINTMENTS = 1;
 
 export const PRO_CAMPAIGN_AGREEMENT =
-  "I agree to honor the Nearest launch campaign reward: a student approved by Nearest can book one free appointment for the service I choose below (listed at $25 or more), at no charge to the student, and I receive no payout for that appointment. I choose how many free appointments I give.";
+  "I agree to give one free service, one time, to a student who brings a Nearest Free Card — the service I choose below (listed at $25 or more). The student still pays the booking fee and deposit.";
 
 export type ProProfile = typeof professionalProfiles.$inferSelect;
 
@@ -33,8 +38,7 @@ export function needsCampaignChoice(p: ProProfile) {
 /** Read and validate the service + number of free appointments from a form. serviceId may be empty (choose later). */
 export async function readChoice(proId: string, form: FormData): Promise<{ serviceId: string | null; slots: number } | { error: string }> {
   const serviceId = String(form.get("campaignServiceId") ?? "").trim() || null;
-  const slots = Number(String(form.get("campaignSlots") ?? DEFAULT_FREE_APPOINTMENTS).trim());
-  if (!Number.isInteger(slots) || slots < 1 || slots > MAX_FREE_APPOINTMENTS) return { error: `Free appointments must be a whole number from 1 to ${MAX_FREE_APPOINTMENTS}.` };
+  const slots = DEFAULT_FREE_APPOINTMENTS; // one free service, one time
   if (serviceId && !(await rewardEligibleServices(proId)).some((s) => s.id === serviceId)) return { error: "Choose one of your services listed at $25 or more." };
   return { serviceId, slots };
 }

@@ -82,7 +82,7 @@ async function createAndPay(opts: {
   if (s["status.bookings"] !== true) return { error: "Booking is paused right now. Please try again soon." };
   const deposit = Math.min(Number(s["appt.deposit_cents"]), opts.priceCents);
   // Bundle bookings never use credits or invite rewards — those are for single bookings only.
-  const bal = opts.bundleId ? { pro: 0, general: 0 } : await creditBalances(opts.studentId, opts.proId);
+  const bal = opts.bundleId ? { pro: 0, general: 0, promo: 0 } : await creditBalances(opts.studentId, opts.proId);
   // Invite reward: $5 off a student's first booking with this pro (services only, one per booking). The pro funds it.
   const inv = opts.serviceId && !opts.bundleId ? await inviteRewardFor(opts.studentId, opts.proId, opts.priceCents) : null;
   // Nearest Card: only when the student picked one. Reserved for this booking (so it can't be used twice) before the insert.
@@ -90,11 +90,17 @@ async function createAndPay(opts: {
   const cards = await import("@/lib/nearest-cards");
   let cardAmt = 0;
   if (opts.cardId && !opts.bundleId) {
+    // Cards are honored by the professional: only pros who accepted those Terms, and a Free Card only on their free service.
+    const problem = await (await import("@/lib/promo")).cardProblem(opts.cardId, opts.proId, opts.serviceId, { modelCall: Boolean(opts.modelCallId) });
+    if (problem) return { error: problem };
     const r = await cards.setBookingCard(opts.studentId, newId, opts.cardId);
     if (!r.ok) return { error: r.error };
     cardAmt = r.amountCents;
   }
-  let use = cards.planWithCard(opts.priceCents - (inv?.cents ?? 0), bal, cardAmt);
+  // Cards and promotional credit cover the service only — the student always pays the booking fee and deposit.
+  const { promoCap } = await import("@/lib/promo");
+  const capFor = (invCents: number) => promoCap({ priceCents: opts.priceCents, travelFeeCents: travelFee, serviceFeeCents: opts.serviceFeeCents ?? 0, depositCents: deposit, inviteDiscountCents: invCents, modelCallId: opts.modelCallId });
+  let use = cards.planWithCard(opts.priceCents - (inv?.cents ?? 0), bal, cardAmt, capFor(inv?.cents ?? 0));
   const endsAt = new Date(opts.startsAt.getTime() + opts.durationMin * 60000);
   await releaseMyHolds(opts.studentId); // an old unfinished payment never blocks a new booking (accepted requests are kept)
   // Every booking starts as a request: nothing is charged now. The professional accepts (activating their membership
@@ -103,7 +109,7 @@ async function createAndPay(opts: {
   const isRequest = true;
 
   const [b] = await db.insert(bookings).values({
-    id: newId, cardId: use.card > 0 ? opts.cardId : null, cardCents: use.card,
+    id: newId, cardId: use.card > 0 ? opts.cardId : null, cardCents: use.card, promoCents: use.promoCents,
     studentId: opts.studentId, proId: opts.proId, serviceId: opts.serviceId ?? null, modelCallId: opts.modelCallId ?? null,
     serviceName: opts.serviceName, startsAt: opts.startsAt, endsAt, priceCents: opts.priceCents, travelFeeCents: travelFee, depositCents: deposit,
     addons: opts.addons?.length ? opts.addons : null, addonsCents: (opts.addons ?? []).reduce((t, a) => t + a.priceCents, 0),
@@ -115,8 +121,8 @@ async function createAndPay(opts: {
     if (await reserveInviteReward(inv.id, b.id)) await db.update(bookings).set({ inviteRewardId: inv.id }).where(eq(bookings.id, b.id));
     else {
       // The reward was just used elsewhere: book at the full price instead.
-      use = cards.planWithCard(opts.priceCents, bal, cardAmt);
-      await db.update(bookings).set({ inviteDiscountCents: 0, cardCents: use.card, creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge }).where(eq(bookings.id, b.id));
+      use = cards.planWithCard(opts.priceCents, bal, cardAmt, capFor(0));
+      await db.update(bookings).set({ inviteDiscountCents: 0, cardCents: use.card, promoCents: use.promoCents, creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge }).where(eq(bookings.id, b.id));
       b.chargedCents = use.charge; b.creditProCents = use.pro; b.creditGeneralCents = use.general; b.inviteDiscountCents = 0;
     }
   }
@@ -145,10 +151,13 @@ export async function payAcceptedBooking(form: FormData) {
   const id = String(form.get("id") ?? "");
   const b = await db.query.bookings.findFirst({ where: and(eq(bookings.id, id), eq(bookings.studentId, user.id)) });
   if (!b || b.status !== "pending_payment" || !b.respondedAt || (b.holdExpiresAt && b.holdExpiresAt.getTime() < Date.now())) redirect(`/bookings/${id}`);
-  const bal = b.bundleId ? { pro: 0, general: 0 } : await creditBalances(user.id, b.proId);
+  const bal = b.bundleId ? { pro: 0, general: 0, promo: 0 } : await creditBalances(user.id, b.proId);
   const cards = await import("@/lib/nearest-cards");
-  const use = cards.planWithCard(b.priceCents - b.inviteDiscountCents, bal, b.bundleId ? 0 : await cards.cardAmount(b.cardId, b.id));
-  await db.update(bookings).set({ cardCents: use.card, cardId: use.card > 0 ? b.cardId : null, creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge }).where(eq(bookings.id, id));
+  // A Free Card whose professional has since given their one free service can't be used any more.
+  const { promoCap, cardProblem } = await import("@/lib/promo");
+  const cardOk = !b.bundleId && b.cardId && !(await cardProblem(b.cardId, b.proId, b.serviceId, { modelCall: Boolean(b.modelCallId), bookingId: b.id }));
+  const use = cards.planWithCard(b.priceCents - b.inviteDiscountCents, bal, cardOk ? await cards.cardAmount(b.cardId, b.id) : 0, promoCap(b));
+  await db.update(bookings).set({ cardCents: use.card, cardId: use.card > 0 ? b.cardId : null, promoCents: use.promoCents, creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge }).where(eq(bookings.id, id));
   if (use.charge === 0) { await confirmBooking(id); redirect(`/bookings/${id}?booked=1`); }
   if (!stripeEnabled()) redirect(`/bookings/${id}?payment=unavailable`);
   const pro = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, b.proId) });

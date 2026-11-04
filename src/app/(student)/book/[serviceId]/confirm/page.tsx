@@ -56,11 +56,17 @@ export default async function Confirm({ params, searchParams }: { params: Promis
   const deposit = Math.min(Number(s["appt.deposit_cents"]), price);
   const inv = bundleItem ? null : await inviteRewardFor(user.id, svc.userId, price); // $5 off a first booking with this pro
   // Nearest Cards are never applied automatically: the student picks one below (?card=ID) or none.
-  const myCards = bundleItem ? [] : await usableCards(user.id);
+  // Cards are honored by the professional: only cards this pro takes are offered (a Free Card only on their free service).
+  const { cardProblem, promoCap } = await import("@/lib/promo");
+  const checked = bundleItem ? [] : await Promise.all((await usableCards(user.id)).map(async (x) => ({ x, problem: await cardProblem(x.c.id, svc.userId, svc.id) })));
+  const myCards = checked.filter((c) => !c.problem).map((c) => c.x);
+  const notHere = [...new Set(checked.filter((c) => c.problem).map((c) => c.problem as string))];
   const chosen = myCards.find((x) => x.c.id === cardParam) ?? null;
+  // Cards and promotional credit cover the service only — the booking fee and deposit are always paid.
+  const cap = promoCap({ priceCents: price, serviceFeeCents: svc.proPriceCents == null ? 0 : svc.serviceFeeCents, depositCents: deposit, inviteDiscountCents: inv?.cents ?? 0 });
   const use = bundleItem
     ? { card: 0, pro: 0, general: 0, charge: price } // credits can't be used on bundle bookings
-    : planWithCard(price - (inv?.cents ?? 0), await creditBalances(user.id, svc.userId), chosen?.b.amountCents ?? 0);
+    : planWithCard(price - (inv?.cents ?? 0), await creditBalances(user.id, svc.userId), chosen?.b.amountCents ?? 0, cap);
   const starts = chicagoToUtc(day, time);
   const city = pro.cityId ? await db.query.cities.findFirst({ where: eq(cities.id, pro.cityId) }) : null;
   const travels = pro.serviceMode === "travel" || pro.serviceMode === "both" || !pro.addressLine;
@@ -95,9 +101,11 @@ export default async function Confirm({ params, searchParams }: { params: Promis
                     {cardLabel(x.b.kind)} •••• {x.c.number.slice(-4)} — {x.b.kind === "free" ? `covers up to ${money(x.b.amountCents)}` : `${money(x.b.amountCents)} off`}
                   </Link>
                 ))}
-                <span className="xs muted">Only the card you choose is used, and only on this booking. One card per booking — any value it doesn&apos;t cover here isn&apos;t kept.</span>
+                <span className="xs muted">Only the card you choose is used, and only on this booking. It covers the service — the booking fee and deposit are still paid. One card per booking; any value it doesn&apos;t cover here isn&apos;t kept.</span>
               </div>
-            ) : <span className="xs muted">You don&apos;t have a Nearest Card saved. Have one? Add it below — it&apos;s saved on your account and only used when you choose it.</span>}
+            ) : <span className="xs muted">{checked.length ? "None of your saved cards can be used on this booking." : "You don't have a Nearest Card saved. Have one? Add it below — it's saved on your account and only used when you choose it."}</span>}
+            {notHere.length > 0 && myCards.length > 0 && <span className="xs muted">Some of your cards can&apos;t be used here: {notHere.join(" ")}</span>}
+            {notHere.length > 0 && myCards.length === 0 && <span className="xs muted">{notHere.join(" ")}</span>}
             <details style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <summary className="link small" style={{ cursor: "pointer" }}>Add a Nearest Card</summary>
               <NearestCardForm back={`/book/${svc.id}/confirm?day=${day}&time=${time}${q}`} label="Save card to my account" />

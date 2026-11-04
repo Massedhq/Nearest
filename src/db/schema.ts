@@ -484,6 +484,10 @@ export const bookings = pgTable("bookings", {
   // confirmBooking adds it as credit first, so payouts, cancellations and refunds treat it like general credit.
   cardId: uuid("card_id"),
   cardCents: integer("card_cents").notNull().default(0),
+  // Promotional value on this booking (Nearest Card + promotional credit such as the launch campaign reward). It only
+  // ever covers the service — never the booking fee or deposit — and the professional honors it (it comes out of
+  // their payout, per the Professional Terms). Credit only; no cash value.
+  promoCents: integer("promo_cents").notNull().default(0),
   serviceFeeCents: integer("service_fee_cents").notNull().default(0), // Nearest's service fee in this price — kept when the booking completes
   // Launch campaign reward booking: the student pays $0; Nearest pays the pro campaign_payout_cents when it completes.
   campaignEntryId: uuid("campaign_entry_id"),
@@ -546,6 +550,9 @@ export const credits = pgTable("credits", {
   amountCents: integer("amount_cents").notNull(),
   reason: text("reason").notNull(),
   bookingId: uuid("booking_id").references(() => bookings.id),
+  // Promotional credit (Nearest Cards, launch campaign reward): honored by the professional, covers the service only,
+  // no cash value. Ordinary credit (cancellations) is the student's own money and pays the professional normally.
+  promo: boolean("promo").notNull().default(false),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("credits_student_idx").on(t.studentId)]);
 
@@ -1572,6 +1579,7 @@ export const learnClasses = pgTable("learn_classes", {
   educatorLink: text("educator_link"), // their Instagram/TikTok/website
   description: text("description"),
   category: text("category"), // e.g. Hair Styling
+  priceCents: integer("price_cents"), // what a professional will pay for 30 days of access (integer cents)
   coverUrl: text("cover_url"),
   coverAccess: text("cover_access"), // private | public (unlisted fallback)
   videoUrl: text("video_url"),

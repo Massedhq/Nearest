@@ -11,6 +11,8 @@ import { ProTermsAgreement } from "@/components/ProTermsAgreement";
 import { proTermsSections, PRO_TERMS_VERSION } from "@/lib/pro-terms";
 import { enrollmentQuote } from "@/lib/enroll";
 import { ProProtectionFields } from "@/components/ProProtectionFields";
+import { ProCampaignFields } from "@/components/ProCampaignFields";
+import { rewardEligibleServices } from "@/lib/campaign-pro";
 
 export const metadata = { title: "Review & submit" };
 
@@ -65,6 +67,7 @@ export default async function ReviewStep() {
                 <>
                   <ProTermsAgreement sections={proTermsSections({ cents: quote.cents, label: quote.label })} version={PRO_TERMS_VERSION} />
                   <label className="check xs" style={{ alignItems: "flex-start" }}><input type="checkbox" name="inviteReward" required /><span>I agree to honor Nearest&apos;s $5 student invite reward: a student who earned it by inviting a friend gets $5 off their first booking with me, taken from that booking&apos;s payout.</span></label>
+                  <div className="card" style={{ gap: 8 }}><span className="b small">Your one free service</span><ProCampaignFields services={await rewardEligibleServices(p.userId)} /></div>
                 </>
               ) : null}
               {/* Optional: answering never blocks submitting (unanswered pros are asked again on their home screen). */}

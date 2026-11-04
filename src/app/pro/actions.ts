@@ -357,6 +357,10 @@ export async function submitForReview(_: FormState, form: FormData): Promise<For
     const { PRO_TERMS_VERSION } = await import("@/lib/pro-terms");
     if (form.get("acceptTerms") !== "on" || String(form.get("termsVersion")) !== PRO_TERMS_VERSION) return { error: "Scroll through and accept the Professional Terms to submit." };
     if (form.get("inviteReward") !== "on") return { error: "Please agree to honor the $5 student invite reward." };
+    // The one free service (given once, to a student with a Nearest Free Card) — agreed here; the service can be chosen later.
+    if (form.get("campaignAgree") !== "on") return { error: "Please agree to give your one free service." };
+    const freeChoice = await (await import("@/lib/campaign-pro")).readChoice(user.id, form);
+    if ("error" in freeChoice) return { error: freeChoice.error };
     const { enrollmentQuote } = await import("@/lib/enroll");
     const q = await enrollmentQuote(profile);
     if (!q.ok) return { error: q.reason };
@@ -369,6 +373,7 @@ export async function submitForReview(_: FormState, form: FormData): Promise<For
       proTermsVersion: PRO_TERMS_VERSION, proTermsAcceptedAt: new Date(), proTermsIp: ip,
     }).where(and(eq(professionalProfiles.userId, user.id), isNull(professionalProfiles.entryPaidAt))).returning();
     if (row) {
+      await (await import("@/lib/campaign-pro")).saveAgreement(user.id, freeChoice);
       const { logActivity } = await import("@/lib/log");
       await logActivity({ actorUserId: user.id, action: "pro.enrolled", targetType: "professional", targetId: user.id, after: { entryType: q.type, rateCents: q.cents, termsVersion: PRO_TERMS_VERSION, ip } });
       try { await (await import("@/lib/outreach")).checkCapacity(row.slotCityId, row.slotCategoryId); } catch (e) { console.error(e); }

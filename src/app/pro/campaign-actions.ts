@@ -11,7 +11,8 @@ import { logActivity } from "@/lib/log";
 export async function optInCampaign(_: FormState, form: FormData): Promise<FormState> {
   const { user, profile } = await requirePro({ self: true });
   if (!profile.entryPaidAt) return { error: "Submit your profile first — the free-service agreement is on the last setup page." };
-  if (profile.campaignChoice !== "agreed" && form.get("campaignAgree") !== "on") return { error: "Tick the box to agree to the launch campaign free service." };
+  if (profile.campaignChoice !== "agreed" && form.get("campaignAgree") !== "on") return { error: "Tick the box to agree to give your one free service." };
+  if (await (await import("@/lib/promo")).freeServiceGiven(user.id)) return { error: "You've already given your free service." };
   const choice = await readChoice(user.id, form);
   if ("error" in choice) return { error: choice.error };
   if (!choice.serviceId) return { error: "Choose the service you'll give for free (one listed at $25 or more)." };
@@ -19,7 +20,7 @@ export async function optInCampaign(_: FormState, form: FormData): Promise<FormS
   await saveAgreement(user.id, choice);
   await logActivity({ actorUserId: user.id, action: first ? "pro.campaign_opt_in" : "pro.campaign_updated", targetType: "professional", targetId: user.id, after: choice });
   revalidatePath("/pro", "layout");
-  return { ok: first ? "You're in. Approved campaign students can now request your free service." : "Saved." };
+  return { ok: first ? "You're in. Students with a Nearest Free Card can now request your free service." : "Saved." };
 }
 
 /** Earlier pros only: "Decline" on the home card. Normal bookings are not affected. */
@@ -31,7 +32,7 @@ export async function declineCampaign() {
   revalidatePath("/pro", "layout");
 }
 
-/** An agreed pro pauses or resumes their free appointments (e.g. fully booked). */
+/** An agreed pro pauses or resumes their free service (kept for earlier links; not shown on the home card). */
 export async function toggleCampaignOffer() {
   const { user } = await requirePro({ self: true });
   const o = await proOffer(user.id);

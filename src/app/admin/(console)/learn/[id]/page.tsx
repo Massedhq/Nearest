@@ -6,7 +6,7 @@ import { AdminHead } from "@/components/AdminHead";
 import { LearnClassForm } from "@/components/LearnClassForm";
 import { LearnPlayer } from "@/components/LearnPlayer";
 import { requireAdmin } from "@/lib/admin";
-import { LEARN_STATUS, publishProblems } from "@/lib/learn";
+import { LEARN_STATUS, learnPrice, publishProblems } from "@/lib/learn";
 import { setLearnStatus, deleteLearnClass } from "@/app/admin/learn-actions";
 
 export const metadata = { title: "Learn at Nearest — class" };
@@ -31,6 +31,7 @@ export default async function LearnClass({ params, searchParams }: { params: Pro
           <div className="card" style={{ gap: 12 }}>
             <div className="row between"><span className="eyebrow">Preview (admins only)</span><span className={`tag ${c.status === "published" ? "ok" : c.status === "hidden" ? "bad" : ""}`}>{LEARN_STATUS[c.status] ?? c.status}</span></div>
             {c.videoUrl ? <LearnPlayer id={c.id} title={c.title} watermark={viewerName} /> : <span className="small muted">No video yet.</span>}
+            <span className="b" style={{ color: "#E3C58A" }}>{learnPrice(c.priceCents) ? `${learnPrice(c.priceCents)} for 30 days` : "No price yet"}</span>
             <span className="small">by <span className="b">{c.educatorName}</span>{c.educatorLink && <> • <a className="link" href={c.educatorLink} target="_blank" rel="noopener noreferrer">their page</a></>}</span>
             {c.description && <p className="small p" style={{ margin: 0, whiteSpace: "pre-wrap" }}>{c.description}</p>}
             {isOwner && (

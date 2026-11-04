@@ -3,7 +3,7 @@
  * card processing) are part of section 2 — there's no monthly membership. The rate argument is kept for older callers. Bump PRO_TERMS_VERSION whenever the text changes —
  * every professional's accepted version is stored, so Nearest can prove which terms they agreed to.
  */
-export const PRO_TERMS_VERSION = "2026-10-28";
+export const PRO_TERMS_VERSION = "2026-11-04";
 
 /** Label for a pro's locked rate (used when an already-enrolled pro accepts an updated version). */
 export const rateLabel = (entryType: string | null | undefined) => (entryType === "FIRST_IN" ? "First In" : entryType === "DFW_NEXT" ? "DFW membership" : "Market rate");
@@ -24,6 +24,8 @@ export function proTermsSections(_rate?: { cents: number; label: string }) {
       "Nearest service fee: a flat $5.00 Nearest service fee applies to each service and each Model Call booked through Nearest. The fee is always added on top of your service price, so students see one total (for example, a $30 service shows as $35) and you receive your full price. It can't be included in or taken from your price. On Model Calls the fee is always added to your model price (a $15 model price shows models $20; a free Model Call shows $5). Model Calls published before October 17, 2026 have no fee. Add-ons have no service fee.",
       "Nearest keeps the fee only when a booking is completed. Nearest takes no other commission on your bookings.",
       "Card processing: the card-processing fee on each payment comes out of your payout for that booking. When a student pays with Nearest credit from an earlier payment, or when you receive a forfeited deposit, the processing fee from the original payment comes out of that amount the same way.",
+      "Nearest Cards and promotional credit: Nearest gives students Nearest Cards (discount and free) and promotional credit to bring them to you. You agree to honor them: the card or credit amount comes off the service price and isn't included in your payout for that booking. They cover the service only — the student still pays the booking fee and deposit. They're credit only, with no cash value.",
+      "Your one free service: you choose one of your services listed at $25 or more and give it free one time, ever, to a student who brings a Nearest Free Card.",
       "Nearest may add, change or remove platform and service fees to operate and improve the service. Nearest will tell you before any change takes effect, and changes apply only to bookings made after the change.",
     ] },
     { h: "3. Safety and conduct", p: [

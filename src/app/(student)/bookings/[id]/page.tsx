@@ -43,7 +43,11 @@ export default async function Booking({ params, searchParams }: { params: Promis
   const s = await getSettings();
   const total = b.chargedCents + b.creditProCents + b.creditGeneralCents;
   const canPickCard = ["requested", "pending_payment"].includes(b.status) && !b.bundleId;
-  const myCards = canPickCard ? await usableCards(user.id, b.id) : [];
+  // Cards are honored by the professional: only cards this pro takes are offered (a Free Card only on their free service).
+  const { cardProblem } = await import("@/lib/promo");
+  const myCards = canPickCard
+    ? (await Promise.all((await usableCards(user.id, b.id)).map(async (x) => ((await cardProblem(x.c.id, b.proId, b.serviceId, { modelCall: Boolean(b.modelCallId), bookingId: b.id })) ? null : x)))).filter((x): x is NonNullable<typeof x> => Boolean(x))
+    : [];
   const hoursAway = (b.startsAt.getTime() - Date.now()) / 3600000;
   const early = hoursAway >= Number(s["cancel.cutoff_hours"]);
   const started = hoursAway <= 0;
@@ -106,9 +110,9 @@ export default async function Booking({ params, searchParams }: { params: Promis
                     <button className={`chip${b.cardId === x.c.id ? " on" : ""}`} type="submit" style={{ width: "100%" }}>{cardLabel(x.b.kind)} •••• {x.c.number.slice(-4)} — {x.b.kind === "free" ? `covers up to ${money(x.b.amountCents)}` : `${money(x.b.amountCents)} off`}</button>
                   </form>
                 ))}
-                <span className="xs muted">Only the card you choose is used, and only on this booking. One card per booking — any value it doesn&apos;t cover here isn&apos;t kept.</span>
+                <span className="xs muted">Only the card you choose is used, and only on this booking. It covers the service — the booking fee and deposit are still paid. One card per booking; any value it doesn&apos;t cover here isn&apos;t kept.</span>
               </div>
-            ) : <span className="xs muted">No Nearest Card saved on your account.</span>}
+            ) : <span className="xs muted">No Nearest Card on your account can be used with this professional.</span>}
             <details style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <summary className="link small" style={{ cursor: "pointer" }}>Add a Nearest Card</summary>
               <NearestCardForm back={`/bookings/${b.id}`} label="Save card to my account" />

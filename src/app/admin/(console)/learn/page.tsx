@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AdminHead } from "@/components/AdminHead";
 import { LearnClassForm } from "@/components/LearnClassForm";
 import { requireAdmin } from "@/lib/admin";
-import { allClasses, LEARN_STATUS } from "@/lib/learn";
+import { allClasses, LEARN_STATUS, learnPrice } from "@/lib/learn";
 
 export const metadata = { title: "Learn at Nearest" };
 
@@ -31,6 +31,7 @@ export default async function LearnAdmin() {
                 <div className="col g4" style={{ minWidth: 0 }}>
                   <span className="b">{c.title}</span>
                   <span className="small muted">by {c.educatorName}{c.category ? ` • ${c.category}` : ""}</span>
+                  <span className="small b" style={{ color: "#E3C58A" }}>{learnPrice(c.priceCents) ? `${learnPrice(c.priceCents)} • 30 days` : "No price yet"}</span>
                   <span className={`tag ${c.status === "published" ? "ok" : c.status === "hidden" ? "bad" : ""}`} style={{ alignSelf: "flex-start" }}>{LEARN_STATUS[c.status] ?? c.status}</span>
                 </div>
               </Link>

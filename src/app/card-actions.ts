@@ -27,10 +27,14 @@ export async function chooseBookingCard(form: FormData) {
   if (!/^[0-9a-f-]{36}$/.test(bookingId)) return;
   const b = await db.query.bookings.findFirst({ where: and(eq(bookings.id, bookingId), eq(bookings.studentId, user.id), inArray(bookings.status, ["requested", "pending_payment"])) });
   if (!b || b.bundleId) return;
-  const r = await setBookingCard(user.id, b.id, /^[0-9a-f-]{36}$/.test(cardId) ? cardId : null);
+  const valid = /^[0-9a-f-]{36}$/.test(cardId) ? cardId : null;
+  // Cards are honored by the professional: only pros who accepted those Terms, and a Free Card only on their free service.
+  const { cardProblem, promoCap } = await import("@/lib/promo");
+  if (valid && (await cardProblem(valid, b.proId, b.serviceId, { modelCall: Boolean(b.modelCallId), bookingId: b.id }))) { revalidatePath(`/bookings/${b.id}`); return; }
+  const r = await setBookingCard(user.id, b.id, valid);
   const amount = r.ok ? r.amountCents : 0;
-  const use = planWithCard(b.priceCents - b.inviteDiscountCents, await creditBalances(user.id, b.proId), amount);
-  await db.update(bookings).set({ cardId: use.card > 0 && r.ok && cardId ? cardId : null, cardCents: use.card, creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge }).where(eq(bookings.id, b.id));
+  const use = planWithCard(b.priceCents - b.inviteDiscountCents, await creditBalances(user.id, b.proId), amount, promoCap(b));
+  await db.update(bookings).set({ cardId: use.card > 0 && r.ok && cardId ? cardId : null, cardCents: use.card, promoCents: use.promoCents, creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge }).where(eq(bookings.id, b.id));
   revalidatePath(`/bookings/${b.id}`);
   revalidatePath("/cards");
 }

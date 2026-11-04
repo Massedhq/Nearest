@@ -1,15 +1,22 @@
 import "server-only";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { db, credits } from "@/db";
+import { db, credits, professionalProfiles } from "@/db";
 
-/** Balances a student can use with this pro: credit tied to that pro, plus general Nearest credit. */
+/**
+ * Balances a student can use with this pro: credit tied to that pro, general Nearest credit (the student's own money,
+ * e.g. from cancellations), and promotional credit (launch campaign reward) — the last only when this pro honors
+ * promotional value (src/lib/promo.ts). Promotional credit only ever covers the service; see planWithCard.
+ */
 export async function creditBalances(studentId: string, proId: string) {
   const [pro] = await db.select({ n: sql<number>`coalesce(sum(${credits.amountCents}),0)::int` }).from(credits).where(and(eq(credits.studentId, studentId), eq(credits.proId, proId)));
-  const [gen] = await db.select({ n: sql<number>`coalesce(sum(${credits.amountCents}),0)::int` }).from(credits).where(and(eq(credits.studentId, studentId), isNull(credits.proId)));
-  return { pro: Math.max(0, pro.n), general: Math.max(0, gen.n) };
+  const [gen] = await db.select({ n: sql<number>`coalesce(sum(${credits.amountCents}),0)::int` }).from(credits).where(and(eq(credits.studentId, studentId), isNull(credits.proId), eq(credits.promo, false)));
+  const { promoBalance, honorsPromos } = await import("./promo");
+  const p = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, proId) });
+  const promo = (await honorsPromos(p)) ? await promoBalance(studentId) : 0;
+  return { pro: Math.max(0, pro.n), general: Math.max(0, gen.n), promo };
 }
 
-/** How much credit applies to a price, keeping any card charge at $0 or at least Stripe's $0.50 minimum. */
+/** How much credit applies to a price, keeping any card charge at $0 or at least Stripe's $0.50 minimum. (No promotional credit — Model Calls.) */
 export function applyCredits(price: number, bal: { pro: number; general: number }) {
   let pro = Math.min(bal.pro, price);
   let general = Math.min(bal.general, price - pro);

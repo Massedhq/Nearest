@@ -63,7 +63,7 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
           <div className="col" style={{ gap: 2 }}><span className="xs muted">Available to give back</span><span className="stat">{money(fund.available)}</span><span className="xs muted">{fund.available > 0 ? `= ${Math.floor(fund.available / 1000)} × $10 cards or ${Math.floor(fund.available / 500)} × $5 cards` : "Nothing available yet"}</span></div>
           <div className="col" style={{ gap: 2 }}><span className="xs muted">Already promised</span><span className="stat">{money(fund.saved)}</span><span className="xs muted">saved on student accounts, not used yet • {money(fund.unclaimed)} more printed and not saved yet</span></div>
         </div>
-        <span className="xs muted">Every completed booking sets aside {money(fund.perBooking)} of its booking fee (never more than that booking&apos;s own fee) for Nearest Cards — change it in Rules &amp; Settings → Fees. When a student uses a card on a paid booking, its value comes out of the fund. It&apos;s a tracking number for planning: the money itself stays in Nearest&apos;s balance and professionals are always paid in full.{fund.available < fund.saved ? " Cards already saved on student accounts are worth more than the fund right now — hold off on new cards until more bookings complete." : ""}</span>
+        <span className="xs muted">Every completed booking sets aside {money(fund.perBooking)} of its booking fee (never more than that booking&apos;s own fee) for Nearest Cards — change it in Rules &amp; Settings → Fees. When a student uses a card on a paid booking, its value comes out of the fund. It&apos;s a tracking number for planning only. Since November 4, 2026 professionals honor Nearest Cards (it&apos;s in the Professional Terms), so card value comes off the service and isn&apos;t paid out of Nearest&apos;s balance. Cards cover the service only — students still pay the booking fee and deposit.{fund.available < fund.saved ? " Cards already saved on student accounts are worth more than the fund right now — hold off on new cards until more bookings complete." : ""}</span>
       </div>
       <div className="kpis k4">
         <div className="card" style={{ gap: 4 }}><span className="xs muted">Cards made</span><span className="stat">{totals.made}</span></div>
@@ -74,10 +74,10 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
 
       <div className="card" style={{ gap: 10 }}>
         <span className="eyebrow">Make cards</span>
-        <span className="xs muted">Discount cards: 16-digit number + 3-digit code, $10–$30 off. Free cards: 16-digit number + 4-digit code, cover a service up to the amount you set (at most ${CARD_LIMITS.freeMax / 100}). Every number starts with {CARD_LIMITS.prefix} and is random. Valid thru = the month printed on the card; after it, the card can&apos;t be added.</span>
+        <span className="xs muted">Discount cards: 16-digit number + 3-digit code, $5–$30 off the service. Free cards: 16-digit number + 4-digit code, cover a professional's one free service up to the amount you set (at most ${CARD_LIMITS.freeMax / 100}). Every number starts with {CARD_LIMITS.prefix} and is random. Valid thru = the month printed on the card; after it, the card can&apos;t be added.</span>
         <ActionForm action={createCards} submitLabel="Make cards" buttonClass="btn sm" className="col g8">
           <div className="row" style={{ gap: 14, flexWrap: "wrap", alignItems: "center" }}>
-            <label className="check small"><input type="radio" name="kind" value="discount" defaultChecked /> <span>Discount card ($10–$30, 3-digit code)</span></label>
+            <label className="check small"><input type="radio" name="kind" value="discount" defaultChecked /> <span>Discount card ($5–$30, 3-digit code)</span></label>
             <label className="check small"><input type="radio" name="kind" value="free" /> <span>Free card (4-digit code)</span></label>
           </div>
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>

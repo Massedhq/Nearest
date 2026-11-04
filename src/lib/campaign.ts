@@ -66,7 +66,7 @@ export const DEFAULT_INSTRUCTIONS = `1. Join the campaign to reserve your place.
 4. Submit your profile link and a screenshot of your profile. Your seven-day clock starts when Nearest accepts them.
 5. Keep the Nearest picture up for seven full consecutive days, and upload a screenshot of your profile each day.
 6. After the countdown ends, upload your final screenshot. Nearest reviews your screenshots and checks your profile.
-7. Once you're approved, your Nearest credit is added to your account automatically. Use it toward any service you book with a professional on Nearest.`;
+7. Once you're approved, your Nearest credit is added to your account automatically. Use it toward the service price when you book a professional who takes Nearest credit (the booking fee and deposit are still yours to pay).`;
 
 /** The invitation shown after registration (and on the campaign page until the student joins). */
 export const INVITE_HEADLINE = "Want to join the Nearest launch campaign?";
@@ -82,11 +82,11 @@ export const AGREE_TEXT = "I have read the campaign directions and reward terms 
 export const WAITLIST_NOTE = "A waitlist entry does not reserve a reward. If a place opens, it's offered in waitlist order and you're notified.";
 /** The reward: Nearest credit, added once when Nearest approves the student's participation. */
 export const rewardTitle = (credit: string) => `${credit} in Nearest credit`;
-export const rewardIncludes = (credit: string) => `${credit} is added to your Nearest account as soon as Nearest approves your participation. Use it toward any service you book with any professional on Nearest — it's taken off your total automatically when you pay.`;
+export const rewardIncludes = (credit: string) => `${credit} is added to your Nearest account as soon as Nearest approves your participation. Use it toward the service price with any professional who takes Nearest credit — it's taken off automatically when you pay. The booking fee and deposit aren't covered.`;
 export const redemptionTerms = (credit: string) => [
   `${credit} in Nearest credit per approved student — added once, non-transferable, no cash value.`,
-  "Use it toward any service with any professional on Nearest. If the service costs more, you pay the rest; anything left stays in your account for your next booking.",
-  "It can't be used on Bundle Me bookings or withdrawn as cash.",
+  "Use it toward the service price with professionals on Nearest who take Nearest credit. You still pay the booking fee and deposit; if the service costs more, you pay the rest, and anything left stays in your account for your next booking.",
+  "It can't be used on Bundle Me bookings or Model Calls, or withdrawn as cash.",
   "If a booking you paid with it is cancelled, the credit comes back under Nearest's normal credit rules.",
 ];
 
@@ -111,8 +111,8 @@ export async function issueRewardCredit(entryId: string) {
   const cents = await rewardCreditCents();
   if (!cents) return null;
   const r = await db.execute<{ id: string }>(sql`
-    insert into credits (student_id, pro_id, amount_cents, reason)
-    select ${e.studentId}::uuid, null, ${cents}, ${reason}
+    insert into credits (student_id, pro_id, amount_cents, reason, promo)
+    select ${e.studentId}::uuid, null, ${cents}, ${reason}, true
     where not exists (select 1 from credits where student_id = ${e.studentId}::uuid and reason = ${reason})
     returning id`);
   if (!r.rows.length) return null;
@@ -136,7 +136,7 @@ export const DEFAULT_TERMS = `Nearest Launch Campaign — Terms (draft — edit 
 • Places are limited. A place is reserved only when you join on Nearest. A waitlist entry does not reserve a reward.
 • Your seven days are 168 hours from the moment Nearest's server accepts your profile link and starting screenshot. Submit one screenshot in each daily window and a final screenshot at or after 168 hours. Every screenshot must clearly show your account username and profile picture.
 • Nearest reviews evidence manually and may visit your public profile. Screenshots support the review; they don't prove the picture was never changed. Nearest decides approval.
-• Approved participants receive the Nearest credit shown on the campaign page, added to their Nearest account once. It can be used toward any service booked with a professional on Nearest (not on Bundle Me bookings). It is non-transferable, has no cash value and can't be withdrawn. If a booking paid with it is cancelled, the credit is returned under Nearest's normal credit rules.
+• Approved participants receive the Nearest credit shown on the campaign page, added to their Nearest account once. It can be used toward the service price (not the booking fee or deposit) with professionals on Nearest who take Nearest credit (not on Bundle Me bookings or Model Calls). It is non-transferable, has no cash value and can't be withdrawn. If a booking paid with it is cancelled, the credit is returned under Nearest's normal credit rules.
 • Nearest may cancel entries — and remove unused credit — for duplicate accounts, false evidence or misuse.
 • This campaign isn't sponsored or endorsed by Instagram, Facebook or TikTok.`;
 
