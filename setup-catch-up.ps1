@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -m "Nearest Cards and promo credit honored by pros, service only; free service opt-in restored"
+git commit -m "Free service required for every pro, no decline; Nearest Cards settings main owner only"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { and, eq, sql } from "drizzle-orm";
 import { db, invitations, cities, platformSettings } from "@/db";
-import { requireAdmin } from "@/lib/admin";
+import { requireAdmin, isMainOwner } from "@/lib/admin";
 import { logActivity } from "@/lib/log";
 import { getSettings } from "@/lib/settings";
 import { SETTINGS, STATUS_KEYS } from "@/lib/settings-defaults";
@@ -36,9 +36,11 @@ export async function toggleStatus(form: FormData) {
 export async function saveSettings(_: FormState, form: FormData): Promise<FormState> {
   const { user } = await requireAdmin({ owner: true });
   const current = await getSettings();
+  const main = await isMainOwner(user.id); // Nearest Cards settings are the main owner's alone
   let changed = 0;
   for (const [key, def] of Object.entries(SETTINGS)) {
     if (def.type === "bool") continue;
+    if (key.startsWith("cards.") && !main) continue;
     const raw = form.get(key);
     if (raw === null) continue;
     let value: number | string;

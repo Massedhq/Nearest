@@ -32,7 +32,7 @@ export async function proOffer(proId: string) {
 
 /** Pros who joined before the free-service checkbox existed haven't answered yet → they get the home-screen card. */
 export function needsCampaignChoice(p: ProProfile) {
-  return Boolean(p.entryPaidAt) && !p.campaignChoice;
+  return Boolean(p.entryPaidAt) && p.campaignChoice !== "agreed"; // required for every pro — there's no declining (older "declined" answers are asked again)
 }
 
 /** Read and validate the service + number of free appointments from a form. serviceId may be empty (choose later). */

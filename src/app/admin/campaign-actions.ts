@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { and, eq, inArray, ne, notInArray, sql } from "drizzle-orm";
 import { db, campaigns, campaignEntries, campaignChecks, campaignOffers, campaignWaitlist, proServices, professionalProfiles, studentProfiles, users } from "@/db";
-import { requireAdmin } from "@/lib/admin";
+import { requireAdmin, requireMainOwner } from "@/lib/admin";
 import { logActivity } from "@/lib/log";
 import type { FormState } from "@/components/ActionForm";
 import {
@@ -221,7 +221,7 @@ export async function applySuppliedGraphic() {
 }
 
 export async function updateRewardOffer(form: FormData) {
-  const { user } = await requireAdmin({ owner: true });
+  const { user } = await requireMainOwner(); // free services go with Nearest Cards — main owner only
   const id = String(form.get("id") ?? "");
   const o = await db.query.campaignOffers.findFirst({ where: eq(campaignOffers.id, id) });
   if (!o) return;

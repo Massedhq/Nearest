@@ -1,11 +1,11 @@
 import { ActionForm } from "@/components/ActionForm";
 import { ProCampaignFields } from "@/components/ProCampaignFields";
 import { needsCampaignChoice, proOffer, rewardEligibleServices, type ProProfile } from "@/lib/campaign-pro";
-import { declineCampaign, optInCampaign } from "@/app/pro/campaign-actions";
+import { optInCampaign } from "@/app/pro/campaign-actions";
 
 /**
  * Pro home screen — the professional's one free service (given once, ever, to a student with a Nearest Free Card).
- *  • Pros who joined before they were asked: Opt in or Decline (stays until they answer).
+ *  • Pros who joined before it existed: required — agree and choose the service (no decline; stays until they do).
  *  • Agreed pros: their free service, whether it's been given yet, and a way to change the service until it is.
  */
 export async function ProCampaignCard({ profile }: { profile: ProProfile }) {
@@ -16,13 +16,11 @@ export async function ProCampaignCard({ profile }: { profile: ProProfile }) {
   if (earlier) {
     return (
       <div className="card warn" style={{ gap: 10 }}>
-        <span className="eyebrow">New — your one free service</span>
-        <span className="small">Nearest is handing out Nearest Free Cards to students. Choose one service to give free one time to a student who brings one. It&apos;s a new client brought to you by Nearest, and you still accept or decline the request.</span>
-        <ActionForm action={optInCampaign} submitLabel="Opt in" buttonClass="btn sm">
+        <span className="eyebrow">Required — your one free service</span>
+        <span className="small">Every professional on Nearest gives one free service, one time, to a student who brings a Nearest Free Card. Choose the service you&apos;ll give. The student still pays the booking fee and deposit.</span>
+        <ActionForm action={optInCampaign} submitLabel="Save my free service" buttonClass="btn sm">
           <ProCampaignFields services={services} />
         </ActionForm>
-        <form action={declineCampaign}><button className="btn ghost sm" type="submit" style={{ width: "100%" }}>Decline</button></form>
-        <span className="xs muted">Declining doesn&apos;t affect your normal bookings.</span>
       </div>
     );
   }
