@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -m "Card QR page shows the Nearest Card image; 30-day save window; card discard"
+git commit -m "Card places, 3000 card limit, one card per student, student demand and coming-soon notices"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

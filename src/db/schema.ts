@@ -1542,6 +1542,20 @@ export const nearestCardBatches = pgTable("nearest_card_batches", {
   createdAt: ts("created_at").notNull().defaultNow(),
 });
 
+// Places Nearest gives Nearest Cards to (youth programs, community centers, churches, charities, shelters…). Any owner can
+// add a place and assign cards to it; students see places that still have cards (src/lib/card-places.ts).
+export const cardPlaces = pgTable("card_places", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  kind: text("kind").notNull().default("other"), // youth_program | community_center | church | charity | shelter | other
+  cityId: integer("city_id").references(() => cities.id),
+  address: text("address"), // optional, shown to students so they can find the place
+  notes: text("notes"), // internal only (contact person, hours…)
+  active: boolean("active").notNull().default(true),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
 export const nearestCards = pgTable("nearest_cards", {
   id: uuid("id").primaryKey().defaultRandom(),
   batchId: uuid("batch_id").notNull().references(() => nearestCardBatches.id),
@@ -1553,8 +1567,12 @@ export const nearestCards = pgTable("nearest_cards", {
   activatedAt: ts("activated_at"),
   creditId: uuid("credit_id"),
   usedBookingId: uuid("used_booking_id"),
+  printSeq: integer("print_seq"), // the card's row (#) in its batch's printer file — used to assign a stack of cards to a place
+  placeId: uuid("place_id"), // the place this card was given to (card_places)
+  assignedAt: ts("assigned_at"),
+  assignedBy: uuid("assigned_by"),
   createdAt: ts("created_at").notNull().defaultNow(),
-}, (t) => [uniqueIndex("nearest_cards_number_idx").on(t.number), index("nearest_cards_batch_idx").on(t.batchId), index("nearest_cards_student_idx").on(t.studentId)]);
+}, (t) => [index("nearest_cards_place_idx").on(t.placeId), uniqueIndex("nearest_cards_number_idx").on(t.number), index("nearest_cards_batch_idx").on(t.batchId), index("nearest_cards_student_idx").on(t.studentId)]);
 
 export const nearestCardAttempts = pgTable("nearest_card_attempts", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -1598,3 +1616,14 @@ export const learnClasses = pgTable("learn_classes", {
   createdAt: ts("created_at").notNull().defaultNow(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
 }, (t) => [index("learn_classes_status_idx").on(t.status)]);
+
+// Student demand: one row per city + service category the first time a professional goes live there, so students who
+// picked that interest are told once ("A lash tech is now booking in Lewisville"). src/lib/demand.ts.
+export const coverageNotices = pgTable("coverage_notices", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  cityId: integer("city_id").notNull(),
+  category: text("category").notNull(),
+  studentsNotified: integer("students_notified").notNull().default(0),
+  silent: boolean("silent").notNull().default(false), // recorded when this started (already covered) — nobody notified
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [uniqueIndex("coverage_notices_city_cat_idx").on(t.cityId, t.category)]);

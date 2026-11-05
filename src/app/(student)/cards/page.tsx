@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireBrowsingStudent } from "@/lib/student";
 import { myCards, cardLabel, validThruLabel, activateDays } from "@/lib/nearest-cards";
 import { NearestCardForm } from "@/components/NearestCardForm";
+import { CardPlacesList } from "@/components/CardPlacesList";
 import { TopBar } from "@/components/TopBar";
 import { Tabs } from "@/components/Tabs";
 import { fmtDate, money } from "@/lib/time";
@@ -36,13 +37,14 @@ export default async function CardsPage() {
             {bookingId && <Link className="link xs" href={`/bookings/${bookingId}`}>{state === "used" ? "See the booking it paid for" : "See the booking (you can switch or remove the card there)"}</Link>}
           </div>
         ))}
+        {cards.length === 0 && <CardPlacesList />}
         <div className="card small" style={{ gap: 6 }}>
           <span className="b">How it works</span>
           <span>• Your card is never used automatically. When you book, choose it under &quot;Use a Nearest Card on this booking?&quot; — or pick it later on the booking before you pay. You can switch or remove it until you pay.</span>
           <span>• One card covers one booking. If the booking costs less than the card, the rest isn&apos;t kept, so save bigger cards for bigger bookings.</span>
           <span>• If that booking expires or is declined before you pay, the card is ready to use again. If you cancel after paying, the card&apos;s part comes back as Nearest credit like the rest of your payment.</span>
           <span>• A free card covers your service up to its amount; anything above that is what you pay.</span>
-          <span>• Each card works once, and only one card from the same group per student.</span>
+          <span>• Each card works once, and it&apos;s one Nearest Card per student.</span>
           <span>• Save it to your account within {days} days of getting it (and before the Valid thru date on the card). A card that isn&apos;t saved in time goes inactive and can&apos;t be used. Once it&apos;s saved, it stays until you use it.</span>
           <span>• Nearest Cards are promotional: no cash value, can&apos;t be sold or exchanged for cash, and can&apos;t be used on Bundle bookings.</span>
           <Link className="link small" href="/credits">See My credits</Link>

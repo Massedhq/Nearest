@@ -27,7 +27,9 @@ export async function createCards(_: FormState, form: FormData): Promise<FormSta
   const handedOutAt = s(form, "handedOut", 10) ? startOfDay(s(form, "handedOut", 10)) : new Date();
   if (!handedOutAt) return { error: "Choose the date the cards are handed out." };
   const name = s(form, "name", 80) || `${kind === "free" ? "Free" : `$${amountCents / 100}`} cards ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Chicago" })}`;
-  const { cardFund } = await import("@/lib/nearest-cards");
+  const { cardFund, cardTotals } = await import("@/lib/nearest-cards");
+  const totals = await cardTotals();
+  if (count > totals.canMake) return { error: totals.canMake === 0 ? `You've reached the limit of ${totals.max.toLocaleString()} Nearest Cards. No more can be made.` : `That's more than the limit allows. You can make ${totals.canMake.toLocaleString()} more card${totals.canMake === 1 ? "" : "s"} (limit ${totals.max.toLocaleString()} in all).` };
   const fund = await cardFund();
   const worst = amountCents * count;
   const batch = await createCardBatch({ name, kind, amountCents, count, validThru: validThru!, handedOutAt, by: user.id });

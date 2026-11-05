@@ -26,6 +26,7 @@ const QUICK: [keyof Filters, string, string][] = [["today", "bolt", "Available T
 
 export default async function Home({ searchParams }: { searchParams: Promise<Filters> }) {
   const { user, area, profile, finishStep } = await requireBrowsingStudent();
+  const soon = await (await import("@/lib/demand")).comingSoonFor(user.id);
   const campaignOpen = await (async () => {
     const { getCampaign, entryFor } = await import("@/lib/campaign");
     const [c, e] = await Promise.all([getCampaign(), entryFor(user.id)]);
@@ -153,6 +154,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<Fil
             <span className="b">{campaignOpen === "enrolled" || campaignOpen === "reward" ? "Your campaign" : "Join the campaign"}</span>
             <span className="small">{campaignOpen === "enrolled" ? "Open your campaign — upload today's screenshot." : campaignOpen === "reward" ? "You're approved — your Nearest credit is in your account. Use it on any booking." : "Want to join? Complete the seven-day profile-picture promotion to earn Nearest credit toward any service."}</span>
           </Link>
+        )}
+        {soon.soon.length > 0 && (
+          <div className="card" style={{ gap: 4 }}>
+            <span className="b">Coming soon to {soon.city ?? "your city"}</span>
+            <span className="small">{soon.soon.join(", ")} {soon.soon.length === 1 ? "isn't" : "aren't"} here yet. You told us you&apos;re interested — we&apos;re bringing professionals in now, and we&apos;ll let you know as soon as they&apos;re ready for you.</span>
+          </div>
         )}
         <p className="eyebrow p">Hi, {user.firstName}</p>
         <h1 className="disp h1">What do you need?</h1>

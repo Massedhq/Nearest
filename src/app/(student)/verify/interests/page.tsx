@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
 import { db, categories } from "@/db";
@@ -16,11 +15,11 @@ export default async function Interests() {
   const mine = new Set(profile.interests ?? []);
   return (
     <div className="scr">
-      <div className="top"><span className="sp" /><div className="t" /><Link className="link small" href="/verify/access">Skip</Link></div>
+      <div className="top"><span className="sp" /><div className="t" /><span className="sp" /></div>
       <div className="body">
         <Steps at={4} />
-        <h1 className="disp h1">What might you use Nearest for?</h1>
-        <p className="muted p">Optional. This just personalizes your home screen — you can search everything.</p>
+        <h1 className="disp h1">What are you most interested in?</h1>
+        <p className="muted p">Pick everything you&apos;d book. It tells us which professionals to bring to your city first, and we&apos;ll let you know as soon as they&apos;re here and ready for you. You can still search everything.</p>
         <ActionForm action={saveInterests} submitLabel="Continue">
           <div className="grid2">
             {cats.map((c) => (

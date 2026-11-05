@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { activateDays } from "@/lib/nearest-cards";
+import { CardPlacesList } from "@/components/CardPlacesList";
 
 export const metadata = { title: "Add your Nearest Card", robots: { index: false, follow: false } };
 
@@ -25,6 +26,7 @@ export default async function CardLanding() {
         </div>
         <Link className="btn" href="/sign-up">Create my student account</Link>
         <Link className="btn ghost" href="/sign-in">Sign in</Link>
+        <CardPlacesList title="Need a card? Here’s where to get one" />
         <p className="xs muted" style={{ textAlign: "center", margin: 0 }}>Nearest Cards are promotional and have no cash value. Each card works once. Questions? support@usenearest.com</p>
       </div>
     </div>

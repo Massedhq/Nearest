@@ -72,6 +72,7 @@ export async function restartVerification() {
 export async function saveInterests(_: FormState, form: FormData): Promise<FormState> {
   const { user } = await requireStudent();
   const picks = form.getAll("interest").map(String).filter(Boolean).slice(0, 20);
+  if (!picks.length) return { error: "Pick at least one — it tells us which professionals to bring to your city first." };
   await db.update(studentProfiles).set({ interests: picks }).where(eq(studentProfiles.userId, user.id));
   redirect("/verify/access");
 }

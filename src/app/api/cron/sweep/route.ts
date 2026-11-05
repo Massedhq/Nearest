@@ -29,6 +29,7 @@ export async function GET(req: Request) {
   const campaign = await safe("campaign", async () => (await import("@/lib/campaign-cron")).runCampaign()); // launch campaign clock, reminders, rewards
   const enrollmentHolds = await safe("enrollmentHolds", async () => (await import("@/lib/enrollment-holds")).runEnrollmentHolds()); // unfinished 30 days → on hold
   const lookIndex = await safe("lookIndex", async () => (await import("@/lib/look-match")).indexPendingLooks(30_000)); // Find by photo: fingerprint new portfolio photos
+  const coverageNotices = await safe("coverageNotices", async () => (await import("@/lib/demand")).notifyNewCoverage()); // first pro for a service in a city → tell the students who picked it
   const indexNow = await safe("indexNow", async () => (await import("@/lib/indexnow")).pingSitemap()); // Bing & co.: public pages, once a day
-  return Response.json({ result, enrollmentHolds, lookIndex, indexNow, reminders, steppedUp, seatsReleased, bundlesExpired, verifyReminders, setupReminders, outreach, broadcastSent, requestsExpired, requestReminders, spotsReleased, membershipsEnded, inactiveSpots, campaign });
+  return Response.json({ result, coverageNotices, enrollmentHolds, lookIndex, indexNow, reminders, steppedUp, seatsReleased, bundlesExpired, verifyReminders, setupReminders, outreach, broadcastSent, requestsExpired, requestReminders, spotsReleased, membershipsEnded, inactiveSpots, campaign });
 }

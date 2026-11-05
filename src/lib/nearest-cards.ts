@@ -71,6 +71,29 @@ export function activateBy(b: { handedOutAt: Date | null; createdAt: Date; valid
   return by < b.validThru ? by : b.validThru;
 }
 
+/** Most Nearest Cards that can ever be made (Rules & Settings → cards.max_total, default 3,000). */
+export async function maxCards() {
+  const { getSettings } = await import("./settings");
+  const n = Number((await getSettings())["cards.max_total"] ?? 3000);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 3000;
+}
+
+/** Cards toward the limit: every card in a batch that isn't discarded, plus discarded cards a student had already saved. */
+export async function cardTotals() {
+  const r = (await db.execute(sql`select
+      (select count(*)::int from nearest_cards c join nearest_card_batches b on b.id = c.batch_id where b.status <> 'discarded' or c.status = 'activated' or c.credit_id is not null) as made,
+      (select count(*)::int from nearest_cards where student_id is not null and status = 'activated') as activated`)).rows[0] as { made: number; activated: number };
+  const max = await maxCards();
+  return { max, made: r.made, activated: r.activated, canMake: Math.max(0, max - r.made), leftToActivate: Math.max(0, max - r.activated) };
+}
+
+/** Number older cards in printer-file order (#1, #2…) so a stack of cards can be assigned to a place by its # range. */
+export async function ensurePrintSeq() {
+  await db.execute(sql`update nearest_cards c set print_seq = r.rn from (
+      select id, (coalesce((select max(x.print_seq) from nearest_cards x where x.batch_id = n.batch_id), 0) + row_number() over (partition by batch_id order by created_at, ctid))::int as rn
+      from nearest_cards n where print_seq is null) r where c.id = r.id`);
+}
+
 /** Check a batch request; returns a plain-words problem or null. */
 export function batchProblem(b: { kind: string; amountCents: number; count: number; validThru: Date | null }) {
   if (b.kind !== "discount" && b.kind !== "free") return "Choose Discount card or Free card.";
@@ -89,7 +112,8 @@ export async function createCardBatch(input: { name: string; kind: CardKind; amo
   let made = 0;
   while (made < input.count) {
     const want = Math.min(500, input.count - made);
-    const rows = Array.from({ length: want }, () => ({ batchId: batch.id, number: newNumber(), code: newCode(input.kind) }));
+    const start = made;
+    const rows = Array.from({ length: want }, (_, i) => ({ batchId: batch.id, number: newNumber(), code: newCode(input.kind), printSeq: start + i + 1 }));
     const inserted = await db.insert(nearestCards).values(rows).onConflictDoNothing().returning({ id: nearestCards.id });
     made += inserted.length; // a rare duplicate number is skipped and made again on the next pass
   }
@@ -126,8 +150,9 @@ export async function addCardToAccount(userId: string, rawNumber: string, rawCod
   if (b.validThru.getTime() < Date.now()) return { ok: false, error: `This card expired (valid thru ${validThruLabel(b.validThru)}).` };
   const days = await activateDays();
   if (activateBy(b, days).getTime() < Date.now()) return { ok: false, error: `This card is no longer good — cards must be saved to an account within ${days} days of being handed out.` };
-  const same = await db.query.nearestCards.findFirst({ where: and(eq(nearestCards.batchId, b.id), eq(nearestCards.studentId, userId)) });
-  if (same) return { ok: false, error: "You've already added a card from this same group. It's one card per student." };
+  // One Nearest Card per student, ever (a card an owner turned off or discarded doesn't count).
+  const mine = await db.query.nearestCards.findFirst({ where: and(eq(nearestCards.studentId, userId), eq(nearestCards.status, "activated")) });
+  if (mine) return { ok: false, error: "You already have a Nearest Card on your account. It's one card per student." };
   // Claim it atomically so two people can never add the same card.
   const [claimed] = await db.update(nearestCards).set({ status: "activated", studentId: userId, activatedAt: new Date() })
     .where(and(eq(nearestCards.id, c.id), eq(nearestCards.status, "issued"))).returning();

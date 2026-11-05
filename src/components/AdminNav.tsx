@@ -4,11 +4,11 @@ import { usePathname } from "next/navigation";
 import { Icon } from "./Icon";
 
 const NAV: [string, [string, string, string][]][] = [
-  ["Overview", [["Command Center", "home", "/admin"], ["First In", "sparkle", "/admin/founding"], ["Coverage", "map", "/admin/coverage"], ["Service coverage", "chart", "/admin/service-coverage"]]],
+  ["Overview", [["Command Center", "home", "/admin"], ["First In", "sparkle", "/admin/founding"], ["Coverage", "map", "/admin/coverage"], ["Service coverage", "chart", "/admin/service-coverage"], ["Student demand", "users", "/admin/demand"]]],
   ["People", [["Students", "users", "/admin/students"], ["Schools", "school", "/admin/schools"], ["Professionals", "store", "/admin/professionals"], ["Verification Queue", "shield", "/admin/verification"], ["Enrollment holds", "flag", "/admin/enrollment-holds"], ["Launch campaign", "sparkle", "/admin/campaign"], ["Supporters", "users", "/admin/supporters"]]],
   ["Operations", [["Bookings", "cal", "/admin/bookings"], ["Incident Review", "flag", "/admin/incidents"], ["Enforcement", "gavel", "/admin/enforcement"], ["Appeals", "file", "/admin/appeals"], ["Problem reports", "flag", "/admin/reports"], ["Find by photo", "camera", "/admin/photo-match"]]],
   ["Professional Outreach", [["Outreach", "users", "/admin/outreach"], ["Outreach meetings", "cal", "/admin/meet"], ["Partner pages", "link", "/admin/partners"], ["Learn at Nearest", "school", "/admin/learn"], ["Notifications", "bell", "/admin/notifications"]]],
-  ["Business", [["Money", "wallet", "/admin/money"], ["Sales Track", "chart", "/admin/sales"], ["Marketing", "chart", "/admin/marketing"], ["Leaderboard", "star", "/admin/leaderboard"], ["Profile examples", "users", "/admin/examples"], ["Marketplace", "grid", "/admin/marketplace"], ["Pricing intelligence", "chart", "/admin/pricing"], ["Bundle Me", "grid", "/admin/bundles"], ["Nearest Cards", "wallet", "/admin/cards"], ["Insurance interest", "shield", "/admin/insurance"]]],
+  ["Business", [["Money", "wallet", "/admin/money"], ["Sales Track", "chart", "/admin/sales"], ["Marketing", "chart", "/admin/marketing"], ["Leaderboard", "star", "/admin/leaderboard"], ["Profile examples", "users", "/admin/examples"], ["Marketplace", "grid", "/admin/marketplace"], ["Pricing intelligence", "chart", "/admin/pricing"], ["Bundle Me", "grid", "/admin/bundles"], ["Nearest Cards", "wallet", "/admin/cards"], ["Card places", "pin", "/admin/card-places"], ["Insurance interest", "shield", "/admin/insurance"]]],
   ["Owner", [["Launch readiness", "check", "/admin/launch"], ["Rules & Settings", "gear", "/admin/settings"], ["Team & Activity Log", "log", "/admin/team"]]],
   ["Help", [["How it works", "file", "/admin/guide"]]],
 ];
