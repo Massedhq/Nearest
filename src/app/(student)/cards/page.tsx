@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireBrowsingStudent } from "@/lib/student";
-import { myCards, cardLabel, validThruLabel } from "@/lib/nearest-cards";
+import { myCards, cardLabel, validThruLabel, activateDays } from "@/lib/nearest-cards";
 import { NearestCardForm } from "@/components/NearestCardForm";
 import { TopBar } from "@/components/TopBar";
 import { Tabs } from "@/components/Tabs";
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 /** Account → Cards & activations: add a Nearest Card so its value is saved on the account (and safe if the card is lost). */
 export default async function CardsPage() {
   const { user, canBook, finishStep } = await requireBrowsingStudent();
-  const cards = await myCards(user.id);
+  const [cards, days] = await Promise.all([myCards(user.id), activateDays()]);
   return (
     <div className="scr">
       <TopBar title="Cards & activations" back="/account" />
@@ -43,7 +43,7 @@ export default async function CardsPage() {
           <span>• If that booking expires or is declined before you pay, the card is ready to use again. If you cancel after paying, the card&apos;s part comes back as Nearest credit like the rest of your payment.</span>
           <span>• A free card covers your service up to its amount; anything above that is what you pay.</span>
           <span>• Each card works once, and only one card from the same group per student.</span>
-          <span>• Save it to your account before the Valid thru date on the card. Once it&apos;s saved, it stays until you use it.</span>
+          <span>• Save it to your account within {days} days of getting it (and before the Valid thru date on the card). A card that isn&apos;t saved in time goes inactive and can&apos;t be used. Once it&apos;s saved, it stays until you use it.</span>
           <span>• Nearest Cards are promotional: no cash value, can&apos;t be sold or exchanged for cash, and can&apos;t be used on Bundle bookings.</span>
           <Link className="link small" href="/credits">See My credits</Link>
         </div>

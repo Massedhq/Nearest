@@ -1533,7 +1533,11 @@ export const nearestCardBatches = pgTable("nearest_card_batches", {
   amountCents: integer("amount_cents").notNull(),
   count: integer("count").notNull(),
   validThru: ts("valid_thru").notNull(), // last moment the card can be added (end of the printed month, Central time)
-  status: text("status").notNull().default("active"), // active | off
+  status: text("status").notNull().default("active"), // active | off | discarded
+  // When the cards were handed out. A card not saved to an account within cards.activate_days (30) of this goes inactive.
+  // null on older batches = counted from created_at.
+  handedOutAt: ts("handed_out_at"),
+  discardedAt: ts("discarded_at"),
   createdBy: uuid("created_by").references(() => users.id),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
@@ -1543,7 +1547,7 @@ export const nearestCards = pgTable("nearest_cards", {
   batchId: uuid("batch_id").notNull().references(() => nearestCardBatches.id),
   number: text("number").notNull(), // 16 digits, no spaces
   code: text("code").notNull(), // 3 digits (discount) or 4 digits (free)
-  status: text("status").notNull().default("issued"), // issued | activated | off | locked
+  status: text("status").notNull().default("issued"), // issued | activated | off | locked | discarded
   failedAttempts: integer("failed_attempts").notNull().default(0),
   studentId: uuid("student_id").references(() => users.id),
   activatedAt: ts("activated_at"),

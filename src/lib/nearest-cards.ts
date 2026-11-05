@@ -8,7 +8,8 @@ import { chicagoToUtc } from "./time";
 /**
  * Nearest Cards — printed promotional cards (no cash value) that students add to their account.
  * Discount cards: 16-digit number + 3-digit code, worth $5–$30. Free cards: 16-digit number + 4-digit code, cover a
- * service up to the batch amount. Adding a card SAVES it on the student's account (so a lost card can't be used by anyone
+ * service up to the batch amount. A card must be saved within cards.activate_days (30) of the batch's handed_out_at, or it
+ * goes inactive. Owners can turn cards off and discard batches (src/app/admin/card-actions.ts). Adding a card SAVES it on the student's account (so a lost card can't be used by anyone
  * else). It is never applied automatically: the student chooses it on the booking they want (confirm page or a booking
  * waiting for payment). One card = one booking. Its value is written into the booking's credit_general_cents (and
  * promo_cents) and confirmBooking adds it as PROMOTIONAL credit first. Since 2026-11-04 cards are honored by the
@@ -49,6 +50,27 @@ function newNumber() {
 }
 const newCode = (kind: CardKind) => String(randomInt(0, kind === "free" ? 10000 : 1000)).padStart(kind === "free" ? 4 : 3, "0");
 
+/** Days a student has to save a card after the batch is handed out (Rules & Settings → cards.activate_days, default 30). */
+export async function activateDays() {
+  const { getSettings } = await import("./settings");
+  const d = Number((await getSettings())["cards.activate_days"] ?? 30);
+  return Number.isFinite(d) && d >= 1 ? Math.floor(d) : 30;
+}
+
+/** "2026-11-04" → that day at 12:00 AM Central. */
+export function startOfDay(ymd: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
+  const d = chicagoToUtc(ymd, "00:00");
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** The last moment a card from this batch can be saved to an account: handed out + N days (or the Valid thru date, if sooner). */
+export function activateBy(b: { handedOutAt: Date | null; createdAt: Date; validThru: Date }, days: number) {
+  const from = b.handedOutAt ?? b.createdAt;
+  const by = new Date(from.getTime() + days * 86400000);
+  return by < b.validThru ? by : b.validThru;
+}
+
 /** Check a batch request; returns a plain-words problem or null. */
 export function batchProblem(b: { kind: string; amountCents: number; count: number; validThru: Date | null }) {
   if (b.kind !== "discount" && b.kind !== "free") return "Choose Discount card or Free card.";
@@ -62,8 +84,8 @@ export function batchProblem(b: { kind: string; amountCents: number; count: numb
 }
 
 /** Create a batch and its cards (random numbers, all unique). */
-export async function createCardBatch(input: { name: string; kind: CardKind; amountCents: number; count: number; validThru: Date; by: string }) {
-  const [batch] = await db.insert(nearestCardBatches).values({ name: input.name, kind: input.kind, amountCents: input.amountCents, count: input.count, validThru: input.validThru, createdBy: input.by }).returning();
+export async function createCardBatch(input: { name: string; kind: CardKind; amountCents: number; count: number; validThru: Date; handedOutAt?: Date | null; by: string }) {
+  const [batch] = await db.insert(nearestCardBatches).values({ name: input.name, kind: input.kind, amountCents: input.amountCents, count: input.count, validThru: input.validThru, handedOutAt: input.handedOutAt ?? new Date(), createdBy: input.by }).returning();
   let made = 0;
   while (made < input.count) {
     const want = Math.min(500, input.count - made);
@@ -99,8 +121,11 @@ export async function addCardToAccount(userId: string, rawNumber: string, rawCod
   if (c.status === "activated") return c.studentId === userId ? { ok: false, error: "This card is already saved on your account — choose it when you pay for a booking." } : { ok: false, error: "This card was already added to another account. Each card works once." };
   if (c.status === "locked") return { ok: false, error: "This card is locked for security. Email support@usenearest.com and we'll help." };
   if (c.code !== code) { await miss(c.id); return { ok: false, error: WRONG }; }
+  if (c.status === "discarded" || b.status === "discarded") return { ok: false, error: "This card is no longer good. Email support@usenearest.com if you think that's a mistake." };
   if (c.status === "off" || b.status === "off") return { ok: false, error: "This card has been turned off. Email support@usenearest.com if you think that's a mistake." };
   if (b.validThru.getTime() < Date.now()) return { ok: false, error: `This card expired (valid thru ${validThruLabel(b.validThru)}).` };
+  const days = await activateDays();
+  if (activateBy(b, days).getTime() < Date.now()) return { ok: false, error: `This card is no longer good — cards must be saved to an account within ${days} days of being handed out.` };
   const same = await db.query.nearestCards.findFirst({ where: and(eq(nearestCards.batchId, b.id), eq(nearestCards.studentId, userId)) });
   if (same) return { ok: false, error: "You've already added a card from this same group. It's one card per student." };
   // Claim it atomically so two people can never add the same card.
@@ -113,7 +138,7 @@ export async function addCardToAccount(userId: string, rawNumber: string, rawCod
 
 // A card is FREE when it isn't tied to a booking, or its booking ended without being paid (expired, declined, cancelled
 // before payment). It's SAVED while its booking is a request or waiting for payment, and USED once that booking is paid.
-const FREE_SQL = sql`(${nearestCards.usedBookingId} is null or not exists (select 1 from bookings bk where bk.id = ${nearestCards.usedBookingId} and (bk.paid_at is not null or bk.status in ('requested','pending_payment'))))`;
+export const FREE_SQL = sql`(${nearestCards.usedBookingId} is null or not exists (select 1 from bookings bk where bk.id = ${nearestCards.usedBookingId} and (bk.paid_at is not null or bk.status in ('requested','pending_payment'))))`;
 
 export type CardState = "ready" | "saved" | "used";
 
@@ -220,6 +245,7 @@ export async function cardFund() {
       (select count(*)::int from nearest_card_fund) as bookings,
       (select coalesce(sum(card_cents), 0)::int from bookings where card_id is not null and paid_at is not null) as used,
       (select coalesce(sum(nb.amount_cents), 0)::int from nearest_cards c join nearest_card_batches nb on nb.id = c.batch_id where c.status = 'activated' and c.credit_id is null) as saved,
-      (select coalesce(sum(nb.amount_cents), 0)::int from nearest_cards c join nearest_card_batches nb on nb.id = c.batch_id where c.status = 'issued' and nb.status = 'active' and nb.valid_thru > now()) as unclaimed`)).rows[0] as { added: number; bookings: number; used: number; saved: number; unclaimed: number };
+      (select coalesce(sum(nb.amount_cents), 0)::int from nearest_cards c join nearest_card_batches nb on nb.id = c.batch_id where c.status = 'issued' and nb.status = 'active' and nb.valid_thru > now()
+        and coalesce(nb.handed_out_at, nb.created_at) + make_interval(days => ${await activateDays()}) > now()) as unclaimed`)).rows[0] as { added: number; bookings: number; used: number; saved: number; unclaimed: number };
   return { perBooking: per, ...r, available: r.added - r.used };
 }

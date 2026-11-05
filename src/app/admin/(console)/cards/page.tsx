@@ -3,26 +3,29 @@ import { db, nearestCardBatches, nearestCards, users } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
 import { ActionForm } from "@/components/ActionForm";
 import { requireMainOwner } from "@/lib/admin";
-import { cardLabel, cardFund, digits, groupNumber, validThruLabel, CARD_LIMITS } from "@/lib/nearest-cards";
-import { createCards, setCardBatchStatus, setCardStatus } from "@/app/admin/card-actions";
+import { cardLabel, cardFund, digits, groupNumber, validThruLabel, activateBy, activateDays, CARD_LIMITS } from "@/lib/nearest-cards";
+import { createCards, setCardBatchStatus, setCardStatus, setBatchHandout, discardCardBatch } from "@/app/admin/card-actions";
 import { fmtDate, money } from "@/lib/time";
 
 export const metadata = { title: "Nearest Cards" };
 export const dynamic = "force-dynamic";
 
 const field = { borderRadius: 10, border: "1px solid #2A2A2D", background: "#0E0E10", color: "#ECE8E1", padding: "0 10px", height: 40 } as const;
-const STATUS: Record<string, string> = { issued: "Not added yet", activated: "On a student's account", off: "Turned off", locked: "Locked (too many wrong codes)" };
+const STATUS: Record<string, string> = { issued: "Not added yet", activated: "On a student's account", off: "Turned off", locked: "Locked (too many wrong codes)", discarded: "Discarded" };
+const ymd = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
 
 /** Owners: make batches of printed Nearest Cards, download the printer file, and look up any card. */
 export default async function AdminCards({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   await requireMainOwner({ page: true });
   const q = digits((await searchParams).q ?? "").slice(0, 16);
+  const days = await activateDays();
   const [fund, batches, totals, found, locked] = await Promise.all([
     cardFund(),
     db.select({
       b: nearestCardBatches,
       added: sql<number>`(select count(*)::int from nearest_cards c where c.batch_id = ${nearestCardBatches.id} and c.status = 'activated')`,
       used: sql<number>`(select count(*)::int from nearest_cards c where c.batch_id = ${nearestCardBatches.id} and c.credit_id is not null)`,
+      notSaved: sql<number>`(select count(*)::int from nearest_cards c where c.batch_id = ${nearestCardBatches.id} and c.status = 'issued')`,
     }).from(nearestCardBatches).orderBy(desc(nearestCardBatches.createdAt)).limit(100),
     db.select({
       made: sql<number>`count(*)::int`,
@@ -39,15 +42,17 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
       .innerJoin(nearestCardBatches, eq(nearestCardBatches.id, nearestCards.batchId)).leftJoin(users, eq(users.id, nearestCards.studentId))
       .where(or(eq(nearestCards.status, "locked"))).limit(25),
   ]);
+  const live = batches.filter((x) => x.b.status !== "discarded");
+  const gone = batches.filter((x) => x.b.status === "discarded");
   const cardRow = ({ c, b, first, last }: (typeof locked)[number]) => (
     <tr key={c.id}>
       <td className="b">{groupNumber(c.number)}</td>
       <td>{cardLabel(b.kind)} • {b.name}</td>
-      <td>{STATUS[c.status] ?? c.status}{c.failedAttempts > 0 && c.status !== "activated" ? ` • ${c.failedAttempts} wrong code${c.failedAttempts === 1 ? "" : "s"}` : ""}</td>
+      <td>{c.status === "issued" && activateBy(b, days) < new Date() ? `Inactive — not saved within ${days} days` : (STATUS[c.status] ?? c.status)}{c.failedAttempts > 0 && c.status !== "activated" ? ` • ${c.failedAttempts} wrong code${c.failedAttempts === 1 ? "" : "s"}` : ""}</td>
       <td>{c.studentId ? ([first, last].filter(Boolean).join(" ") || "Student") : "—"}{c.activatedAt ? <div className="xs muted">added {fmtDate(c.activatedAt)}</div> : null}</td>
       <td>{c.usedBookingId ? <span className="xs">{c.creditId ? "Paid booking" : "Chosen for a booking (not paid yet)"} {c.usedBookingId.slice(0, 8).toUpperCase()}</span> : "—"}</td>
       <td>
-        {(c.status === "issued" || c.status === "locked") && <form action={setCardStatus}><input type="hidden" name="id" value={c.id} /><input type="hidden" name="to" value="off" /><button className="btn ghost sm" type="submit">Turn off</button></form>}
+        {(c.status === "issued" || c.status === "locked" || (c.status === "activated" && !c.creditId && !c.usedBookingId)) && <form action={setCardStatus}><input type="hidden" name="id" value={c.id} /><input type="hidden" name="to" value="off" /><button className="btn ghost sm" type="submit">Turn off</button></form>}
         {(c.status === "off" || c.status === "locked") && <form action={setCardStatus}><input type="hidden" name="id" value={c.id} /><input type="hidden" name="to" value="on" /><button className="btn sm" type="submit">{c.status === "locked" ? "Unlock" : "Turn back on"}</button></form>}
       </td>
     </tr>
@@ -74,7 +79,7 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
 
       <div className="card" style={{ gap: 10 }}>
         <span className="eyebrow">Make cards</span>
-        <span className="xs muted">Discount cards: 16-digit number + 3-digit code, $5–$30 off the service. Free cards: 16-digit number + 4-digit code, cover a professional's one free service up to the amount you set (at most ${CARD_LIMITS.freeMax / 100}). Every number starts with {CARD_LIMITS.prefix} and is random. Valid thru = the month printed on the card; after it, the card can&apos;t be added.</span>
+        <span className="xs muted">Discount cards: 16-digit number + 3-digit code, $5–$30 off the service. Free cards: 16-digit number + 4-digit code, cover a professional's one free service up to the amount you set (at most ${CARD_LIMITS.freeMax / 100}). Every number starts with {CARD_LIMITS.prefix} and is random. Valid thru = the month printed on the card; after it, the card can&apos;t be added. Students have {days} days from the Handed out date to save a card to their account — after that it goes inactive and can&apos;t be added (change the number of days in Rules &amp; Settings → Fees). If you hand a batch out later than planned, change its Handed out date below.</span>
         <ActionForm action={createCards} submitLabel="Make cards" buttonClass="btn sm" className="col g8">
           <div className="row" style={{ gap: 14, flexWrap: "wrap", alignItems: "center" }}>
             <label className="check small"><input type="radio" name="kind" value="discount" defaultChecked /> <span>Discount card ($5–$30, 3-digit code)</span></label>
@@ -85,6 +90,9 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
             <input name="amount" inputMode="decimal" placeholder="Value $ (free: covers up to)" required style={{ ...field, flex: "1 1 160px" }} aria-label="Value in dollars" />
             <input name="count" type="number" min={1} max={CARD_LIMITS.batchMax} placeholder="How many" required style={{ ...field, width: 120 }} aria-label="How many cards" />
             <input name="validThru" type="month" required style={field} aria-label="Valid thru month" />
+            <label className="xs muted col" style={{ gap: 2 }}>Handed out on
+              <input name="handedOut" type="date" defaultValue={ymd(new Date())} required style={field} aria-label="Handed out on" />
+            </label>
           </div>
         </ActionForm>
       </div>
@@ -93,29 +101,49 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
         <span className="eyebrow">Batches</span>
         <div style={{ overflowX: "auto" }}>
           <table className="tbl">
-            <thead><tr><th>Batch</th><th>Type</th><th>Value</th><th>Valid thru</th><th className="num">Made</th><th className="num">Added</th><th className="num">Used</th><th>Status</th><th /></tr></thead>
+            <thead><tr><th>Batch</th><th>Type</th><th>Value</th><th>Valid thru</th><th>Save by</th><th className="num">Made</th><th className="num">Added</th><th className="num">Used</th><th>Status</th><th /></tr></thead>
             <tbody>
-              {batches.length === 0 && <tr><td className="empty" colSpan={9}>No cards yet. Make your first batch above.</td></tr>}
-              {batches.map(({ b, added, used }) => (
+              {live.length === 0 && <tr><td className="empty" colSpan={10}>No cards yet. Make your first batch above.</td></tr>}
+              {live.map(({ b, added, used, notSaved }) => { const by = activateBy(b, days); const past = by < new Date(); return (
                 <tr key={b.id}>
                   <td className="b">{b.name}<div className="xs muted">{fmtDate(b.createdAt)}</div></td>
                   <td>{b.kind === "free" ? "Free (4-digit)" : "Discount (3-digit)"}</td>
                   <td>{b.kind === "free" ? `Up to ${money(b.amountCents)}` : `${money(b.amountCents)} off`}</td>
                   <td>{validThruLabel(b.validThru)}</td>
+                  <td>{fmtDate(by)}<div className="xs muted">{past ? `${notSaved} not saved — inactive` : `handed out ${fmtDate(b.handedOutAt ?? b.createdAt)}`}</div></td>
                   <td className="num">{b.count}</td><td className="num">{added}</td><td className="num">{used}</td>
                   <td><span className={`tag ${b.status === "active" ? "ok" : "bad"}`}>{b.status === "active" ? "On" : "Off"}</span></td>
                   <td>
-                    <div className="row" style={{ gap: 6 }}>
-                      <a className="btn sm" href={`/api/admin/cards/${b.id}`}>Printer file</a>
-                      <form action={setCardBatchStatus}><input type="hidden" name="id" value={b.id} /><input type="hidden" name="to" value={b.status === "active" ? "off" : "on"} /><button className="btn ghost sm" type="submit">{b.status === "active" ? "Turn off" : "Turn on"}</button></form>
+                    <div className="col" style={{ gap: 6 }}>
+                      <div className="row" style={{ gap: 6 }}>
+                        <a className="btn sm" href={`/api/admin/cards/${b.id}`}>Printer file</a>
+                        <form action={setCardBatchStatus}><input type="hidden" name="id" value={b.id} /><input type="hidden" name="to" value={b.status === "active" ? "off" : "on"} /><button className="btn ghost sm" type="submit">{b.status === "active" ? "Turn off" : "Turn on"}</button></form>
+                      </div>
+                      <details><summary className="link xs">Handed out date</summary>
+                        <form action={setBatchHandout} className="row" style={{ gap: 6, marginTop: 6 }}><input type="hidden" name="id" value={b.id} /><input name="handedOut" type="date" defaultValue={ymd(b.handedOutAt ?? b.createdAt)} required style={field} aria-label="Handed out on" /><button className="btn ghost sm" type="submit">Save</button></form>
+                      </details>
+                      <details><summary className="link xs" style={{ color: "#F2A38F" }}>Discard batch</summary>
+                        <form action={discardCardBatch} className="col" style={{ gap: 6, marginTop: 6, maxWidth: 280 }}><input type="hidden" name="id" value={b.id} />
+                          <span className="xs muted">Every card in this batch stops working for good — including cards students saved but haven&apos;t used. Cards already used, or on a booking in progress, are left alone. This can&apos;t be undone.</span>
+                          <label className="check xs"><input type="checkbox" name="sure" required /> <span>Discard these cards</span></label>
+                          <button className="btn ghost sm" type="submit" style={{ color: "#F2A38F" }}>Discard batch</button>
+                        </form>
+                      </details>
                     </div>
                   </td>
                 </tr>
-              ))}
+              ); })}
             </tbody>
           </table>
         </div>
-        <span className="xs muted">Printer file = a spreadsheet (CSV) of every card number and code in the batch, for your card printer. Keep it private — anyone with a number and code can add that card. Turning a batch off stops cards that haven&apos;t been added yet; cards already on a student&apos;s account stay as their credit.</span>
+        <span className="xs muted">Printer file = a spreadsheet (CSV) of every card number and code in the batch, for your card printer. Keep it private — anyone with a number and code can add that card. Turn off stops cards that haven&apos;t been saved yet (you can turn it back on); cards already saved on a student&apos;s account keep working — to stop one of those, look it up below and tap Turn off. Discard stops the whole batch for good, saved cards included.</span>
+        {gone.length > 0 && (
+          <details><summary className="link xs">Discarded batches ({gone.length})</summary>
+            <div style={{ overflowX: "auto", marginTop: 8 }}><table className="tbl"><thead><tr><th>Batch</th><th>Value</th><th className="num">Made</th><th className="num">Used</th><th>Discarded</th></tr></thead><tbody>
+              {gone.map(({ b, used }) => <tr key={b.id}><td>{b.name}</td><td>{b.kind === "free" ? `Free, up to ${money(b.amountCents)}` : `${money(b.amountCents)} off`}</td><td className="num">{b.count}</td><td className="num">{used}</td><td>{b.discardedAt ? fmtDate(b.discardedAt) : "—"}</td></tr>)}
+            </tbody></table></div>
+          </details>
+        )}
       </div>
 
       <div className="card" style={{ gap: 10 }}>

@@ -12,6 +12,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   if (!/^[0-9a-f-]{36}$/.test(id)) return new Response("Not found", { status: 404 });
   const batch = await db.query.nearestCardBatches.findFirst({ where: eq(nearestCardBatches.id, id) });
   if (!batch) return new Response("Not found", { status: 404 });
+  if (batch.status === "discarded") return new Response("This batch was discarded — its cards no longer work.", { status: 410 });
   const cards = await db.select({ number: nearestCards.number, code: nearestCards.code, status: nearestCards.status }).from(nearestCards).where(eq(nearestCards.batchId, id)).orderBy(asc(nearestCards.createdAt));
   const value = batch.kind === "free" ? `Free (up to $${(batch.amountCents / 100).toFixed(2)})` : `$${(batch.amountCents / 100).toFixed(2)} off`;
   const q = (v: string) => `"${v.replace(/"/g, '""')}"`;
