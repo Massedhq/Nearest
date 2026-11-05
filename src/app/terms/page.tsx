@@ -68,7 +68,7 @@ export default function Terms() {
           p: [
             "Payments are processed by Stripe. By paying through Nearest you also agree to Stripe's terms. Nearest does not store full card numbers.",
             [
-              "Bookings are paid in full at checkout. Each booking includes a protected deposit (currently $5, or the full price if the service costs less).",
+              "Bookings are paid in full at checkout. Each booking includes a protected deposit (currently $5, or the full price if the service costs less). At checkout the deposit and Nearest's booking fee are shown together as the \"Deposit/Booking Fee\"; both are part of the listed price, not added to it.",
               "Your payment is held by Nearest's payment processor and is released to the Professional when you complete the appointment finish steps (confirm the service, result photo, review, release payment).",
               "If a Professional has finished the service and you don't complete the finish steps within 24 hours after the scheduled end time, the payment is released to the Professional automatically, unless you have reported a problem that is still under review.",
               "Available credits are applied automatically at checkout before any card charge.",

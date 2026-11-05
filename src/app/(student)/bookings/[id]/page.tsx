@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { depositFeeSplit, DepositFeeNote } from "@/components/BookingTerms";
 import { and, eq } from "drizzle-orm";
 import { db, bookings, professionalProfiles } from "@/db";
 import { requireVerifiedStudent } from "@/lib/student";
@@ -92,10 +93,15 @@ export default async function Booking({ params, searchParams }: { params: Promis
           )}
         </div>
         <div className="card">
-          <div className="row between"><span>Service</span><span className="num">{money(b.priceCents)}</span></div>
+          {(() => { const sp = depositFeeSplit(b.priceCents, b.depositCents, b.serviceFeeCents, b.travelFeeCents); return (<>
+            {sp.service > 0 && <div className="row between"><span>Service</span><span className="num">{money(sp.service)}</span></div>}
+            {sp.travel > 0 && <div className="row between"><span>Travel fee</span><span className="num">{money(sp.travel)}</span></div>}
+            <div className="row between"><span>Deposit/Booking Fee</span><span className="num">{money(sp.depositFee)}</span></div>
+          </>); })()}
           {b.cardCents > 0 && <div className="row between small" style={{ color: "#8FD3A8" }}><span>Nearest Card</span><span className="num">−{money(b.cardCents)}</span></div>}
           {b.creditProCents + b.creditGeneralCents - b.cardCents > 0 && <div className="row between small muted"><span>Paid with credit</span><span className="num">{money(b.creditProCents + b.creditGeneralCents - b.cardCents)}</span></div>}
           <div className="row between small muted"><span>Paid by card</span><span className="num">{money(b.chargedCents)}</span></div>
+          <DepositFeeNote deposit={b.depositCents} fee={b.serviceFeeCents} />
           <div className="row between small muted"><span>{b.status === "completed" ? "Released to your professional" : b.status === "requested" ? "Nothing charged yet — you pay after the professional accepts" : "Held until you release it"}</span><Icon name={b.status === "completed" ? "check" : "lock"} size="s" /></div>
         </div>
 
@@ -110,7 +116,7 @@ export default async function Booking({ params, searchParams }: { params: Promis
                     <button className={`chip${b.cardId === x.c.id ? " on" : ""}`} type="submit" style={{ width: "100%" }}>{cardLabel(x.b.kind)} •••• {x.c.number.slice(-4)} — {x.b.kind === "free" ? `covers up to ${money(x.b.amountCents)}` : `${money(x.b.amountCents)} off`}</button>
                   </form>
                 ))}
-                <span className="xs muted">Only the card you choose is used, and only on this booking. It covers the service — the booking fee and deposit are still paid. One card per booking; any value it doesn&apos;t cover here isn&apos;t kept.</span>
+                <span className="xs muted">Only the card you choose is used, and only on this booking. It covers the service — the Deposit/Booking Fee is still paid. One card per booking; any value it doesn&apos;t cover here isn&apos;t kept.</span>
               </div>
             ) : <span className="xs muted">No Nearest Card on your account can be used with this professional.</span>}
             <details style={{ display: "flex", flexDirection: "column", gap: 10 }}>

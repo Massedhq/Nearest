@@ -1,21 +1,39 @@
 import { Icon } from "./Icon";
 import { money } from "@/lib/time";
 
-export function PriceBox({ price, deposit, pro, general, charge, invite = 0, card = 0, cardLabel }: { price: number; deposit: number; pro: number; general: number; charge: number; invite?: number; card?: number; cardLabel?: string }) {
+/**
+ * Students see their total split into two parts: "Service" and one "Deposit/Booking Fee" line (the protected deposit +
+ * Nearest's booking fee). Both are INSIDE the listed price — nothing is added. Cards and promotional credit cover only the
+ * Service part, so the Deposit/Booking Fee is always paid.
+ */
+export function depositFeeSplit(price: number, deposit: number, fee: number, travel = 0) {
+  const depositFee = Math.max(0, Math.min(price - travel, deposit + fee));
+  return { service: Math.max(0, price - travel - depositFee), depositFee, travel };
+}
+
+export function DepositFeeNote({ deposit, fee }: { deposit: number; fee: number }) {
+  return (
+    <span className="xs muted">
+      {fee > 0
+        ? `The Deposit/Booking Fee is part of your price, not extra: ${money(deposit)} is your protected deposit and ${money(fee)} is the booking fee. The deposit only goes to the professional if you cancel within the cancellation window or don't show. Cards and promotional credit cover the service, so the Deposit/Booking Fee is always paid.`
+        : `The Deposit/Booking Fee is part of your price, not extra: it's your ${money(deposit)} protected deposit, which only goes to the professional if you cancel within the cancellation window or don't show.`}
+    </span>
+  );
+}
+
+export function PriceBox({ price, deposit, fee = 0, pro, general, charge, invite = 0, card = 0, cardLabel }: { price: number; deposit: number; fee?: number; pro: number; general: number; charge: number; invite?: number; card?: number; cardLabel?: string }) {
+  const sp = depositFeeSplit(price, deposit, fee);
   return (
     <div className="card">
-      <div className="row between"><span>Service</span><span className="num">{money(price)}</span></div>
+      {sp.service > 0 && <div className="row between"><span>Service</span><span className="num">{money(sp.service)}</span></div>}
       {invite > 0 && <div className="row between" style={{ color: "#8FD3A8" }}><span>Invite reward — thanks for sharing Nearest</span><span className="num">−{money(invite)}</span></div>}
-      {pro > 0 && <div className="row between muted"><span>Credit with this professional</span><span className="num">−{money(pro)}</span></div>}
       {card > 0 && <div className="row between" style={{ color: "#8FD3A8" }}><span>{cardLabel ?? "Nearest Card"}</span><span className="num">−{money(card)}</span></div>}
       {general - card > 0 && <div className="row between muted"><span>Nearest credit</span><span className="num">−{money(general - card)}</span></div>}
+      <div className="row between"><span>Deposit/Booking Fee</span><span className="num">{money(sp.depositFee)}</span></div>
+      {pro > 0 && <div className="row between muted"><span>Credit with this professional</span><span className="num">−{money(pro)}</span></div>}
       <hr className="hr" />
       <div className="row between b"><span>Total due today</span><span className="num">{money(charge)}</span></div>
-      <span className="xs muted">
-        {deposit >= price
-          ? `Nothing extra is added. At this price, your whole ${money(price)} counts as the protected deposit — it only goes to the professional if you cancel within the cancellation window or don't show.`
-          : `Nothing extra is added. ${money(deposit)} of the ${money(price)} is the protected deposit — it only goes to the professional if you cancel within the cancellation window or don't show.`}
-      </span>
+      <DepositFeeNote deposit={deposit} fee={fee} />
     </div>
   );
 }

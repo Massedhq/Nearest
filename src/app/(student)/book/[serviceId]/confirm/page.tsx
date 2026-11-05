@@ -101,7 +101,7 @@ export default async function Confirm({ params, searchParams }: { params: Promis
                     {cardLabel(x.b.kind)} •••• {x.c.number.slice(-4)} — {x.b.kind === "free" ? `covers up to ${money(x.b.amountCents)}` : `${money(x.b.amountCents)} off`}
                   </Link>
                 ))}
-                <span className="xs muted">Only the card you choose is used, and only on this booking. It covers the service — the booking fee and deposit are still paid. One card per booking; any value it doesn&apos;t cover here isn&apos;t kept.</span>
+                <span className="xs muted">Only the card you choose is used, and only on this booking. It covers the service — the Deposit/Booking Fee is still paid. One card per booking; any value it doesn&apos;t cover here isn&apos;t kept.</span>
               </div>
             ) : <span className="xs muted">{checked.length ? "None of your saved cards can be used on this booking." : "You don't have a Nearest Card saved. Have one? Add it below — it's saved on your account and only used when you choose it."}</span>}
             {notHere.length > 0 && myCards.length > 0 && <span className="xs muted">Some of your cards can&apos;t be used here: {notHere.join(" ")}</span>}
@@ -112,7 +112,7 @@ export default async function Confirm({ params, searchParams }: { params: Promis
             </details>
           </div>
         )}
-        <PriceBox price={price} card={use.card} cardLabel={chosen ? `${cardLabel(chosen.b.kind)} •••• ${chosen.c.number.slice(-4)}` : undefined} deposit={deposit} pro={use.pro} general={use.general} charge={use.charge} invite={inv?.cents ?? 0} />
+        <PriceBox price={price} fee={svc.proPriceCents == null ? 0 : svc.serviceFeeCents} card={use.card} cardLabel={chosen ? `${cardLabel(chosen.b.kind)} •••• ${chosen.c.number.slice(-4)}` : undefined} deposit={deposit} pro={use.pro} general={use.general} charge={use.charge} invite={inv?.cents ?? 0} />
         <Terms deposit={deposit} cutoffHours={Number(s["cancel.cutoff_hours"])} graceMin={Number(s["appt.grace_minutes"])} />
         <ActionForm action={bookService} submitLabel="Send booking request">
           <input type="hidden" name="serviceId" value={svc.id} />
