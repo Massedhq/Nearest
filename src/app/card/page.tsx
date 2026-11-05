@@ -14,7 +14,7 @@ export default async function CardLanding() {
   return (
     <div className="scr" style={{ justifyContent: "center" }}>
       <div className="body" style={{ flex: "none", maxWidth: 480, margin: "0 auto", width: "100%", gap: 14 }}>
-        <div style={{ display: "flex", justifyContent: "center" }}><Image src="/brand/nearest-monogram.png" alt="Nearest" width={64} height={64} /></div>
+        <div style={{ display: "flex", justifyContent: "center" }}><Image src="/brand/nearest-card.jpg" alt="Nearest Card" width={220} height={147} priority style={{ borderRadius: 12, objectFit: "cover" }} /></div>
         <h1 className="disp h2" style={{ textAlign: "center", margin: 0 }}>Add your Nearest Card</h1>
         <p className="small muted" style={{ textAlign: "center", margin: 0 }}>Your card has to be added to a Nearest student account before it can be used. Once it&apos;s saved on your account, it&apos;s safe even if you lose the card. Save it within {days} days of getting it — after that the card goes inactive and is no longer good.</p>
         <div className="card small" style={{ gap: 8 }}>
