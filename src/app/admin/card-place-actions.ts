@@ -1,6 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db, cardPlaces, cities } from "@/db";
 import { requireAdmin } from "@/lib/admin";
 import { logActivity } from "@/lib/log";
@@ -21,9 +21,17 @@ export async function addCardPlace(_: FormState, form: FormData): Promise<FormSt
   if (!user) return { error: "Only owners can add card places." };
   const name = s(form, "name", 120);
   const kind = PLACE_KINDS[s(form, "kind", 30)] ? s(form, "kind", 30) : "other";
-  const cityId = Number(s(form, "cityId", 10)) || null;
   if (!name) return { error: "Enter the place's name." };
-  if (!cityId || !(await db.query.cities.findFirst({ where: eq(cities.id, cityId) }))) return { error: "Choose the city the place is in." };
+  // City is typed with suggestions ("Lewisville, TX"); match it to a Nearest city by name (and state when given).
+  const typed = s(form, "city", 80);
+  const m = /^(.*?)(?:,\s*([A-Za-z]{2}))?$/.exec(typed);
+  const cityName = (m?.[1] ?? "").trim(), state = (m?.[2] ?? "").toUpperCase();
+  if (!cityName) return { error: "Type the city the place is in and pick it from the list." };
+  const matches = await db.select({ id: cities.id }).from(cities)
+    .where(and(eq(cities.active, true), sql`lower(${cities.name}) = lower(${cityName})`, ...(state ? [eq(cities.state, state)] : [])));
+  if (matches.length === 0) return { error: `We couldn't find "${typed}". Start typing and pick the city from the list.` };
+  if (matches.length > 1) return { error: `There's more than one ${cityName}. Pick it from the list so it includes the state (like "${cityName}, TX").` };
+  const cityId = matches[0].id;
   const [p] = await db.insert(cardPlaces).values({ name, kind, cityId, address: s(form, "address", 200) || null, notes: s(form, "notes", 500) || null, createdBy: user.id }).returning();
   await logActivity({ actorUserId: user.id, action: "cards.place_added", targetType: "card_place", targetId: p.id, after: { name, kind, cityId } });
   refresh();

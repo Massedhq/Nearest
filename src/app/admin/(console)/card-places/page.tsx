@@ -110,10 +110,10 @@ export default async function CardPlaces({ searchParams }: { searchParams: Promi
               <select name="kind" defaultValue="youth_program" style={field} aria-label="Type">
                 {Object.entries(PLACE_KINDS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
-              <select name="cityId" required defaultValue="" style={field} aria-label="City">
-                <option value="" disabled>City…</option>
-                {cityList.map((c) => <option key={c.id} value={c.id}>{c.name}, {c.state}</option>)}
-              </select>
+              <input name="city" list="card-place-cities" required autoComplete="off" placeholder="City — start typing (e.g. Lewisville)" style={field} aria-label="City" />
+              <datalist id="card-place-cities">
+                {cityList.map((c) => <option key={c.id} value={`${c.name}, ${c.state}`} />)}
+              </datalist>
               <input name="address" maxLength={200} placeholder="Address (optional — students see it)" style={field} aria-label="Address" />
               <input name="notes" maxLength={500} placeholder="Notes for the team (optional — students never see these)" style={field} aria-label="Notes" />
             </ActionForm>
