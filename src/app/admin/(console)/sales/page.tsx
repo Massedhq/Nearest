@@ -35,22 +35,29 @@ export default async function Sales({ searchParams }: { searchParams: Promise<{ 
   ]);
   const isMain = main === user.id;
   if (!isMain) {
-    // Partners (Kisses, Lakeesha) see only their own estimated earnings — never Nearest's revenue, fees, the pool
-    // math or what Nearest gives back (2026-11-06, owner rule). The amount is set by the main owner in Rules & Settings.
-    const estimate = Number(s["partner.monthly_estimate_cents"] ?? 1300000);
-    const mine = await referredPros(user.id);
+    // Partners (Kisses, Lakeesha) see only the shared pool progress (never above its target), their share and their
+    // own link earnings — never Nearest's total revenue, fees or what Nearest gives back (2026-11-06, owner rule).
+    const { sharedPoolMonth, partnerLinkMonth } = await import("@/lib/partner");
+    const [pool, link, mine] = await Promise.all([sharedPoolMonth(), partnerLinkMonth(user.id), referredPros(user.id)]);
+    const whole = (c: number) => money(c).replace(/\.00$/, "");
+    const monthName = new Date().toLocaleDateString("en-US", { month: "long", timeZone: "America/Chicago" });
     return (
       <>
         <AdminHead eyebrow="Your earnings" title="Sales Track" />
         <div className="card" style={{ gap: 10 }}>
-          <span className="eyebrow">Your earnings</span>
-          <span className="disp h2" style={{ margin: 0 }}>Approximately {money(estimate).replace(/\.00$/, "")} a month</span>
-          <span className="small">Your earnings for Nearest are approximately {money(estimate).replace(/\.00$/, "")} a month from the First In shared pool.</span>
+          <div className="row between"><span className="eyebrow">Shared pool — {monthName}</span><span className={`tag ${pool.full ? "ok" : ""}`}>{pool.full ? "Full" : "Filling"}</span></div>
+          <span className="stat" style={{ fontSize: 40 }}>{whole(pool.filled)} <span className="small muted" style={{ fontWeight: 500 }}>of {whole(pool.target)}</span></span>
+          <div className="bar gold"><i style={{ width: `${pool.pct}%` }} /></div>
+          <span className="small">When the shared pool reaches {whole(pool.target)} this month, your share is <b>{whole(pool.share)}</b>.{pool.full ? "" : ` So far: ${whole(pool.myShareSoFar)}.`}</span>
         </div>
-        <div className="card" style={{ gap: 6 }}>
-          <span className="eyebrow">Professionals you brought in</span>
-          <span className="stat">{mine.length}</span>
-          <span className="xs muted">{mine.filter((r) => r.isLive).length} live on Nearest</span>
+        <div className="card" style={{ gap: 8 }}>
+          <span className="eyebrow">Your link</span>
+          <span className="small">After the shared pool is full, you earn <b>{money(link.perPro)} a month</b> for every professional who joined through your link and was booked that month — there&apos;s no limit.</span>
+          <div className="row" style={{ gap: 24, flexWrap: "wrap" }}>
+            <div className="col" style={{ gap: 2 }}><span className="xs muted">Booked this month</span><span className="stat">{link.bookedPros}</span></div>
+            <div className="col" style={{ gap: 2 }}><span className="xs muted">Your link earnings this month</span><span className="stat">{money(link.earned)}</span><span className="xs muted">{pool.full ? "counting now" : "counts once the pool is full"}</span></div>
+            <div className="col" style={{ gap: 2 }}><span className="xs muted">Professionals from your link</span><span className="stat">{mine.length}</span><span className="xs muted">{mine.filter((r) => r.isLive).length} live</span></div>
+          </div>
         </div>
       </>
     );

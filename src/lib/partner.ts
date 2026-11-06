@@ -195,3 +195,34 @@ export async function referredPros(partnerId: string | null) {
     .orderBy(sql`${professionalProfiles.createdAt} desc`).limit(500);
   return rows;
 }
+
+/**
+ * Shared pool + link earnings (2026-11-06, owner rule). Each month Nearest's earnings fill a shared pool up to
+ * partner.pool_target_cents ($38,500); a full pool pays each partner partner.monthly_estimate_cents ($12,800). After
+ * that, a partner's own link earns partner.link_per_pro_cents ($3.60) a month for every professional who joined
+ * through their link and was booked that month. Partners see only the pool progress (never above the target), their
+ * share and their link earnings — never Nearest's total revenue or how it's earned.
+ */
+export async function sharedPoolMonth(now = new Date()) {
+  const { getSettings } = await import("./settings");
+  const s = await getSettings();
+  const target = Math.max(0, Number(s["partner.pool_target_cents"] ?? 3850000));
+  const share = Math.max(0, Number(s["partner.monthly_estimate_cents"] ?? 1280000));
+  const r = (await db.execute(sql`select coalesce(sum(service_fee_cents), 0)::int as cents from bookings
+    where status = 'completed' and released_at is not null
+      and date_trunc('month', released_at at time zone 'America/Chicago') = date_trunc('month', ${now}::timestamptz at time zone 'America/Chicago')`)).rows[0] as { cents: number };
+  const filled = Math.min(r.cents, target);
+  const full = target > 0 && r.cents >= target;
+  return { target, share, filled, full, pct: target ? Math.round((filled / target) * 100) : 0, myShareSoFar: target ? Math.round(share * (filled / target)) : 0 };
+}
+
+/** Professionals who joined through this partner's link and were booked this month, and what that earns the partner. */
+export async function partnerLinkMonth(partnerUserId: string, now = new Date()) {
+  const { getSettings } = await import("./settings");
+  const per = Math.max(0, Number((await getSettings())["partner.link_per_pro_cents"] ?? 360));
+  const r = (await db.execute(sql`select count(distinct p.user_id)::int as n from professional_profiles p
+    join bookings b on b.pro_id = p.user_id
+    where p.referred_by = ${partnerUserId} and b.status = 'completed' and b.released_at is not null
+      and date_trunc('month', b.released_at at time zone 'America/Chicago') = date_trunc('month', ${now}::timestamptz at time zone 'America/Chicago')`)).rows[0] as { n: number };
+  return { perPro: per, bookedPros: r.n, earned: r.n * per };
+}
