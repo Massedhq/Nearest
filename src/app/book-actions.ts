@@ -54,7 +54,7 @@ async function checkout(b: typeof bookings.$inferSelect, email: string | null, p
   const session = await stripe().checkout.sessions.create({
     mode: "payment",
     customer_email: email ?? undefined,
-    line_items: [{ quantity: 1, price_data: { currency: "usd", unit_amount: b.chargedCents, product_data: { name: `${b.serviceName} with ${proName}`, description: `Booking ${bookingCode(b.number)} • confirmed by your professional • includes a protected deposit` } } }],
+    line_items: [{ quantity: 1, price_data: { currency: "usd", unit_amount: b.chargedCents, product_data: { name: `${b.serviceName} with ${proName}`, description: `Booking ${bookingCode(b.number)} • includes the Deposit/Booking Fee` } } }],
     payment_intent_data: { transfer_group: b.id, metadata: { bookingId: b.id } },
     metadata: { bookingId: b.id },
     expires_at: Math.floor(Date.now() / 1000) + HOLD_MIN * 60,
@@ -103,10 +103,11 @@ async function createAndPay(opts: {
   let use = cards.planWithCard(opts.priceCents - (inv?.cents ?? 0), bal, cardAmt, capFor(inv?.cents ?? 0));
   const endsAt = new Date(opts.startsAt.getTime() + opts.durationMin * 60000);
   await releaseMyHolds(opts.studentId); // an old unfinished payment never blocks a new booking (accepted requests are kept)
-  // Every booking starts as a request: nothing is charged now. The professional accepts (activating their membership
-  // first if needed), then the student pays to confirm.
+  // From November 19, 2026 booking is INSTANT: the student pays now and it's confirmed when payment goes through
+  // (src/lib/instant-booking.ts). Before then every booking started as a request the professional accepted first.
   const { requestDeadline, notifyNewRequest } = await import("@/lib/requests");
-  const isRequest = true;
+  const { instantBooking } = await import("@/lib/instant-booking");
+  const isRequest = !instantBooking();
 
   const [b] = await db.insert(bookings).values({
     id: newId, cardId: use.card > 0 ? opts.cardId : null, cardCents: use.card, promoCents: use.promoCents,
@@ -114,7 +115,9 @@ async function createAndPay(opts: {
     serviceName: opts.serviceName, startsAt: opts.startsAt, endsAt, priceCents: opts.priceCents, travelFeeCents: travelFee, depositCents: deposit,
     addons: opts.addons?.length ? opts.addons : null, addonsCents: (opts.addons ?? []).reduce((t, a) => t + a.priceCents, 0),
     creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge, inviteDiscountCents: inv?.cents ?? 0, bundleId: opts.bundleId ?? null, isRequest, serviceFeeCents: opts.serviceFeeCents ?? 0,
-    status: "requested", holdExpiresAt: null, requestExpiresAt: requestDeadline(opts.startsAt),
+    status: isRequest ? "requested" : "pending_payment",
+    holdExpiresAt: isRequest ? null : new Date(Date.now() + HOLD_MIN * 60000),
+    requestExpiresAt: isRequest ? requestDeadline(opts.startsAt) : null,
     locationType: opts.where.locationType, locationAddress: opts.where.locationAddress, lat: opts.where.lat, lng: opts.where.lng,
   }).returning();
   if (inv) {
@@ -141,8 +144,19 @@ async function createAndPay(opts: {
     }
   }
 
-  await notifyNewRequest(b);
-  redirect(`/bookings/${b.id}?requested=1`);
+  if (isRequest) {
+    await notifyNewRequest(b);
+    redirect(`/bookings/${b.id}?requested=1`);
+  }
+  // Instant: pay now (or confirm right away when credit covers it). confirmBooking tells the student and the pro.
+  const fresh = (await db.query.bookings.findFirst({ where: eq(bookings.id, b.id) }))!;
+  if (fresh.chargedCents === 0) { await confirmBooking(fresh.id); redirect(`/bookings/${fresh.id}?booked=1`); }
+  if (!stripeEnabled()) {
+    await db.update(bookings).set({ status: "expired", holdExpiresAt: null }).where(eq(bookings.id, fresh.id));
+    await restoreInviteRewards();
+    return { error: "Payments aren't available right now. Please try again soon." };
+  }
+  redirect(await checkout(fresh, opts.email, opts.proName));
 }
 
 /** The professional accepted: the student pays now (credits re-checked) — or it confirms right away if credit covers it. */

@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { instantBooking } from "@/lib/instant-booking";
 import { and, eq } from "drizzle-orm";
 import { db, proServices, professionalProfiles } from "@/db";
 import { requireVerifiedStudent } from "@/lib/student";
@@ -89,7 +90,11 @@ export default async function Confirm({ params, searchParams }: { params: Promis
         </div>
         {travels && <div className="card small"><span>{pro.serviceMode === "both" && pro.addressLine ? `If they come to you, a ${money(pro.travelFeeCents ?? 3500)} travel fee is added to this price.` : `Includes a ${money(pro.travelFeeCents ?? 3500)} travel fee at checkout — your professional comes to you.`}</span></div>}
         {bundleItem && <div className="card small"><span><span className="b">Bundle booking.</span> Credits and invite rewards can&apos;t be used on bundle bookings — they stay in your account for single bookings.</span></div>}
-        <div className="card small"><span><span className="b">Nothing is charged now.</span> Your request goes to the professional to confirm. Once they accept, you&apos;ll pay to lock in your appointment.</span></div>
+        {instantBooking() ? (
+          <div className="card small"><span><span className="b">Pay now and you&apos;re booked.</span> Your appointment is confirmed as soon as your payment goes through. Your payment is held until after your appointment.</span></div>
+        ) : (
+          <div className="card small"><span><span className="b">Nothing is charged now.</span> Your request goes to the professional to confirm. Once they accept, you&apos;ll pay to lock in your appointment.</span></div>
+        )}
         {!bundleItem && (
           <div className="card" style={{ gap: 10 }}>
             <span className="b small">Use a Nearest Card on this booking?</span>
@@ -114,7 +119,7 @@ export default async function Confirm({ params, searchParams }: { params: Promis
         )}
         <PriceBox price={price} fee={svc.proPriceCents == null ? 0 : svc.serviceFeeCents} card={use.card} cardLabel={chosen ? `${cardLabel(chosen.b.kind)} •••• ${chosen.c.number.slice(-4)}` : undefined} deposit={deposit} pro={use.pro} general={use.general} charge={use.charge} invite={inv?.cents ?? 0} />
         <Terms deposit={deposit} cutoffHours={Number(s["cancel.cutoff_hours"])} graceMin={Number(s["appt.grace_minutes"])} />
-        <ActionForm action={bookService} submitLabel="Send booking request">
+        <ActionForm action={bookService} submitLabel={instantBooking() ? "Pay and book" : "Send booking request"}>
           <input type="hidden" name="serviceId" value={svc.id} />
           <input type="hidden" name="day" value={day} />
           <input type="hidden" name="time" value={time} />

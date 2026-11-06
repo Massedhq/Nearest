@@ -3,7 +3,7 @@
  * card processing) are part of section 2 — there's no monthly membership. The rate argument is kept for older callers. Bump PRO_TERMS_VERSION whenever the text changes —
  * every professional's accepted version is stored, so Nearest can prove which terms they agreed to.
  */
-export const PRO_TERMS_VERSION = "2026-11-04";
+export const PRO_TERMS_VERSION = "2026-11-05";
 
 /** Label for a pro's locked rate (used when an already-enrolled pro accepts an updated version). */
 export const rateLabel = (entryType: string | null | undefined) => (entryType === "FIRST_IN" ? "First In" : entryType === "DFW_NEXT" ? "DFW membership" : "Market rate");
@@ -17,7 +17,7 @@ export function proTermsSections(_rate?: { cents: number; label: string }) {
       "Each service is capped at $150. Services marked 18+ can't be booked by students under 18.",
     ] },
     { h: "2. Bookings, payments & fees", p: [
-      "Every booking starts as a request. You'll be notified and have 24 hours (or until 2 hours before the appointment, if sooner) to accept or decline; requests you don't answer expire.",
+      "Instant booking. Starting November 19, 2026, students book any open time on your calendar and pay right away; the appointment is confirmed when their payment goes through, and you're notified at once. There is no accept or decline step, so keep your hours, availability and blocked times up to date — only show times you can take. If you must cancel a confirmed booking, the cancellation rules in these Terms apply. Booking requests sent before November 19, 2026 work as before: you have 24 hours (or until 2 hours before the appointment, if sooner) to accept or decline, and requests you don't answer expire.",
       "Once you accept, the student pays to confirm. The appointment is confirmed when their payment goes through; Nearest holds the payment until the service is finished. If they don't pay in time, the time is released.",
       "You must show up on time at the confirmed place, check in through Nearest, and provide the service as described. Nearest's cancellation, deposit, no-show and fine rules apply to you.",
       "Joining Nearest, building your profile and staying listed are free. There is no sign-up fee and no monthly fee, and you don't need a card on file.",
