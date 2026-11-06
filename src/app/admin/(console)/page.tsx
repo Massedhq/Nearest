@@ -15,6 +15,7 @@ const count = async (q: Promise<{ n: number }[]>) => (await q)[0]?.n ?? 0;
 
 export default async function CommandCenter() {
   const { user, role } = await requireAdmin();
+  const isMain = await (await import("@/lib/admin")).isMainOwner(user.id); // Nearest's money shows to the main owner only
   await expireStaleInvites();
   const [settings, founding, pros, students, activeCities, pending, recent, toReview, studentsToVerify] = await Promise.all([
     getSettings(),
@@ -54,9 +55,10 @@ export default async function CommandCenter() {
         <div className="card" style={{ gap: 6 }}><span className="xs muted">Professionals</span><span className="stat">{pros}</span></div>
         <div className="card" style={{ gap: 6 }}><span className="xs muted">Students</span><span className="stat">{students}</span></div>
         <Link className="card" href="/admin/bookings" style={{ gap: 6, textDecoration: "none", color: "inherit" }}><span className="xs muted">Bookings today</span><span className="stat">{bookingsToday}</span><span className="xs muted">confirmed or done</span></Link>
-        <Link className="card" href="/admin/money" style={{ gap: 6, textDecoration: "none", color: "inherit" }}>{MEMBERSHIP_ENABLED
+        {isMain ? <Link className="card" href="/admin/money" style={{ gap: 6, textDecoration: "none", color: "inherit" }}>{MEMBERSHIP_ENABLED
           ? <><span className="xs muted">Professional MRR</span><span className="stat">{money(mrr)}</span><span className="xs muted">{payingPros} paying professional{payingPros === 1 ? "" : "s"}</span></>
           : <><span className="xs muted">Service fees (30 days)</span><span className="stat">{money(feeIncome)}</span><span className="xs muted">{feeBookings} completed booking{feeBookings === 1 ? "" : "s"}</span></>}</Link>
+          : <Link className="card" href="/admin/sales" style={{ gap: 6, textDecoration: "none", color: "inherit" }}><span className="xs muted">Your Sales Track</span><span className="stat" style={{ fontSize: 22 }}>See your earnings</span></Link>}
       </div>
       <div className="acols">
         <div className="col g16">

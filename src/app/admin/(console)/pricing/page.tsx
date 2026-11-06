@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AdminHead } from "@/components/AdminHead";
-import { requireAdmin } from "@/lib/admin";
+import { requireMainOwner } from "@/lib/admin";
 import { BANDS, MIN_FUNNEL, MIN_SAMPLE, filterOptions, money, pricingIntel, type Filters, type Stats } from "@/lib/pricing-intel";
 
 export const metadata = { title: "Student Pricing Intelligence" };
@@ -33,7 +33,7 @@ function GroupTable({ first, groups }: { first: string; groups: { key: string; l
 }
 
 export default async function Pricing({ searchParams }: { searchParams: Promise<SP> }) {
-  await requireAdmin();
+  await requireMainOwner({ page: true }); // Nearest's money is the main owner's alone
   const sp = await searchParams;
   const f: Filters = { from: sp.from || undefined, to: sp.to || undefined, state: sp.state || undefined, cityId: sp.city ? Number(sp.city) : undefined, categoryId: sp.category ? Number(sp.category) : undefined, proId: sp.pro || undefined, liveOnly: sp.live === "1" };
   const [d, opt] = await Promise.all([pricingIntel(f), filterOptions()]);

@@ -6,7 +6,7 @@ import { db, invitations, cities, platformSettings } from "@/db";
 import { requireAdmin, isMainOwner } from "@/lib/admin";
 import { logActivity } from "@/lib/log";
 import { getSettings } from "@/lib/settings";
-import { SETTINGS, STATUS_KEYS } from "@/lib/settings-defaults";
+import { SETTINGS, STATUS_KEYS, mainOwnerOnlySetting } from "@/lib/settings-defaults";
 import { foundingOpen } from "@/lib/invites";
 import { sendInviteEmail } from "@/lib/email";
 import { mainOwnerId } from "@/lib/partner";
@@ -40,7 +40,7 @@ export async function saveSettings(_: FormState, form: FormData): Promise<FormSt
   let changed = 0;
   for (const [key, def] of Object.entries(SETTINGS)) {
     if (def.type === "bool") continue;
-    if (key.startsWith("cards.") && !main) continue;
+    if (!main && mainOwnerOnlySetting(key)) continue;
     const raw = form.get(key);
     if (raw === null) continue;
     let value: number | string;

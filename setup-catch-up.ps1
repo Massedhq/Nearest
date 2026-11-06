@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -m "Instant booking from Nov 19 2026: pay and book, no accept step; Pro Terms 2026-11-05"
+git commit -m "Nearest money main owner only; partners see only their Sales Track estimate"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

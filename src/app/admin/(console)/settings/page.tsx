@@ -2,7 +2,7 @@ import { AdminHead } from "@/components/AdminHead";
 import { StatusPanel } from "@/components/StatusPanel";
 import { requireAdmin, isMainOwner } from "@/lib/admin";
 import { getSettings } from "@/lib/settings";
-import { SETTINGS } from "@/lib/settings-defaults";
+import { SETTINGS, mainOwnerOnlySetting } from "@/lib/settings-defaults";
 import { SettingsForm } from "./SettingsForm";
 
 export const metadata = { title: "Rules & Settings" };
@@ -14,7 +14,7 @@ export default async function SettingsPage() {
   const groups = new Map<string, { key: string; def: (typeof SETTINGS)[string]; value: number | string | boolean }[]>();
   for (const [key, def] of Object.entries(SETTINGS)) {
     if (def.type === "bool") continue;
-    if (key.startsWith("cards.") && !main) continue;
+    if (!main && mainOwnerOnlySetting(key)) continue;
     if (!groups.has(def.group)) groups.set(def.group, []);
     groups.get(def.group)!.push({ key, def, value: s[key] });
   }

@@ -8,9 +8,10 @@ export const metadata = { title: "How it works" };
 export default async function AdminGuide() {
   const { user } = await requireAdmin();
   // Partner pages and Nearest Cards are the main owner's alone, so their topics only show for her.
-  const MAIN_ONLY_TOPICS = ["Partner pages (Nearest Partners)", "Adding a partner yourself (setup, finish or approve link)", "Partner shop (downloads and products)", "Nearest Cards"];
+  const MAIN_ONLY_TOPICS = ["Partner pages (Nearest Partners)", "Adding a partner yourself (setup, finish or approve link)", "Partner shop (downloads and products)", "Nearest Cards", "Money", "Sales Track", "Student Pricing Intelligence", "Public website content audit"];
+  const PARTNER_ONLY_TOPICS = ["Your Sales Track earnings"]; // other owners only — the main owner sees the full Sales Track topic
   const main = await isMainOwner(user.id);
-  const sections = (await guideFor("admin")).map((sec) => ({ ...sec, topics: main ? sec.topics : sec.topics.filter((t) => !MAIN_ONLY_TOPICS.includes(t.q)) })).filter((sec) => sec.topics.length);
+  const sections = (await guideFor("admin")).map((sec) => ({ ...sec, topics: main ? sec.topics.filter((t) => !PARTNER_ONLY_TOPICS.includes(t.q)) : sec.topics.filter((t) => !MAIN_ONLY_TOPICS.includes(t.q)) })).filter((sec) => sec.topics.length);
   return (
     <>
       <AdminHead eyebrow="Every admin section, explained" title="How it works" />

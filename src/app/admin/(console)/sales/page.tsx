@@ -34,6 +34,27 @@ export default async function Sales({ searchParams }: { searchParams: Promise<{ 
     db.select({ n: sql<number>`count(*)::int` }).from(professionalProfiles),
   ]);
   const isMain = main === user.id;
+  if (!isMain) {
+    // Partners (Kisses, Lakeesha) see only their own estimated earnings — never Nearest's revenue, fees, the pool
+    // math or what Nearest gives back (2026-11-06, owner rule). The amount is set by the main owner in Rules & Settings.
+    const estimate = Number(s["partner.monthly_estimate_cents"] ?? 1300000);
+    const mine = await referredPros(user.id);
+    return (
+      <>
+        <AdminHead eyebrow="Your earnings" title="Sales Track" />
+        <div className="card" style={{ gap: 10 }}>
+          <span className="eyebrow">Your earnings</span>
+          <span className="disp h2" style={{ margin: 0 }}>Approximately {money(estimate).replace(/\.00$/, "")} a month</span>
+          <span className="small">Your earnings for Nearest are approximately {money(estimate).replace(/\.00$/, "")} a month from the First In shared pool.</span>
+        </div>
+        <div className="card" style={{ gap: 6 }}>
+          <span className="eyebrow">Professionals you brought in</span>
+          <span className="stat">{mine.length}</span>
+          <span className="xs muted">{mine.filter((r) => r.isLive).length} live on Nearest</span>
+        </div>
+      </>
+    );
+  }
   const brought = await referredPros(isMain ? null : user.id);
   const pool = Number(s["partner.pool_size"]);
   const me = list.find((p) => p.userId === user.id);

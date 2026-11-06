@@ -17,7 +17,7 @@ export function AdminNav({ isMain = false }: { isMain?: boolean }) {
   const path = usePathname();
   // Sales Board is the main owner's alone (also enforced on the server).
   // Partner pages and Nearest Cards are the main owner's alone — hidden from every other admin.
-  const MAIN_ONLY = ["/admin/partners", "/admin/cards"];
+  const MAIN_ONLY = ["/admin/partners", "/admin/cards", "/admin/money", "/admin/pricing"]; // Nearest money: main owner only
   const nav = isMain
     ? NAV.map(([h, items]) => [h, h === "Business" ? [...items, ["Sales Board", "users", "/admin/sales-board"]] : items] as (typeof NAV)[number])
     : NAV.map(([h, items]) => [h, (items as string[][]).filter((it) => !MAIN_ONLY.includes(it[2]))] as unknown as (typeof NAV)[number]);

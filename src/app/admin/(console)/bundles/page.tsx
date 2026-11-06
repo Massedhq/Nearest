@@ -8,7 +8,8 @@ export const metadata = { title: "Bundle Me" };
 
 /** Bundle Me usage: how many bundles were started, finished and booked, which categories, and who is using it. */
 export default async function BundleMeAdmin() {
-  await requireAdmin();
+  const { user } = await requireAdmin();
+  const isMain = await (await import("@/lib/admin")).isMainOwner(user.id);
   const [totals] = await db.select({
     started: sql<number>`count(*)::int`,
     building: sql<number>`count(*) filter (where ${bundles.status} = 'building')::int`,
@@ -38,7 +39,7 @@ export default async function BundleMeAdmin() {
       <div className="kpis k4">
         <div className="card" style={{ gap: 4 }}><span className="xs muted">Bundles started</span><span className="stat">{totals.started}</span><span className="xs muted">by {totals.students} student{totals.students === 1 ? "" : "s"}</span></div>
         <div className="card" style={{ gap: 4 }}><span className="xs muted">Fully booked</span><span className="stat">{totals.booked}</span><span className="xs muted">{totals.ready} ready • {totals.building} in progress</span></div>
-        <div className="card" style={{ gap: 4 }}><span className="xs muted">Bundle bookings</span><span className="stat">{bk.n}</span><span className="xs muted">{money(bk.revenue)} paid</span></div>
+        <div className="card" style={{ gap: 4 }}><span className="xs muted">Bundle bookings</span><span className="stat">{bk.n}</span>{isMain && <span className="xs muted">{money(bk.revenue)} paid</span>}</div>
         <div className="card" style={{ gap: 4 }}><span className="xs muted">Average budget</span><span className="stat">{money(totals.avgBudget)}</span><span className="xs muted">{totals.expired} expired unbooked</span></div>
       </div>
       <div className="acols even">

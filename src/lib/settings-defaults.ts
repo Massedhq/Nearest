@@ -55,6 +55,7 @@ export const SETTINGS: Record<string, SettingDef> = {
   "shop.download_limit": { label: "Partner shop — downloads allowed per digital purchase", group: "Partner shop", type: "number", value: 10 },
   "shop.download_days": { label: "Partner shop — days a download link keeps working", group: "Partner shop", type: "number", unit: "days", value: 365 },
   "fees.service_fee_cents": { label: "Nearest service fee per service (added to the price students see)", group: "Fees", type: "cents", value: 500 },
+  "partner.monthly_estimate_cents": { label: "Sales Track — the monthly earnings amount each partner sees (\"approximately … a month from the First In shared pool\")", group: "Fees", type: "cents", value: 1300000 },
   "cards.max_total": { label: "Nearest Cards — most cards that can ever be made (all batches together)", group: "Fees", type: "number", value: 3000 },
   "cards.activate_days": { label: "Nearest Cards — days a student has to save a card to their account after it's handed out (then it goes inactive)", group: "Fees", type: "number", unit: "days", value: 30 },
   "cards.fund_per_booking_cents": { label: "Nearest Cards fund — part of the booking fee set aside from each completed booking to give back with Nearest Cards", group: "Fees", type: "cents", value: 500 },
@@ -73,6 +74,15 @@ export const SETTINGS: Record<string, SettingDef> = {
   "status.student_registration": { label: "Student Registration", group: "Status", type: "bool", value: true },
   "status.bookings": { label: "Bookings", group: "Status", type: "bool", value: false },
 };
+
+/**
+ * Settings only the main owner sees and changes (2026-11-06, owner rule): Nearest's money — fees, the Nearest Cards
+ * fund, the partner shop fee and the Sales Track pool/estimate. Other owners and staff never see them.
+ */
+export function mainOwnerOnlySetting(key: string) {
+  const g = SETTINGS[key]?.group;
+  return g === "Fees" || g === "Partner shop" || key.startsWith("partner.") || key.startsWith("cards.") || key === "growth.second_cohort_end" || key === "sub.termination_days";
+}
 
 export const STATUS_KEYS = [
   "status.pro_registration",

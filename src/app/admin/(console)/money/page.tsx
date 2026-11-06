@@ -1,13 +1,13 @@
 import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { db, bookings, credits, professionalProfiles, membershipPayments } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
-import { requireAdmin } from "@/lib/admin";
+import { requireMainOwner } from "@/lib/admin";
 import { money } from "@/lib/time";
 
 export const metadata = { title: "Money" };
 
 export default async function Money() {
-  await requireAdmin();
+  await requireMainOwner({ page: true }); // Nearest's money is the main owner's alone
   const since = new Date(Date.now() - 30 * 86400000);
   const n = sql<number>`count(*)::int`;
   const [subs, volume, held, released, fees, creditOut, generalOut, collected] = await Promise.all([
