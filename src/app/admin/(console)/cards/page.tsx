@@ -1,9 +1,9 @@
-import { desc, eq, like, or, sql } from "drizzle-orm";
-import { db, nearestCardBatches, nearestCards, users } from "@/db";
+import { and, asc, desc, eq, like, or, sql } from "drizzle-orm";
+import { db, cardPlaces, nearestCardBatches, nearestCards, users } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
 import { ActionForm } from "@/components/ActionForm";
 import { requireMainOwner } from "@/lib/admin";
-import { cardLabel, cardFund, digits, groupNumber, validThruLabel, activateBy, activateDays, CARD_LIMITS } from "@/lib/nearest-cards";
+import { cardLabel, cardFund, digits, groupNumber, validThruLabel, activateBy, activateDays, CARD_LIMITS, ensurePrintSeq } from "@/lib/nearest-cards";
 import { createCards, setCardBatchStatus, setCardStatus, setBatchHandout, discardCardBatch } from "@/app/admin/card-actions";
 import { fmtDate, money } from "@/lib/time";
 
@@ -14,10 +14,19 @@ const field = { borderRadius: 10, border: "1px solid #2A2A2D", background: "#0E0
 const STATUS: Record<string, string> = { issued: "Not added yet", activated: "On a student's account", off: "Turned off", locked: "Locked (too many wrong codes)", discarded: "Discarded" };
 const ymd = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
 
-/** Owners: make batches of printed Nearest Cards, download the printer file, and look up any card. */
-export default async function AdminCards({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+const PER_PAGE = 100;
+
+/** Main owner: make batches of printed Nearest Cards, see every card (number + code) right here, download the printer file, and look up any card. */
+export default async function AdminCards({ searchParams }: { searchParams: Promise<{ q?: string; batch?: string; page?: string }> }) {
   await requireMainOwner({ page: true });
-  const q = digits((await searchParams).q ?? "").slice(0, 16);
+  await ensurePrintSeq(); // also gives a new code to unsaved cards whose code started with 0
+  const sp = await searchParams;
+  const q = digits(sp.q ?? "").slice(0, 16);
+  const openBatch = /^[0-9a-f-]{36}$/.test(sp.batch ?? "") ? sp.batch! : "";
+  const page = Math.max(1, Math.floor(Number(sp.page) || 1));
+  // Look up by any part of the card number (front), the exact code (back), or the card's # in its printer file.
+  const lookup = q.length === 16 ? eq(nearestCards.number, q)
+    : or(...(q.length >= 4 ? [like(nearestCards.number, `%${q}%`)] : []), ...(q.length >= 3 && q.length <= 4 ? [eq(nearestCards.code, q)] : []), ...(q.length <= 5 ? [eq(nearestCards.printSeq, Number(q))] : []));
   const days = await activateDays();
   const [fund, batches, totals, found, locked] = await Promise.all([
     cardFund(),
@@ -33,21 +42,35 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
       used: sql<number>`count(*) filter (where ${nearestCards.creditId} is not null)::int`,
       value: sql<number>`(select coalesce(sum(bk.card_cents), 0)::int from bookings bk where bk.card_id is not null and bk.paid_at is not null)`,
     }).from(nearestCards).innerJoin(nearestCardBatches, eq(nearestCardBatches.id, nearestCards.batchId)).then((r) => r[0]),
-    q.length >= 4
-      ? db.select({ c: nearestCards, b: nearestCardBatches, first: users.firstName, last: users.lastName }).from(nearestCards)
+    q.length >= 1
+      ? db.select({ c: nearestCards, b: nearestCardBatches, first: users.firstName, last: users.lastName, place: cardPlaces.name }).from(nearestCards)
           .innerJoin(nearestCardBatches, eq(nearestCardBatches.id, nearestCards.batchId)).leftJoin(users, eq(users.id, nearestCards.studentId))
-          .where(q.length === 16 ? eq(nearestCards.number, q) : like(nearestCards.number, `%${q}`)).limit(25)
+          .leftJoin(cardPlaces, eq(cardPlaces.id, nearestCards.placeId))
+          .where(lookup).orderBy(desc(nearestCardBatches.createdAt), asc(nearestCards.printSeq)).limit(50)
       : Promise.resolve([]),
-    db.select({ c: nearestCards, b: nearestCardBatches, first: users.firstName, last: users.lastName }).from(nearestCards)
+    db.select({ c: nearestCards, b: nearestCardBatches, first: users.firstName, last: users.lastName, place: cardPlaces.name }).from(nearestCards)
       .innerJoin(nearestCardBatches, eq(nearestCardBatches.id, nearestCards.batchId)).leftJoin(users, eq(users.id, nearestCards.studentId))
-      .where(or(eq(nearestCards.status, "locked"))).limit(25),
+      .leftJoin(cardPlaces, eq(cardPlaces.id, nearestCards.placeId))
+      .where(eq(nearestCards.status, "locked")).limit(25),
   ]);
+  // The cards of one batch, on screen (no spreadsheet needed): 100 per page, in printer-file order.
+  const batchCards = openBatch
+    ? await db.select({ c: nearestCards, b: nearestCardBatches, first: users.firstName, last: users.lastName, place: cardPlaces.name }).from(nearestCards)
+        .innerJoin(nearestCardBatches, eq(nearestCardBatches.id, nearestCards.batchId)).leftJoin(users, eq(users.id, nearestCards.studentId))
+        .leftJoin(cardPlaces, eq(cardPlaces.id, nearestCards.placeId))
+        .where(and(eq(nearestCards.batchId, openBatch))).orderBy(asc(nearestCards.printSeq), asc(nearestCards.createdAt)).limit(PER_PAGE).offset((page - 1) * PER_PAGE)
+    : [];
+  const openInfo = batches.find((x) => x.b.id === openBatch)?.b;
+  const pages = openInfo ? Math.max(1, Math.ceil(openInfo.count / PER_PAGE)) : 1;
+  const batchLink = (id: string, p = 1) => `/admin/cards?batch=${id}${p > 1 ? `&page=${p}` : ""}#batch-cards`;
   const live = batches.filter((x) => x.b.status !== "discarded");
   const gone = batches.filter((x) => x.b.status === "discarded");
-  const cardRow = ({ c, b, first, last }: (typeof locked)[number]) => (
+  const cardRow = ({ c, b, first, last, place }: (typeof locked)[number]) => (
     <tr key={c.id}>
-      <td className="b">{groupNumber(c.number)}</td>
-      <td>{cardLabel(b.kind)} • {b.name}</td>
+      <td>{c.printSeq ?? "—"}</td>
+      <td className="b" style={{ whiteSpace: "nowrap" }}>{groupNumber(c.number)}</td>
+      <td className="b">{c.code}</td>
+      <td>{cardLabel(b.kind)} • {b.name}{place ? <div className="xs muted">At {place}</div> : null}</td>
       <td>{c.status === "issued" && activateBy(b, days) < new Date() ? `Inactive — not saved within ${days} days` : (STATUS[c.status] ?? c.status)}{c.failedAttempts > 0 && c.status !== "activated" ? ` • ${c.failedAttempts} wrong code${c.failedAttempts === 1 ? "" : "s"}` : ""}</td>
       <td>{c.studentId ? ([first, last].filter(Boolean).join(" ") || "Student") : "—"}{c.activatedAt ? <div className="xs muted">added {fmtDate(c.activatedAt)}</div> : null}</td>
       <td>{c.usedBookingId ? <span className="xs">{c.creditId ? "Paid booking" : "Chosen for a booking (not paid yet)"} {c.usedBookingId.slice(0, 8).toUpperCase()}</span> : "—"}</td>
@@ -116,7 +139,8 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
                   <td>
                     <div className="col" style={{ gap: 6 }}>
                       <div className="row" style={{ gap: 6 }}>
-                        <a className="btn sm" href={`/api/admin/cards/${b.id}`}>Printer file</a>
+                        <a className="btn sm" href={openBatch === b.id ? "/admin/cards" : batchLink(b.id)}>{openBatch === b.id ? "Hide cards" : "See cards"}</a>
+                        <a className="btn ghost sm" href={`/api/admin/cards/${b.id}`}>Printer file</a>
                         <form action={setCardBatchStatus}><input type="hidden" name="id" value={b.id} /><input type="hidden" name="to" value={b.status === "active" ? "off" : "on"} /><button className="btn ghost sm" type="submit">{b.status === "active" ? "Turn off" : "Turn on"}</button></form>
                       </div>
                       <details><summary className="link xs">Handed out date</summary>
@@ -136,7 +160,24 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
             </tbody>
           </table>
         </div>
-        <span className="xs muted">Printer file = a spreadsheet (CSV) of every card number and code in the batch, for your card printer. Keep it private — anyone with a number and code can add that card. Turn off stops cards that haven&apos;t been saved yet (you can turn it back on); cards already saved on a student&apos;s account keep working — to stop one of those, look it up below and tap Turn off. Discard stops the whole batch for good, saved cards included.</span>
+        <span className="xs muted">See cards = every card in the batch right here — #, number, code and status — no spreadsheet needed. Printer file = a spreadsheet (CSV) of every card number and code in the batch, for your card printer. Keep it private — anyone with a number and code can add that card. Turn off stops cards that haven&apos;t been saved yet (you can turn it back on); cards already saved on a student&apos;s account keep working — to stop one of those, look it up below and tap Turn off. Discard stops the whole batch for good, saved cards included.</span>
+        {openInfo && (
+          <div className="col" id="batch-cards" style={{ gap: 8, marginTop: 6 }}>
+            <span className="eyebrow">Cards in {openInfo.name} — {openInfo.kind === "free" ? "Free (4-digit code)" : "Discount (3-digit code)"}</span>
+            <div style={{ overflowX: "auto", maxHeight: 560 }}>
+              <table className="tbl"><thead><tr><th>#</th><th>Number</th><th>Code</th><th>Card</th><th>Status</th><th>Student</th><th>Used on</th><th /></tr></thead>
+                <tbody>{batchCards.length === 0 ? <tr><td className="empty" colSpan={8}>No cards on this page.</td></tr> : batchCards.map(cardRow)}</tbody>
+              </table>
+            </div>
+            {pages > 1 && (
+              <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                {page > 1 && <a className="btn ghost sm" href={batchLink(openInfo.id, page - 1)}>Previous 100</a>}
+                <span className="xs muted">Cards {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, openInfo.count)} of {openInfo.count} • page {page} of {pages}</span>
+                {page < pages && <a className="btn ghost sm" href={batchLink(openInfo.id, page + 1)}>Next 100</a>}
+              </div>
+            )}
+          </div>
+        )}
         {gone.length > 0 && (
           <details><summary className="link xs">Discarded batches ({gone.length})</summary>
             <div style={{ overflowX: "auto", marginTop: 8 }}><table className="tbl"><thead><tr><th>Batch</th><th>Value</th><th className="num">Made</th><th className="num">Used</th><th>Discarded</th></tr></thead><tbody>
@@ -149,19 +190,20 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
       <div className="card" style={{ gap: 10 }}>
         <span className="eyebrow">Look up a card</span>
         <form className="row" style={{ gap: 8 }}>
-          <input name="q" defaultValue={q} inputMode="numeric" placeholder="Full card number or last 4 digits" style={{ ...field, flex: 1 }} aria-label="Card number" />
+          <input name="q" defaultValue={q} inputMode="numeric" placeholder="Any part of the card number, the code, or its #" style={{ ...field, flex: 1 }} aria-label="Card number" />
           <button className="btn sm" type="submit">Find</button>
         </form>
-        {q.length >= 4 && (found.length === 0
+        <span className="xs muted">Type any 4 or more digits from the front of the card (spaces are fine), the 3 or 4 digit code from the back, or the card&apos;s # from the batch list.</span>
+        {q.length >= 1 && (found.length === 0
           ? <span className="small muted">No card matches {q}.</span>
-          : <div style={{ overflowX: "auto" }}><table className="tbl"><thead><tr><th>Number</th><th>Card</th><th>Status</th><th>Student</th><th>Used on</th><th /></tr></thead><tbody>{found.map(cardRow)}</tbody></table></div>)}
+          : <div style={{ overflowX: "auto" }}><table className="tbl"><thead><tr><th>#</th><th>Number</th><th>Code</th><th>Card</th><th>Status</th><th>Student</th><th>Used on</th><th /></tr></thead><tbody>{found.map(cardRow)}</tbody></table></div>)}
       </div>
 
       {locked.length > 0 && (
         <div className="card warn" style={{ gap: 10 }}>
           <span className="eyebrow">Locked cards</span>
           <span className="xs">Someone typed the wrong code {CARD_LIMITS.lockAfter} times on these numbers, so they were locked. If the real card holder contacts support, Unlock it; if it looks like guessing, leave it locked or Turn off.</span>
-          <div style={{ overflowX: "auto" }}><table className="tbl"><thead><tr><th>Number</th><th>Card</th><th>Status</th><th>Student</th><th>Used on</th><th /></tr></thead><tbody>{locked.map(cardRow)}</tbody></table></div>
+          <div style={{ overflowX: "auto" }}><table className="tbl"><thead><tr><th>#</th><th>Number</th><th>Code</th><th>Card</th><th>Status</th><th>Student</th><th>Used on</th><th /></tr></thead><tbody>{locked.map(cardRow)}</tbody></table></div>
         </div>
       )}
     </>

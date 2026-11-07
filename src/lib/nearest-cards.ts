@@ -48,7 +48,8 @@ function newNumber() {
   while (s.length < 16) s += String(randomInt(0, 10));
   return s;
 }
-const newCode = (kind: CardKind) => String(randomInt(0, kind === "free" ? 10000 : 1000)).padStart(kind === "free" ? 4 : 3, "0");
+/** Codes never start with 0: a free card is always 4 digits (1000–9999) and a discount card always 3 (100–999), even in a spreadsheet. */
+const newCode = (kind: CardKind) => String(kind === "free" ? randomInt(1000, 10000) : randomInt(100, 1000));
 
 /** Days a student has to save a card after the batch is handed out (Rules & Settings → cards.activate_days, default 30). */
 export async function activateDays() {
@@ -89,9 +90,31 @@ export async function cardTotals() {
 
 /** Number older cards in printer-file order (#1, #2…) so a stack of cards can be assigned to a place by its # range. */
 export async function ensurePrintSeq() {
+  await fixLeadingZeroCodes();
   await db.execute(sql`update nearest_cards c set print_seq = r.rn from (
       select id, (coalesce((select max(x.print_seq) from nearest_cards x where x.batch_id = n.batch_id), 0) + row_number() over (partition by batch_id order by created_at, ctid))::int as rn
       from nearest_cards n where print_seq is null) r where c.id = r.id`);
+}
+
+/**
+ * One-time repair (2026-11-07): cards made before the fix could get a code starting with 0 ("0482"), which a spreadsheet
+ * shows as "482" — so a free card looked like a 3-digit discount card. Every card no student has saved yet gets a new code
+ * in the right range (free 1000–9999, discount 100–999). Saved cards are never changed. Logged once per repair.
+ */
+export async function fixLeadingZeroCodes() {
+  const r = await db.execute(sql`update nearest_cards c set code = case when b.kind = 'free'
+      then (1000 + floor(random() * 9000))::int::text else (100 + floor(random() * 900))::int::text end
+    from nearest_card_batches b
+    where b.id = c.batch_id and c.code like '0%' and c.student_id is null and c.used_booking_id is null
+      and c.status in ('issued', 'off', 'locked')
+    returning c.id, b.id as "batchId"`);
+  const rows = r.rows as { id: string; batchId: string }[];
+  if (!rows.length) return 0;
+  const { logActivity } = await import("./log");
+  const byBatch: Record<string, number> = {};
+  for (const x of rows) byBatch[x.batchId] = (byBatch[x.batchId] ?? 0) + 1;
+  await logActivity({ actorUserId: null, action: "cards.codes_fixed", targetType: "nearest_card_batch", after: { cards: rows.length, byBatch, reason: "code started with 0" } }).catch(() => {});
+  return rows.length;
 }
 
 /** Check a batch request; returns a plain-words problem or null. */

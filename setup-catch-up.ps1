@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -m "Sales Track: shared pool to 38500, 12800 share, 3.60 per booked pro from partner link"
+git commit -m "Nearest Cards: free codes always 4 digits, see cards on screen, better lookup"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""
