@@ -48,7 +48,7 @@ export async function categoryCandidates(area: Area, categoryId: number, adult: 
     .innerJoin(professionalProfiles, eq(professionalProfiles.userId, proServices.userId))
     .leftJoin(cities, eq(cities.id, professionalProfiles.cityId))
     .where(and(
-      eq(proServices.categoryId, categoryId), eq(proServices.active, true), sql`${proServices.priceCents} <= ${MAX_PRICE_CENTS}`,
+      eq(proServices.categoryId, categoryId), eq(proServices.active, true), sql`${proServices.priceCents} <= ${MAX_PRICE_CENTS}`, sql`${proServices.showOn} <> 'partner'`,
       ...(adult ? [] : [eq(proServices.adultsOnly, false)]),
       ...liveProWhere(area, undefined),
     ))

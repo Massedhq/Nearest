@@ -81,9 +81,9 @@ export async function searchPros(f: Filters, area: Area, place?: Place | null) {
   const q = f.q?.trim().slice(0, 60);
   if (q) {
     const like = `%${q.replace(/[%_]/g, "")}%`;
-    where.push(sql`(${professionalProfiles.businessName} ilike ${like} or exists (select 1 from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.price_cents <= 15000 and s.name ilike ${like}))`);
+    where.push(sql`(${professionalProfiles.businessName} ilike ${like} or exists (select 1 from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.show_on <> 'partner' and s.price_cents <= 15000 and s.name ilike ${like}))`);
   }
-  if (f.cat && /^\d+$/.test(f.cat)) where.push(sql`exists (select 1 from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.price_cents <= 15000 and s.category_id = ${Number(f.cat)})`);
+  if (f.cat && /^\d+$/.test(f.cat)) where.push(sql`exists (select 1 from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.show_on <> 'partner' and s.price_cents <= 15000 and s.category_id = ${Number(f.cat)})`);
   if (f.cat && /^\d+$/.test(f.cat) && f.svc && /^\d+$/.test(f.svc)) {
     // Second dropdown: a suggested service inside the category. Matches pros whose service name contains it.
     const [c] = await db.select({ name: catalogServices.name }).from(catalogServices).where(and(eq(catalogServices.id, Number(f.svc)), eq(catalogServices.categoryId, Number(f.cat))));
@@ -92,12 +92,12 @@ export async function searchPros(f: Filters, area: Area, place?: Place | null) {
       const FILLER = new Set(["full", "set", "and", "&", "the", "a"]);
       const words = c.name.toLowerCase().replace(/[%_]/g, "").split(/[^a-z0-9]+/).filter((w) => w.length > 1 && !FILLER.has(w));
       const terms = (words.length ? words : [c.name.toLowerCase()]).map((w) => sql`s.name ilike ${`%${w}%`}`);
-      where.push(sql`exists (select 1 from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.price_cents <= 15000 and s.category_id = ${Number(f.cat)} and ${sql.join(terms, sql` and `)})`);
+      where.push(sql`exists (select 1 from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.show_on <> 'partner' and s.price_cents <= 15000 and s.category_id = ${Number(f.cat)} and ${sql.join(terms, sql` and `)})`);
     }
   }
   if (f.today) where.push(sql`exists (select 1 from ${proOpenings} o where o.user_id = ${professionalProfiles.userId} and o.day = ${today})`);
   if (f.after) where.push(eq(professionalProfiles.acceptsAfterSchool, true));
-  if (f.under) where.push(sql`exists (select 1 from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.price_cents <= 15000 and s.price_cents <= 2500)`);
+  if (f.under) where.push(sql`exists (select 1 from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.show_on <> 'partner' and s.price_cents <= 15000 and s.price_cents <= 2500)`);
   if (f.asl) where.push(sql`${professionalProfiles.aslLevel} <> 'none'`);
 
   const rows = await db
@@ -114,10 +114,10 @@ export async function searchPros(f: Filters, area: Area, place?: Place | null) {
       lat: professionalProfiles.lat,
       lng: professionalProfiles.lng,
       city: cities.name,
-      minPrice: sql<number | null>`(select min(price_cents) from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.price_cents <= 15000)`,
-      firstService: sql<string | null>`(select name from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.price_cents <= 15000 order by s.sort limit 1)`,
+      minPrice: sql<number | null>`(select min(price_cents) from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.show_on <> 'partner' and s.price_cents <= 15000)`,
+      firstService: sql<string | null>`(select name from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.show_on <> 'partner' and s.price_cents <= 15000 order by s.sort limit 1)`,
       // every kind of service they offer, in Nearest's category order (shown under their name on the card)
-      cats: sql<string[] | null>`(select array_agg(k.name order by k.sort, k.name) from categories k where k.id in (select s.category_id from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.price_cents <= 15000))`,
+      cats: sql<string[] | null>`(select array_agg(k.name order by k.sort, k.name) from categories k where k.id in (select s.category_id from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.show_on <> 'partner' and s.price_cents <= 15000))`,
       favCount: sql<number>`(select count(*)::int from ${favorites} fv where fv.pro_id = ${professionalProfiles.userId})`,
       rating: sql<number | null>`(select round(avg(r.rating)::numeric, 1)::float from ${reviews} r where r.pro_id = ${professionalProfiles.userId} and not r.hidden)`,
       reviewCount: sql<number>`(select count(*)::int from ${reviews} r where r.pro_id = ${professionalProfiles.userId} and not r.hidden)`,

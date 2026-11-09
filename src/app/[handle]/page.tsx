@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
-import { and, asc, desc, eq, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, lte, sql, ne } from "drizzle-orm";
 import { db, professionalProfiles, proServices, portfolioItems, cities, reviews, users, categories } from "@/db";
 import { getViewer } from "@/lib/viewer";
 import { liveProWhere } from "@/lib/search";
@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: { params: Promise<{ handle: s
   const name = r.p.businessName ?? r.p.displayName ?? "Professional";
   const where = r.city ? `${r.city}${r.state ? `, ${r.state}` : ""}` : "";
   const svc = await db.select({ name: proServices.name, price: proServices.priceCents }).from(proServices)
-    .where(and(eq(proServices.userId, r.p.userId), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS))).orderBy(asc(proServices.sort)).limit(4);
+    .where(and(eq(proServices.userId, r.p.userId), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS), ne(proServices.showOn, "partner"))).orderBy(asc(proServices.sort)).limit(4);
   const from = svc.length ? Math.min(...svc.map((x) => x.price)) : null;
   const title = { absolute: `${name} — ${role}${where ? ` in ${where}` : ""} | Nearest` };
   const description = `${name}${r.p.displayName && r.p.displayName !== name ? ` (${r.p.displayName})` : ""} is a verified ${role.toLowerCase()}${where ? ` in ${where}` : ""} on Nearest.${svc.length ? ` ${svc.slice(0, 3).map((x) => x.name).join(", ")}${from != null ? ` from ${money(from)}` : ""}.` : ""} See their work and book with a free student account.`;
@@ -71,7 +71,7 @@ export default async function ProLink({ params }: { params: Promise<{ handle: st
   }
   const id = r.p.userId;
   const [services, photos, [rating], owner] = await Promise.all([
-    db.select().from(proServices).where(and(eq(proServices.userId, id), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS))).orderBy(asc(proServices.sort)).limit(8),
+    db.select().from(proServices).where(and(eq(proServices.userId, id), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS), ne(proServices.showOn, "partner"))).orderBy(asc(proServices.sort)).limit(8),
     // Up to the 10-photo portfolio limit. Each photo carries the service it shows, so Google Images gets a real description.
     db.select({ url: portfolioItems.url, service: proServices.name }).from(portfolioItems).leftJoin(proServices, eq(proServices.id, portfolioItems.serviceId))
       .where(and(eq(portfolioItems.userId, id), eq(portfolioItems.kind, "image"))).orderBy(desc(portfolioItems.featured), asc(portfolioItems.sort)).limit(10),
@@ -79,7 +79,7 @@ export default async function ProLink({ params }: { params: Promise<{ handle: st
     db.query.users.findFirst({ where: eq(users.id, id) }),
   ]);
   const allCats = await db.selectDistinct({ name: categories.name, sort: categories.sort }).from(proServices).innerJoin(categories, eq(categories.id, proServices.categoryId))
-    .where(and(eq(proServices.userId, id), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS))).orderBy(asc(categories.sort), asc(categories.name));
+    .where(and(eq(proServices.userId, id), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS), ne(proServices.showOn, "partner"))).orderBy(asc(categories.sort), asc(categories.name));
   const offers = allCats.map((c) => c.name); // every service category they offer, under their name
   const next = encodeURIComponent(`/p/${id}`);
   const main = allCats.find((c) => c.name !== "Other")?.name ? await mainCategory(id) : null;

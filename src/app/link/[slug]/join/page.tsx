@@ -4,7 +4,7 @@ import { TopBar } from "@/components/TopBar";
 import { CustomerSignUpForm } from "@/components/CustomerSignUpForm";
 import { safePartnerNext } from "@/lib/customers";
 import { publicPartnerPage, partnerPagePath } from "@/lib/partners";
-import { personName } from "@/lib/pro-name";
+import { partnerName } from "@/lib/partner-booking";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Create your account", robots: { index: false, follow: false } };
@@ -18,7 +18,7 @@ export default async function PartnerJoin({ params, searchParams }: { params: Pr
   const next = safePartnerNext((await searchParams).next) ?? `${base}/book`;
   const { userId } = await auth();
   if (userId) redirect(next);
-  const name = personName(r.p.displayName, r.u.firstName, r.u.lastName);
+  const name = partnerName(r);
   return (
     <div className="scr">
       <TopBar title={`Book ${name}`} back={base} />

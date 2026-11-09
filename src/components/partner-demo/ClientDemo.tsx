@@ -65,10 +65,10 @@ function LinkPage({ go, book, shop }: { go: (n: number) => void; book: (s?: stri
       </section>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
         <button type="button" onClick={() => go(4)} style={{ display: "flex", flexDirection: "column", gap: 6, background: "#E9E4D9", color: "#0B0B0C", border: "none", borderRadius: 16, padding: 14, textAlign: "left", cursor: "pointer", font: "inherit" }}>
-          <span style={{ fontFamily: "var(--font-display), Georgia, serif", fontSize: 22, lineHeight: 1.05 }}>Model Calls</span><span style={{ fontSize: 12, fontWeight: 700 }}>2 open · from $40</span>
+          <span style={{ fontFamily: "var(--font-display), Georgia, serif", fontSize: 22, lineHeight: 1.05 }}>Model Calls</span><span style={{ fontSize: 12, fontWeight: 700 }}>2 open · from $40 · for students</span>
         </button>
         <button type="button" onClick={() => go(3)} style={{ display: "flex", flexDirection: "column", gap: 6, background: "#121214", color: "#F4F1EA", border: `1px solid ${ACCENT}`, borderRadius: 16, padding: 14, textAlign: "left", cursor: "pointer", font: "inherit" }}>
-          <span style={{ fontSize: 15, fontWeight: 800 }}>Bundle my booking</span><span style={{ fontSize: 12, color: ACCENT, fontWeight: 800 }}>Save {DEMO.bundlePct}% on 2+ services</span>
+          <span style={{ fontSize: 15, fontWeight: 800 }}>Bundle my booking</span><span style={{ fontSize: 12, color: ACCENT, fontWeight: 800 }}>Several services, one visit</span>
         </button>
       </div>
       <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -295,6 +295,8 @@ function Booking({ preset }: { preset: string | null }) {
             <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: 16 }}><span>Total</span><span>${total}</span></div>
             <span style={C.muted}>{dayLabel} at {time} · {home ? "at your address" : "at Ava's studio"}</span>
           </div>
+          <Note>Anyone 18+ can book {DEMO.name} here. You&apos;ll make a quick Nearest account — name, date of birth and an email code, no school ID. Students can sign in with their student account.</Note>
+          {s.partnerOnly && <Note>This service is only on {DEMO.name}&apos;s partner page — it isn&apos;t listed for students in the Nearest app.</Note>}
           {s.request && <Note>Ava reviews this service before it&apos;s booked. She has 24 hours to accept, and you pay only after she says yes.</Note>}
           {!s.request && <><span style={C.eyebrow}>Pay with</span><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}><Choice on onClick={() => {}}>Apple Pay</Choice><Choice on={false} onClick={() => {}}>Card</Choice></div></>}
           <span style={C.muted}>Your payment is held safely by Nearest and released to Ava after your appointment. Cancel 24+ hours ahead for full Nearest credit; late cancels and no-shows keep the deposit.</span>
@@ -312,29 +314,27 @@ function Booking({ preset }: { preset: string | null }) {
 
 function Bundle() {
   const [picked, setPicked] = useState(["brow", "wax"]);
-  const [budget, setBudget] = useState(150);
   const [done, setDone] = useState(false);
   const items = ["brow", "lift", "glam", "wax", "gelx"].map(svcOf);
   const sel = items.filter((i) => picked.includes(i.id));
   const sub = sel.reduce((n, i) => n + i.price, 0);
-  const off = sel.length >= 2 ? Math.round(sub * DEMO.bundlePct / 100) : 0;
+  // One visit = one booking fee: each added service comes off at Ava's own price (no second booking fee).
+  const off = sel.length >= 2 ? (sel.length - 1) * DEMO.fee : 0;
   const total = sub - off;
-  const ok = sel.length >= 2 && total <= budget;
-  if (done) return <Done title="Your bundle is booked." text={`${sel.map((i) => i.name).join(" + ")}, back to back on Fri, Nov 6 at 11:00 AM — paid $${total} (you saved $${off}).`} />;
+  const ok = sel.length >= 2;
+  if (done) return <Done title="Your bundle is booked." text={`${sel.map((i) => i.name).join(" + ")}, back to back on Fri, Nov 6 at 11:00 AM with ${DEMO.name} — paid $${total}.`} />;
   return (
     <>
       <h2 style={C.h1}>Bundle my booking</h2>
-      <span style={{ fontSize: 14, color: "#D9D4CA", lineHeight: 1.5 }}>Getting ready for an event? Pick everything you want, set a budget, and book it all in one visit — {DEMO.bundlePct}% off automatically.</span>
+      <span style={{ fontSize: 14, color: "#D9D4CA", lineHeight: 1.5 }}>Getting ready for an event? Pick several of {DEMO.name}&apos;s services and book them in one visit, back to back. Only her services — never anyone else&apos;s.</span>
       <span style={C.eyebrow}>What do you need?</span>
       {items.map((i) => { const on = picked.includes(i.id); return <Row key={i.id} on={on} onClick={() => setPicked(on ? picked.filter((x) => x !== i.id) : [...picked, i.id])}><Check on={on} /><span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}><span style={{ fontSize: 14, fontWeight: 800 }}>{i.name}</span><span style={{ fontSize: 12, opacity: 0.75 }}>{mins(i.mins)}</span></span><b>${i.price}</b></Row>; })}
-      <span style={C.eyebrow}>Your budget</span>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 6 }}>{[100, 150, 200, 250].map((b) => <Choice key={b} on={budget === b} onClick={() => setBudget(b)}>${b}</Choice>)}</div>
-      <div style={{ ...C.card, border: `1px solid ${ok ? ACCENT : "#7A3B2E"}` }}>
+      <div style={{ ...C.card, border: `1px solid ${ok ? ACCENT : "#2A2A2E"}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}><span>Services</span><span>${sub}</span></div>
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: ACCENT, fontWeight: 800 }}><span>Bundle discount ({DEMO.bundlePct}%)</span><span>−${off}</span></div>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: ACCENT, fontWeight: 800 }}><span>One booking fee for the visit</span><span>−${off}</span></div>
         <div style={{ height: 1, background: "#2A2A2E" }} />
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}><b>Bundle total</b><b style={{ fontSize: 20 }}>${total}</b></div>
-        <span style={{ fontSize: 12 }}>{sel.length < 2 ? `Pick at least 2 services to unlock ${DEMO.bundlePct}% off` : total <= budget ? `You save $${off} · fits your budget` : "Over your budget"}</span>
+        <span style={{ fontSize: 12 }}>{ok ? `${sel.length} services, one visit, one time slot.` : "Pick at least 2 services to bundle."}</span>
       </div>
       <Btn disabled={!ok} onClick={() => setDone(true)}>Pay ${total} and book</Btn>
     </>

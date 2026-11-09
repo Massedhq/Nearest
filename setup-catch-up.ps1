@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -m "Partner side booking: anyone can book partners, no 150 cap, own bundle, separate bookings; no links to other pros"
+git commit -m "Partner two sides: side switch, per-service sides and partner price, partner alias, demos updated"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

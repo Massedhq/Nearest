@@ -94,7 +94,7 @@ export async function saveAvatar(urls: string[]): Promise<{ error?: string }> {
 }
 
 // ---------- Services ----------
-type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; photo?: string | null; addFee?: boolean; addons?: unknown };
+type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; photo?: string | null; addFee?: boolean; addons?: unknown; showOn?: string; partnerPrice?: string };
 
 export async function saveServices(_: FormState, form: FormData): Promise<FormState> {
   const { user, profile } = await requirePro();
@@ -115,7 +115,8 @@ export async function saveServices(_: FormState, form: FormData): Promise<FormSt
   const validCats = new Set((await db.select({ id: categories.id }).from(categories).where(eq(categories.active, true))).map((c) => c.id));
   const fee = Math.max(0, Number((await getSettings())["fees.service_fee_cents"] ?? 500)); // Nearest service fee per service
   // Partners have no $150 cap (2026-11-09): services over $150 show only on their partner page, never to students.
-  const partner = await (await import("@/lib/partner-booking")).isPartner(user.id);
+  const sides = await (await import("@/lib/partner-booking")).partnerSides(user.id);
+  const partner = sides.partner;
   const values = [];
   for (const [i, r] of cleaned.entries()) {
     const name = r.name.trim().slice(0, 80);
@@ -134,7 +135,19 @@ export async function saveServices(_: FormState, form: FormData): Promise<FormSt
     // Optional add-ons: the service + any add-on must stay within the $150 student limit.
     const addons = (await import("@/lib/addons")).cleanAddons(r.addons, name, studentCents, partner);
     if ("error" in addons) return { error: addons.error };
-    values.push({ userId: user.id, categoryId: Number(r.categoryId), name, priceCents: studentCents, proPriceCents: addFee ? proCents : proCents - fee, serviceFeeCents: fee, feeAdded: addFee, durationMin: duration, sort: i, adultsOnly: Boolean(r.adultsOnly), photoUrl: photo, addons });
+    // Where it shows (partners on both sides pick; over $150 is partner side only) and an optional partner-page price.
+    let showOn = "both";
+    let partnerProPriceCents: number | null = null;
+    if (partner) {
+      showOn = studentCents > MAX_PRICE_DOLLARS * 100 ? "partner" : sides.bothSides && ["student", "partner"].includes(String(r.showOn)) ? String(r.showOn) : "both";
+      const pp = Number(String(r.partnerPrice ?? "").replace(/[$,\s]/g, ""));
+      if (sides.bothSides && showOn !== "student" && studentCents <= MAX_PRICE_DOLLARS * 100 && String(r.partnerPrice ?? "").trim()) {
+        if (!Number.isFinite(pp) || pp <= 0) return { error: `Enter a partner page price for ${name}, or leave it empty.` };
+        partnerProPriceCents = Math.round(pp * 100);
+      }
+    }
+    values.push({ userId: user.id, categoryId: Number(r.categoryId), name, priceCents: studentCents, proPriceCents: addFee ? proCents : proCents - fee, serviceFeeCents: fee, feeAdded: addFee, durationMin: duration, sort: i, adultsOnly: Boolean(r.adultsOnly), photoUrl: photo, addons,
+      showOn, partnerProPriceCents, partnerPriceCents: partnerProPriceCents == null ? null : partnerProPriceCents + fee });
   }
   // Spots are limited per city, per category — nobody can add a category that's full where they work.
   const full = await (await import("@/lib/slots")).wouldOverfill(profile, profile.cityId ?? profile.slotCityId, values.map((v) => v.categoryId));

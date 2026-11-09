@@ -189,7 +189,7 @@ export async function bookService(_: FormState, form: FormData): Promise<FormSta
   const serviceId = String(form.get("serviceId") ?? "");
   const day = String(form.get("day") ?? "");
   const time = String(form.get("time") ?? "");
-  const svc = await db.query.proServices.findFirst({ where: and(eq(proServices.id, serviceId), eq(proServices.active, true)) });
+  const svc = await db.query.proServices.findFirst({ where: and(eq(proServices.id, serviceId), eq(proServices.active, true), ne(proServices.showOn, "partner")) });
   if (!svc) return { error: "That service isn't available." };
   if (svc.adultsOnly && !isAdult(user.dateOfBirth)) return { error: "This service is 18+ only. You must be 18 or older to book it." };
   const pro = await livePro(svc.userId);
@@ -310,7 +310,7 @@ export async function bookPartnerService(_: FormState, form: FormData): Promise<
   const user = viewer?.user;
   if (!user || user.status === "deactivated") return { error: "Please sign in to book." };
   if (form.get("agree") !== "on") return { error: "Please agree to the booking and cancellation terms." };
-  const { partnerForBooking, partnerService, bundleExtras } = await import("@/lib/partner-booking");
+  const { partnerForBooking, partnerService, bundleExtras, sidePrice } = await import("@/lib/partner-booking");
   const x = await partnerForBooking(String(form.get("slug") ?? ""));
   if (!x) return { error: "This partner isn't taking bookings right now." };
   if (x.pro.userId === user.id) return { error: "You can't book yourself." };
@@ -328,9 +328,9 @@ export async function bookPartnerService(_: FormState, form: FormData): Promise<
   if ("error" in where) return { error: where.error };
   const list = [...extras, ...picked.list];
   return createAndPay({ channel: "partner", where, travelFeeCents: x.pro.travelFeeCents ?? 3500,
-    studentId: user.id, email: user.email, proId: x.pro.userId, proName: x.pro.businessName ?? x.name, serviceId: svc.id,
+    studentId: user.id, email: user.email, proId: x.pro.userId, proName: x.name, serviceId: svc.id,
     serviceName: withAddons(svc.name, list), startsAt: chicagoToUtc(day, time), durationMin: length,
-    priceCents: svc.priceCents + list.reduce((t, a) => t + a.priceCents, 0),
+    priceCents: sidePrice(svc) + list.reduce((t, a) => t + a.priceCents, 0),
     serviceFeeCents: svc.proPriceCents == null ? 0 : svc.serviceFeeCents, addons: list,
   });
 }

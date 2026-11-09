@@ -15,7 +15,7 @@ import { isAdult } from "@/lib/age";
 import { chicagoToUtc, fmtDate, fmtTime, money } from "@/lib/time";
 import { addonIds, pickAddons } from "@/lib/addons";
 import { requirePartnerBooker } from "@/lib/customers";
-import { bundleExtras, carry, partnerForBooking, partnerService } from "@/lib/partner-booking";
+import { bundleExtras, carry, partnerForBooking, partnerService, sidePrice } from "@/lib/partner-booking";
 import { bookPartnerService } from "@/app/book-actions";
 
 export const dynamic = "force-dynamic";
@@ -47,7 +47,7 @@ export default async function PartnerConfirm({ params, searchParams }: { params:
     );
   }
   const list = [...extras, ...picked.list];
-  const price = svc.priceCents + list.reduce((t, a) => t + a.priceCents, 0);
+  const price = sidePrice(svc) + list.reduce((t, a) => t + a.priceCents, 0);
   const s = await getSettings();
   const deposit = Math.min(Number(s["appt.deposit_cents"]), price);
   const fee = svc.proPriceCents == null ? 0 : svc.serviceFeeCents;
@@ -65,7 +65,7 @@ export default async function PartnerConfirm({ params, searchParams }: { params:
           <div className="b">{svc.name}</div><div className="small muted">{x.name}{x.pro.businessName && x.pro.businessName !== x.name ? ` • ${x.pro.businessName}` : ""}</div>
           {list.length > 0 && (
             <div className="col small" style={{ gap: 2, marginTop: 6 }}>
-              <div className="row between"><span className="muted">{svc.name}</span><span>{money(svc.priceCents)}</span></div>
+              <div className="row between"><span className="muted">{svc.name}</span><span>{money(sidePrice(svc))}</span></div>
               {extras.map((e) => <div key={e.id} className="row between"><span className="muted">+ {e.name} ({e.extraMin} min, bundled)</span><span>{money(e.priceCents)}</span></div>)}
               {picked.list.map((a) => <div key={a.id} className="row between"><span className="muted">+ {a.name}{a.extraMin ? ` (+${a.extraMin} min)` : ""}</span><span>{money(a.priceCents)}</span></div>)}
             </div>

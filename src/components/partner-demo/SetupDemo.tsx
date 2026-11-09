@@ -3,7 +3,7 @@ import { useState } from "react";
 import { ACCENT, GOLD, IMG, C, Btn, Choice, Check, Toggle, Done, DemoShell } from "./ui";
 import { DEMO, SERVICES, PORTFOLIO, PRODUCTS, mins } from "./data";
 
-const TABS = ["Apply", "Sign in", "Your page", "Services", "Portfolio", "Travel & hours", "Shop", "Share"];
+const TABS = ["Apply", "Sign in", "Your page", "Services", "Portfolio", "Travel & hours", "Shop", "Two sides", "Share"];
 
 /** How a partner sets up: apply, sign in, page & links, services, portfolio, travel & hours, then share and save. */
 export function SetupDemo() {
@@ -17,7 +17,8 @@ export function SetupDemo() {
       {tab === 4 && <Portfolio />}
       {tab === 5 && <TravelHours />}
       {tab === 6 && <ShopSetup />}
-      {tab === 7 && <Share />}
+      {tab === 7 && <TwoSides />}
+      {tab === 8 && <Share />}
     </DemoShell>
   );
 }
@@ -90,6 +91,7 @@ function YourPage() {
   const [videos, setVideos] = useState(["How to get fully booked in 2027", "Fuller brows in 60 seconds", "My 3-step soft glam lip"]);
   const [published, setPublished] = useState(true);
   const [saved, setSaved] = useState(false);
+  const [alias, setAlias] = useState(false);
   const move = (i: number) => { if (i === 0) return; const a = [...links]; [a[i - 1], a[i]] = [a[i], a[i - 1]]; setLinks(a); setSaved(false); };
   return (
     <>
@@ -99,6 +101,13 @@ function YourPage() {
         <img src={IMG("profile")} alt="Your photo" style={{ width: 96, height: 96, borderRadius: 16, objectFit: "cover" }} />
         <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}><Btn style={{ padding: 10, fontSize: 11 }}>Change photo</Btn><Btn kind="ghost" style={{ padding: 10, fontSize: 11 }}>Change logo</Btn></div>
       </div>
+      <span style={C.eyebrow}>Name on my partner page</span>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+        <Choice on={!alias} onClick={() => { setAlias(false); setSaved(false); }}>My name</Choice>
+        <Choice on={alias} onClick={() => { setAlias(true); setSaved(false); }}>A different name</Choice>
+      </div>
+      {alias ? <Field label="Name to show (nickname, alias or brand)" value={DEMO.alias} /> : <span style={C.muted}>Your page shows {DEMO.name}.</span>}
+      <span style={C.muted}>Only changes your partner page and partner bookings. Your student-side profile keeps your name.</span>
       <Field label="Headline (under your name)" value={DEMO.headline} />
       <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, fontWeight: 700 }}>Your link<span style={{ ...C.input, display: "block" }}><span style={{ color: "#8E897F" }}>usenearest.com/link/</span>{DEMO.slug}</span></label>
       <span style={C.eyebrow}>Social profiles</span>
@@ -131,7 +140,8 @@ function YourPage() {
 }
 
 function Services() {
-  const [pct, setPct] = useState(DEMO.bundlePct);
+  const [show, setShow] = useState<Record<string, "both" | "student" | "partner">>(Object.fromEntries(SERVICES.map((s) => [s.id, s.partnerOnly ? "partner" : "both"])));
+  const [pp, setPp] = useState<Record<string, number | null>>(Object.fromEntries(SERVICES.map((s) => [s.id, s.id === "glam" ? 120 : null])));
   const [open, setOpen] = useState<string | null>("brow");
   const [price, setPrice] = useState<Record<string, number>>(Object.fromEntries(SERVICES.map((s) => [s.id, s.price - 5])));
   const [req, setReq] = useState<Record<string, boolean>>(Object.fromEntries(SERVICES.map((s) => [s.id, Boolean(s.request)])));
@@ -139,11 +149,10 @@ function Services() {
   const [saved, setSaved] = useState(false);
   return (
     <>
-      <Head step="Step 4" title="Services & prices" text="You enter your price. Pick the 4 that show on your page, and how each one is booked." />
+      <Head step="Step 4" title="Services & prices" text="One menu for both sides. You enter your price, pick where each service shows, and pick the 4 on your page." />
       <div style={{ ...C.card, border: `1px solid ${ACCENT}` }}>
-        <span style={{ fontSize: 14, fontWeight: 800 }}>Bundle my booking discount</span>
-        <span style={C.muted}>Taken off automatically when a client books 2 or more of your services together.</span>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 6 }}>{[0, 5, 10, 15, 20].map((p) => <Choice key={p} on={pct === p} onClick={() => { setPct(p); setSaved(false); }}>{p ? `${p}%` : "Off"}</Choice>)}</div>
+        <span style={{ fontSize: 14, fontWeight: 800 }}>No $150 limit on your partner page</span>
+        <span style={C.muted}>Students in the Nearest app only see services up to $150. Anything over that shows on your partner page only. Bundle my booking lets clients book several of your services in one visit — one booking fee.</span>
       </div>
       {SERVICES.map((s) => {
         const isOpen = open === s.id; const isTop = top.includes(s.id);
@@ -159,9 +168,25 @@ function Services() {
                   <span style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>Your price</span>
                   <button type="button" aria-label="Lower price" onClick={() => { setPrice({ ...price, [s.id]: Math.max(5, price[s.id] - 5) }); setSaved(false); }} style={{ width: 38, height: 38, borderRadius: 10, border: "1px solid #2A2A2E", background: "#0B0B0C", color: "#F4F1EA", cursor: "pointer" }}>−</button>
                   <b style={{ width: 54, textAlign: "center", fontSize: 16 }}>${price[s.id]}</b>
-                  <button type="button" aria-label="Raise price" onClick={() => { setPrice({ ...price, [s.id]: Math.min(145, price[s.id] + 5) }); setSaved(false); }} style={{ width: 38, height: 38, borderRadius: 10, border: "1px solid #2A2A2E", background: "#0B0B0C", color: "#F4F1EA", cursor: "pointer" }}>+</button>
+                  <button type="button" aria-label="Raise price" onClick={() => { setPrice({ ...price, [s.id]: Math.min(495, price[s.id] + 5) }); setSaved(false); }} style={{ width: 38, height: 38, borderRadius: 10, border: "1px solid #2A2A2E", background: "#0B0B0C", color: "#F4F1EA", cursor: "pointer" }}>+</button>
                 </div>
                 <span style={{ fontSize: 12, color: GOLD }}>Clients see ${price[s.id] + 5} — that includes the $5 booking fee.</span>
+                <span style={{ fontSize: 12, fontWeight: 700 }}>Shows on</span>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 }}>
+                  {([["both", "Both sides"], ["student", "Students only"], ["partner", "Partner page only"]] as const).map(([k, l]) => (
+                    <Choice key={k} on={(price[s.id] + 5 > 150 ? "partner" : show[s.id]) === k} onClick={() => { if (price[s.id] + 5 <= 150 || k === "partner") { setShow({ ...show, [s.id]: k }); setSaved(false); } }}>{l}</Choice>
+                  ))}
+                </div>
+                {price[s.id] + 5 > 150 && <span style={C.muted}>Over $150 for students, so it shows on your partner page only.</span>}
+                {price[s.id] + 5 <= 150 && show[s.id] !== "student" && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>Partner page price <span style={{ color: "#8E897F", fontWeight: 400 }}>(optional)</span></span>
+                    <button type="button" aria-label="Lower partner price" onClick={() => { setPp({ ...pp, [s.id]: pp[s.id] == null ? price[s.id] : pp[s.id]! <= 5 ? null : pp[s.id]! - 5 }); setSaved(false); }} style={{ width: 38, height: 38, borderRadius: 10, border: "1px solid #2A2A2E", background: "#0B0B0C", color: "#F4F1EA", cursor: "pointer" }}>−</button>
+                    <b style={{ width: 64, textAlign: "center", fontSize: 15 }}>{pp[s.id] == null ? "Same" : `$${pp[s.id]}`}</b>
+                    <button type="button" aria-label="Raise partner price" onClick={() => { setPp({ ...pp, [s.id]: (pp[s.id] ?? price[s.id]) + 5 }); setSaved(false); }} style={{ width: 38, height: 38, borderRadius: 10, border: "1px solid #2A2A2E", background: "#0B0B0C", color: "#F4F1EA", cursor: "pointer" }}>+</button>
+                  </div>
+                )}
+                {price[s.id] + 5 <= 150 && show[s.id] !== "student" && pp[s.id] != null && <span style={{ fontSize: 12, color: GOLD }}>Partner clients see ${pp[s.id]! + 5}; students see ${price[s.id] + 5}.</span>}
                 <span style={{ fontSize: 12, fontWeight: 700 }}>How clients book this</span>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                   <Choice on={!req[s.id]} onClick={() => { setReq({ ...req, [s.id]: false }); setSaved(false); }}>Instant booking</Choice>
@@ -294,6 +319,29 @@ function ShopSetup() {
         <span style={C.muted}>Digital — the buyer downloaded it right after paying. Paid out automatically.</span>
       </div>
       <span style={C.muted}>Payouts must be connected before your shop takes orders. Card processing comes out of each sale.</span>
+    </>
+  );
+}
+
+function TwoSides() {
+  const [side, setSide] = useState<"student" | "partner">("student");
+  const list = side === "student"
+    ? [["Tue, Nov 3 · 3:30 PM", "Lash lift + tint", "Kayla M. · Verified Student"], ["Thu, Nov 5 · 4:00 PM", "Gel-X full set", "Brianna T. · Verified Student"]]
+    : [["Wed, Nov 4 · 11:00 AM", "Bridal glam + trial", "Monique R. · Partner client"], ["Sat, Nov 7 · 10:00 AM", "Soft glam makeup + Brow lamination", "Dana L. · Partner client · bundle"]];
+  return (
+    <>
+      <Head step="Your app" title="One login, two sides" text="Started on Nearest as a professional and became a partner? Switch between your Student side and your Partner side at the top of your app." />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+        <Choice on={side === "student"} onClick={() => setSide("student")}>Student side</Choice>
+        <Choice on={side === "partner"} onClick={() => setSide("partner")}>Partner side</Choice>
+      </div>
+      <span style={C.muted}>{side === "student" ? "Bookings from verified students in the Nearest app — your student page, $150 limit." : `Bookings from your partner page — anyone 18+, no $150 limit, shown as ${DEMO.alias} if you chose a different name.`}</span>
+      <span style={C.eyebrow}>Upcoming · {side === "student" ? "Student side" : "Partner side"}</span>
+      {list.map(([when, what, who]) => (
+        <div key={when} style={{ ...C.card, gap: 3 }}><b style={{ fontSize: 14 }}>{what}</b><span style={{ fontSize: 13, color: "#D9D4CA" }}>{when}</span><span style={C.muted}>{who}</span></div>
+      ))}
+      <div style={{ ...C.card, fontSize: 13, color: "#D9D4CA", lineHeight: 1.6 }}>Shared on both sides: your calendar and hours (so nobody can book the same time twice), your ID check and your payouts. Each side has its own appointments and earnings.</div>
+      <span style={C.muted}>Partner-only partners don&apos;t see a switch — everything is on the partner side.</span>
     </>
   );
 }

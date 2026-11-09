@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { publicPartnerPage, partnerPagePath } from "@/lib/partners";
-import { personName } from "@/lib/pro-name";
+import { partnerName } from "@/lib/partner-booking";
 import { abs } from "@/lib/public/site";
 import { PartnerPageView } from "@/components/PartnerPageView";
 
@@ -10,7 +10,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const r = await publicPartnerPage(slug);
   if (!r) return { title: "Nearest" };
-  const name = personName(r.p.displayName, r.u.firstName, r.u.lastName);
+  const name = partnerName(r);
   // Search-friendly: "Avy · Nailed by Avy — Nail Tech in Frisco, TX | Nearest".
   const { mainCategory, categorySeo } = await import("@/lib/public/directory");
   const { db, cities } = await import("@/db");

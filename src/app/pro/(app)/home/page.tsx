@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { SideSwitch } from "@/components/SideSwitch";
 import Link from "next/link";
 import { and, asc, eq, gte, inArray } from "drizzle-orm";
 import { db, modelCalls, proOpenings, bookings } from "@/db";
@@ -40,11 +41,14 @@ export default async function ProHome({ searchParams }: { searchParams: Promise<
   })();
   const { viewer, user, profile, building } = await requirePro();
   const now = chicagoNow();
+  // Partners on both sides: Student side / Partner side switch (one login; the calendar stays shared).
+  const { currentSide, onSide } = await import("@/lib/pro-side");
+  const view = await currentSide(user.id);
   const [steps, calls, openings, upcoming] = await Promise.all([
     setupSteps(user.id),
     db.select().from(modelCalls).where(and(eq(modelCalls.userId, user.id), inArray(modelCalls.status, ["open", "full"]), gte(modelCalls.startsAt, new Date()))).orderBy(asc(modelCalls.startsAt)).limit(3),
     db.select().from(proOpenings).where(and(eq(proOpenings.userId, user.id), eq(proOpenings.day, now.date))).orderBy(asc(proOpenings.startTime)),
-    db.select().from(bookings).where(and(eq(bookings.proId, user.id), eq(bookings.status, "confirmed"), gte(bookings.endsAt, new Date()))).orderBy(asc(bookings.startsAt)).limit(4),
+    db.select().from(bookings).where(and(eq(bookings.proId, user.id), onSide(view.side), eq(bookings.status, "confirmed"), gte(bookings.endsAt, new Date()))).orderBy(asc(bookings.startsAt)).limit(4),
   ]);
   const approved = profile.reviewStatus === "approved";
   const standing = await proStanding(user.id);
@@ -61,6 +65,7 @@ export default async function ProHome({ searchParams }: { searchParams: Promise<
       </div>
       <div className="body">
         <div><p className="eyebrow p">{fmtDate(new Date(), { weekday: "long", month: "short", day: "numeric" })}</p><h1 className="disp h1">{greeting(now.minutes)}, {user.firstName}</h1></div>
+        <SideSwitch side={view.side} canSwitch={view.canSwitch} back="/pro/home" />
 
         <ProSpotCard profile={profile} />
 

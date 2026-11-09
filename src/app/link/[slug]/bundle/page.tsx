@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { TopBar } from "@/components/TopBar";
 import { money } from "@/lib/time";
-import { BUNDLE_MAX, partnerForBooking, partnerServices } from "@/lib/partner-booking";
+import { BUNDLE_MAX, partnerForBooking, partnerServices, sidePrice } from "@/lib/partner-booking";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Bundle my booking", robots: { index: false, follow: false } };
@@ -29,7 +29,7 @@ export default async function PartnerBundle({ params, searchParams }: { params: 
             <label key={s.id} className="check card" style={{ flexDirection: "row", gap: 10 }}>
               <input type="checkbox" name="s" value={s.id} defaultChecked={picked.includes(s.id)} />
               <span className="grow"><span className="b">{s.name}{s.adultsOnly ? " (18+)" : ""}</span><span className="xs muted"> • {s.durationMin} min</span></span>
-              <span className="b">{money(s.priceCents)}</span>
+              <span className="b">{money(sidePrice(s))}</span>
             </label>
           ))}
           <button className="btn" type="submit">Choose a time</button>

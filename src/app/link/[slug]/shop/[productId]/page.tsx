@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { and, eq, sql } from "drizzle-orm";
 import { db, partnerProducts } from "@/db";
 import { publicPartnerPage, partnerPagePath } from "@/lib/partners";
-import { personName } from "@/lib/pro-name";
+import { partnerName } from "@/lib/partner-booking";
 import { sellerReady, soldOut, SHOP_LIMITS } from "@/lib/shop";
 import { money } from "@/lib/time";
 import { abs } from "@/lib/public/site";
@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug, productId } = await params;
   const x = await load(slug, productId);
   if (!x) return { title: "Nearest" };
-  const name = personName(x.r.p.displayName, x.r.u.firstName, x.r.u.lastName);
+  const name = partnerName(x.r);
   return { title: `${x.product.title} · ${name}`, description: x.product.description?.slice(0, 160) ?? `${x.product.title} from ${name}.`, manifest: `${partnerPagePath(x.r.p.slug!)}/manifest.webmanifest`, openGraph: { title: x.product.title, url: abs(`${partnerPagePath(x.r.p.slug!)}/shop/${productId}`), ...(x.product.photoUrl ? { images: [x.product.photoUrl] } : {}) } };
 }
 
@@ -35,7 +35,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const x = await load(slug, productId);
   if (!x) notFound();
   const { r, product } = x;
-  const name = personName(r.p.displayName, r.u.firstName, r.u.lastName);
+  const name = partnerName(r);
   const ready = await sellerReady(r.p.userId);
   const out = soldOut(product);
   const digital = product.kind === "digital";

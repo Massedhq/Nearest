@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, lte, sql, ne } from "drizzle-orm";
 
 /**
  * The public Nearest directory — what Google indexes so people searching "nail tech in Frisco" or a business name
@@ -55,7 +55,7 @@ export async function cityPros(cityId: number, category?: string): Promise<Direc
     const [svc, rate] = await Promise.all([
       db.select({ userId: proServices.userId, name: proServices.name, price: proServices.priceCents, cat: categories.name }).from(proServices)
         .innerJoin(categories, eq(categories.id, proServices.categoryId))
-        .where(and(inArray(proServices.userId, ids), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS)))
+        .where(and(inArray(proServices.userId, ids), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS), ne(proServices.showOn, "partner")))
         .orderBy(asc(proServices.sort)),
       db.select({ proId: reviews.proId, avg: sql<number>`avg(${reviews.rating})::float`, n: sql<number>`count(*)::int` }).from(reviews)
         .where(inArray(reviews.proId, ids)).groupBy(reviews.proId),

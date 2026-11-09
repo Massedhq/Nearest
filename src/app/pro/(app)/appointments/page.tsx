@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
-import { db, bookings, users, partnerPages } from "@/db";
+import { db, bookings, users } from "@/db";
+import { SideSwitch } from "@/components/SideSwitch";
 import { requirePro } from "@/lib/pro";
 import { bookingCode } from "@/lib/bookings";
 import { fmtDate, fmtTime, money } from "@/lib/time";
@@ -9,14 +10,14 @@ import { Icon } from "@/components/Icon";
 
 export const metadata = { title: "Appointments" };
 
-export default async function Appointments({ searchParams }: { searchParams: Promise<{ declined?: string; side?: string }> }) {
+export default async function Appointments({ searchParams }: { searchParams: Promise<{ declined?: string }> }) {
   const { user } = await requirePro();
   const sp = await searchParams;
   const declined = sp.declined;
-  // Partners keep their two sides apart (2026-11-09): Student bookings (Nearest student app) and Partner bookings (their partner page).
-  const isPartner = Boolean(await db.query.partnerPages.findFirst({ where: eq(partnerPages.userId, user.id), columns: { userId: true } }));
-  const side = isPartner && sp.side === "partner" ? "partner" : "student";
-  const onSide = isPartner ? eq(bookings.channel, side) : undefined;
+  // Partners keep their two sides apart (2026-11-09): the Student side / Partner side switch picks which bookings show.
+  const { currentSide, onSide: sideWhere } = await import("@/lib/pro-side");
+  const view = await currentSide(user.id);
+  const onSide = sideWhere(view.side);
   const [requests, upcoming, past] = await Promise.all([
     db.select({ b: bookings, first: users.firstName }).from(bookings).innerJoin(users, eq(users.id, bookings.studentId))
       .where(and(eq(bookings.proId, user.id), onSide, eq(bookings.status, "requested"))).orderBy(asc(bookings.startsAt)).limit(50),
@@ -29,13 +30,7 @@ export default async function Appointments({ searchParams }: { searchParams: Pro
     <div className="scr">
       <TopBar title="Appointments" back="/pro/home" />
       <div className="body">
-        {isPartner && (
-          <div className="row" style={{ gap: 8 }}>
-            <Link className={`chip${side === "student" ? " on" : ""}`} href="/pro/appointments">Student bookings</Link>
-            <Link className={`chip${side === "partner" ? " on" : ""}`} href="/pro/appointments?side=partner">Partner bookings</Link>
-          </div>
-        )}
-        {isPartner && <span className="xs muted">{side === "partner" ? "Booked from your partner page — open to anyone, no $150 limit." : "Booked by verified students in the Nearest app."} Your calendar is shared, so the two never overlap.</span>}
+        <SideSwitch side={view.side} canSwitch={view.canSwitch} back="/pro/appointments" />
         {declined && <div className="card small"><span>Request declined — the client wasn&apos;t charged.</span></div>}
         {requests.length > 0 && (
           <>

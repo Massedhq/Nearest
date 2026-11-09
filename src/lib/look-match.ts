@@ -171,14 +171,14 @@ export async function findLookMatches(o: { studentId: string; area: Area; image:
     isNotNull(portfolioItems.lookVectors),
   ];
   if (o.categoryId) {
-    where.push(sql`exists (select 1 from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.price_cents <= ${MAX_PRICE_CENTS} and s.category_id = ${o.categoryId})`);
+    where.push(sql`exists (select 1 from ${proServices} s where s.user_id = ${professionalProfiles.userId} and s.active and s.show_on <> 'partner' and s.price_cents <= ${MAX_PRICE_CENTS} and s.category_id = ${o.categoryId})`);
     // A photo tagged with a service in another category is about something else.
     where.push(sql`(${portfolioItems.serviceId} is null or exists (select 1 from ${proServices} s2 where s2.id = ${portfolioItems.serviceId} and s2.category_id = ${o.categoryId}))`);
   }
   const rows = await db.select({
     id: portfolioItems.id, userId: portfolioItems.userId, url: portfolioItems.url, vectors: portfolioItems.lookVectors,
     serviceId: portfolioItems.serviceId,
-    serviceName: sql<string | null>`(select s.name from ${proServices} s where s.id = ${portfolioItems.serviceId} and s.active and s.price_cents <= ${MAX_PRICE_CENTS})`,
+    serviceName: sql<string | null>`(select s.name from ${proServices} s where s.id = ${portfolioItems.serviceId} and s.active and s.show_on <> 'partner' and s.price_cents <= ${MAX_PRICE_CENTS})`,
     businessName: professionalProfiles.businessName, displayName: professionalProfiles.displayName, photoUrl: professionalProfiles.photoUrl,
     firstName: sql<string | null>`(select first_name from users where users.id = ${professionalProfiles.userId})`,
     lastName: sql<string | null>`(select last_name from users where users.id = ${professionalProfiles.userId})`,

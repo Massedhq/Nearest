@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { db, proServices, professionalProfiles } from "@/db";
 import { requireVerifiedStudent } from "@/lib/student";
 import { isAdult } from "@/lib/age";
@@ -20,7 +20,7 @@ export default async function ChooseTime({ params, searchParams }: { params: Pro
   const { user: me } = await requireVerifiedStudent();
   const { serviceId } = await params;
   if (!/^[0-9a-f-]{36}$/.test(serviceId)) notFound();
-  const svc = await db.query.proServices.findFirst({ where: and(eq(proServices.id, serviceId), eq(proServices.active, true)) });
+  const svc = await db.query.proServices.findFirst({ where: and(eq(proServices.id, serviceId), eq(proServices.active, true), ne(proServices.showOn, "partner")) });
   if (!svc) notFound();
   if (svc?.adultsOnly && !isAdult(me.dateOfBirth)) {
     return (

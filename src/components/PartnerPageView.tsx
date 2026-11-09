@@ -1,10 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
-import { and, asc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, sql, ne } from "drizzle-orm";
 import { db, professionalProfiles, proServices, modelCalls, reviews } from "@/db";
 import { liveProWhere } from "@/lib/search";
 import { partnerPagePath, videoInfo, PARTNER_APPLY_PATH, type publicPartnerPage } from "@/lib/partners";
-import { personName } from "@/lib/pro-name";
+import { partnerName, sidePrice } from "@/lib/partner-booking";
 import { money } from "@/lib/time";
 import { abs } from "@/lib/public/site";
 import { instagramHandle, instagramUrl, tiktokHandle, tiktokUrl, facebookHandle, facebookUrl, pinterestHandle, pinterestUrl } from "@/lib/social";
@@ -19,12 +19,12 @@ const tile = { display: "flex", alignItems: "center", gap: 12, background: "#121
 /** A Nearest Partner page (public at /link/<slug>, or a private preview for the partner). */
 export async function PartnerPageView({ r, preview = false }: { r: NonNullable<Awaited<ReturnType<typeof publicPartnerPage>>>; preview?: boolean }) {
   const id = r.p.userId;
-  const name = personName(r.p.displayName, r.u.firstName, r.u.lastName);
+  const name = partnerName(r); // their alias when they chose one for the partner page
   const top = r.page.topServiceIds.slice(0, 4);
   const [[live], topServices, fallback, calls, [rating]] = await Promise.all([
     db.select({ id: professionalProfiles.userId }).from(professionalProfiles).where(and(eq(professionalProfiles.userId, id), ...liveProWhere(null, "all", { partnerPage: true }))).limit(1),
-    top.length ? db.select().from(proServices).where(and(eq(proServices.userId, id), eq(proServices.active, true), inArray(proServices.id, top))) : Promise.resolve([]),
-    db.select().from(proServices).where(and(eq(proServices.userId, id), eq(proServices.active, true))).orderBy(asc(proServices.sort)).limit(4),
+    top.length ? db.select().from(proServices).where(and(eq(proServices.userId, id), eq(proServices.active, true), inArray(proServices.id, top), ne(proServices.showOn, "student"))) : Promise.resolve([]),
+    db.select().from(proServices).where(and(eq(proServices.userId, id), eq(proServices.active, true), ne(proServices.showOn, "student"))).orderBy(asc(proServices.sort)).limit(4),
     db.select({ n: sql<number>`count(*)::int`, min: sql<number | null>`min(${modelCalls.priceCents})::int` }).from(modelCalls).where(and(eq(modelCalls.userId, id), eq(modelCalls.status, "open"), gt(modelCalls.startsAt, new Date()))),
     db.select({ avg: sql<number | null>`avg(${reviews.rating})::float`, n: sql<number>`count(*)::int` }).from(reviews).where(eq(reviews.proId, id)),
   ]);
@@ -86,7 +86,7 @@ export async function PartnerPageView({ r, preview = false }: { r: NonNullable<A
             {services.map((s) => (
               <Link key={s.id} href={`${bookHref}/${s.id}`} style={tile}>{/* straight to booking this service, not the whole profile */}
                 {s.photoUrl ? <Image src={s.photoUrl} alt={`${s.name} by ${name}`} width={48} height={48} style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", flex: "none" }} /> : <span style={{ width: 48, height: 48, borderRadius: 8, background: "#1C1C1F", flex: "none" }} />}
-                <span style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}><span style={{ fontSize: 14, fontWeight: 800 }}>{s.name}{s.adultsOnly ? " (18+)" : ""}</span><span style={{ fontSize: 12, color: "#B8B2A7" }}>{money(s.priceCents)} · {s.durationMin} min</span></span>
+                <span style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}><span style={{ fontSize: 14, fontWeight: 800 }}>{s.name}{s.adultsOnly ? " (18+)" : ""}</span><span style={{ fontSize: 12, color: "#B8B2A7" }}>{money(sidePrice(s))} · {s.durationMin} min</span></span>
                 <span style={{ fontSize: 12, fontWeight: 800, color: ACCENT }}>Book</span>
               </Link>
             ))}

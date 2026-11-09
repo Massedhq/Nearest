@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { instantBooking } from "@/lib/instant-booking";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { db, proServices, professionalProfiles } from "@/db";
 import { requireVerifiedStudent } from "@/lib/student";
 import { isAdult } from "@/lib/age";
@@ -29,7 +29,7 @@ export default async function Confirm({ params, searchParams }: { params: Promis
   const { serviceId } = await params;
   const { day = "", time = "", bundle: bundleItemId, a, card: cardParam } = await searchParams;
   if (!/^[0-9a-f-]{36}$/.test(serviceId)) notFound();
-  const svc = await db.query.proServices.findFirst({ where: and(eq(proServices.id, serviceId), eq(proServices.active, true)) });
+  const svc = await db.query.proServices.findFirst({ where: and(eq(proServices.id, serviceId), eq(proServices.active, true), ne(proServices.showOn, "partner")) });
   if (!svc) notFound();
   if (svc?.adultsOnly && !isAdult(user.dateOfBirth)) {
     return (

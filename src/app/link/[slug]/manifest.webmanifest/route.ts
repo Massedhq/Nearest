@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { publicPartnerPage, partnerPagePath } from "@/lib/partners";
-import { personName } from "@/lib/pro-name";
+import { partnerName } from "@/lib/partner-booking";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +9,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ slug: stri
   const { slug } = await params;
   const r = await publicPartnerPage(slug);
   if (!r) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const name = personName(r.p.displayName, r.u.firstName, r.u.lastName);
+  const name = partnerName(r);
   const path = partnerPagePath(r.p.slug!);
   const icons = [
     ...(r.p.photoUrl ? [{ src: r.p.photoUrl, sizes: "512x512", type: "image/jpeg", purpose: "any" }] : []),

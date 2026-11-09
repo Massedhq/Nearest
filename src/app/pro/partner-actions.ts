@@ -24,10 +24,14 @@ export async function savePartnerPage(_: FormState, form: FormData): Promise<For
   if (picked.length > PARTNER_LIMITS.top) return { error: `Pick up to ${PARTNER_LIMITS.top} top services.` };
   const mine = picked.length ? (await db.select({ id: proServices.id }).from(proServices).where(and(eq(proServices.userId, user.id), inArray(proServices.id, picked)))).map((r) => r.id) : [];
   const topServiceIds = picked.filter((id) => mine.includes(id));
+  // Name on the partner page: their own display name, or an alias they choose (2026-11-09).
+  const useAlias = form.get("nameChoice") === "alias";
+  const alias = String(form.get("alias") ?? "").replace(/\s+/g, " ").trim().slice(0, 60) || null;
+  if (useAlias && (!alias || alias.length < 2)) return { error: "Type the name you want to show, or pick Show my name." };
   const published = form.get("published") === "on";
   const slug = await ensureProSlug(user.id);
   await db.update(partnerPages).set({
-    headline, links: links.rows, videos: videos.rows, topServiceIds, published,
+    headline, links: links.rows, videos: videos.rows, topServiceIds, published, useAlias, alias,
     publishedAt: published && !page.published ? new Date() : page.publishedAt, updatedAt: new Date(),
   }).where(eq(partnerPages.userId, user.id));
   revalidatePath("/pro/partner");

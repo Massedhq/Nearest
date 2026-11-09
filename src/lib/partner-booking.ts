@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, ne } from "drizzle-orm";
 import { db, professionalProfiles, proServices } from "@/db";
 import { liveProWhere } from "./search";
 import { publicPartnerPage, partnerPagePath } from "./partners";
@@ -24,27 +24,33 @@ export async function partnerForBooking(slug: string) {
   const [pro] = await db.select().from(professionalProfiles)
     .where(and(eq(professionalProfiles.userId, r.p.userId), ...liveProWhere(null, "all", { partnerPage: true }))).limit(1);
   if (!pro) return null;
-  return { r, pro, name: personName(r.p.displayName, r.u.firstName, r.u.lastName), base: partnerPagePath(r.p.slug!) };
+  return { r, pro, name: partnerName(r), base: partnerPagePath(r.p.slug!) };
 }
 
-/** Every active service the partner offers (no price cap on this side). */
+type Svc = typeof proServices.$inferSelect;
+/** What a partner client pays for a service: the partner price when the pro set one, else the same price as students. */
+export const sidePrice = (s: Pick<Svc, "partnerPriceCents" | "priceCents">) => s.partnerPriceCents ?? s.priceCents;
+/** The pro's own price on the partner side (bundled extras are added at this price — one booking fee per visit). */
+export const sideProPrice = (s: Pick<Svc, "partnerProPriceCents" | "partnerPriceCents" | "proPriceCents" | "priceCents">) => s.partnerProPriceCents ?? s.partnerPriceCents ?? s.proPriceCents ?? s.priceCents;
+
+/** Every active service the partner offers on their partner page (no price cap; "student side only" services left out). */
 export function partnerServices(userId: string) {
-  return db.select().from(proServices).where(and(eq(proServices.userId, userId), eq(proServices.active, true))).orderBy(asc(proServices.sort), asc(proServices.name));
+  return db.select().from(proServices).where(and(eq(proServices.userId, userId), eq(proServices.active, true), ne(proServices.showOn, "student"))).orderBy(asc(proServices.sort), asc(proServices.name));
 }
 
 /** One of this partner's active services. */
 export async function partnerService(userId: string, serviceId: string) {
   if (!/^[0-9a-f-]{36}$/.test(serviceId)) return null;
-  return (await db.query.proServices.findFirst({ where: and(eq(proServices.id, serviceId), eq(proServices.userId, userId), eq(proServices.active, true)) })) ?? null;
+  return (await db.query.proServices.findFirst({ where: and(eq(proServices.id, serviceId), eq(proServices.userId, userId), eq(proServices.active, true), ne(proServices.showOn, "student")) })) ?? null;
 }
 
 /** "?with=id,id" → the partner's other services bundled into this visit, at the professional's own price (one booking fee per visit). */
 export async function bundleExtras(userId: string, mainId: string, raw: string | string[] | undefined): Promise<Addon[]> {
   const ids = [...new Set((Array.isArray(raw) ? raw.join(",") : raw ?? "").split(",").map((x) => x.trim()).filter((x) => /^[0-9a-f-]{36}$/.test(x) && x !== mainId))].slice(0, BUNDLE_MAX - 1);
   if (!ids.length) return [];
-  const rows = await db.select().from(proServices).where(and(eq(proServices.userId, userId), eq(proServices.active, true), inArray(proServices.id, ids)));
+  const rows = await db.select().from(proServices).where(and(eq(proServices.userId, userId), eq(proServices.active, true), ne(proServices.showOn, "student"), inArray(proServices.id, ids)));
   return ids.map((id) => rows.find((r) => r.id === id)).filter((r): r is NonNullable<typeof r> => Boolean(r))
-    .map((r) => ({ id: r.id, name: r.name, priceCents: r.proPriceCents ?? r.priceCents, extraMin: r.durationMin }));
+    .map((r) => ({ id: r.id, name: r.name, priceCents: sideProPrice(r), extraMin: r.durationMin }));
 }
 
 /** Query string that carries add-ons (a) and bundled services (with) between the partner booking pages. */
@@ -56,4 +62,16 @@ export function carry(addonIds: string[], withIds: string[]) {
 export async function isPartner(userId: string) {
   const { partnerPages } = await import("@/db");
   return Boolean(await db.query.partnerPages.findFirst({ where: eq(partnerPages.userId, userId), columns: { userId: true } }));
+}
+
+/** The name a partner shows on their partner page: their alias when they ticked "use a different name", else their display name. */
+export function partnerName(r: { page: { useAlias: boolean; alias: string | null }; p: { displayName: string | null }; u: { firstName: string | null; lastName: string | null } }) {
+  return r.page.useAlias && r.page.alias?.trim() ? r.page.alias.trim() : personName(r.p.displayName, r.u.firstName, r.u.lastName);
+}
+
+/** Is this professional a partner, and are they on both sides (student app + partner page) or partner only? */
+export async function partnerSides(userId: string) {
+  const { partnerPages } = await import("@/db");
+  const page = await db.query.partnerPages.findFirst({ where: eq(partnerPages.userId, userId), columns: { studentSide: true } });
+  return { partner: Boolean(page), bothSides: Boolean(page?.studentSide), partnerOnly: Boolean(page && !page.studentSide) };
 }

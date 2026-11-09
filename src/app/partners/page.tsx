@@ -12,8 +12,9 @@ export const metadata = {
 
 const POINTS = [
   ["One link for your bio", "Your photo, top services, Model Calls, videos and shop links on one page — it replaces your Linktree."],
-  ["Booking built in", "Followers tap Book and go straight into Nearest booking: services, add-ons, travel, day and time, and secure payment."],
-  ["Bundle my booking & Model Calls", "Let clients book several services in one visit, and post discounted Model Calls when you're practicing or filming."],
+  ["Booking built in — open to anyone", "Followers tap Book and go straight into booking that service: add-ons, travel, day and time, and secure payment. Anyone 18+ can book you with a quick account, and your partner page has no $150 limit."],
+  ["Your name, your way", "Show your own name or a nickname, alias or brand name on your page. Already on Nearest for students? One login, two sides — switch between your Student side and your Partner side."],
+  ["Bundle my booking", "Clients book several of your services in one visit, back to back, with one booking fee. Only your services — never anyone else's."],
   ["Sell downloads and products", "Sell your workbook or guide as a digital download — buyers get it the moment they pay — plus products you ship, like hair care, tools or lash kits."],
   ["Saves to their phone like an app", "Clients can save your page to their home screen. It opens right to you, with your photo as the icon."],
   ["You stay in control", "Change your photo, prices, links and videos any time from the Nearest pro app. Free to set up — no monthly fee."],

@@ -3,7 +3,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { TopBar } from "@/components/TopBar";
 import { money } from "@/lib/time";
-import { partnerForBooking, partnerServices } from "@/lib/partner-booking";
+import { partnerForBooking, partnerServices, sidePrice } from "@/lib/partner-booking";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Book", robots: { index: false, follow: false } };
@@ -30,7 +30,7 @@ export default async function PartnerBookList({ params }: { params: Promise<{ sl
         {services.length === 0 && <p className="small muted p">No services are listed yet.</p>}
         {services.map((s) => (
           <Link key={s.id} className="card" href={`${x.base}/book/${s.id}`} style={{ textDecoration: "none", color: "inherit", gap: 4 }}>
-            <div className="row between"><span className="b">{s.name}{s.adultsOnly ? " (18+)" : ""}</span><span className="b">{money(s.priceCents)}</span></div>
+            <div className="row between"><span className="b">{s.name}{s.adultsOnly ? " (18+)" : ""}</span><span className="b">{money(sidePrice(s))}</span></div>
             <div className="row between small"><span className="muted">{s.durationMin} min{(s.addons ?? []).length ? " • add-ons available" : ""}</span><span className="link small">Book</span></div>
           </Link>
         ))}

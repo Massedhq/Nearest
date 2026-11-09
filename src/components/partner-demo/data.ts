@@ -1,5 +1,5 @@
 /** Sample partner used by both demos. Prices are what clients pay (the $5 booking fee is already included). */
-export type DemoService = { id: string; cat: string; name: string; price: number; mins: number; img: string; adds: [string, string, number][]; request?: boolean; adult?: boolean };
+export type DemoService = { id: string; cat: string; name: string; price: number; mins: number; img: string; adds: [string, string, number][]; request?: boolean; adult?: boolean; partnerOnly?: boolean };
 
 export const DEMO = {
   name: "Ava Monroe",
@@ -9,7 +9,8 @@ export const DEMO = {
   slug: "avamonroe",
   travelFee: 45,
   travelMiles: 15,
-  bundlePct: 10,
+  fee: 5, // booking fee, already inside every price; a bundled visit has one booking fee
+  alias: "Lashes by Ava", // a different name partners can choose to show
 };
 
 export const SERVICES: DemoService[] = [
@@ -18,6 +19,7 @@ export const SERVICES: DemoService[] = [
   { id: "lift", cat: "Lashes", name: "Lash lift + tint", price: 75, mins: 45, img: "p-eyesq", adds: [] },
   { id: "classic", cat: "Lashes", name: "Classic lash full set", price: 120, mins: 120, img: "p-face", adds: [["btm", "Bottom lashes", 20]], request: true },
   { id: "glam", cat: "Makeup", name: "Soft glam makeup", price: 110, mins: 60, img: "p-lips", adds: [["strip", "Lash strip", 10]] },
+  { id: "bridal", cat: "Makeup", name: "Bridal glam + trial", price: 225, mins: 150, img: "p-face", adds: [], partnerOnly: true },
   { id: "gelx", cat: "Nails", name: "Gel-X full set", price: 65, mins: 90, img: "p-chrome", adds: [["chrome", "Chrome", 10], ["art", "Hand-painted art", 15]] },
   { id: "pedi", cat: "Nails", name: "Pedicure", price: 45, mins: 45, img: "p-pedi", adds: [], adult: false },
 ];

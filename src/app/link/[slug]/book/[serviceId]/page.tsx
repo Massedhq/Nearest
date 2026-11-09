@@ -7,7 +7,7 @@ import { openSlots, nextDays } from "@/lib/availability";
 import { getFlag } from "@/lib/settings";
 import { label12, money } from "@/lib/time";
 import { addonIds, pickAddons } from "@/lib/addons";
-import { NO_CAP, bundleExtras, carry, partnerForBooking, partnerService } from "@/lib/partner-booking";
+import { NO_CAP, bundleExtras, carry, partnerForBooking, partnerService, sidePrice } from "@/lib/partner-booking";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Choose a time", robots: { index: false, follow: false } };
@@ -24,7 +24,7 @@ export default async function PartnerChooseTime({ params, searchParams }: { para
   const extras = await bundleExtras(x.pro.userId, svc.id, sp.with);
   const q = carry(picked.list.map((a) => a.id), extras.map((e) => e.id));
   const length = svc.durationMin + picked.minutes + extras.reduce((t, e) => t + e.extraMin, 0);
-  const total = svc.priceCents + picked.cents + extras.reduce((t, e) => t + e.priceCents, 0);
+  const total = sidePrice(svc) + picked.cents + extras.reduce((t, e) => t + e.priceCents, 0);
   const open = await getFlag("status.bookings");
   const days = nextDays(14);
   const day = days.includes(sp.day ?? "") ? sp.day! : days[0];
@@ -41,7 +41,7 @@ export default async function PartnerChooseTime({ params, searchParams }: { para
           {extras.length > 0 && <Link className="link xs" href={`${x.base}/bundle?${[svc.id, ...extras.map((e) => e.id)].map((id) => `s=${id}`).join("&")}`}>Change bundled services</Link>}
         </div>
         {(svc.addons ?? []).length > 0 && (
-          <AddonPicker action={`${x.base}/book/${svc.id}`} addons={svc.addons} chosen={picked.list.map((a) => a.id)} baseCents={svc.priceCents} capCents={NO_CAP}
+          <AddonPicker action={`${x.base}/book/${svc.id}`} addons={svc.addons} chosen={picked.list.map((a) => a.id)} baseCents={sidePrice(svc)} capCents={NO_CAP}
             hidden={{ ...(day ? { day } : {}), ...(extras.length ? { with: extras.map((e) => e.id).join(",") } : {}) }} />
         )}
         {!open && <div className="card warn small"><span>Booking is paused right now. Please check back soon.</span></div>}

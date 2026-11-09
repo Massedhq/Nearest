@@ -319,6 +319,13 @@ export const proServices = pgTable("pro_services", {
   // Optional extras on this service (e.g. "Rhinestones +$10, +15 min"): [{ id, name, priceCents, extraMin }]. The student
   // picks any when booking; the $150 student cap applies to the service + chosen add-ons together. No service fee on add-ons.
   addons: jsonb("addons").$type<{ id: string; name: string; priceCents: number; extraMin: number }[]>().notNull().default([]),
+  // Partners on both sides (2026-11-09): where this service shows — "both" | "student" (student app only) | "partner"
+  // (partner page only). A service whose student price is over $150 is always "partner". Non-partners are always "both".
+  showOn: text("show_on").notNull().default("both"),
+  // Optional partner-page price: what the pro entered for the partner side, and what partner clients pay (+ booking fee).
+  // null = the partner page uses the same price as students.
+  partnerProPriceCents: integer("partner_pro_price_cents"),
+  partnerPriceCents: integer("partner_price_cents"),
   active: boolean("active").notNull().default(true),
   sort: integer("sort").notNull().default(0),
   createdAt: ts("created_at").notNull().defaultNow(),
@@ -1468,6 +1475,9 @@ export const partnerPages = pgTable("partner_pages", {
   partnerApprovedAt: ts("partner_approved_at"), // they approved the page Nearest built for them
   // false = partner only: never listed to students in the Nearest student app (2026-11-09). Their partner page still books.
   studentSide: boolean("student_side").notNull().default(true),
+  // Name on the partner page (2026-11-09): false = their own display name; true = the alias below (a nickname or brand name).
+  useAlias: boolean("use_alias").notNull().default(false),
+  alias: text("alias"),
 });
 
 // ─── Partner shop: digital downloads + physical products sold from a partner page ─────────────────────────────────

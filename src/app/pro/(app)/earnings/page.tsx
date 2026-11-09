@@ -7,6 +7,7 @@ import { requirePro } from "@/lib/pro";
 import { fmtDate, money } from "@/lib/time";
 import { Tabs } from "@/components/Tabs";
 import { Icon } from "@/components/Icon";
+import { SideSwitch } from "@/components/SideSwitch";
 
 export const metadata = { title: "Earnings" };
 
@@ -16,11 +17,15 @@ export default async function Earnings() {
   const credit = sql`(${bookings.creditProCents} + ${bookings.creditGeneralCents})`;
   const cardFee = sql`case when ${bookings.campaignEntryId} is not null then 0 else coalesce(${bookings.stripeFeeCents},0) + case when ${credit} > 0 then round(${credit} * 0.029) + case when ${bookings.chargedCents} = 0 then 30 else 0 end else 0 end end`;
   const value = sql<number>`coalesce(sum(${bookings.chargedCents} + ${credit} - ${bookings.serviceFeeCents} - ${cardFee}),0)::int`;
+  // Partners: earnings for the side they're viewing (Student side / Partner side). Payouts go to the same bank either way.
+  const { currentSide, onSide } = await import("@/lib/pro-side");
+  const view = await currentSide(user.id);
+  const side = onSide(view.side);
   const [[pending], [released], [held], recent] = await Promise.all([
-    db.select({ n: value }).from(bookings).where(and(eq(bookings.proId, user.id), eq(bookings.status, "confirmed"))),
-    db.select({ n: value }).from(bookings).where(and(eq(bookings.proId, user.id), eq(bookings.status, "completed"))),
-    db.select({ n: sql<number>`coalesce(sum(${bookings.payoutOwedCents}),0)::int` }).from(bookings).where(and(eq(bookings.proId, user.id), sql`${bookings.transferId} is null`)),
-    db.select().from(bookings).where(and(eq(bookings.proId, user.id), inArray(bookings.status, ["confirmed", "completed"]))).orderBy(desc(bookings.startsAt)).limit(20),
+    db.select({ n: value }).from(bookings).where(and(eq(bookings.proId, user.id), side, eq(bookings.status, "confirmed"))),
+    db.select({ n: value }).from(bookings).where(and(eq(bookings.proId, user.id), side, eq(bookings.status, "completed"))),
+    db.select({ n: sql<number>`coalesce(sum(${bookings.payoutOwedCents}),0)::int` }).from(bookings).where(and(eq(bookings.proId, user.id), side, sql`${bookings.transferId} is null`)),
+    db.select().from(bookings).where(and(eq(bookings.proId, user.id), side, inArray(bookings.status, ["confirmed", "completed"]))).orderBy(desc(bookings.startsAt)).limit(20),
   ]);
   // Pay-from-bookings: what Nearest kept toward the membership isn't money released to them.
   const bookingPaid = isBookingPaid(profile);
@@ -34,6 +39,7 @@ export default async function Earnings() {
     <div className="scr">
       <div className="top"><span className="sp" /><div className="t">Earnings</div><span className="sp" /></div>
       <div className="body">
+        <SideSwitch side={view.side} canSwitch={view.canSwitch} back="/pro/earnings" />
         <div className="grid2" style={{ gap: 10 }}>
           <div className="card" style={{ padding: 14, gap: 2 }}><span className="xs muted">Pending release</span><span className="stat s">{money(pending.n)}</span></div>
           <div className="card pearl" style={{ padding: 14, gap: 2 }}><span className="xs muted">Released to you</span><span className="stat s">{money(Math.max(0, released.n - keptOnReleased.n))}</span></div>

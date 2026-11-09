@@ -21,10 +21,13 @@ export default async function ServicesStep({ searchParams }: { searchParams: Pro
   ]);
   const catProps = cats.map((c) => ({ id: c.id, name: c.name, suggestions: sugg.filter((s) => s.categoryId === c.id).map((s) => s.name) }));
   const saved = mine.map((s) => ({ categoryId: s.categoryId, name: s.name, price: String((s.proPriceCents == null ? s.priceCents : s.proPriceCents) / 100), duration: String(s.durationMin), adultsOnly: s.adultsOnly, photo: s.photoUrl, addFee: s.proPriceCents == null ? true : s.feeAdded,
-    addons: (s.addons ?? []).map((a) => ({ id: a.id, name: a.name, price: String(a.priceCents / 100), minutes: String(a.extraMin) })) }));
+    addons: (s.addons ?? []).map((a) => ({ id: a.id, name: a.name, price: String(a.priceCents / 100), minutes: String(a.extraMin) })),
+    showOn: s.showOn as "both" | "student" | "partner", partnerPrice: s.partnerProPriceCents != null ? String(s.partnerProPriceCents / 100) : "" }));
   // "Save & finish later" kept a draft — bring back everything they typed, even unfinished rows.
   const draft = Array.isArray(profile.servicesDraft) ? (profile.servicesDraft as typeof saved) : null;
   const initial = draft ?? saved;
+  // Partners: no $150 cap; on both sides they also pick where each service shows and an optional partner-page price.
+  const side = await (await import("@/lib/partner-booking")).partnerSides(user.id);
   return (
     <SetupShell steps={steps} current="services" title="What do you do?" edit={edit}>
       <p className="muted small p">Customers search the actual service, not just your category.</p>
@@ -32,7 +35,7 @@ export default async function ServicesStep({ searchParams }: { searchParams: Pro
       <ActionForm action={saveServices} submitLabel={edit ? "Save services" : "Save & continue"} laterLabel={edit ? undefined : "Save & finish later"}
         afterOk={<div className="grid2" style={{ gap: 8 }}><Link className="btn ghost sm" href="/pro/setup/review">View my profile</Link><Link className="btn ghost sm" href="/pro/business">Back to my account menu</Link></div>}>
         {edit && <input type="hidden" name="edit" value="1" />}
-        <ServicesEditor categories={catProps} initial={initial} userId={user.id} feeCents={Number((await getSettings())["fees.service_fee_cents"] ?? 500)} partner={await (await import("@/lib/partner-booking")).isPartner(user.id)} />
+        <ServicesEditor categories={catProps} initial={initial} userId={user.id} feeCents={Number((await getSettings())["fees.service_fee_cents"] ?? 500)} partner={side.partner} bothSides={side.bothSides} />
       </ActionForm>
     </SetupShell>
   );

@@ -6,7 +6,7 @@ import { instagramHandle, tiktokHandle, facebookHandle, instagramUrl, tiktokUrl,
 import Link from "next/link";
 import { getFlag } from "@/lib/settings";
 import { notFound } from "next/navigation";
-import { and, asc, desc, eq, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, lte, sql, ne } from "drizzle-orm";
 import { MAX_PRICE_CENTS } from "@/lib/pricing";
 import { db, users, bookings, professionalProfiles, proServices, portfolioItems, proHours, proOpenings, cities, reviews, favorites, categories } from "@/db";
 import { FavButton } from "@/components/FavButton";
@@ -40,7 +40,7 @@ export default async function ProProfile({ params, searchParams }: { params: Pro
   const today = chicagoNow().date;
   // Categories where this pro was approved as a recent graduate (license pending) — shown honestly to students.
   const [services, photos, hours, openings, city, calls] = await Promise.all([
-    db.select().from(proServices).where(and(eq(proServices.userId, id), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS))).orderBy(asc(proServices.sort)),
+    db.select().from(proServices).where(and(eq(proServices.userId, id), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS), ne(proServices.showOn, "partner"))).orderBy(asc(proServices.sort)),
     db.select().from(portfolioItems).where(eq(portfolioItems.userId, id)).orderBy(desc(portfolioItems.featured), asc(portfolioItems.sort)).limit(15), // 10 photos + 5 videos
     db.select().from(proHours).where(eq(proHours.userId, id)),
     p.vacationMode ? [] : db.select().from(proOpenings).where(and(eq(proOpenings.userId, id), eq(proOpenings.day, today))).orderBy(asc(proOpenings.startTime)),
@@ -70,7 +70,7 @@ export default async function ProProfile({ params, searchParams }: { params: Pro
   const proUser = await db.query.users.findFirst({ where: eq(users.id, p.userId) });
   // Every service category they offer, in Nearest's category order (shown under their name).
   const offers = (await db.selectDistinct({ name: categories.name, sort: categories.sort }).from(proServices).innerJoin(categories, eq(categories.id, proServices.categoryId))
-    .where(and(eq(proServices.userId, id), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS))).orderBy(asc(categories.sort), asc(categories.name))).map((c) => c.name);
+    .where(and(eq(proServices.userId, id), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS), ne(proServices.showOn, "partner"))).orderBy(asc(categories.sort), asc(categories.name))).map((c) => c.name);
   const who = personName(p.displayName, proUser?.firstName, proUser?.lastName);
   const initials = who.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
   const langs = (p.languages ?? []).filter((l) => l !== "ASL");

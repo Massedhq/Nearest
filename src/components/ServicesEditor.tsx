@@ -5,7 +5,35 @@ import { cleanPrice, underCap } from "./PriceInput";
 
 export type Cat = { id: number; name: string; suggestions: string[] };
 export type AddonRow = { id?: string; name: string; price: string; minutes: string };
-export type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; photo?: string | null; addFee?: boolean; addons?: AddonRow[] };
+export type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; photo?: string | null; addFee?: boolean; addons?: AddonRow[];
+  // Partners on both sides (2026-11-09): where it shows + an optional different price on the partner page.
+  showOn?: "both" | "student" | "partner"; partnerPrice?: string };
+
+/** Partners on both sides: which side a service shows on, and an optional partner-page price. */
+function SideFields({ r, feeD, onChange }: { r: Row; feeD: number; onChange: (p: Partial<Row>) => void }) {
+  const student = (() => { const p = Number(String(r.price).replace(/[$,\s]/g, "")); return Number.isFinite(p) && p > 0 ? p + feeD : null; })();
+  const overCap = student != null && student > MAX_PRICE_DOLLARS;
+  const show = overCap ? "partner" : r.showOn ?? "both";
+  const pp = Number(String(r.partnerPrice ?? "").replace(/[$,\s]/g, ""));
+  return (
+    <div className="col" style={{ gap: 6, padding: "8px 10px", border: "1px dashed #2A2A2D", borderRadius: 12 }}>
+      <span className="xs b">Shows on</span>
+      <div className="chips">
+        {([["both", "Both sides"], ["student", "Student side only"], ["partner", "Partner side only"]] as const).map(([k, l]) => (
+          <button key={k} type="button" className={`chip${show === k ? " on" : ""}`} disabled={overCap && k !== "partner"} aria-pressed={show === k} onClick={() => onChange({ showOn: k })}>{l}</button>
+        ))}
+      </div>
+      {overCap && <span className="xs muted">Over ${MAX_PRICE_DOLLARS} for students, so it shows on your partner page only.</span>}
+      {show !== "student" && !overCap && (
+        <div className="row" style={{ gap: 8 }}>
+          <span className="xs">Partner page price <span className="muted">(optional)</span></span>
+          <input className="ainput" style={{ width: 90 }} inputMode="decimal" placeholder={r.price ? `$${r.price}` : "$"} aria-label={`${r.name || "Service"} partner page price in dollars`} value={r.partnerPrice ?? ""} onChange={(e) => onChange({ partnerPrice: cleanPrice(e.target.value) })} />
+        </div>
+      )}
+      {show !== "student" && !overCap && <span className="xs muted">{pp > 0 ? `Partner clients see $${(pp + feeD).toFixed(2).replace(/\.00$/, "")} (your price + the booking fee); students see ${student != null ? `$${student.toFixed(2).replace(/\.00$/, "")}` : "your regular price"}.` : "Leave it empty to charge the same price on both sides."}</span>}
+    </div>
+  );
+}
 
 /** Optional add-ons under one service: name, extra price, extra time. The student picks any when booking. */
 function AddonsEditor({ serviceName, list, onChange, room }: { serviceName: string; list: AddonRow[]; onChange: (l: AddonRow[]) => void; room: number | null }) {
@@ -57,7 +85,7 @@ function ServicePhoto({ userId, url, onChange }: { userId: string; url?: string 
   );
 }
 
-export function ServicesEditor({ categories, initial, userId, feeCents = 500, partner = false }: { categories: Cat[]; initial: Row[]; userId: string; feeCents?: number; partner?: boolean }) {
+export function ServicesEditor({ categories, initial, userId, feeCents = 500, partner = false, bothSides = false }: { categories: Cat[]; initial: Row[]; userId: string; feeCents?: number; partner?: boolean; bothSides?: boolean }) {
   // Partners (2026-11-09): no $150 cap — a service over $150 shows only on their partner page, never to students.
   const cap = partner ? Number.POSITIVE_INFINITY : MAX_PRICE_DOLLARS;
   const feeD = feeCents / 100;
@@ -126,6 +154,7 @@ export function ServicesEditor({ categories, initial, userId, feeCents = 500, pa
               </label>
               {studentPrice(r) != null && <span className="small muted" style={{ marginTop: -4 }}>Clients see <span className="b">{fmt(studentPrice(r)!)}</span> — your price plus the {fmt(feeD)} booking fee. You receive your full price.{partner && studentPrice(r)! > MAX_PRICE_DOLLARS ? ` Over $${MAX_PRICE_DOLLARS}, so it shows only on your partner page, not to students.` : ""}</span>}
               <ServicePhoto userId={userId} url={r.photo} onChange={(u) => update(i, { photo: u })} />
+              {partner && bothSides && <SideFields r={r} feeD={feeD} onChange={(p) => update(i, p)} />}
               <AddonsEditor serviceName={r.name} list={r.addons ?? []} onChange={(l) => update(i, { addons: l })} room={partner ? null : studentPrice(r) != null ? Math.max(0, MAX_PRICE_DOLLARS - studentPrice(r)!) : null} />
               <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} onClick={() => close(i)}>Minimize</button>
             </div>

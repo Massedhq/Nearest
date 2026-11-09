@@ -61,6 +61,13 @@ export default async function PartnerEditor({ searchParams }: { searchParams: Pr
         </div>
 
         <ActionForm action={savePartnerPage} submitLabel="Save my page" className="col g16">
+          <div className="col g8">
+            <span className="lbl">Name on my partner page</span>
+            <label className="check small" style={{ alignItems: "flex-start" }}><input type="radio" name="nameChoice" value="own" defaultChecked={!page.useAlias} /><span>Show my name{profile.displayName || user.firstName ? ` (${profile.displayName || user.firstName})` : ""}</span></label>
+            <label className="check small" style={{ alignItems: "flex-start" }}><input type="radio" name="nameChoice" value="alias" defaultChecked={page.useAlias} /><span>Show a different name — a nickname, alias or brand name</span></label>
+            <div className="field"><label htmlFor="pp-alias">Different name (used only if you pick it above)</label><input id="pp-alias" name="alias" maxLength={60} defaultValue={page.alias ?? ""} placeholder="e.g. Lashes by Kay" /></div>
+            <span className="xs muted">This changes the name on your partner page and partner bookings only. Your student-side profile and your legal name don&apos;t change.</span>
+          </div>
           <div className="field"><label htmlFor="pp-head">Headline (under your name)</label><input id="pp-head" name="headline" maxLength={PARTNER_LIMITS.headline} defaultValue={page.headline ?? ""} placeholder="Beauty educator · Brows, lashes & glam" /></div>
 
           <div className="col g8">
