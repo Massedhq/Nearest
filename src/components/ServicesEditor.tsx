@@ -57,7 +57,9 @@ function ServicePhoto({ userId, url, onChange }: { userId: string; url?: string 
   );
 }
 
-export function ServicesEditor({ categories, initial, userId, feeCents = 500 }: { categories: Cat[]; initial: Row[]; userId: string; feeCents?: number }) {
+export function ServicesEditor({ categories, initial, userId, feeCents = 500, partner = false }: { categories: Cat[]; initial: Row[]; userId: string; feeCents?: number; partner?: boolean }) {
+  // Partners (2026-11-09): no $150 cap — a service over $150 shows only on their partner page, never to students.
+  const cap = partner ? Number.POSITIVE_INFINITY : MAX_PRICE_DOLLARS;
   const feeD = feeCents / 100;
   const fmt = (n: number) => `$${n.toFixed(2).replace(/\.00$/, "")}`;
   // What students see and pay for a row: the pro's price + the service fee (unless they chose to absorb it).
@@ -111,8 +113,8 @@ export function ServicesEditor({ categories, initial, userId, feeCents = 500 }: 
               <div className="row" style={{ gap: 10, alignItems: "flex-end" }}>
                 <label className="col xs muted" style={{ gap: 4, flex: 1 }}>Your price ($)
                   <span className="row" style={{ gap: 4 }}><span aria-hidden="true" className="b" style={{ color: "#ECE8E1" }}>$</span>
-                  <input className="ainput grow" style={{ minWidth: 0, ...(Number(r.price) > MAX_PRICE_DOLLARS ? { borderColor: "#F2A38F" } : {}) }} aria-label={`${r.name || "Service"} price in dollars, up to $${MAX_PRICE_DOLLARS}`} aria-invalid={Number(r.price) > MAX_PRICE_DOLLARS || undefined} placeholder="45" inputMode="decimal" value={r.price}
-                    onChange={(e) => { const next = cleanPrice(e.target.value); if (!underCap(next)) { setCapWarn(true); return; } setCapWarn(false); update(i, { price: next }); }} /></span>
+                  <input className="ainput grow" style={{ minWidth: 0, ...(Number(r.price) > cap ? { borderColor: "#F2A38F" } : {}) }} aria-label={`${r.name || "Service"} price in dollars${partner ? "" : `, up to $${MAX_PRICE_DOLLARS}`}`} aria-invalid={Number(r.price) > cap || undefined} placeholder="45" inputMode="decimal" value={r.price}
+                    onChange={(e) => { const next = cleanPrice(e.target.value); if (!partner && !underCap(next)) { setCapWarn(true); return; } setCapWarn(false); update(i, { price: next }); }} /></span>
                 </label>
                 <label className="col xs muted" style={{ gap: 4, flex: 1 }}>How long (minutes)
                   <input className="ainput" style={{ minWidth: 0, width: "100%" }} aria-label={`${r.name || "Service"} length in minutes`} placeholder="60" inputMode="numeric" value={r.duration} onChange={(e) => update(i, { duration: e.target.value.replace(/\D/g, "").slice(0, 3) })} />
@@ -122,9 +124,9 @@ export function ServicesEditor({ categories, initial, userId, feeCents = 500 }: 
                 <input type="checkbox" checked={Boolean(r.adultsOnly)} onChange={(e) => update(i, { adultsOnly: e.target.checked })} />
                 <span><span className="b">18+ only</span> — must be 18 or older to book</span>
               </label>
-              {studentPrice(r) != null && <span className="small muted" style={{ marginTop: -4 }}>Students see <span className="b">{fmt(studentPrice(r)!)}</span> — your price plus the {fmt(feeD)} booking fee. You receive your full price.</span>}
+              {studentPrice(r) != null && <span className="small muted" style={{ marginTop: -4 }}>Clients see <span className="b">{fmt(studentPrice(r)!)}</span> — your price plus the {fmt(feeD)} booking fee. You receive your full price.{partner && studentPrice(r)! > MAX_PRICE_DOLLARS ? ` Over $${MAX_PRICE_DOLLARS}, so it shows only on your partner page, not to students.` : ""}</span>}
               <ServicePhoto userId={userId} url={r.photo} onChange={(u) => update(i, { photo: u })} />
-              <AddonsEditor serviceName={r.name} list={r.addons ?? []} onChange={(l) => update(i, { addons: l })} room={studentPrice(r) != null ? Math.max(0, MAX_PRICE_DOLLARS - studentPrice(r)!) : null} />
+              <AddonsEditor serviceName={r.name} list={r.addons ?? []} onChange={(l) => update(i, { addons: l })} room={partner ? null : studentPrice(r) != null ? Math.max(0, MAX_PRICE_DOLLARS - studentPrice(r)!) : null} />
               <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} onClick={() => close(i)}>Minimize</button>
             </div>
               ) : (
@@ -148,8 +150,8 @@ export function ServicesEditor({ categories, initial, userId, feeCents = 500 }: 
         );
       })}
       {cats.length === 0 && <p className="small muted p">Pick at least one category above.</p>}
-      {(capWarn || rows.some((r) => (studentPrice(r) ?? 0) > MAX_PRICE_DOLLARS)) && <p className="err small" role="alert">Students can&apos;t be charged more than ${MAX_PRICE_DOLLARS} per service{rows.some((r) => (studentPrice(r) ?? 0) > MAX_PRICE_DOLLARS) ? ` — with the ${fmt(feeD)} service fee, a service can be up to ${fmt(MAX_PRICE_DOLLARS - feeD)}.` : "."}</p>}
-      <p className="xs muted p">Enter your price. A {fmt(feeD)} booking fee is added, so students see one total price (no separate fee). Every service is ${MAX_PRICE_DOLLARS} or less for students.</p>
+      {!partner && (capWarn || rows.some((r) => (studentPrice(r) ?? 0) > MAX_PRICE_DOLLARS)) && <p className="err small" role="alert">Students can&apos;t be charged more than ${MAX_PRICE_DOLLARS} per service{rows.some((r) => (studentPrice(r) ?? 0) > MAX_PRICE_DOLLARS) ? ` — with the ${fmt(feeD)} service fee, a service can be up to ${fmt(MAX_PRICE_DOLLARS - feeD)}.` : "."}</p>}
+      <p className="xs muted p">Enter your price. A {fmt(feeD)} booking fee is added, so students see one total price (no separate fee). {partner ? `As a partner you can list services over $${MAX_PRICE_DOLLARS}: those show only on your partner page. Students only ever see services that are $${MAX_PRICE_DOLLARS} or less.` : `Every service is $${MAX_PRICE_DOLLARS} or less for students.`}</p>
     </div>
   );
 }

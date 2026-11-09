@@ -7,7 +7,7 @@ import { geocode } from "@/lib/geo";
 import { MAX_PRICE_CENTS } from "@/lib/pricing";
 import { isAdult } from "@/lib/age";
 import { studentSuspendedUntil } from "@/lib/enforcement";
-import { requireVerifiedStudent } from "@/lib/student";
+import { requireVerifiedStudent, requireBooker } from "@/lib/student";
 import { liveProWhere } from "@/lib/search";
 import { openSlots } from "@/lib/availability";
 import { creditBalances } from "@/lib/credits";
@@ -73,8 +73,12 @@ async function createAndPay(opts: {
   bundleId?: string;
   cardId?: string; // the Nearest Card the student chose for this booking (never automatic)
   addons?: { id: string; name: string; priceCents: number; extraMin: number }[]; // included in priceCents and durationMin
+  // "partner" = booked from a partner's own page (2026-11-09): anyone with an account, no $150 cap, no Nearest Cards,
+  // invite rewards or promotional credit (their own credit from a cancelled partner booking still applies).
+  channel?: "student" | "partner";
 }): Promise<FormState> {
-  if (opts.priceCents > MAX_PRICE_CENTS) return { error: `This is priced above Nearest's $${MAX_PRICE_CENTS / 100} student limit, so it can't be booked.` };
+  const partner = opts.channel === "partner";
+  if (!partner && opts.priceCents > MAX_PRICE_CENTS) return { error: `This is priced above Nearest's $${MAX_PRICE_CENTS / 100} student limit, so it can't be booked.` };
   // The $150 cap is on the service; a travel fee ($35–$55) is added only when the pro travels to the student.
   const travelFee = opts.where.locationType === "student" ? Math.min(Math.max(opts.travelFeeCents ?? 0, 0), 5500) : 0;
   opts = { ...opts, priceCents: opts.priceCents + travelFee };
@@ -82,14 +86,14 @@ async function createAndPay(opts: {
   if (s["status.bookings"] !== true) return { error: "Booking is paused right now. Please try again soon." };
   const deposit = Math.min(Number(s["appt.deposit_cents"]), opts.priceCents);
   // Bundle bookings never use credits or invite rewards — those are for single bookings only.
-  const bal = opts.bundleId ? { pro: 0, general: 0, promo: 0 } : await creditBalances(opts.studentId, opts.proId);
+  const bal = opts.bundleId ? { pro: 0, general: 0, promo: 0 } : partner ? { ...(await creditBalances(opts.studentId, opts.proId)), promo: 0 } : await creditBalances(opts.studentId, opts.proId);
   // Invite reward: $5 off a student's first booking with this pro (services only, one per booking). The pro funds it.
-  const inv = opts.serviceId && !opts.bundleId ? await inviteRewardFor(opts.studentId, opts.proId, opts.priceCents) : null;
+  const inv = opts.serviceId && !opts.bundleId && !partner ? await inviteRewardFor(opts.studentId, opts.proId, opts.priceCents) : null;
   // Nearest Card: only when the student picked one. Reserved for this booking (so it can't be used twice) before the insert.
   const newId = crypto.randomUUID();
   const cards = await import("@/lib/nearest-cards");
   let cardAmt = 0;
-  if (opts.cardId && !opts.bundleId) {
+  if (opts.cardId && !opts.bundleId && !partner) {
     // Cards are honored by the professional: only pros who accepted those Terms, and a Free Card only on their free service.
     const problem = await (await import("@/lib/promo")).cardProblem(opts.cardId, opts.proId, opts.serviceId, { modelCall: Boolean(opts.modelCallId) });
     if (problem) return { error: problem };
@@ -110,7 +114,7 @@ async function createAndPay(opts: {
   const isRequest = !instantBooking();
 
   const [b] = await db.insert(bookings).values({
-    id: newId, cardId: use.card > 0 ? opts.cardId : null, cardCents: use.card, promoCents: use.promoCents,
+    id: newId, channel: partner ? "partner" : "student", cardId: use.card > 0 ? opts.cardId : null, cardCents: use.card, promoCents: use.promoCents,
     studentId: opts.studentId, proId: opts.proId, serviceId: opts.serviceId ?? null, modelCallId: opts.modelCallId ?? null,
     serviceName: opts.serviceName, startsAt: opts.startsAt, endsAt, priceCents: opts.priceCents, travelFeeCents: travelFee, depositCents: deposit,
     addons: opts.addons?.length ? opts.addons : null, addonsCents: (opts.addons ?? []).reduce((t, a) => t + a.priceCents, 0),
@@ -161,7 +165,7 @@ async function createAndPay(opts: {
 
 /** The professional accepted: the student pays now (credits re-checked) — or it confirms right away if credit covers it. */
 export async function payAcceptedBooking(form: FormData) {
-  const { user } = await requireVerifiedStudent();
+  const { user } = await requireBooker();
   const id = String(form.get("id") ?? "");
   const b = await db.query.bookings.findFirst({ where: and(eq(bookings.id, id), eq(bookings.studentId, user.id)) });
   if (!b || b.status !== "pending_payment" || !b.respondedAt || (b.holdExpiresAt && b.holdExpiresAt.getTime() < Date.now())) redirect(`/bookings/${id}`);
@@ -243,7 +247,7 @@ export async function bookModelCall(_: FormState, form: FormData): Promise<FormS
 }
 
 export async function resumePayment(form: FormData) {
-  const { user } = await requireVerifiedStudent();
+  const { user } = await requireBooker();
   const b = await db.query.bookings.findFirst({ where: and(eq(bookings.id, String(form.get("id"))), eq(bookings.studentId, user.id), eq(bookings.status, "pending_payment")) });
   if (!b || !b.holdExpiresAt || b.holdExpiresAt.getTime() < Date.now()) redirect("/bookings");
   const pro = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, b.proId) });
@@ -251,14 +255,14 @@ export async function resumePayment(form: FormData) {
 }
 
 export async function cancelMyBooking(_: FormState, form: FormData): Promise<FormState> {
-  const { user } = await requireVerifiedStudent();
+  const { user } = await requireBooker();
   const res = await cancelByStudent(String(form.get("id")), user.id);
   revalidatePath("/bookings");
   return res.error ? { error: res.error } : { ok: res.ok };
 }
 
 export async function releaseMyPayment(_: FormState, form: FormData): Promise<FormState> {
-  const { user } = await requireVerifiedStudent();
+  const { user } = await requireBooker();
   try {
     const res = await releasePayment(String(form.get("id")), user.id);
     revalidatePath("/bookings");
@@ -271,19 +275,62 @@ export async function releaseMyPayment(_: FormState, form: FormData): Promise<Fo
 
 /** "Cancel — don't book" on an unfinished payment: give the time back, go back to Explore. */
 export async function abandonBooking(form: FormData) {
-  const { user } = await requireVerifiedStudent();
+  const { user } = await requireBooker();
   const id = String(form.get("id") ?? "");
   const b = await db.query.bookings.findFirst({ where: and(eq(bookings.id, id), eq(bookings.studentId, user.id)) });
   const r = await releaseHold(id, user.id);
   revalidatePath("/bookings");
   if (r === "paid") redirect(`/bookings/${id}?booked=1`);
+  if (b?.channel === "partner") redirect(`${await partnerBase(b.proId)}?notbooked=1`);
   redirect(b ? `${b.modelCallId ? `/book/call/${b.modelCallId}` : `/p/${b.proId}`}?notbooked=1` : "/home");
 }
 
 /** The student withdraws a booking request before the professional confirms (the card hold is released). */
 export async function cancelBookingRequest(form: FormData) {
-  const { user } = await requireVerifiedStudent();
+  const { user } = await requireBooker();
   const id = String(form.get("id") ?? "");
   await (await import("@/lib/requests")).cancelRequest(id, user.id);
   redirect(`/bookings/${id}`);
+}
+
+/** A partner's page path (/link/<slug>), or their bookings list if the page is gone. */
+async function partnerBase(proId: string) {
+  const p = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, proId), columns: { slug: true } });
+  return p?.slug ? `/link/${p.slug}` : "/bookings";
+}
+
+/**
+ * Partner side (2026-11-09): book a partner from their own page. Anyone with a Nearest account (partner clients, students,
+ * others). No $150 cap. Bundled services (several of the partner's own services in one visit) ride along like add-ons,
+ * at the professional's own price. Same booking fee, deposit, cancellation, instant-booking and payment rules.
+ */
+export async function bookPartnerService(_: FormState, form: FormData): Promise<FormState> {
+  const { getViewer } = await import("@/lib/viewer");
+  const viewer = await getViewer();
+  const user = viewer?.user;
+  if (!user || user.status === "deactivated") return { error: "Please sign in to book." };
+  if (form.get("agree") !== "on") return { error: "Please agree to the booking and cancellation terms." };
+  const { partnerForBooking, partnerService, bundleExtras } = await import("@/lib/partner-booking");
+  const x = await partnerForBooking(String(form.get("slug") ?? ""));
+  if (!x) return { error: "This partner isn't taking bookings right now." };
+  if (x.pro.userId === user.id) return { error: "You can't book yourself." };
+  const svc = await partnerService(x.pro.userId, String(form.get("serviceId") ?? ""));
+  if (!svc) return { error: "That service isn't available." };
+  const { pickAddons, addonIds, withAddons } = await import("@/lib/addons");
+  const picked = pickAddons(svc, addonIds(form.getAll("addon").map(String)));
+  const extras = await bundleExtras(x.pro.userId, svc.id, String(form.get("with") ?? ""));
+  const adultOnly = svc.adultsOnly || (extras.length > 0 && (await db.select({ a: proServices.adultsOnly }).from(proServices).where(inArray(proServices.id, extras.map((e) => e.id)))).some((r) => r.a));
+  if (adultOnly && !isAdult(user.dateOfBirth)) return { error: "This includes an 18+ service. You must be 18 or older to book it." };
+  const day = String(form.get("day") ?? ""), time = String(form.get("time") ?? "");
+  const length = svc.durationMin + picked.minutes + extras.reduce((t, e) => t + e.extraMin, 0);
+  if (!(await openSlots(svc.userId, length, day)).includes(time)) return { error: "That time was just taken or is no longer available. Please pick another." };
+  const where = await resolveLocation(x.pro, form);
+  if ("error" in where) return { error: where.error };
+  const list = [...extras, ...picked.list];
+  return createAndPay({ channel: "partner", where, travelFeeCents: x.pro.travelFeeCents ?? 3500,
+    studentId: user.id, email: user.email, proId: x.pro.userId, proName: x.pro.businessName ?? x.name, serviceId: svc.id,
+    serviceName: withAddons(svc.name, list), startsAt: chicagoToUtc(day, time), durationMin: length,
+    priceCents: svc.priceCents + list.reduce((t, a) => t + a.priceCents, 0),
+    serviceFeeCents: svc.proPriceCents == null ? 0 : svc.serviceFeeCents, addons: list,
+  });
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireVerifiedStudent } from "@/lib/student";
+import { requireBooker } from "@/lib/student";
 import { threadsFor } from "@/lib/threads";
 import { fmtDate } from "@/lib/time";
 import { Tabs } from "@/components/Tabs";
@@ -7,7 +7,7 @@ import { Tabs } from "@/components/Tabs";
 export const metadata = { title: "Messages" };
 
 export default async function Messages() {
-  const { user } = await requireVerifiedStudent();
+  const { user, customer } = await requireBooker();
   const rows = await threadsFor(user.id, "student");
   return (
     <div className="scr">
@@ -24,7 +24,7 @@ export default async function Messages() {
           ))}
         </div>
       </div>
-      <Tabs kind="student" active="Messages" />
+      <Tabs kind={customer ? "customer" : "student"} active="Messages" />
     </div>
   );
 }

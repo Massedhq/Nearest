@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, bookings } from "@/db";
-import { requireVerifiedStudent } from "@/lib/student";
+import { requireBooker } from "@/lib/student";
 import { REASONS } from "@/lib/appointment";
 import { TopBar } from "@/components/TopBar";
 import { LocateForm } from "@/components/LocateButton";
@@ -11,7 +11,7 @@ import { studentReport } from "@/app/day-actions";
 export const metadata = { title: "Report a problem" };
 
 export default async function Problem({ params }: { params: Promise<{ id: string }> }) {
-  const { user } = await requireVerifiedStudent();
+  const { user } = await requireBooker();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const b = await db.query.bookings.findFirst({ where: and(eq(bookings.id, id), eq(bookings.studentId, user.id)) });

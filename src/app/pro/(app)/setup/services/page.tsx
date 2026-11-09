@@ -32,7 +32,7 @@ export default async function ServicesStep({ searchParams }: { searchParams: Pro
       <ActionForm action={saveServices} submitLabel={edit ? "Save services" : "Save & continue"} laterLabel={edit ? undefined : "Save & finish later"}
         afterOk={<div className="grid2" style={{ gap: 8 }}><Link className="btn ghost sm" href="/pro/setup/review">View my profile</Link><Link className="btn ghost sm" href="/pro/business">Back to my account menu</Link></div>}>
         {edit && <input type="hidden" name="edit" value="1" />}
-        <ServicesEditor categories={catProps} initial={initial} userId={user.id} feeCents={Number((await getSettings())["fees.service_fee_cents"] ?? 500)} />
+        <ServicesEditor categories={catProps} initial={initial} userId={user.id} feeCents={Number((await getSettings())["fees.service_fee_cents"] ?? 500)} partner={await (await import("@/lib/partner-booking")).isPartner(user.id)} />
       </ActionForm>
     </SetupShell>
   );

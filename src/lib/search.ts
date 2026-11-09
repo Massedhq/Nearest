@@ -7,7 +7,7 @@ export type Filters = { q?: string; cat?: string; svc?: string; loc?: string; to
 export type Area = { cityId: number; countyId: number | null; market?: string | null } | null;
 
 /** Only approved, searchable, not-on-vacation pros are ever returned to students. */
-export function liveProWhere(area: Area, areaMode: string | undefined) {
+export function liveProWhere(area: Area, areaMode: string | undefined, opts: { partnerPage?: boolean } = {}) {
   const w: SQL[] = [
     eq(professionalProfiles.reviewStatus, "approved"),
     eq(professionalProfiles.searchable, true),
@@ -29,6 +29,8 @@ export function liveProWhere(area: Area, areaMode: string | undefined) {
     sql`(${professionalProfiles.suspendedUntil} is null or ${professionalProfiles.suspendedUntil} < now())`,
     sql`not exists (select 1 from ${fines} f where f.pro_id = ${professionalProfiles.userId} and f.status = 'outstanding' and f.due_at < now())`,
   ];
+  // Partner-only partners (partner_pages.student_side = false) are never shown to students; only their partner page books them.
+  if (!opts.partnerPage) w.push(sql`not exists (select 1 from partner_pages pp where pp.user_id = ${professionalProfiles.userId} and pp.student_side = false)`);
   if (areaMode === "place") return w; // another city or ZIP — searchPros() applies the place filter
   if (area && areaMode === "city") w.push(eq(professionalProfiles.cityId, area.cityId));
   else if (area?.countyId && areaMode !== "all") w.push(eq(professionalProfiles.countyId, area.countyId));

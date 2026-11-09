@@ -67,7 +67,7 @@ export default async function ProAppointment({ params, searchParams }: { params:
           <div className="row between"><span className="b">{b.serviceName}</span><span className="xs muted">#{bookingCode(b.number)}</span></div>
           <div className="small">{fmtDate(b.startsAt, { weekday: "long", month: "short", day: "numeric" })} • {fmtTime(b.startsAt)} – {fmtTime(b.endsAt)}</div>
           <hr className="hr" />
-          <div className="row"><div className="avatar sm">{(first ?? "?")[0]}{(last ?? "")[0]}</div><div className="grow"><div className="b">{first} {last?.[0]}.</div><div className="xs badge"><Icon name="shield" size="s" /> Verified Student</div></div>
+          <div className="row"><div className="avatar sm">{(first ?? "?")[0]}{(last ?? "")[0]}</div><div className="grow"><div className="b">{first} {last?.[0]}.</div>{b.channel === "partner" ? <div className="xs badge mute">Partner client — booked from your partner page</div> : <div className="xs badge"><Icon name="shield" size="s" /> Verified Student</div>}</div>
             <Link className="iconbtn" href={`/pro/appointments/${b.id}/messages`} aria-label="Message"><Icon name="msg" /></Link></div>
           {(sp?.prefersText || sp?.wantsAsl) && <div className="row small"><Icon name="hand" size="s" /><span className="muted">{[sp?.prefersText && "Prefers text communication", sp?.wantsAsl && "Looking for ASL"].filter(Boolean).join(" • ")}</span></div>}
           {b.locationType === "student" && (

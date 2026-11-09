@@ -1,6 +1,6 @@
 import "server-only";
 import { randomInt } from "crypto";
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, like, sql } from "drizzle-orm";
 import { db, credits, nearestCardBatches, nearestCards, nearestCardAttempts } from "@/db";
 import { MAX_PRICE_CENTS } from "./pricing";
 import { chicagoToUtc } from "./time";
@@ -24,7 +24,14 @@ export const CARD_LIMITS = {
   triesPerHour: 5, // wrong number/code tries per student per hour
   lockAfter: 10, // wrong codes on one card number → card locked until an owner unlocks it
   prefix: "8877", // every card number starts like the printed design
+  discountPrefix: "887777888111", // owner rule (2026-11-07): discount (3-digit code) cards are 8877 7788 8111 + 4 random digits
 };
+
+/** How many new discount card numbers are still free (only the last 4 digits change, so 10,000 at most). */
+export async function discountNumbersLeft() {
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(nearestCards).where(like(nearestCards.number, `${CARD_LIMITS.discountPrefix}%`));
+  return 10000 - n;
+}
 
 export type CardKind = "discount" | "free";
 export const cardLabel = (kind: string) => (kind === "free" ? "Nearest Free Card" : "Nearest Card");
@@ -43,10 +50,19 @@ export function endOfMonth(ym: string): Date | null {
   return new Date(chicagoToUtc(`${m[1]}-${m[2]}-${String(lastDay).padStart(2, "0")}`, "23:59").getTime() + 59000);
 }
 
-function newNumber() {
+/** Up to `want` unused discount numbers (8877 7788 8111 + 4 random digits), in random order. */
+async function discountNumbers(want: number) {
+  const used = new Set((await db.select({ n: nearestCards.number }).from(nearestCards).where(like(nearestCards.number, `${CARD_LIMITS.discountPrefix}%`))).map((r) => r.n));
+  const free: string[] = [];
+  for (let i = 0; i < 10000; i++) { const n = CARD_LIMITS.discountPrefix + String(i).padStart(4, "0"); if (!used.has(n)) free.push(n); }
+  for (let i = free.length - 1; i > 0; i--) { const j = randomInt(0, i + 1); [free[i], free[j]] = [free[j], free[i]]; }
+  return free.slice(0, want);
+}
+
+function newNumber(): string {
   let s = CARD_LIMITS.prefix;
   while (s.length < 16) s += String(randomInt(0, 10));
-  return s;
+  return s.startsWith(CARD_LIMITS.discountPrefix) ? newNumber() : s; // 8877 7788 8111 is kept for discount cards
 }
 /** Codes never start with 0: a free card is always 4 digits (1000–9999) and a discount card always 3 (100–999), even in a spreadsheet. */
 const newCode = (kind: CardKind) => String(kind === "free" ? randomInt(1000, 10000) : randomInt(100, 1000));
@@ -136,7 +152,9 @@ export async function createCardBatch(input: { name: string; kind: CardKind; amo
   while (made < input.count) {
     const want = Math.min(500, input.count - made);
     const start = made;
-    const rows = Array.from({ length: want }, (_, i) => ({ batchId: batch.id, number: newNumber(), code: newCode(input.kind), printSeq: start + i + 1 }));
+    const numbers = input.kind === "discount" ? await discountNumbers(want) : Array.from({ length: want }, newNumber);
+    if (numbers.length === 0) break; // every 8877 7788 8111 number is taken (createCards checks this first)
+    const rows = numbers.map((number, i) => ({ batchId: batch.id, number, code: newCode(input.kind), printSeq: start + i + 1 }));
     const inserted = await db.insert(nearestCards).values(rows).onConflictDoNothing().returning({ id: nearestCards.id });
     made += inserted.length; // a rare duplicate number is skipped and made again on the next pass
   }
@@ -196,6 +214,7 @@ export async function myCards(userId: string) {
     c: nearestCards, b: nearestCardBatches,
     bStatus: sql<string | null>`(select bk.status::text from bookings bk where bk.id = ${nearestCards.usedBookingId})`,
     bPaid: sql<boolean>`coalesce((select bk.paid_at is not null from bookings bk where bk.id = ${nearestCards.usedBookingId}), false)`,
+    bPaidAt: sql<Date | null>`(select bk.paid_at from bookings bk where bk.id = ${nearestCards.usedBookingId})`,
   }).from(nearestCards).innerJoin(nearestCardBatches, eq(nearestCardBatches.id, nearestCards.batchId))
     .where(and(eq(nearestCards.studentId, userId), eq(nearestCards.status, "activated"))).orderBy(desc(nearestCards.activatedAt));
   return rows.map((r) => {

@@ -26,3 +26,16 @@ export async function requireMainOwner(opts: { page?: boolean } = {}) {
   }
   return a;
 }
+
+/**
+ * Activity log visibility (owner rule, 2026-11-07): the main owner sees everyone's activity; other owners and staff never
+ * see the main owner's own activity (or the automatic Nearest Cards changes).
+ */
+export async function activityVisibleTo(userId: string) {
+  const { sql } = await import("drizzle-orm");
+  const { activityLog } = await import("@/db");
+  const { mainOwnerId } = await import("./partner");
+  const main = await mainOwnerId();
+  if (!main || main === userId) return undefined;
+  return sql`(${activityLog.actorUserId} is distinct from ${main} and not (${activityLog.actorUserId} is null and ${activityLog.action} like 'cards.%'))`;
+}

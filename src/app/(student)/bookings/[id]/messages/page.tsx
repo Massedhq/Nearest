@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, bookings, professionalProfiles } from "@/db";
-import { requireVerifiedStudent } from "@/lib/student";
+import { requireBooker } from "@/lib/student";
 import { getSettings } from "@/lib/settings";
 import { fmtDate, fmtTime } from "@/lib/time";
 import { TopBar } from "@/components/TopBar";
@@ -10,7 +10,7 @@ import { ChatThread } from "@/components/ChatThread";
 export const metadata = { title: "Messages" };
 
 export default async function StudentChat({ params }: { params: Promise<{ id: string }> }) {
-  const { user } = await requireVerifiedStudent();
+  const { user } = await requireBooker();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const row = (await db.select({ b: bookings, pro: professionalProfiles.businessName }).from(bookings).innerJoin(professionalProfiles, eq(professionalProfiles.userId, bookings.proId)).where(and(eq(bookings.id, id), eq(bookings.studentId, user.id))).limit(1))[0];

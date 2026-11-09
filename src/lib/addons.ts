@@ -16,7 +16,7 @@ export const MAX_ADDON_MIN = 180;
 const newId = () => (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`).replace(/-/g, "").slice(0, 12);
 
 /** Cleans what a pro typed for one service's add-ons. Returns the add-ons or an error message. */
-export function cleanAddons(raw: unknown, serviceName: string, serviceCents: number): Addon[] | { error: string } {
+export function cleanAddons(raw: unknown, serviceName: string, serviceCents: number, noCap = false): Addon[] | { error: string } {
   if (!Array.isArray(raw)) return [];
   const out: Addon[] = [];
   for (const a of raw as { id?: unknown; name?: unknown; price?: unknown; minutes?: unknown }[]) {
@@ -27,7 +27,7 @@ export function cleanAddons(raw: unknown, serviceName: string, serviceCents: num
     const price = Number(priceRaw);
     if (!Number.isFinite(price) || price < 1 || price > MAX_ADDON_CENTS / 100) return { error: `Enter a price between $1 and $${MAX_ADDON_CENTS / 100} for the "${name}" add-on.` };
     const cents = Math.round(price * 100);
-    if (serviceCents + cents > MAX_PRICE_CENTS) return { error: `${serviceName} + "${name}" would be over the $${MAX_PRICE_CENTS / 100} student limit. Lower the add-on or the service price.` };
+    if (!noCap && serviceCents + cents > MAX_PRICE_CENTS) return { error: `${serviceName} + "${name}" would be over the $${MAX_PRICE_CENTS / 100} student limit. Lower the add-on or the service price.` };
     const minRaw = String(a?.minutes ?? "0").trim() || "0";
     const minutes = Number(minRaw);
     if (!Number.isInteger(minutes) || minutes < 0 || minutes > MAX_ADDON_MIN) return { error: `Extra time for "${name}" must be 0–${MAX_ADDON_MIN} minutes.` };

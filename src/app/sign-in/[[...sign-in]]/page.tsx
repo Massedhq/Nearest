@@ -6,8 +6,10 @@ import { TopBar } from "@/components/TopBar";
 
 export const metadata = { title: "Sign in" };
 
-/** Only the sales-rep and Lead Contributor pages may send someone back after sign-in; everyone else goes to /go as before. */
+/** Only the sales-rep, Lead Contributor and partner booking pages may send someone back after sign-in; everyone else goes to /go as before. */
 function repNext(raw: string | undefined) {
+  // Partner pages too: someone booking a partner signs in and goes straight back to that booking (2026-11-09).
+  if (raw && /^\/link\/[a-z0-9-]{2,40}(\/[A-Za-z0-9/?&=%,._-]*)?$/.test(raw)) return raw;
   return raw && /^\/(rep(\/|$|\?)|api\/rep\/accept\?token=[0-9a-f]{48}$|leads$|api\/leads\/accept\?token=[0-9a-f]{48}$)/.test(raw) ? raw : "/go";
 }
 

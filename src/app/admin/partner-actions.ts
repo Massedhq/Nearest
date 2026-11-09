@@ -63,6 +63,23 @@ export async function setPartnerPagePaused(_: FormState, form: FormData): Promis
   return { ok: pause ? "Paused — the page is hidden." : "Resumed." };
 }
 
+/**
+ * Owner: is this partner also on the Nearest student side? Off = partner only — never shown to students in the app
+ * (their partner page still books anyone). On = they keep both links: the student page and the partner page.
+ */
+export async function setPartnerStudentSide(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requireMainOwner();
+  const id = String(form.get("userId") ?? "");
+  const on = form.get("on") === "1";
+  if (!UUID.test(id)) return { error: "Not found." };
+  const before = await db.query.partnerPages.findFirst({ where: eq(partnerPages.userId, id) });
+  if (!before) return { error: "Not found." };
+  await db.update(partnerPages).set({ studentSide: on }).where(eq(partnerPages.userId, id));
+  await logActivity({ actorUserId: user.id, action: on ? "partner.student_side_on" : "partner.student_side_off", targetType: "partner_page", targetId: id, before: { studentSide: before.studentSide }, after: { studentSide: on } });
+  revalidatePath("/admin/partners");
+  return { ok: on ? "Also on the student side — students can find and book them in the Nearest app." : "Partner only — hidden from students. Their partner page still books anyone." };
+}
+
 /** Owner: refund a partner shop order that hasn't been paid out to the seller yet. */
 export async function refundPartnerOrder(_: FormState, form: FormData): Promise<FormState> {
   const { user } = await requireMainOwner();

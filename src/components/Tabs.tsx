@@ -8,6 +8,12 @@ const STUDENT = [
   { label: "Credits", icon: "wallet", href: "/credits" },
   { label: "Account", icon: "user", href: "/account" },
 ];
+// Partner clients (2026-11-09) only book partners: no Explore or student credits page.
+const CUSTOMER = [
+  { label: "Bookings", icon: "cal", href: "/bookings" },
+  { label: "Messages", icon: "msg", href: "/messages" },
+  { label: "Account", icon: "user", href: "/account" },
+];
 const PRO = [
   { label: "Today", icon: "home", href: "/pro/home" },
   { label: "Calendar", icon: "cal", href: "/pro/calendar" },
@@ -16,8 +22,8 @@ const PRO = [
   { label: "Business", icon: "store", href: "/pro/business" },
 ];
 
-export function Tabs({ kind, active }: { kind: "student" | "pro"; active: string }) {
-  const items = kind === "student" ? STUDENT : PRO;
+export function Tabs({ kind, active }: { kind: "student" | "pro" | "customer"; active: string }) {
+  const items = kind === "student" ? STUDENT : kind === "customer" ? CUSTOMER : PRO;
   return (
     <nav className="tabbar" aria-label="Main">
       {items.map((t) => (

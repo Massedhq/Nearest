@@ -14,6 +14,9 @@ import { selfDeleteBlocker } from "@/lib/accounts";
 export const metadata = { title: "Account" };
 
 export default async function Account() {
+  // Partner clients (book partners only): name, sign out, delete account.
+  const me = await getViewer();
+  if (me?.user?.accountType === "customer") return <CustomerAccount u={me.user} />;
   const { user: u, profile } = await requireStudent();
   const isOwner = (await getViewer())?.admin?.role === "OWNER";
   const area = profile.schoolId ? await schoolArea(profile.schoolId) : null;
@@ -71,6 +74,25 @@ export default async function Account() {
         <SignOutButton redirectUrl="/"><button className="btn ghost" type="button">Sign out</button></SignOutButton>
       </div>
       <Tabs kind="student" active="Account" />
+    </div>
+  );
+}
+
+async function CustomerAccount({ u }: { u: NonNullable<NonNullable<Awaited<ReturnType<typeof getViewer>>>["user"]> }) {
+  const blocker = await selfDeleteBlocker(u.id);
+  return (
+    <div className="scr">
+      <div className="top"><span className="sp" /><div className="t">Account</div><span className="sp" /></div>
+      <div className="body">
+        <div className="row">
+          <div className="avatar lg">{initials(u)}</div>
+          <div className="col g4"><span className="disp h2">{displayName(u)}</span><span className="small muted">{u.email}</span></div>
+        </div>
+        <div className="card small"><span>Your account books Nearest Partners from their own pages. Your bookings, messages and receipts are in Bookings.</span></div>
+        <SignOutButton redirectUrl="/"><button className="btn ghost" type="button">Sign out</button></SignOutButton>
+        <DeleteMyAccount blocked={blocker} />
+      </div>
+      <Tabs kind="customer" active="Account" />
     </div>
   );
 }

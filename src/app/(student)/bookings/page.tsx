@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
 import { db, bookings, professionalProfiles } from "@/db";
-import { requireVerifiedStudent } from "@/lib/student";
+import { requireBooker } from "@/lib/student";
 import { expireStaleHolds } from "@/lib/bookings";
 import { fmtDate, fmtTime } from "@/lib/time";
 import { Tabs } from "@/components/Tabs";
@@ -15,7 +15,7 @@ const LABEL: Record<string, [string, string]> = {
 };
 
 export default async function MyBookings({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
-  const { user } = await requireVerifiedStudent();
+  const { user, customer } = await requireBooker();
   await expireStaleHolds();
   const tab = (await searchParams).tab ?? "upcoming";
   const rows = await db
@@ -50,7 +50,7 @@ export default async function MyBookings({ searchParams }: { searchParams: Promi
         </div>
         <Link className="card small" href="/credits" style={{ textDecoration: "none" }}>View my credits</Link>
       </div>
-      <Tabs kind="student" active="Bookings" />
+      <Tabs kind={customer ? "customer" : "student"} active="Bookings" />
     </div>
   );
 }

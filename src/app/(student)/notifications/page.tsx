@@ -1,4 +1,4 @@
-import { requireStudent } from "@/lib/student";
+import { requireBooker } from "@/lib/student";
 import { openInbox } from "@/lib/inbox-page";
 import { TopBar } from "@/components/TopBar";
 import { InboxList } from "@/components/Inbox";
@@ -7,7 +7,7 @@ export const metadata = { title: "Notifications" };
 export const dynamic = "force-dynamic";
 
 export default async function Notifications() {
-  const { user } = await requireStudent();
+  const { user } = await requireBooker();
   const items = await openInbox(user.id);
   return (
     <div className="scr">

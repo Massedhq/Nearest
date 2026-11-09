@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, bookings, professionalProfiles, reviews } from "@/db";
-import { requireVerifiedStudent } from "@/lib/student";
+import { requireBooker } from "@/lib/student";
 import { finishOpen } from "@/lib/appointment";
 import { money } from "@/lib/time";
 import { Steps } from "@/components/Steps";
@@ -14,12 +14,13 @@ import { finishStep } from "@/app/day-actions";
 export const metadata = { title: "Finish your appointment" };
 
 export default async function Finish({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ step?: string }> }) {
-  const { user } = await requireVerifiedStudent();
+  const { user } = await requireBooker();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
-  const row = (await db.select({ b: bookings, pro: professionalProfiles.businessName }).from(bookings).innerJoin(professionalProfiles, eq(professionalProfiles.userId, bookings.proId)).where(and(eq(bookings.id, id), eq(bookings.studentId, user.id))).limit(1))[0];
+  const row = (await db.select({ b: bookings, pro: professionalProfiles.businessName, slug: professionalProfiles.slug }).from(bookings).innerJoin(professionalProfiles, eq(professionalProfiles.userId, bookings.proId)).where(and(eq(bookings.id, id), eq(bookings.studentId, user.id))).limit(1))[0];
   if (!row) notFound();
-  const { b, pro } = row;
+  const { b, pro, slug } = row;
+  const partnerSide = b.channel === "partner" && slug; // booked from a partner's own page: rebook there
   const step = (await searchParams).step ?? "1";
 
   if (step === "done" || b.status === "completed") {
@@ -31,8 +32,8 @@ export default async function Finish({ params, searchParams }: { params: Promise
           <p className="muted p">Your appointment is complete{b.transferId ? " and payment was released to your professional" : ""}.</p>
         </div>
         <div className="body" style={{ flex: "none", gap: 10 }}>
-          <Link className="btn ghost" href={`/p/${b.proId}`}>Book {pro} again</Link>
-          <Link className="btn" href="/home">Back to Explore</Link>
+          <Link className="btn ghost" href={partnerSide ? `/link/${slug}/book` : `/p/${b.proId}`}>Book {pro} again</Link>
+          <Link className="btn" href={partnerSide ? "/bookings" : "/home"}>{partnerSide ? "My bookings" : "Back to Explore"}</Link>
         </div>
       </div>
     );

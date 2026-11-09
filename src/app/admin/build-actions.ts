@@ -173,7 +173,7 @@ export async function createBuiltProfile(form: FormData): Promise<{ error: strin
       name: `${firstName} ${lastName}`, email, instagram: ig, city: city.name, state: city.state, specialty: cat.name,
       about: "Added by Nearest", status: "approved", decidedAt: new Date(), decidedBy: user.id,
     }).returning();
-    await db.insert(partnerPages).values({ userId: u.id, applicationId: app.id, published: true, addedBy: user.id }).onConflictDoNothing();
+    await db.insert(partnerPages).values({ userId: u.id, applicationId: app.id, published: true, addedBy: user.id, studentSide: form.get("studentSide") === "1" }).onConflictDoNothing();
     await logActivity({ actorUserId: user.id, action: "partner.added", targetType: "partner_page", targetId: u.id, after: { email, instagram: ig } });
     revalidatePath("/admin/partners");
   }

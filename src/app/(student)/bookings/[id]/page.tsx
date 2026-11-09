@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { depositFeeSplit, DepositFeeNote } from "@/components/BookingTerms";
 import { and, eq } from "drizzle-orm";
 import { db, bookings, professionalProfiles } from "@/db";
-import { requireVerifiedStudent } from "@/lib/student";
+import { requireBooker } from "@/lib/student";
 import { bookingCode, confirmFromCheckout, expireStaleHolds } from "@/lib/bookings";
 import { cancelBookingRequest } from "@/app/book-actions";
 import { getSettings } from "@/lib/settings";
@@ -26,7 +26,7 @@ import { setReviewMediaConsent } from "@/app/review-media-consent-actions";
 export const metadata = { title: "Appointment" };
 
 export default async function Booking({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ session_id?: string; cancelled?: string; booked?: string }> }) {
-  const { user } = await requireVerifiedStudent();
+  const { user } = await requireBooker();
   const { id } = await params;
   const sp = await searchParams;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();

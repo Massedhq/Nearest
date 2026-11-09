@@ -134,6 +134,7 @@ export async function destinationFor(viewer: Viewer | null): Promise<string> {
   if (admin) return "/admin";
   if (user?.accountType === "professional") return "/pro/home";
   if (user?.accountType === "student") return "/home";
+  if (user?.accountType === "customer") return "/bookings"; // partner clients: their bookings with partners
   if (user?.accountType === "staff" && (await (await import("./lead-contributors")).contributorForUser(user.id))) return "/leads";
   if (user?.accountType === "staff" && (await (await import("./reps")).repForUser(user.id))) return "/rep";
   if (!user) {
@@ -142,6 +143,7 @@ export async function destinationFor(viewer: Viewer | null): Promise<string> {
     if (c?.door === "contributor" && c.contributorToken) return `/api/leads/accept?token=${encodeURIComponent(c.contributorToken)}`;
     if (c?.door === "pro") return c.invite ? `/pro/onboarding?invite=${encodeURIComponent(c.invite)}` : "/pro/onboarding";
     if (c?.door === "admin") return "/not-authorized";
+    if (c?.door === "customer") return "/customer/finish";
     return "/onboarding";
   }
   return "/";

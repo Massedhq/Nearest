@@ -3,7 +3,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
-export const accountType = pgEnum("account_type", ["student", "professional", "staff"]);
+export const accountType = pgEnum("account_type", ["student", "professional", "staff", "customer"]); // customer = books partners from their partner page (2026-11-09)
 export const userStatus = pgEnum("user_status", ["active", "paused", "suspended", "deactivated"]);
 export const studentVerification = pgEnum("student_verification", ["unverified", "pending", "manual_review", "verified", "rejected"]);
 export const identityStatus = pgEnum("identity_status", ["unverified", "pending", "verified", "rejected"]);
@@ -467,6 +467,9 @@ export const bookings = pgTable("bookings", {
   proId: uuid("pro_id").notNull().references(() => users.id),
   serviceId: uuid("service_id"),
   modelCallId: uuid("model_call_id").references(() => modelCalls.id),
+  // Which door the booking came through (2026-11-09): "student" = the Nearest student app ($150 cap, students only),
+  // "partner" = a partner's own page (/link/<slug>) — open to anyone, no $150 cap. Kept separate in the pro's app.
+  channel: text("channel").notNull().default("student"),
   serviceName: text("service_name").notNull(),
   startsAt: ts("starts_at").notNull(),
   endsAt: ts("ends_at").notNull(),
@@ -1463,6 +1466,8 @@ export const partnerPages = pgTable("partner_pages", {
   handoff: text("handoff"),
   handoffSentAt: ts("handoff_sent_at"),
   partnerApprovedAt: ts("partner_approved_at"), // they approved the page Nearest built for them
+  // false = partner only: never listed to students in the Nearest student app (2026-11-09). Their partner page still books.
+  studentSide: boolean("student_side").notNull().default(true),
 });
 
 // ─── Partner shop: digital downloads + physical products sold from a partner page ─────────────────────────────────

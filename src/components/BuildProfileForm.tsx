@@ -163,6 +163,9 @@ export function BuildProfileForm({ categories, cities, initial, partner = false 
       {partner && (
         <div className="col g8">
           <div className="field"><label htmlFor="bp-ig">Their Instagram (optional)</label><input id="bp-ig" name="instagram" maxLength={120} placeholder="@theirhandle or instagram.com/theirhandle" /></div>
+          <span className="lbl">Where they take bookings</span>
+          <label className="check small" style={{ alignItems: "flex-start" }}><input type="radio" name="studentSide" value="0" defaultChecked /><span><b>Partner only.</b> Clients book them from their partner page (anyone, no $150 limit). They don&apos;t show to students in the Nearest app.</span></label>
+          <label className="check small" style={{ alignItems: "flex-start" }}><input type="radio" name="studentSide" value="1" /><span><b>Partner and student side.</b> Two links, kept separate: their partner page (anyone) and their student page (verified students, $150 limit).</span></label>
           <span className="lbl">After adding them</span>
           <label className="check small" style={{ alignItems: "flex-start" }}><input type="radio" name="handoff" value="build" defaultChecked /><span><b>I&apos;ll build their profile now.</b> Their setup pages open next. When you&apos;re done (or partway), send them the finish link or the approve link from Partner pages.</span></label>
           <label className="check small" style={{ alignItems: "flex-start" }}><input type="radio" name="handoff" value="setup" /><span><b>They&apos;ll set it up themselves.</b> Their setup link is emailed to them now.</span></label>

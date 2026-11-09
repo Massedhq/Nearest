@@ -1,12 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
-import { and, asc, eq, gt, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, sql } from "drizzle-orm";
 import { db, professionalProfiles, proServices, modelCalls, reviews } from "@/db";
 import { liveProWhere } from "@/lib/search";
 import { partnerPagePath, videoInfo, PARTNER_APPLY_PATH, type publicPartnerPage } from "@/lib/partners";
 import { personName } from "@/lib/pro-name";
 import { money } from "@/lib/time";
-import { MAX_PRICE_CENTS } from "@/lib/pricing";
 import { abs } from "@/lib/public/site";
 import { instagramHandle, instagramUrl, tiktokHandle, tiktokUrl, facebookHandle, facebookUrl, pinterestHandle, pinterestUrl } from "@/lib/social";
 import { SaveToPhone } from "@/components/SaveToPhone";
@@ -23,16 +22,18 @@ export async function PartnerPageView({ r, preview = false }: { r: NonNullable<A
   const name = personName(r.p.displayName, r.u.firstName, r.u.lastName);
   const top = r.page.topServiceIds.slice(0, 4);
   const [[live], topServices, fallback, calls, [rating]] = await Promise.all([
-    db.select({ id: professionalProfiles.userId }).from(professionalProfiles).where(and(eq(professionalProfiles.userId, id), ...liveProWhere(null, "all"))).limit(1),
-    top.length ? db.select().from(proServices).where(and(eq(proServices.userId, id), eq(proServices.active, true), inArray(proServices.id, top), lte(proServices.priceCents, MAX_PRICE_CENTS))) : Promise.resolve([]),
-    db.select().from(proServices).where(and(eq(proServices.userId, id), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS))).orderBy(asc(proServices.sort)).limit(4),
+    db.select({ id: professionalProfiles.userId }).from(professionalProfiles).where(and(eq(professionalProfiles.userId, id), ...liveProWhere(null, "all", { partnerPage: true }))).limit(1),
+    top.length ? db.select().from(proServices).where(and(eq(proServices.userId, id), eq(proServices.active, true), inArray(proServices.id, top))) : Promise.resolve([]),
+    db.select().from(proServices).where(and(eq(proServices.userId, id), eq(proServices.active, true))).orderBy(asc(proServices.sort)).limit(4),
     db.select({ n: sql<number>`count(*)::int`, min: sql<number | null>`min(${modelCalls.priceCents})::int` }).from(modelCalls).where(and(eq(modelCalls.userId, id), eq(modelCalls.status, "open"), gt(modelCalls.startsAt, new Date()))),
     db.select({ avg: sql<number | null>`avg(${reviews.rating})::float`, n: sql<number>`count(*)::int` }).from(reviews).where(eq(reviews.proId, id)),
   ]);
   const products = await shopProducts(id);
   const bookable = Boolean(live);
   const services = top.length ? top.map((sid) => topServices.find((s) => s.id === sid)).filter((s): s is NonNullable<typeof s> => Boolean(s)) : fallback;
-  const bookHref = `/pro-${r.p.slug}`;
+  // The partner side books here, open to anyone, with no $150 cap (2026-11-09). The student side (/pro-<slug>) stays separate.
+  const bookHref = `${partnerPagePath(r.p.slug!)}/book`;
+  const studentPage = r.page.studentSide ? `/pro-${r.p.slug}` : null;
   const openCalls = calls[0]?.n ?? 0;
   const socials = [
     [instagramHandle(r.p.instagram), instagramUrl, "Instagram", <><rect key="a" x="4" y="4" width="16" height="16" rx="4.5" /><circle key="b" cx="12" cy="12" r="3.6" /><path key="c" d="M16.8 7.2v.01" /></>],
@@ -83,7 +84,7 @@ export async function PartnerPageView({ r, preview = false }: { r: NonNullable<A
           <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <span style={eyebrow}>Top services</span>
             {services.map((s) => (
-              <Link key={s.id} href={bookHref} style={tile}>
+              <Link key={s.id} href={`${bookHref}/${s.id}`} style={tile}>{/* straight to booking this service, not the whole profile */}
                 {s.photoUrl ? <Image src={s.photoUrl} alt={`${s.name} by ${name}`} width={48} height={48} style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", flex: "none" }} /> : <span style={{ width: 48, height: 48, borderRadius: 8, background: "#1C1C1F", flex: "none" }} />}
                 <span style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}><span style={{ fontSize: 14, fontWeight: 800 }}>{s.name}{s.adultsOnly ? " (18+)" : ""}</span><span style={{ fontSize: 12, color: "#B8B2A7" }}>{money(s.priceCents)} · {s.durationMin} min</span></span>
                 <span style={{ fontSize: 12, fontWeight: 800, color: ACCENT }}>Book</span>
@@ -94,11 +95,14 @@ export async function PartnerPageView({ r, preview = false }: { r: NonNullable<A
 
         {bookable && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
-            <Link href={bookHref} style={{ display: "flex", flexDirection: "column", gap: 6, background: "#E9E4D9", color: "#0B0B0C", borderRadius: 16, padding: 14, textDecoration: "none" }}>
-              <span style={{ fontFamily: "var(--font-display), Georgia, serif", fontSize: 22, lineHeight: 1.05 }}>Model Calls</span>
-              <span style={{ fontSize: 12, fontWeight: 700 }}>{openCalls ? `${openCalls} open${calls[0]?.min ? ` · from ${money(calls[0].min)}` : ""}` : "None open right now"}</span>
-            </Link>
-            <Link href="/bundle" style={{ display: "flex", flexDirection: "column", gap: 6, background: "#121214", border: `1px solid ${ACCENT}`, borderRadius: 16, padding: 14, textDecoration: "none", color: "#F4F1EA" }}>
+            {studentPage ? (
+              <Link href={studentPage} style={{ display: "flex", flexDirection: "column", gap: 6, background: "#E9E4D9", color: "#0B0B0C", borderRadius: 16, padding: 14, textDecoration: "none" }}>
+                <span style={{ fontFamily: "var(--font-display), Georgia, serif", fontSize: 22, lineHeight: 1.05 }}>Model Calls</span>
+                <span style={{ fontSize: 12, fontWeight: 700 }}>{openCalls ? `${openCalls} open${calls[0]?.min ? ` · from ${money(calls[0].min)}` : ""} · for students` : "None open right now"}</span>
+              </Link>
+            ) : <span />}
+            {/* Bundle = several of THIS partner's own services in one visit. Never other professionals. */}
+            <Link href={`${partnerPagePath(r.p.slug!)}/bundle`} style={{ display: "flex", flexDirection: "column", gap: 6, background: "#121214", border: `1px solid ${ACCENT}`, borderRadius: 16, padding: 14, textDecoration: "none", color: "#F4F1EA" }}>
               <span style={{ fontSize: 15, fontWeight: 800 }}>Bundle my booking</span>
               <span style={{ fontSize: 12, color: ACCENT, fontWeight: 800 }}>Several services, one visit</span>
             </Link>

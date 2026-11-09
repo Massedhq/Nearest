@@ -54,6 +54,10 @@ export default async function ProLink({ params }: { params: Promise<{ handle: st
   const r = await findPro(handle);
   const viewer = await getViewer().catch(() => null);
   if (r && viewer?.user?.accountType === "student") redirect(`/p/${r.p.userId}`);
+  // Partner-only partners have no student page — their partner page is where they book (2026-11-09).
+  const { publicPartnerPage, partnerPagePath } = await import("@/lib/partners");
+  const partnerPage = await publicPartnerPage(handle.slice(4));
+  if (!r && partnerPage) redirect(partnerPagePath(partnerPage.p.slug!));
   if (!r) {
     return (
       <div className="scr" style={{ justifyContent: "center" }}>
@@ -115,13 +119,9 @@ export default async function ProLink({ params }: { params: Promise<{ handle: st
           <span className="small">Nearest is for verified students. Create your free account and verify your school to book.</span>
           <Link className="btn dark" href={`/sign-up?redirect_url=${next}`}>Create a student account</Link>
           <Link className="link small" href={`/sign-in?redirect_url=${next}`} style={{ textAlign: "center" }}>Already on Nearest? Sign in</Link>
+          {partnerPage && <Link className="link small" href={`${partnerPagePath(partnerPage.p.slug!)}/book`} style={{ textAlign: "center" }}>Not a student? Book {r.p.businessName} on their partner page</Link>}
         </div>
-        {cityHref && (
-          <nav aria-label="Breadcrumb" className="small muted" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {crumbs.slice(0, -1).map((c) => <span key={c.href}><Link className="link" href={c.href}>{c.name}</Link> ›</span>)}<span>{r.p.businessName}</span>
-          </nav>
-        )}
-        {cityHref && seo && <Link className="link small" href={`${cityHref}/${seo.slug}`}>More {seo.plural.toLowerCase()} in {r.city} on Nearest</Link>}
+        {/* Owner rule (2026-11-09): a professional's page never links to other professionals — no "More … in City" link or visible category/city trail. */}
         {photos.length > 0 && (
           // Image credits for Google Images (who made the work, which page it belongs to). No business/rating schema — owner rule.
           <JsonLd data={{ "@context": "https://schema.org", "@graph": photos.map((ph) => ({

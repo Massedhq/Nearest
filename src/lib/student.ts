@@ -21,6 +21,22 @@ export async function requireStudent() {
   return { user: viewer.user, profile };
 }
 
+/**
+ * Pages and actions about the person's own bookings (list, booking page, messages, check-in, finish, cancel, pay):
+ * verified students as before, plus partner clients (accountType "customer", 2026-11-09) who only book partners.
+ * profile/area are null for partner clients — they have no student profile.
+ */
+export async function requireBooker() {
+  const viewer = await getViewer();
+  if (!viewer) redirect("/sign-in");
+  if (viewer.user?.accountType === "customer") {
+    if (viewer.user.status === "deactivated") redirect("/");
+    return { user: viewer.user, profile: null, area: null, customer: true as const };
+  }
+  const s = await requireVerifiedStudent();
+  return { ...s, customer: false as const };
+}
+
 /** Where an unverified student should be in the verification flow. */
 export async function verifyStep(userId: string, profile: typeof studentProfiles.$inferSelect) {
   if (profile.verificationStatus === "verified") return null;

@@ -1,7 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import { db, users, adminMembers, activityLog } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
-import { requireAdmin } from "@/lib/admin";
+import { requireAdmin, activityVisibleTo } from "@/lib/admin";
 import { displayName, ownerAllowed } from "@/lib/viewer";
 import { ActionForm } from "@/components/ActionForm";
 import { restoreOwner } from "@/app/admin/team-actions";
@@ -12,7 +12,8 @@ const when = (d: Date) => d.toLocaleString("en-US", { month: "short", day: "nume
 const show = (v: unknown) => (v === null || v === undefined ? "" : typeof v === "object" ? JSON.stringify(v) : String(v));
 
 export default async function Team() {
-  await requireAdmin();
+  const { user } = await requireAdmin();
+  const visible = await activityVisibleTo(user.id); // other owners never see the main owner's activity
   const [members, log] = await Promise.all([
     db
       .select({ m: adminMembers, u: users })
@@ -23,6 +24,7 @@ export default async function Team() {
       .select({ l: activityLog, first: users.firstName, last: users.lastName })
       .from(activityLog)
       .leftJoin(users, eq(users.id, activityLog.actorUserId))
+      .where(visible)
       .orderBy(desc(activityLog.createdAt))
       .limit(100),
   ]);

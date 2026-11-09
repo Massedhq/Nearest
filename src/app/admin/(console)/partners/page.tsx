@@ -12,7 +12,7 @@ import { setupSteps } from "@/lib/pro";
 import { HANDOFF, HANDOFF_MODES, type HandoffMode } from "@/lib/partner-handoff";
 import { partnerApplyLink, partnerDemoLink, partnerSetupDemoLink, partnerPageLink, partnerPagePath, PARTNER_DEMO_PATH, PARTNER_SETUP_DEMO_PATH, PARTNER_APPLY_PATH } from "@/lib/partners";
 import { LinkSender } from "@/components/LinkSender";
-import { decidePartnerApplication, setPartnerPagePaused, refundPartnerOrder, sendPartnerLink, switchToPartner } from "@/app/admin/partner-actions";
+import { decidePartnerApplication, setPartnerPagePaused, setPartnerStudentSide, refundPartnerOrder, sendPartnerLink, switchToPartner } from "@/app/admin/partner-actions";
 import { editBuiltProfile } from "@/app/admin/build-actions";
 import { sellerAmount } from "@/lib/shop";
 import { SITE_URL } from "@/lib/public/site";
@@ -220,6 +220,10 @@ async function Pages() {
             {r.slug && <div className="row" style={{ gap: 14, flexWrap: "wrap" }}><span className="small" style={{ wordBreak: "break-all" }}>{partnerPageLink(r.slug)}</span><CopyButton text={partnerPageLink(r.slug)} /><Link className="link small" href={partnerPagePath(r.slug)} target="_blank">Open</Link></div>}
             <ActionForm action={setPartnerPagePaused} submitLabel={r.page.pausedAt ? "Resume page" : "Pause page"} buttonClass="btn ghost sm" className="col g4">
               <input type="hidden" name="userId" value={r.page.userId} /><input type="hidden" name="pause" value={r.page.pausedAt ? "0" : "1"} />
+            </ActionForm>
+            <span className="small">{r.page.studentSide ? "Also on the student side — two links: their student page (/pro-name, students only, $150 limit) and this partner page (anyone, no limit)." : "Partner only — hidden from students in the Nearest app."}</span>
+            <ActionForm action={setPartnerStudentSide} submitLabel={r.page.studentSide ? "Make partner only" : "Also list for students"} buttonClass="btn ghost sm" className="col g4">
+              <input type="hidden" name="userId" value={r.page.userId} /><input type="hidden" name="on" value={r.page.studentSide ? "0" : "1"} />
             </ActionForm>
           </div>
         );

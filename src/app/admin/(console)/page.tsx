@@ -17,6 +17,7 @@ export default async function CommandCenter() {
   const { user, role } = await requireAdmin();
   const isMain = await (await import("@/lib/admin")).isMainOwner(user.id); // Nearest's money shows to the main owner only
   await expireStaleInvites();
+  const visible = await (await import("@/lib/admin")).activityVisibleTo(user.id); // other owners never see the main owner's activity
   const [settings, founding, pros, students, activeCities, pending, recent, toReview, studentsToVerify] = await Promise.all([
     getSettings(),
     foundingCount(),
@@ -28,6 +29,7 @@ export default async function CommandCenter() {
       .select({ at: activityLog.createdAt, action: activityLog.action, target: activityLog.targetId, first: users.firstName })
       .from(activityLog)
       .leftJoin(users, eq(users.id, activityLog.actorUserId))
+      .where(visible)
       .orderBy(desc(activityLog.createdAt))
       .limit(5),
     count(db.select({ n: sql<number>`count(*)::int` }).from(professionalProfiles).where(eq(professionalProfiles.reviewStatus, "submitted"))),

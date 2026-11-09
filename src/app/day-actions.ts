@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { and, eq, gt } from "drizzle-orm";
 import { db, bookings, messages } from "@/db";
-import { requireVerifiedStudent } from "@/lib/student";
+import { requireBooker } from "@/lib/student";
 import { requirePro } from "@/lib/pro";
 import { getSettings } from "@/lib/settings";
 import {
@@ -19,7 +19,7 @@ const pos = (f: FormData): Pos => {
 };
 
 async function studentBooking(id: string) {
-  const { user } = await requireVerifiedStudent();
+  const { user } = await requireBooker();
   const b = await db.query.bookings.findFirst({ where: and(eq(bookings.id, id), eq(bookings.studentId, user.id)) });
   if (!b) redirect("/bookings");
   return { user, b };

@@ -1,0 +1,172 @@
+"use client";
+import { useAlreadySignedIn, SignedInBanner } from "./AlreadySignedIn";
+import { PasswordInput } from "./PasswordInput";
+import { DobInput } from "@/components/DobInput";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ageFrom } from "@/lib/validate";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSignUp } from "@clerk/nextjs";
+
+const msg = (e: { longMessage?: string; message: string } | null) => (e ? e.longMessage ?? e.message : "");
+
+/**
+ * Partner client sign-up (2026-11-09): anyone 18+ can book a Nearest Partner from the partner's own page.
+ * Name, date of birth, email (verified with a 6-digit code), optional phone. No school or ID check.
+ * After the code it goes to /customer/finish, which makes the account and returns them to their booking (`next`).
+ */
+export function CustomerSignUpForm({ next, partnerName }: { next: string; partnerName: string }) {
+  const { signUp, fetchStatus } = useSignUp();
+  const router = useRouter();
+  const alreadySignedIn = useAlreadySignedIn();
+  const [stage, setStage] = useState<"details" | "code">("details");
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState("");
+  const [digits, setDigits] = useState(["", "", "", "", "", ""]);
+  const [wait, setWait] = useState(0);
+  const boxes = useRef<(HTMLInputElement | null)[]>([]);
+  const busy = fetchStatus === "fetching";
+  const [dob, setDob] = useState("");
+  const onDate = useCallback((iso: string) => setDob(iso), []);
+  const age = dob ? ageFrom(dob) : null;
+
+  useEffect(() => {
+    if (wait <= 0) return;
+    const t = setTimeout(() => setWait((w) => w - 1), 1000);
+    return () => clearTimeout(t);
+  }, [wait]);
+
+  async function sendCode() {
+    const { error } = await signUp.verifications.sendEmailCode();
+    if (error) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return false; }
+    setWait(45);
+    return true;
+  }
+
+  async function onDetails(form: FormData) {
+    setError("");
+    const firstName = String(form.get("firstName") ?? "").trim();
+    const lastName = String(form.get("lastName") ?? "").trim();
+    const dob = String(form.get("dob") ?? "");
+    const phone = String(form.get("phone") ?? "").trim();
+    const emailAddress = String(form.get("email") ?? "").trim();
+    const password = String(form.get("password") ?? "");
+    if (!firstName || !lastName) return setError("Enter your first and last name.");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) return setError("Enter your date of birth.");
+    if (ageFrom(dob) < 18) return setError("You must be 18 or older to book. Students 13–17 can book on Nearest with a student account.");
+    if (password.length < 8) return setError("Use at least 8 characters for your password.");
+    if (form.get("agree") !== "on") return setError("Please agree to the Terms and Privacy Policy.");
+    const params = {
+      emailAddress, password, firstName, lastName, legalAccepted: true,
+      unsafeMetadata: { door: "customer", dob, phone },
+    };
+    // Always start a brand-new sign-up (an old, unfinished one is rejected as "signed out").
+    await signUp.reset();
+    let { error } = await signUp.password(params);
+    if (error && /signed out/i.test(msg(error))) { await signUp.reset(); ({ error } = await signUp.password(params)); }
+    if (error) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return; };
+    setEmail(emailAddress);
+    if (await sendCode()) setStage("code");
+  }
+
+  async function onCode() {
+    setError("");
+    // Only verify the email if it isn't verified yet — pressing Verify again after a hiccup must not get stuck.
+    const emailPending = signUp.unverifiedFields.includes("email_address");
+    if (emailPending) {
+      const code = digits.join("");
+      if (code.length !== 6) return setError("Enter all 6 digits.");
+      const { error } = await signUp.verifications.verifyEmailCode({ code });
+      if (error && !/already been verified/i.test(msg(error))) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return; };
+    }
+    // If Clerk's settings require a username, create one quietly from the email (students never see it).
+    if (signUp.status !== "complete" && signUp.missingFields.includes("username")) {
+      const local = email.split("@")[0].toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 20) || "client";
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const username = `${local.padEnd(4, "0")}_${Math.random().toString(36).slice(2, 7)}`;
+        const { error } = await signUp.update({ username });
+        if (!error) break;
+        if (attempt === 3) { if (!(await alreadySignedIn(msg(error), (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.value ?? ""))) setError(msg(error)); return; };
+      }
+    }
+    if (signUp.status !== "complete") {
+      const missing = signUp.missingFields.join(", ") || "unknown";
+      return setError(`Sign-up still needs: ${missing}. In the Clerk dashboard (User & authentication), turn off anything clients don't fill in here, such as Username or Phone number.`);
+    }
+    const res = await signUp.finalize({
+      navigate: ({ decorateUrl }) => {
+        const url = decorateUrl(`/customer/finish?next=${encodeURIComponent(next)}`);
+        if (url.startsWith("http")) window.location.href = url;
+        else router.push(url);
+      },
+    });
+    if (res.error) setError(msg(res.error));
+  }
+
+  function setDigit(i: number, v: string) {
+    const clean = v.replace(/\D/g, "");
+    if (clean.length > 1) {
+      // Pasted the whole code
+      const next = clean.slice(0, 6).split("");
+      setDigits([...next, ...Array(6 - next.length).fill("")]);
+      boxes.current[Math.min(next.length, 5)]?.focus();
+      return;
+    }
+    setDigits((d) => d.map((x, j) => (j === i ? clean : x)));
+    if (clean && i < 5) boxes.current[i + 1]?.focus();
+  }
+
+  if (stage === "code") {
+    return (
+      <div className="col g16">
+        <h1 className="disp h1">Verify your email</h1>
+        <p className="muted p">We sent a 6-digit code to <span className="b" style={{ color: "#ECE8E1" }}>{email}</span>.</p>
+        <div className="otp" role="group" aria-label="6-digit code">
+          {digits.map((d, i) => (
+            <input
+              key={i}
+              ref={(el) => { boxes.current[i] = el; }}
+              inputMode="numeric"
+              autoComplete={i === 0 ? "one-time-code" : "off"}
+              aria-label={`Digit ${i + 1}`}
+              value={d}
+              maxLength={6}
+              onChange={(e) => setDigit(i, e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Backspace" && !d && i > 0) boxes.current[i - 1]?.focus(); }}
+            />
+          ))}
+        </div>
+        {error && <p className="err" role="alert">{error}</p>}
+        <button className="btn" type="button" disabled={busy} onClick={onCode}>{busy ? "Checking…" : signUp.unverifiedFields.includes("email_address") ? "Verify" : "Finish creating my account"}</button>
+        <div className="row between small">
+          <span className="muted">Didn&apos;t get it? Check spam.</span>
+          <button className="link small" type="button" disabled={wait > 0 || busy} onClick={() => sendCode()}>{wait > 0 ? `Resend code (0:${String(wait).padStart(2, "0")})` : "Resend code"}</button>
+        </div>
+        <button className="link small" type="button" style={{ alignSelf: "center" }} onClick={() => { setStage("details"); setDigits(["", "", "", "", "", ""]); }}>Change email</button>
+      </div>
+    );
+  }
+
+  return (
+    <form action={onDetails} className="col" style={{ gap: 14 }}>
+      <SignedInBanner />
+      <h1 className="disp h2">Create your account</h1>
+      <p className="small muted p" style={{ margin: 0 }}>To book {partnerName}. It takes a minute — no school or ID needed.</p>
+      <div className="grid2">
+        <div className="field"><label htmlFor="firstName">First name</label><input id="firstName" name="firstName" autoComplete="given-name" required /></div>
+        <div className="field"><label htmlFor="lastName">Last name</label><input id="lastName" name="lastName" autoComplete="family-name" required /></div>
+      </div>
+      <DobInput onDate={onDate} />
+      {age !== null && age < 18 && <p className="err">You must be 18 or older to book here. Students 13–17 can book on Nearest with a student account.</p>}
+      <div className="field"><label htmlFor="phone">Mobile number (optional)</label><input id="phone" name="phone" type="tel" autoComplete="tel" /></div>
+      <div className="field"><label htmlFor="email">Email</label><input id="email" name="email" type="email" autoComplete="email" required /></div>
+      <div className="field"><label htmlFor="password">Password</label><PasswordInput id="password" name="password" autoComplete="new-password" minLength={8} required /></div>
+      <label className="check" style={{ fontSize: 13 }}><input type="checkbox" name="agree" required /><span>I agree to the <Link className="link" href="/terms" target="_blank" style={{ fontSize: "inherit", color: "#141414" }}>Terms</Link> and <Link className="link" href="/privacy" target="_blank" style={{ fontSize: "inherit", color: "#141414" }}>Privacy Policy</Link></span></label>
+      <p className="xs muted p">We&apos;ll email a code to verify your account. Your date of birth, phone and email are never shown publicly.</p>
+      {error && <p className="err" role="alert">{error}</p>}
+      <div id="clerk-captcha" />
+      <button className="btn" type="submit" disabled={busy}>{busy ? "Creating…" : "Continue"}</button>
+      <p className="small muted" style={{ textAlign: "center", margin: 0 }}>Already have a Nearest account? <Link className="link" href={`/sign-in?redirect_url=${encodeURIComponent(next)}`}>Sign in</Link></p>
+    </form>
+  );
+}

@@ -23,10 +23,11 @@ const when = (b: Booking) => `${fmtDate(b.startsAt, { weekday: "long", month: "l
 export async function notifyBooked(b: Booking) {
   const { student, proUser, proName } = await people(b);
   await inbox(b.studentId, { kind: "booked", title: `You're booked with ${proName}`, body: `${b.serviceName} • ${when(b)}`, href: `/bookings/${b.id}` });
-  await inbox(b.proId, { kind: "booked", title: `New booking: ${b.serviceName}`, body: `${student?.firstName ?? "A student"} • ${when(b)}`, href: `/pro/appointments/${b.id}` });
+  const side = b.channel === "partner" ? "partner page " : ""; // booked from their partner page (anyone) vs the student app
+  await inbox(b.proId, { kind: "booked", title: `New ${side}booking: ${b.serviceName}`, body: `${student?.firstName ?? (side ? "A client" : "A student")} • ${when(b)}`, href: `/pro/appointments/${b.id}` });
   await Promise.all([
     sendEmail({ to: student?.email, subject: `You're booked with ${proName}`, eyebrow: `Booking ${bookingCode(b.number)}`, heading: "You're booked.", lines: [`${b.serviceName} with ${proName}`, when(b), "Your payment is held until you release it after the appointment. The address appears at 12:00 AM on the appointment day."], button: { label: "View appointment", url: `${APP()}/bookings/${b.id}` } }),
-    sendEmail({ to: proUser?.email, subject: `New booking: ${b.serviceName}`, eyebrow: `Booking ${bookingCode(b.number)}`, heading: "You have a new booking.", lines: [`${b.serviceName} with ${student?.firstName ?? "a student"}`, when(b), "Paid in full and held until the student releases it."], button: { label: "Open appointment", url: `${APP()}/pro/appointments/${b.id}` } }),
+    sendEmail({ to: proUser?.email, subject: `New ${side}booking: ${b.serviceName}`, eyebrow: `Booking ${bookingCode(b.number)}`, heading: side ? "You have a new booking from your partner page." : "You have a new booking.", lines: [`${b.serviceName} with ${student?.firstName ?? (side ? "a client" : "a student")}`, when(b), `Paid in full and held until the ${side ? "client" : "student"} releases it.`], button: { label: "Open appointment", url: `${APP()}/pro/appointments/${b.id}` } }),
   ]);
 }
 

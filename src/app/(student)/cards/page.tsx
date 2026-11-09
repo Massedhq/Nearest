@@ -14,6 +14,8 @@ export const dynamic = "force-dynamic";
 export default async function CardsPage() {
   const { user, canBook, finishStep } = await requireBrowsingStudent();
   const [cards, days] = await Promise.all([myCards(user.id), activateDays()]);
+  const current = cards.filter((x) => x.state !== "used");
+  const used = cards.filter((x) => x.state === "used");
   return (
     <div className="scr">
       <TopBar title="Cards & activations" back="/account" />
@@ -28,13 +30,22 @@ export default async function CardsPage() {
             <span><span className="b">Finish verifying to book.</span> You can save cards now and use them on a booking once you&apos;re verified.</span>
           </Link>
         )}
-        {cards.length > 0 && <h3 className="eyebrow p">My cards</h3>}
-        {cards.map(({ c, b, state, bookingId }) => (
+        {current.length > 0 && <h3 className="eyebrow p">My card</h3>}
+        {current.map(({ c, b, state, bookingId }) => (
           <div key={c.id} className="card" style={{ gap: 4 }}>
-            <div className="row between"><span className="b">{cardLabel(b.kind)} •••• {c.number.slice(-4)}</span><span className={`tag ${state === "ready" ? "ok" : state === "saved" ? "warn" : ""}`}>{state === "ready" ? "Ready to use" : state === "saved" ? "Chosen for a booking" : "Used"}</span></div>
+            <div className="row between"><span className="b">{cardLabel(b.kind)} •••• {c.number.slice(-4)}</span><span className={`tag ${state === "ready" ? "ok" : "warn"}`}>{state === "ready" ? "Ready to use" : "Chosen for a booking"}</span></div>
             <span className="small">{b.kind === "free" ? `Covers a service up to ${money(b.amountCents)}` : `${money(b.amountCents)} off`}</span>
             <span className="xs muted">Added {c.activatedAt ? fmtDate(c.activatedAt) : ""} • card valid thru {validThruLabel(b.validThru)}</span>
-            {bookingId && <Link className="link xs" href={`/bookings/${bookingId}`}>{state === "used" ? "See the booking it paid for" : "See the booking (you can switch or remove the card there)"}</Link>}
+            {bookingId && <Link className="link xs" href={`/bookings/${bookingId}`}>See the booking (you can switch or remove the card there)</Link>}
+          </div>
+        ))}
+        {used.length > 0 && <h3 className="eyebrow p">Used cards</h3>}
+        {used.map(({ c, b, bookingId, bPaidAt }) => (
+          <div key={c.id} className="card" style={{ gap: 4, opacity: 0.7 }}>
+            <div className="row between"><span className="b">{cardLabel(b.kind)} •••• {c.number.slice(-4)}</span><span className="tag">Used</span></div>
+            <span className="small">{b.kind === "free" ? `Covered a service up to ${money(b.amountCents)}` : `${money(b.amountCents)} off`} • used {bPaidAt ? fmtDate(bPaidAt) : ""}</span>
+            <span className="xs muted">Each card works once, so this one can&apos;t be used again.</span>
+            {bookingId && <Link className="link xs" href={`/bookings/${bookingId}`}>See the booking it paid for</Link>}
           </div>
         ))}
         {cards.length === 0 && <CardPlacesList />}

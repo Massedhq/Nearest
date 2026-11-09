@@ -53,6 +53,14 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
       .leftJoin(cardPlaces, eq(cardPlaces.id, nearestCards.placeId))
       .where(eq(nearestCards.status, "locked")).limit(25),
   ]);
+  // Saved on a student's account and not used yet (Active and assigned), and used on a paid booking (Used — no longer works).
+  const withStudent = () => db.select({ c: nearestCards, b: nearestCardBatches, first: users.firstName, last: users.lastName, place: cardPlaces.name, paidAt: sql<Date | null>`(select bk.paid_at from bookings bk where bk.id = ${nearestCards.usedBookingId})` }).from(nearestCards)
+    .innerJoin(nearestCardBatches, eq(nearestCardBatches.id, nearestCards.batchId)).leftJoin(users, eq(users.id, nearestCards.studentId))
+    .leftJoin(cardPlaces, eq(cardPlaces.id, nearestCards.placeId));
+  const [activeCards, usedCards] = await Promise.all([
+    withStudent().where(and(eq(nearestCards.status, "activated"), sql`${nearestCards.creditId} is null`)).orderBy(desc(nearestCards.activatedAt)).limit(200),
+    withStudent().where(sql`${nearestCards.creditId} is not null`).orderBy(desc(nearestCards.activatedAt)).limit(200),
+  ]);
   // The cards of one batch, on screen (no spreadsheet needed): 100 per page, in printer-file order.
   const batchCards = openBatch
     ? await db.select({ c: nearestCards, b: nearestCardBatches, first: users.firstName, last: users.lastName, place: cardPlaces.name }).from(nearestCards)
@@ -64,14 +72,13 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
   const pages = openInfo ? Math.max(1, Math.ceil(openInfo.count / PER_PAGE)) : 1;
   const batchLink = (id: string, p = 1) => `/admin/cards?batch=${id}${p > 1 ? `&page=${p}` : ""}#batch-cards`;
   const live = batches.filter((x) => x.b.status !== "discarded");
-  const gone = batches.filter((x) => x.b.status === "discarded");
   const cardRow = ({ c, b, first, last, place }: (typeof locked)[number]) => (
     <tr key={c.id}>
       <td>{c.printSeq ?? "—"}</td>
       <td className="b" style={{ whiteSpace: "nowrap" }}>{groupNumber(c.number)}</td>
       <td className="b">{c.code}</td>
       <td>{cardLabel(b.kind)} • {b.name}{place ? <div className="xs muted">At {place}</div> : null}</td>
-      <td>{c.status === "issued" && activateBy(b, days) < new Date() ? `Inactive — not saved within ${days} days` : (STATUS[c.status] ?? c.status)}{c.failedAttempts > 0 && c.status !== "activated" ? ` • ${c.failedAttempts} wrong code${c.failedAttempts === 1 ? "" : "s"}` : ""}</td>
+      <td>{c.creditId ? <span className="tag">Used — no longer works</span> : c.status === "activated" ? <span className="tag ok">Active — on a student&apos;s account</span> : c.status === "issued" && activateBy(b, days) < new Date() ? `Inactive — not saved within ${days} days` : (STATUS[c.status] ?? c.status)}{c.failedAttempts > 0 && c.status !== "activated" ? ` • ${c.failedAttempts} wrong code${c.failedAttempts === 1 ? "" : "s"}` : ""}</td>
       <td>{c.studentId ? ([first, last].filter(Boolean).join(" ") || "Student") : "—"}{c.activatedAt ? <div className="xs muted">added {fmtDate(c.activatedAt)}</div> : null}</td>
       <td>{c.usedBookingId ? <span className="xs">{c.creditId ? "Paid booking" : "Chosen for a booking (not paid yet)"} {c.usedBookingId.slice(0, 8).toUpperCase()}</span> : "—"}</td>
       <td>
@@ -160,7 +167,7 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
             </tbody>
           </table>
         </div>
-        <span className="xs muted">See cards = every card in the batch right here — #, number, code and status — no spreadsheet needed. Printer file = a spreadsheet (CSV) of every card number and code in the batch, for your card printer. Keep it private — anyone with a number and code can add that card. Turn off stops cards that haven&apos;t been saved yet (you can turn it back on); cards already saved on a student&apos;s account keep working — to stop one of those, look it up below and tap Turn off. Discard stops the whole batch for good, saved cards included.</span>
+        <span className="xs muted">See cards = every card in the batch right here — #, number, code and status — no spreadsheet needed. Printer file = a spreadsheet (CSV) of every card number and code in the batch, for your card printer. Keep it private — anyone with a number and code can add that card. Turn off stops cards that haven&apos;t been saved yet (you can turn it back on); cards already saved on a student&apos;s account keep working — to stop one of those, look it up below and tap Turn off. Discard stops the whole batch for good, saved cards included, and takes it off this page.</span>
         {openInfo && (
           <div className="col" id="batch-cards" style={{ gap: 8, marginTop: 6 }}>
             <span className="eyebrow">Cards in {openInfo.name} — {openInfo.kind === "free" ? "Free (4-digit code)" : "Discount (3-digit code)"}</span>
@@ -178,12 +185,30 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
             )}
           </div>
         )}
-        {gone.length > 0 && (
-          <details><summary className="link xs">Discarded batches ({gone.length})</summary>
-            <div style={{ overflowX: "auto", marginTop: 8 }}><table className="tbl"><thead><tr><th>Batch</th><th>Value</th><th className="num">Made</th><th className="num">Used</th><th>Discarded</th></tr></thead><tbody>
-              {gone.map(({ b, used }) => <tr key={b.id}><td>{b.name}</td><td>{b.kind === "free" ? `Free, up to ${money(b.amountCents)}` : `${money(b.amountCents)} off`}</td><td className="num">{b.count}</td><td className="num">{used}</td><td>{b.discardedAt ? fmtDate(b.discardedAt) : "—"}</td></tr>)}
-            </tbody></table></div>
-          </details>
+      </div>
+
+      <div className="card ok" style={{ gap: 10 }}>
+        <span className="eyebrow">Active and assigned — saved on a student&apos;s account ({activeCards.length})</span>
+        <span className="xs muted">These cards are on a student&apos;s account and haven&apos;t been used yet. A card chosen for a booking that isn&apos;t paid yet still counts as active.</span>
+        {activeCards.length === 0 ? <span className="small muted">No cards saved on a student&apos;s account yet.</span> : (
+          <div style={{ overflowX: "auto", maxHeight: 520 }}><table className="tbl"><thead><tr><th>#</th><th>Number</th><th>Code</th><th>Card</th><th>Status</th><th>Student</th><th>Used on</th><th /></tr></thead><tbody>{activeCards.map(cardRow)}</tbody></table></div>
+        )}
+      </div>
+
+      <div className="card" style={{ gap: 10 }}>
+        <span className="eyebrow">Used cards — no longer work ({usedCards.length})</span>
+        <span className="xs muted">Each card works once. After it pays for a booking it moves here for good and can&apos;t be used again. The student sees it under Used cards on their account.</span>
+        {usedCards.length === 0 ? <span className="small muted">No cards used yet.</span> : (
+          <div style={{ overflowX: "auto", maxHeight: 520 }}><table className="tbl"><thead><tr><th>#</th><th>Number</th><th>Code</th><th>Card</th><th>Student</th><th>Used</th></tr></thead><tbody>
+            {usedCards.map(({ c, b, first, last, place, paidAt }) => (
+              <tr key={c.id} style={{ opacity: 0.75 }}>
+                <td>{c.printSeq ?? "—"}</td><td style={{ whiteSpace: "nowrap" }}>{groupNumber(c.number)}</td><td>{c.code}</td>
+                <td>{cardLabel(b.kind)} • {b.name}{place ? <div className="xs muted">From {place}</div> : null}</td>
+                <td>{[first, last].filter(Boolean).join(" ") || "Student"}</td>
+                <td>{paidAt ? fmtDate(paidAt) : "—"}{c.usedBookingId ? <div className="xs muted">Booking {c.usedBookingId.slice(0, 8).toUpperCase()}</div> : null}</td>
+              </tr>
+            ))}
+          </tbody></table></div>
         )}
       </div>
 
