@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db, cities } from "@/db";
-import { TopBar } from "@/components/TopBar";
+import { PartnerBookShell, PS } from "@/components/PartnerBookShell";
 import { ActionForm } from "@/components/ActionForm";
 import { PriceBox, Terms } from "@/components/BookingTerms";
 import { WherePicker } from "@/components/WherePicker";
@@ -39,11 +39,11 @@ export default async function PartnerConfirm({ params, searchParams }: { params:
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !(await openSlots(svc.userId, length, day)).includes(time)) redirect(`${x.base}/book/${svc.id}?day=${day}${q}`);
   if (svc.adultsOnly && !isAdult(user.dateOfBirth)) {
     return (
-      <div className="scr"><div className="body" style={{ gap: 14 }}>
-        <h1 className="disp h2">This service is 18+ only.</h1>
-        <p className="small muted p">{svc.name} can only be booked by someone 18 or older. You can still book {x.name}&apos;s other services.</p>
-        <a className="btn" href={`${x.base}/book`}>See their other services</a>
-      </div></div>
+      <PartnerBookShell name={x.name} photo={x.pro.photoUrl} back={`${x.base}/book`}>
+        <h2 style={PS.h1}>This service is 18+ only.</h2>
+        <span style={PS.muted}>{svc.name} can only be booked by someone 18 or older. You can still book {x.name}&apos;s other services.</span>
+        <a style={PS.btn} href={`${x.base}/book`}>See their other services</a>
+      </PartnerBookShell>
     );
   }
   const list = [...extras, ...picked.list];
@@ -58,9 +58,9 @@ export default async function PartnerConfirm({ params, searchParams }: { params:
   const city = x.pro.cityId ? await db.query.cities.findFirst({ where: eq(cities.id, x.pro.cityId) }) : null;
   const travels = x.pro.serviceMode === "travel" || x.pro.serviceMode === "both" || !x.pro.addressLine;
   return (
-    <div className="scr">
-      <TopBar title="Review your appointment" back={`${x.base}/book/${svc.id}?day=${day}${q}`} />
-      <div className="body">
+    <PartnerBookShell name={x.name} photo={x.pro.photoUrl} back={`${x.base}/book/${svc.id}?day=${day}${q}`} step={3}>
+      <h2 style={PS.h1}>{instantBooking() ? "Review & pay" : "Review your request"}</h2>
+      <div className="col" style={{ gap: 12 }}>
         <div className="card">
           <div className="b">{svc.name}</div><div className="small muted">{x.name}{x.pro.businessName && x.pro.businessName !== x.name ? ` • ${x.pro.businessName}` : ""}</div>
           {list.length > 0 && (
@@ -94,6 +94,6 @@ export default async function PartnerConfirm({ params, searchParams }: { params:
           <label className="check"><input type="checkbox" name="agree" required />I agree to the booking &amp; cancellation terms</label>
         </ActionForm>
       </div>
-    </div>
+    </PartnerBookShell>
   );
 }

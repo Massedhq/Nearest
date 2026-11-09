@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
-import { TopBar } from "@/components/TopBar";
+import { PartnerBookShell, PS } from "@/components/PartnerBookShell";
 import { CustomerSignUpForm } from "@/components/CustomerSignUpForm";
 import { safePartnerNext } from "@/lib/customers";
 import { publicPartnerPage, partnerPagePath } from "@/lib/partners";
@@ -20,12 +20,11 @@ export default async function PartnerJoin({ params, searchParams }: { params: Pr
   if (userId) redirect(next);
   const name = partnerName(r);
   return (
-    <div className="scr">
-      <TopBar title={`Book ${name}`} back={base} />
-      <div className="body">
-        <div className="lightbox"><CustomerSignUpForm next={next} partnerName={name} /></div>
-        <p className="xs muted p">Are you a student? You can book with this account. To get student benefits on Nearest, create a student account from the Nearest app instead.</p>
-      </div>
-    </div>
+    <PartnerBookShell name={name} photo={r.p.photoUrl} back={base}>
+      <h2 style={PS.h1}>Almost there</h2>
+      <span style={PS.muted}>Create a quick account to book {name}. Anyone 18+ — no school or ID needed. Already on Nearest? Sign in at the bottom.</span>
+      <div className="lightbox"><CustomerSignUpForm next={next} partnerName={name} /></div>
+      <span style={PS.muted}>Are you a student? You can book with this account too. For student benefits on Nearest, create a student account from the Nearest app instead.</span>
+    </PartnerBookShell>
   );
 }
