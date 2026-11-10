@@ -72,14 +72,20 @@ export default async function PartnerEditor({ searchParams }: { searchParams: Pr
 
           <div className="col g8">
             <span className="eyebrow">Top services (up to {PARTNER_LIMITS.top})</span>
-            {services.length === 0 && <span className="small muted">Add services in Business → Services &amp; prices first.</span>}
-            {services.map((s) => (
+            <div className="card" style={{ gap: 6, padding: 12 }}>
+              <span className="small"><span className="b">Add a service, a photo or change a price</span> in Services &amp; prices — every service has <span className="b">+ Add a photo</span>, your price, 18+ or Kids, where it shows and an optional partner page price. Save there, then come back here to pick your top four.</span>
+              <Link className="btn ghost sm" href="/pro/setup/services" style={{ alignSelf: "flex-start" }}>Add or edit services, photos &amp; prices</Link>
+            </div>
+            {services.length === 0 && <span className="small muted">No services yet — add them with the button above.</span>}
+            {services.filter((s) => s.showOn !== "student").map((s) => (
               <label key={s.id} className="row small" style={{ gap: 10 }}>
                 <input type="checkbox" name="top" value={s.id} defaultChecked={page.topServiceIds.includes(s.id)} />
-                <span className="grow">{s.name}</span><span className="muted">{money(s.priceCents)} · {s.durationMin} min</span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {s.photoUrl ? <img src={s.photoUrl} alt="" width={36} height={36} style={{ width: 36, height: 36, borderRadius: 8, objectFit: "cover", flex: "none" }} /> : <span className="xs muted" style={{ width: 36, height: 36, borderRadius: 8, border: "1px dashed #3A3A3F", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>no photo</span>}
+                <span className="grow">{s.name}{s.forKids ? " · Kids" : ""}{s.adultsOnly ? " · 18+" : ""}</span><span className="muted">{money(s.partnerPriceCents ?? s.priceCents)} · {s.durationMin} min</span>
               </label>
             ))}
-            <span className="small muted">None picked? Your first four services show.</span>
+            <span className="small muted">Tick up to four and tap Save my page at the bottom. None picked? Your first four services show.</span>
           </div>
 
           <div className="col g8">

@@ -316,6 +316,7 @@ export const proServices = pgTable("pro_services", {
   priceCents: integer("price_cents").notNull(),
   durationMin: integer("duration_min").notNull(),
   adultsOnly: boolean("adults_only").notNull().default(false), // "18+ only" — students under 18 can't book it
+  forKids: boolean("for_kids").notNull().default(false), // kids service (2026-11-09) — listed under Kids; a parent or guardian books it on the partner side
   // Optional extras on this service (e.g. "Rhinestones +$10, +15 min"): [{ id, name, priceCents, extraMin }]. The student
   // picks any when booking; the $150 student cap applies to the service + chosen add-ons together. No service fee on add-ons.
   addons: jsonb("addons").$type<{ id: string; name: string; priceCents: number; extraMin: number }[]>().notNull().default([]),

@@ -5,7 +5,7 @@ import { cleanPrice, underCap } from "./PriceInput";
 
 export type Cat = { id: number; name: string; suggestions: string[] };
 export type AddonRow = { id?: string; name: string; price: string; minutes: string };
-export type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; photo?: string | null; addFee?: boolean; addons?: AddonRow[];
+export type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; forKids?: boolean; photo?: string | null; addFee?: boolean; addons?: AddonRow[];
   // Partners on both sides (2026-11-09): where it shows + an optional different price on the partner page.
   showOn?: "both" | "student" | "partner"; partnerPrice?: string };
 
@@ -149,8 +149,12 @@ export function ServicesEditor({ categories, initial, userId, feeCents = 500, pa
                 </label>
               </div>
               <label className="check" style={{ fontSize: 12, marginTop: -4 }}>
-                <input type="checkbox" checked={Boolean(r.adultsOnly)} onChange={(e) => update(i, { adultsOnly: e.target.checked })} />
+                <input type="checkbox" checked={Boolean(r.adultsOnly)} onChange={(e) => update(i, { adultsOnly: e.target.checked, ...(e.target.checked ? { forKids: false } : {}) })} />
                 <span><span className="b">18+ only</span> — must be 18 or older to book</span>
+              </label>
+              <label className="check" style={{ fontSize: 12, marginTop: -4 }}>
+                <input type="checkbox" checked={Boolean(r.forKids)} onChange={(e) => update(i, { forKids: e.target.checked, ...(e.target.checked ? { adultsOnly: false } : {}) })} />
+                <span><span className="b">Kids service</span> — listed separately under Kids. On your partner page a parent or guardian books it.</span>
               </label>
               {studentPrice(r) != null && <span className="small muted" style={{ marginTop: -4 }}>Clients see <span className="b">{fmt(studentPrice(r)!)}</span> — your price plus the {fmt(feeD)} booking fee. You receive your full price.{partner && studentPrice(r)! > MAX_PRICE_DOLLARS ? ` Over $${MAX_PRICE_DOLLARS}, so it shows only on your partner page, not to students.` : ""}</span>}
               <ServicePhoto userId={userId} url={r.photo} onChange={(u) => update(i, { photo: u })} />
@@ -163,7 +167,7 @@ export function ServicesEditor({ categories, initial, userId, feeCents = 500, pa
               <div key={i} className="row" style={{ gap: 10, padding: "6px 0", borderTop: "1px solid #1C1C1F" }}>
                 {r.photo ? <span style={{ width: 40, height: 40, borderRadius: 8, overflow: "hidden", flex: "none" }}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={r.photo} alt="" width={40} height={40} style={{ objectFit: "cover", width: 40, height: 40 }} /></span> : null}
                 <div className="grow col" style={{ gap: 2, minWidth: 0 }}>
-                  <span className="b" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name || "Untitled service"}{r.adultsOnly ? <span className="tag warn" style={{ marginLeft: 6 }}>18+</span> : null}</span>
+                  <span className="b" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name || "Untitled service"}{r.adultsOnly ? <span className="tag warn" style={{ marginLeft: 6 }}>18+</span> : null}{r.forKids ? <span className="tag" style={{ marginLeft: 6 }}>Kids</span> : null}</span>
                   <span className="xs muted">{studentPrice(r) != null ? `Students see ${fmt(studentPrice(r)!)}` : "No price yet"} • {r.duration || "?"} min{(r.addons ?? []).filter((a) => a.name.trim()).length ? ` • ${(r.addons ?? []).filter((a) => a.name.trim()).length} add-on${(r.addons ?? []).filter((a) => a.name.trim()).length === 1 ? "" : "s"}` : ""}</span>
                 </div>
                 <button type="button" className="btn ghost sm" style={{ flex: "none" }} onClick={() => openRow(i)}>Edit</button>

@@ -53,7 +53,10 @@ export default async function PartnerBookProfile({ params }: { params: Promise<{
   const where = p.serviceMode === "travel" ? `Travels${p.travelRadiusMi ? ` up to ${p.travelRadiusMi} miles` : " to you"} · ${fee} travel fee`
     : p.serviceMode === "both" ? `Travels${p.travelRadiusMi ? ` up to ${p.travelRadiusMi} miles` : ""} · ${fee} travel fee, added only when ${x.name} comes to you`
     : null;
-  const byCat = cats.map((c) => ({ name: c.name, list: services.filter((s) => s.categoryId === c.id) })).filter((c) => c.list.length);
+  // Kids services are listed in their own section, apart from everyone else's (2026-11-09).
+  const grown = services.filter((s) => !s.forKids), kids = services.filter((s) => s.forKids);
+  const byCat = cats.map((c) => ({ name: c.name, list: grown.filter((s) => s.categoryId === c.id) })).filter((c) => c.list.length);
+  if (kids.length) byCat.push({ name: "Kids", list: kids });
   const svcHref = (sid: string) => `${x.base}/book/${sid}`;
 
   return (

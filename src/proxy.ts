@@ -10,6 +10,7 @@ const PUBLIC_PREFIX = ["/sign-in", "/sign-up", "/pro/sign-in", "/pro/sign-up", "
 
 function isPublic(path: string) {
   if (/^\/pro-[a-z0-9-]{2,40}$/i.test(path)) return true; // shareable pro links: usenearest.com/pro-<name>
+  if (/^\/par-[a-z0-9-]{2,40}$/i.test(path)) return true; // shareable partner links: usenearest.com/par-<name> → their partner page
   return PUBLIC_EXACT.has(path) || PUBLIC_PREFIX.some((p) => path === p || path.startsWith(p.endsWith("/") ? p : `${p}/`));
 }
 

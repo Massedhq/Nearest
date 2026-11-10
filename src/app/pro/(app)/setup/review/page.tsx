@@ -29,12 +29,42 @@ export default async function ReviewStep() {
   const needsTerms = !p.entryPaidAt && viewer.admin?.role !== "OWNER";
   const quote = needsTerms && ready ? await enrollmentQuote(p) : null;
   const [{ n: favCount }] = await db.select({ n: sql<number>`count(*)::int` }).from(favorites).where(eq(favorites.proId, p.userId));
+  // Previews (2026-11-09): how they look while people browse, and what opens once someone taps them — per side for partners.
+  const { partnerSides } = await import("@/lib/partner-booking");
+  const { ensureProSlug } = await import("@/lib/connections");
+  const { MAX_PRICE_CENTS } = await import("@/lib/pricing");
+  const sides = await partnerSides(user.id);
+  const slug = await ensureProSlug(user.id);
+  const studentServices = services.filter((s) => s.active && s.showOn !== "partner" && s.priceCents <= MAX_PRICE_CENTS);
   return (
     <div className="scr">
       <TopBar title="Review & submit" back="/pro/home" />
       <div className="body">
         <h1 className="disp h2">This is how customers see you.</h1>
-        <ProCard p={{ ...p, favCount }} services={services} photos={photos.map((x) => x.url)} city={city?.name ?? null} first={user.firstName} last={user.lastName} />
+        {!sides.partnerOnly && (
+          <>
+            <span className="eyebrow">1 · While students browse Nearest</span>
+            <span className="xs muted">Your card in Explore and search. Students tap it to open your profile.</span>
+            <ProCard p={{ ...p, favCount }} services={studentServices} photos={photos.map((x) => x.url)} city={city?.name ?? null} first={user.firstName} last={user.lastName} />
+            <span className="eyebrow">2 · Once they tap your card</span>
+            <div className="card" style={{ gap: 8 }}>
+              <span className="small">Your full profile: photo, reviews, portfolio (tap a photo to book that look), services with Book buttons, hours and about.</span>
+              {slug ? <Link className="btn ghost sm" href={`/pro-${slug}`} target="_blank">Open my full profile</Link> : <span className="xs muted">Save your business name to get your profile link.</span>}
+            </div>
+          </>
+        )}
+        {sides.partner && slug && (
+          <>
+            <span className="eyebrow">{sides.partnerOnly ? "1" : "3"} · Your partner page (anyone can book)</span>
+            <div className="card" style={{ gap: 8 }}>
+              <span className="small">What people see from your link in bio, then the booking profile that opens when they tap Book an appointment.</span>
+              <div className="grid2" style={{ gap: 8 }}>
+                <Link className="btn ghost sm" href={`/link/${slug}`} target="_blank">Open my link page</Link>
+                <Link className="btn ghost sm" href={`/link/${slug}/book`} target="_blank">Open my booking profile</Link>
+              </div>
+            </div>
+          </>
+        )}
         <div className="card">
           <span className="eyebrow">Ready to go live</span>
           {steps.map((s) => (

@@ -18,7 +18,9 @@ export const partnerApplyLink = () => `${SITE_URL}${PARTNER_APPLY_PATH}`;
 export const partnerDemoLink = () => `${SITE_URL}${PARTNER_DEMO_PATH}`;
 export const partnerSetupDemoLink = () => `${SITE_URL}${PARTNER_SETUP_DEMO_PATH}`;
 export const partnerPagePath = (slug: string) => `/link/${slug}`;
-export const partnerPageLink = (slug: string) => `${SITE_URL}${partnerPagePath(slug)}`;
+// The link partners share starts with "par-" so it never looks like their student-side link (usenearest.com/pro-<name>). (2026-11-09)
+export const partnerShareLink = (slug: string) => `${SITE_URL}/par-${slug}`;
+export const partnerPageLink = partnerShareLink;
 
 export const normEmail = (e: string) => e.trim().toLowerCase();
 

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import {
   db, professionalProfiles, proServices, proHours, proBlocks, proOpenings, portfolioItems, categories, modelCalls, cities, cityCounties, bookings,
+  partnerPages,
 } from "@/db";
 import { requirePro, setupSteps, nextStep, setupComplete } from "@/lib/pro";
 import { getSettings } from "@/lib/settings";
@@ -94,7 +95,7 @@ export async function saveAvatar(urls: string[]): Promise<{ error?: string }> {
 }
 
 // ---------- Services ----------
-type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; photo?: string | null; addFee?: boolean; addons?: unknown; showOn?: string; partnerPrice?: string };
+type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; forKids?: boolean; photo?: string | null; addFee?: boolean; addons?: unknown; showOn?: string; partnerPrice?: string };
 
 export async function saveServices(_: FormState, form: FormData): Promise<FormState> {
   const { user, profile } = await requirePro();
@@ -146,13 +147,16 @@ export async function saveServices(_: FormState, form: FormData): Promise<FormSt
         partnerProPriceCents = Math.round(pp * 100);
       }
     }
-    values.push({ userId: user.id, categoryId: Number(r.categoryId), name, priceCents: studentCents, proPriceCents: addFee ? proCents : proCents - fee, serviceFeeCents: fee, feeAdded: addFee, durationMin: duration, sort: i, adultsOnly: Boolean(r.adultsOnly), photoUrl: photo, addons,
+    values.push({ userId: user.id, categoryId: Number(r.categoryId), name, priceCents: studentCents, proPriceCents: addFee ? proCents : proCents - fee, serviceFeeCents: fee, feeAdded: addFee, durationMin: duration, sort: i, adultsOnly: Boolean(r.adultsOnly), forKids: Boolean(r.forKids) && !r.adultsOnly, photoUrl: photo, addons,
       showOn, partnerProPriceCents, partnerPriceCents: partnerProPriceCents == null ? null : partnerProPriceCents + fee });
   }
   // Spots are limited per city, per category — nobody can add a category that's full where they work.
   const full = await (await import("@/lib/slots")).wouldOverfill(profile, profile.cityId ?? profile.slotCityId, values.map((v) => v.categoryId));
   if (full) return { error: full };
   // Remember which service each portfolio photo was tagged with (by name) so editing the menu keeps "Book this look".
+  // Partner page top services are saved by service id — remember them by name too, so saving the menu never drops them.
+  const topPage = await db.query.partnerPages.findFirst({ where: eq(partnerPages.userId, user.id), columns: { topServiceIds: true } });
+  const topNames = topPage?.topServiceIds.length ? (await db.select({ id: proServices.id, name: proServices.name }).from(proServices).where(inArray(proServices.id, topPage.topServiceIds))) : [];
   const tagged = await db.select({ photoId: portfolioItems.id, name: proServices.name }).from(portfolioItems)
     .innerJoin(proServices, eq(proServices.id, portfolioItems.serviceId)).where(eq(portfolioItems.userId, user.id));
   // Previous prices, so price changes can be recorded for Nearest's internal pricing report (no effect on the pro).
@@ -171,6 +175,11 @@ export async function saveServices(_: FormState, form: FormData): Promise<FormSt
   for (const t of tagged) {
     const same = inserted.find((x) => x.name.trim().toLowerCase() === t.name.trim().toLowerCase());
     if (same) await db.update(portfolioItems).set({ serviceId: same.id }).where(eq(portfolioItems.id, t.photoId));
+  }
+  if (topPage && topNames.length) {
+    const byName = (n: string) => inserted.find((x) => x.name.trim().toLowerCase() === n.trim().toLowerCase())?.id;
+    const ids = topPage.topServiceIds.map((old) => topNames.find((t) => t.id === old)).filter(Boolean).map((t) => byName(t!.name)).filter((x): x is string => Boolean(x));
+    await db.update(partnerPages).set({ topServiceIds: [...new Set(ids)] }).where(eq(partnerPages.userId, user.id));
   }
   await db.update(professionalProfiles).set({ servicesDraft: null }).where(eq(professionalProfiles.userId, user.id));
   return done(user.id, "services", form);

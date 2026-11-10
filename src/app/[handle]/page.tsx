@@ -28,6 +28,7 @@ async function findPro(handle: string) {
 
 export async function generateMetadata({ params }: { params: Promise<{ handle: string }> }) {
   const { handle } = await params;
+  if (handle.startsWith("par-")) return { title: "Nearest Partner" };
   const r = await findPro(handle);
   if (!r) return { title: "Nearest" };
   // Written the way people search: "Nailed by Avy — Nail Tech in Frisco, TX".
@@ -50,6 +51,8 @@ export async function generateMetadata({ params }: { params: Promise<{ handle: s
 /** Public booking link (usenearest.com/pro-<name>): anyone can see it; verified students go straight to the full profile. */
 export default async function ProLink({ params }: { params: Promise<{ handle: string }> }) {
   const { handle } = await params;
+  // Partner share links (usenearest.com/par-<name>) open the partner's own page. Student-side links stay pro-<name>.
+  if (/^par-[a-z0-9-]{2,40}$/i.test(handle)) redirect(`/link/${handle.slice(4).toLowerCase()}`);
   if (!handle.startsWith("pro-")) notFound();
   const r = await findPro(handle);
   const viewer = await getViewer().catch(() => null);
