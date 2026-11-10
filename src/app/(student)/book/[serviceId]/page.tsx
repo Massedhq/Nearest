@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ServiceVideoButton } from "@/components/ServiceVideoButton";
 import { notFound } from "next/navigation";
 import { and, eq, ne } from "drizzle-orm";
 import { db, proServices, professionalProfiles } from "@/db";
@@ -50,7 +51,7 @@ export default async function ChooseTime({ params, searchParams }: { params: Pro
     <div className="scr">
       <TopBar title="Choose your appointment" back={`/p/${svc.userId}`} />
       <div className="body">
-        <div className="card"><div className="row between"><div><div className="b">{svc.name}</div><div className="small muted">{pro.businessName} • {length} min</div></div><span className="b">{money(svc.priceCents + picked.cents)}</span></div>
+        <div className="card"><div className="row between"><div><div className="b">{svc.name}</div><div className="small muted">{pro.businessName} • {length} min</div>{svc.videoUrl && <ServiceVideoButton url={svc.videoUrl} name={svc.name} />}</div><span className="b">{money(svc.priceCents + picked.cents)}</span></div>
           {picked.list.length > 0 && <span className="xs muted">{money(svc.priceCents)} service + {picked.list.map((x) => `${x.name} ${money(x.priceCents)}`).join(" + ")}</span>}</div>
         {(svc.addons ?? []).length > 0 && (
           <AddonPicker action={`/book/${svc.id}`} addons={svc.addons} chosen={picked.list.map((x) => x.id)} baseCents={svc.priceCents} capCents={MAX_PRICE_CENTS}

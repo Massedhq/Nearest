@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ServiceVideoButton } from "@/components/ServiceVideoButton";
 import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
 import { and, asc, desc, eq, lte, sql, ne } from "drizzle-orm";
@@ -114,7 +115,7 @@ export default async function ProLink({ params }: { params: Promise<{ handle: st
         {services.length > 0 && (
           <div className="card" style={{ gap: 6 }}>
             <span className="eyebrow">Services</span>
-            {services.map((s) => <div key={s.id} className="row between small"><span>{s.name}{s.adultsOnly ? " (18+)" : ""}</span><span className="muted">{money(s.priceCents)} • {s.durationMin} min</span></div>)}
+            {services.map((s) => <div key={s.id} className="row between small" style={{ alignItems: "flex-start" }}><span className="col" style={{ gap: 0 }}><span>{s.name}{s.adultsOnly ? " (18+)" : ""}</span>{s.videoUrl && <ServiceVideoButton url={s.videoUrl} name={s.name} />}</span><span className="muted">{money(s.priceCents)} • {s.durationMin} min</span></div>)}
           </div>
         )}
         <div className="card pearl" style={{ gap: 10 }}>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { TopBar } from "./TopBar";
 import type { SetupStep } from "@/lib/pro";
+import { EditDoneBar } from "./EditDoneBar";
 
 /** Frame for each setup step. In edit mode (?edit=1) it returns to My Business instead of the next step. */
 export function SetupShell({ steps, current, title, edit, children }: { steps: SetupStep[]; current: string; title: string; edit: boolean; children: React.ReactNode }) {
@@ -18,6 +19,7 @@ export function SetupShell({ steps, current, title, edit, children }: { steps: S
           </>
         )}
         <h1 className="disp h2">{title}</h1>
+        {edit && <EditDoneBar />}
         {children}
         {!edit && <Link className="link small" href="/pro/home" style={{ alignSelf: "center" }}>Finish later</Link>}
       </div>

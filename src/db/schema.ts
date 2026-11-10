@@ -304,6 +304,9 @@ export const catalogServices = pgTable("catalog_services", {
 
 export const proServices = pgTable("pro_services", {
   photoUrl: text("photo_url"), // optional photo of this service (their own work)
+  // Optional 360° video of this service (2026-11-09): up to 60 s, MP4/MOV, uploaded to pros/<id>/look-video/. Shows "360° view" on service lists.
+  videoUrl: text("video_url"),
+  videoSec: doublePrecision("video_sec"),
   // Nearest service fee. priceCents = what students see and pay. proPriceCents = what the pro entered (null = saved
   // before the fee existed: no fee on those until the pro edits them). feeAdded = fee added on top (else the pro absorbs it).
   proPriceCents: integer("pro_price_cents"),

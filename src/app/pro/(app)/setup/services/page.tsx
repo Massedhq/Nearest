@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { asc, eq } from "drizzle-orm";
 import { db, categories, catalogServices, proServices } from "@/db";
 import { requirePro, setupSteps } from "@/lib/pro";
+import { EditDoneBar } from "@/components/EditDoneBar";
 import { SetupShell } from "@/components/SetupShell";
 import { ActionForm } from "@/components/ActionForm";
 import { ServicesEditor } from "@/components/ServicesEditor";
@@ -20,7 +20,7 @@ export default async function ServicesStep({ searchParams }: { searchParams: Pro
     db.select().from(proServices).where(eq(proServices.userId, user.id)).orderBy(asc(proServices.sort)),
   ]);
   const catProps = cats.map((c) => ({ id: c.id, name: c.name, suggestions: sugg.filter((s) => s.categoryId === c.id).map((s) => s.name) }));
-  const saved = mine.map((s) => ({ categoryId: s.categoryId, name: s.name, price: String((s.proPriceCents == null ? s.priceCents : s.proPriceCents) / 100), duration: String(s.durationMin), adultsOnly: s.adultsOnly, photo: s.photoUrl, addFee: s.proPriceCents == null ? true : s.feeAdded,
+  const saved = mine.map((s) => ({ categoryId: s.categoryId, name: s.name, price: String((s.proPriceCents == null ? s.priceCents : s.proPriceCents) / 100), duration: String(s.durationMin), adultsOnly: s.adultsOnly, photo: s.photoUrl, video: s.videoUrl, videoSec: s.videoSec, addFee: s.proPriceCents == null ? true : s.feeAdded,
     addons: (s.addons ?? []).map((a) => ({ id: a.id, name: a.name, price: String(a.priceCents / 100), minutes: String(a.extraMin) })),
     showOn: s.showOn as "both" | "student" | "partner", forKids: s.forKids, partnerPrice: s.partnerProPriceCents != null ? String(s.partnerProPriceCents / 100) : "" }));
   // "Save & finish later" kept a draft — bring back everything they typed, even unfinished rows.
@@ -33,7 +33,7 @@ export default async function ServicesStep({ searchParams }: { searchParams: Pro
       <p className="muted small p">Customers search the actual service, not just your category.</p>
       {draft && <div className="card ok small"><span>Welcome back — here&apos;s what you saved. Finish your services, then tap Save &amp; continue.</span></div>}
       <ActionForm action={saveServices} submitLabel={edit ? "Save services" : "Save & continue"} laterLabel={edit ? undefined : "Save & finish later"}
-        afterOk={<div className="grid2" style={{ gap: 8 }}><Link className="btn ghost sm" href="/pro/setup/review">View my profile</Link><Link className="btn ghost sm" href="/pro/business">Back to my account menu</Link></div>}>
+        afterOk={edit ? <EditDoneBar /> : undefined}>
         {edit && <input type="hidden" name="edit" value="1" />}
         <ServicesEditor categories={catProps} initial={initial} userId={user.id} feeCents={Number((await getSettings())["fees.service_fee_cents"] ?? 500)} partner={side.partner} bothSides={side.bothSides} />
       </ActionForm>

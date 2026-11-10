@@ -74,7 +74,7 @@ export default async function PartnerEditor({ searchParams }: { searchParams: Pr
             <span className="eyebrow">Top services (up to {PARTNER_LIMITS.top})</span>
             <div className="card" style={{ gap: 6, padding: 12 }}>
               <span className="small"><span className="b">Add a service, a photo or change a price</span> in Services &amp; prices — every service has <span className="b">+ Add a photo</span>, your price, 18+ or Kids, where it shows and an optional partner page price. Save there, then come back here to pick your top four.</span>
-              <Link className="btn ghost sm" href="/pro/setup/services" style={{ alignSelf: "flex-start" }}>Add or edit services, photos &amp; prices</Link>
+              <Link className="btn ghost sm" href="/pro/setup/services?edit=1" style={{ alignSelf: "flex-start" }}>Add or edit services, photos &amp; prices</Link>
             </div>
             {services.length === 0 && <span className="small muted">No services yet — add them with the button above.</span>}
             {services.filter((s) => s.showOn !== "student").map((s) => (

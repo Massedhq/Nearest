@@ -2,10 +2,12 @@
 import { useState } from "react";
 import { MAX_PRICE_DOLLARS } from "@/lib/pricing";
 import { cleanPrice, underCap } from "./PriceInput";
+import { checkServiceVideo } from "@/app/pro/actions";
+import { LOOK_VIDEO_SECONDS, LOOK_VIDEO_MB } from "@/lib/portfolio-limits";
 
 export type Cat = { id: number; name: string; suggestions: string[] };
 export type AddonRow = { id?: string; name: string; price: string; minutes: string };
-export type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; forKids?: boolean; photo?: string | null; addFee?: boolean; addons?: AddonRow[];
+export type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; forKids?: boolean; photo?: string | null; video?: string | null; videoSec?: number | null; addFee?: boolean; addons?: AddonRow[];
   // Partners on both sides (2026-11-09): where it shows + an optional different price on the partner page.
   showOn?: "both" | "student" | "partner"; partnerPrice?: string };
 
@@ -85,6 +87,50 @@ function ServicePhoto({ userId, url, onChange }: { userId: string; url?: string 
   );
 }
 
+/** Optional 360° video of one service (up to LOOK_VIDEO_SECONDS): length checked on the phone, uploaded, checked again on the server. */
+function ServiceVideo({ userId, url, sec, onChange }: { userId: string; url?: string | null; sec?: number | null; onChange: (u: string | null, s: number | null) => void }) {
+  const [busy, setBusy] = useState("");
+  const [err, setErr] = useState("");
+  const pick = async (f: File | undefined) => {
+    if (!f) return;
+    setErr("");
+    const type = f.type || (f.name.toLowerCase().endsWith(".mov") ? "video/quicktime" : f.name.toLowerCase().endsWith(".mp4") ? "video/mp4" : "");
+    if (!["video/mp4", "video/quicktime"].includes(type)) { setErr("Use an MP4, or a video straight from your phone's camera."); return; }
+    if (f.size > LOOK_VIDEO_MB * 1024 * 1024) { setErr(`That video is over ${LOOK_VIDEO_MB} MB. Trim it or record at a lower quality.`); return; }
+    setBusy("Checking length…");
+    try {
+      const secs = await new Promise<number | null>((res) => {
+        const v = document.createElement("video"); const src = URL.createObjectURL(f);
+        const done = (n: number | null) => { URL.revokeObjectURL(src); res(n); };
+        v.preload = "metadata"; v.muted = true;
+        v.onloadedmetadata = () => done(Number.isFinite(v.duration) ? v.duration : null); v.onerror = () => done(null);
+        setTimeout(() => done(null), 8000); v.src = src;
+      });
+      if (secs !== null && secs > LOOK_VIDEO_SECONDS + 0.5) { setErr(`This video is ${Math.round(secs)} seconds. It can be up to ${LOOK_VIDEO_SECONDS} seconds — trim it and try again.`); return; }
+      const { upload } = await import("@vercel/blob/client");
+      const blob = await upload(`pros/${userId}/look-video/${Date.now()}.${type === "video/quicktime" ? "mov" : "mp4"}`, f, { access: "public", handleUploadUrl: "/api/blob", contentType: type, onUploadProgress: (p) => setBusy(`Uploading… ${Math.round(p.percentage)}%`) });
+      setBusy("Checking…");
+      const r = await checkServiceVideo(blob.url);
+      if (r.error) setErr(r.error); else onChange(blob.url, r.sec ?? null);
+    } catch { setErr("Upload didn't finish. Try again on Wi-Fi."); }
+    finally { setBusy(""); }
+  };
+  return (
+    <div className="col" style={{ gap: 6 }}>
+      {url && <video src={`${url}#t=0.1`} controls playsInline preload="metadata" style={{ width: "100%", maxHeight: 220, borderRadius: 10, background: "#111" }} />}
+      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+        <label className="link xs" style={{ cursor: busy ? "default" : "pointer" }}>
+          {busy || (url ? `Replace the 360° video${sec ? ` (${Math.round(sec)}s now)` : ""}` : `+ Add a 360° video of this service (up to ${LOOK_VIDEO_SECONDS} sec, optional)`)}
+          <input type="file" accept="video/mp4,video/quicktime,.mp4,.mov" hidden disabled={!!busy} onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ""; }} />
+        </label>
+        {url && !busy && <button type="button" className="link xs" onClick={() => onChange(null, null)}>Remove video</button>}
+      </div>
+      {url && <span className="xs muted">Clients see &quot;360° view&quot; on this service. Tap Save services to keep it.</span>}
+      {err && <span className="err xs" role="alert">{err}</span>}
+    </div>
+  );
+}
+
 export function ServicesEditor({ categories, initial, userId, feeCents = 500, partner = false, bothSides = false }: { categories: Cat[]; initial: Row[]; userId: string; feeCents?: number; partner?: boolean; bothSides?: boolean }) {
   // Partners (2026-11-09): no $150 cap — a service over $150 shows only on their partner page, never to students.
   const cap = partner ? Number.POSITIVE_INFINITY : MAX_PRICE_DOLLARS;
@@ -158,6 +204,7 @@ export function ServicesEditor({ categories, initial, userId, feeCents = 500, pa
               </label>
               {studentPrice(r) != null && <span className="small muted" style={{ marginTop: -4 }}>Clients see <span className="b">{fmt(studentPrice(r)!)}</span> — your price plus the {fmt(feeD)} booking fee. You receive your full price.{partner && studentPrice(r)! > MAX_PRICE_DOLLARS ? ` Over $${MAX_PRICE_DOLLARS}, so it shows only on your partner page, not to students.` : ""}</span>}
               <ServicePhoto userId={userId} url={r.photo} onChange={(u) => update(i, { photo: u })} />
+              <ServiceVideo userId={userId} url={r.video} sec={r.videoSec} onChange={(u, sec) => update(i, { video: u, videoSec: sec })} />
               {partner && bothSides && <SideFields r={r} feeD={feeD} onChange={(p) => update(i, p)} />}
               <AddonsEditor serviceName={r.name} list={r.addons ?? []} onChange={(l) => update(i, { addons: l })} room={partner ? null : studentPrice(r) != null ? Math.max(0, MAX_PRICE_DOLLARS - studentPrice(r)!) : null} />
               <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} onClick={() => close(i)}>Minimize</button>
@@ -167,7 +214,7 @@ export function ServicesEditor({ categories, initial, userId, feeCents = 500, pa
               <div key={i} className="row" style={{ gap: 10, padding: "6px 0", borderTop: "1px solid #1C1C1F" }}>
                 {r.photo ? <span style={{ width: 40, height: 40, borderRadius: 8, overflow: "hidden", flex: "none" }}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={r.photo} alt="" width={40} height={40} style={{ objectFit: "cover", width: 40, height: 40 }} /></span> : null}
                 <div className="grow col" style={{ gap: 2, minWidth: 0 }}>
-                  <span className="b" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name || "Untitled service"}{r.adultsOnly ? <span className="tag warn" style={{ marginLeft: 6 }}>18+</span> : null}{r.forKids ? <span className="tag" style={{ marginLeft: 6 }}>Kids</span> : null}</span>
+                  <span className="b" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name || "Untitled service"}{r.adultsOnly ? <span className="tag warn" style={{ marginLeft: 6 }}>18+</span> : null}{r.forKids ? <span className="tag" style={{ marginLeft: 6 }}>Kids</span> : null}{r.video ? <span className="tag" style={{ marginLeft: 6 }}>360° view</span> : null}</span>
                   <span className="xs muted">{studentPrice(r) != null ? `Students see ${fmt(studentPrice(r)!)}` : "No price yet"} • {r.duration || "?"} min{(r.addons ?? []).filter((a) => a.name.trim()).length ? ` • ${(r.addons ?? []).filter((a) => a.name.trim()).length} add-on${(r.addons ?? []).filter((a) => a.name.trim()).length === 1 ? "" : "s"}` : ""}</span>
                 </div>
                 <button type="button" className="btn ghost sm" style={{ flex: "none" }} onClick={() => openRow(i)}>Edit</button>

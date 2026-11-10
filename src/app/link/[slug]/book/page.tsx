@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ServiceVideoButton } from "@/components/ServiceVideoButton";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { and, asc, desc, eq } from "drizzle-orm";
@@ -116,6 +117,7 @@ export default async function PartnerBookProfile({ params }: { params: Promise<{
                 <span style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
                   <span style={{ fontSize: 14, fontWeight: 800 }}>{s.name}{s.adultsOnly ? " (18+)" : ""}</span>
                   <span style={{ fontSize: 12, color: "#B8B2A7" }}>{money(sidePrice(s))} · {mins(s.durationMin)}</span>
+                  {s.videoUrl && <ServiceVideoButton url={s.videoUrl} name={s.name} bookHref={bookingOpen ? svcHref(s.id) : null} accent={P_ACCENT} />}
                   {(s.addons ?? []).length > 0 && <span style={{ fontSize: 11, color: "#8E897F" }}>Add-ons: {(s.addons ?? []).map((a) => `${a.name} +${money(a.priceCents)}`).join(" · ")}</span>}
                 </span>
                 {bookingOpen

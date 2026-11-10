@@ -95,7 +95,7 @@ export async function saveAvatar(urls: string[]): Promise<{ error?: string }> {
 }
 
 // ---------- Services ----------
-type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; forKids?: boolean; photo?: string | null; addFee?: boolean; addons?: unknown; showOn?: string; partnerPrice?: string };
+type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; forKids?: boolean; photo?: string | null; video?: string | null; videoSec?: number | null; addFee?: boolean; addons?: unknown; showOn?: string; partnerPrice?: string };
 
 export async function saveServices(_: FormState, form: FormData): Promise<FormState> {
   const { user, profile } = await requirePro();
@@ -118,6 +118,8 @@ export async function saveServices(_: FormState, form: FormData): Promise<FormSt
   // Partners have no $150 cap (2026-11-09): services over $150 show only on their partner page, never to students.
   const sides = await (await import("@/lib/partner-booking")).partnerSides(user.id);
   const partner = sides.partner;
+  // 360° service videos already on this menu (checked when they were uploaded); a new one is checked again here.
+  const oldVideos = new Map((await db.select({ url: proServices.videoUrl, sec: proServices.videoSec }).from(proServices).where(eq(proServices.userId, user.id))).filter((v) => v.url).map((v) => [v.url!, v.sec]));
   const values = [];
   for (const [i, r] of cleaned.entries()) {
     const name = r.name.trim().slice(0, 80);
@@ -133,6 +135,17 @@ export async function saveServices(_: FormState, form: FormData): Promise<FormSt
     if (!partner && studentCents > MAX_PRICE_DOLLARS * 100) return { error: `Students can't be charged more than $${MAX_PRICE_DOLLARS} per service — ${name} would be $${(studentCents / 100).toFixed(2).replace(/\.00$/, "")}${addFee ? " with the service fee" : ""}.` };
     if (!Number.isInteger(duration) || duration < 10 || duration > 600) return { error: `Enter ${name}'s length in minutes (10–600).` };
     const photo = typeof r.photo === "string" && blobUrlOk(r.photo, user.id) ? r.photo : null; // optional photo of this service
+    // Optional 360° video of this service (up to LOOK_VIDEO_SECONDS).
+    let videoUrl: string | null = null, videoSec: number | null = null;
+    if (typeof r.video === "string" && r.video && blobUrlOk(r.video, user.id) && new URL(r.video).pathname.startsWith(`/pros/${user.id}/look-video/`)) {
+      if (oldVideos.has(r.video)) { videoUrl = r.video; videoSec = oldVideos.get(r.video) ?? null; }
+      else {
+        const secs = await (await import("@/lib/video-length")).videoSeconds(r.video);
+        if (secs === null) return { error: `We couldn't read the video for ${name}. Try an MP4 or a video straight from your phone's camera.` };
+        if (secs > LOOK_VIDEO_SECONDS + 0.5) return { error: `${name}'s video is ${Math.round(secs)} seconds. It can be up to ${LOOK_VIDEO_SECONDS} seconds.` };
+        videoUrl = r.video; videoSec = Math.round(secs * 10) / 10;
+      }
+    }
     // Optional add-ons: the service + any add-on must stay within the $150 student limit.
     const addons = (await import("@/lib/addons")).cleanAddons(r.addons, name, studentCents, partner);
     if ("error" in addons) return { error: addons.error };
@@ -147,7 +160,7 @@ export async function saveServices(_: FormState, form: FormData): Promise<FormSt
         partnerProPriceCents = Math.round(pp * 100);
       }
     }
-    values.push({ userId: user.id, categoryId: Number(r.categoryId), name, priceCents: studentCents, proPriceCents: addFee ? proCents : proCents - fee, serviceFeeCents: fee, feeAdded: addFee, durationMin: duration, sort: i, adultsOnly: Boolean(r.adultsOnly), forKids: Boolean(r.forKids) && !r.adultsOnly, photoUrl: photo, addons,
+    values.push({ userId: user.id, categoryId: Number(r.categoryId), name, priceCents: studentCents, proPriceCents: addFee ? proCents : proCents - fee, serviceFeeCents: fee, feeAdded: addFee, durationMin: duration, sort: i, adultsOnly: Boolean(r.adultsOnly), forKids: Boolean(r.forKids) && !r.adultsOnly, photoUrl: photo, videoUrl, videoSec, addons,
       showOn, partnerProPriceCents, partnerPriceCents: partnerProPriceCents == null ? null : partnerProPriceCents + fee });
   }
   // Spots are limited per city, per category — nobody can add a category that's full where they work.
@@ -614,4 +627,16 @@ export async function setGoLive(form: FormData) {
   }
   revalidatePath("/pro", "layout");
   revalidatePath("/home");
+}
+
+
+/** Services & prices: check a just-uploaded 360° service video (length ≤ the look-video limit) before it's added to the row. */
+export async function checkServiceVideo(url: string): Promise<{ error?: string; sec?: number }> {
+  const { user } = await requirePro();
+  const discard = async () => { try { const { del } = await import("@vercel/blob"); await del(url); } catch (e) { console.error(e); } };
+  if (!url || !blobUrlOk(url, user.id) || !new URL(url).pathname.startsWith(`/pros/${user.id}/look-video/`)) return { error: "Upload didn't complete. Try again." };
+  const secs = await (await import("@/lib/video-length")).videoSeconds(url);
+  if (secs === null) { await discard(); return { error: "We couldn't read this video. Try an MP4 or a video straight from your phone's camera." }; }
+  if (secs > LOOK_VIDEO_SECONDS + 0.5) { await discard(); return { error: `This video is ${Math.round(secs)} seconds. It can be up to ${LOOK_VIDEO_SECONDS} seconds — trim it and try again.` }; }
+  return { sec: Math.round(secs * 10) / 10 };
 }

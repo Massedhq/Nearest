@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ServiceVideoButton } from "@/components/ServiceVideoButton";
 import { notFound } from "next/navigation";
 import { PartnerBookShell, PS, P_GOLD } from "@/components/PartnerBookShell";
 import { AddonPicker } from "@/components/AddonPicker";
@@ -34,6 +35,7 @@ export default async function PartnerChooseTime({ params, searchParams }: { para
       <h2 style={PS.h1}>Pick a day &amp; time</h2>
       <div style={PS.card}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}><b style={{ fontSize: 14 }}>{svc.name}{svc.adultsOnly ? " (18+)" : ""}</b><b>{money(total)}</b></div>
+        {svc.videoUrl && <ServiceVideoButton url={svc.videoUrl} name={svc.name} accent="#E8C4C0" />}
         <span style={PS.muted}>{length} min{extras.length ? ` · bundled: ${extras.map((e) => e.name).join(" + ")}` : ""}{picked.list.length ? ` · add-ons: ${picked.list.map((a) => a.name).join(" + ")}` : ""}</span>
         {extras.length > 0 && <Link href={`${x.base}/bundle?${[svc.id, ...extras.map((e) => e.id)].map((id) => `s=${id}`).join("&")}`} style={{ fontSize: 12, color: P_GOLD, fontWeight: 700 }}>Change bundled services</Link>}
       </div>
