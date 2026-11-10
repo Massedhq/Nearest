@@ -41,17 +41,18 @@ export default async function PortfolioStep({ searchParams }: { searchParams: Pr
       <p className="xs muted p">Videos can be up to {MAX_VIDEO_SECONDS} seconds — MP4, or straight from your phone&apos;s camera. Star up to 3 favorites to show first. Pick the service each photo or video shows so students can tap it and <span className="b">Book this look</span>.</p>
       <PortfolioGrid items={items} services={services} />
       {items.some((i) => i.kind !== "video") && (
-        <div className="col" style={{ gap: 8 }}>
-          <span className="small b">Show the whole look</span>
-          <span className="xs muted">Open a photo below to add up to {LOOK_MAX_PHOTOS - 1} more photos of the same look (front, side, back) and a 360° video of it (up to {LOOK_VIDEO_SECONDS} seconds). Clients see them when they tap the photo — the video opens from <span className="b">See video of this look</span>.</span>
+        <div id="whole-look" className="col" style={{ gap: 10 }}>
+          <div className="col" style={{ gap: 2 }}>
+            <span className="small b">Add more photos &amp; a 360° video to each look</span>
+            <span className="xs muted">Every photo below can have up to {LOOK_MAX_PHOTOS - 1} more photos of the same look (front, side, back) and one 360° video (up to {LOOK_VIDEO_SECONDS} seconds, MP4 or straight from your phone&apos;s camera). Clients see them when they tap the photo — the video opens from <span className="b">See video of this look</span>.</span>
+          </div>
           {items.filter((i) => i.kind !== "video").map((it, n) => (
-            <details key={it.id} className="card" style={{ gap: 8, padding: 10 }}>
-              <summary className="row" style={{ gap: 10, cursor: "pointer", listStyle: "none" }}>
+            <div key={it.id} id={`look-${it.id}`} className="card" style={{ gap: 10, padding: 12 }}>
+              <div className="row" style={{ gap: 10 }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={it.url} alt="" width={44} height={44} style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", flex: "none" }} />
-                <span className="grow small"><span className="b">Look {n + 1}{it.serviceId ? ` · ${services.find((x) => x.id === it.serviceId)?.name ?? ""}` : ""}</span><br /><span className="xs muted">{1 + it.lookPhotos.length} of {LOOK_MAX_PHOTOS} photos · {it.lookVideoUrl ? `360° video (${Math.round(it.lookVideoSec ?? 0)}s)` : "no video yet"}</span></span>
-                <span className="xs link">Edit</span>
-              </summary>
+                <img src={it.url} alt="" width={56} height={56} style={{ width: 56, height: 56, borderRadius: 10, objectFit: "cover", flex: "none" }} />
+                <span className="grow small"><span className="b">Look {n + 1}{it.serviceId ? ` · ${services.find((x) => x.id === it.serviceId)?.name ?? ""}` : ""}</span><br /><span className="xs muted">{1 + it.lookPhotos.length} of {LOOK_MAX_PHOTOS} photos · {it.lookVideoUrl ? `360° video added (${Math.round(it.lookVideoSec ?? 0)}s)` : "no video yet"}</span></span>
+              </div>
               {it.lookPhotos.length > 0 && (
                 <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
                   {it.lookPhotos.map((u) => (
@@ -67,14 +68,14 @@ export default async function PortfolioStep({ searchParams }: { searchParams: Pr
               {1 + it.lookPhotos.length < LOOK_MAX_PHOTOS
                 ? <Uploader userId={user.id} folder="look-photo" save={addLookPhotos.bind(null, it.id)} label={`Add more photos of this look (up to ${LOOK_MAX_PHOTOS - 1 - it.lookPhotos.length} more)`} />
                 : <span className="xs muted">This look has the full {LOOK_MAX_PHOTOS} photos.</span>}
-              {it.lookVideoUrl ? (
+              {it.lookVideoUrl && (
                 <div className="col" style={{ gap: 6 }}>
                   <video src={`${it.lookVideoUrl}#t=0.1`} controls playsInline preload="metadata" style={{ width: "100%", maxHeight: 280, borderRadius: 10, background: "#111" }} />
                   <form action={removeLookVideo}><input type="hidden" name="id" value={it.id} /><button type="submit" className="btn ghost sm">Remove video</button></form>
                 </div>
-              ) : null}
-              <VideoUploader userId={user.id} folder="look-video" maxSeconds={LOOK_VIDEO_SECONDS} maxMb={LOOK_VIDEO_MB} save={addLookVideo.bind(null, it.id)} label={it.lookVideoUrl ? "Replace the 360° video" : `Add a 360° video of this look (up to ${LOOK_VIDEO_SECONDS} seconds)`} />
-            </details>
+              )}
+              <VideoUploader userId={user.id} folder="look-video" maxSeconds={LOOK_VIDEO_SECONDS} maxMb={LOOK_VIDEO_MB} save={addLookVideo.bind(null, it.id)} label={it.lookVideoUrl ? "Replace the 360° video" : `Upload a 360° video of this look (up to ${LOOK_VIDEO_SECONDS} sec)`} />
+            </div>
           ))}
         </div>
       )}

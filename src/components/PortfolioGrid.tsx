@@ -30,6 +30,7 @@ export function PortfolioGrid({ items, services = [] }: { items: Item[]; service
             </div>
           </div>
           {services.length > 0 && <PhotoServiceSelect id={it.id} value={it.serviceId ?? null} services={services} />}
+          {it.kind !== "video" && <a href={`#look-${it.id}`} className="xs link" style={{ textAlign: "center" }}>+ Photos &amp; 360° video</a>}
         </div>
       ))}
     </div>
