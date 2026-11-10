@@ -24,11 +24,13 @@ export const SERVICES: DemoService[] = [
   { id: "pedi", cat: "Nails", name: "Pedicure", price: 45, mins: 45, img: "p-pedi", adds: [], adult: false },
 ];
 
+// "more" = other photos of the same look (up to 5 per look); look360 = the look has a 360° video (sample: /partner-demo/look-360.mp4).
 export const PORTFOLIO = [
-  { img: "p-eyesq", svc: "lift" }, { img: "p-face", svc: "glam" }, { img: "v-brows", svc: "brow", video: true },
-  { img: "p-chrome", svc: "gelx" }, { img: "p-lips", svc: "glam" }, { img: "p-french", svc: "gelx" },
+  { img: "p-eyesq", svc: "lift", more: ["p-eyes", "p-face"], look360: true }, { img: "p-face", svc: "glam", more: ["p-lips", "p-eyesq"], look360: true }, { img: "v-brows", svc: "brow", video: true },
+  { img: "p-chrome", svc: "gelx", more: ["p-french"] }, { img: "p-lips", svc: "glam", more: ["p-face"], look360: true }, { img: "p-french", svc: "gelx" },
   { img: "p-floral", svc: "gelx" }, { img: "p-pedi", svc: "pedi" }, { img: "v-glam", svc: "glam", video: true },
-] as { img: string; svc: string; video?: boolean }[];
+] as { img: string; svc: string; video?: boolean; more?: string[]; look360?: boolean }[];
+export const LOOK_VIDEO = "/partner-demo/look-360.mp4";
 
 export const VIDEOS = [
   { img: "v-booked", title: "How to get fully booked in 2027", len: "4:12" },

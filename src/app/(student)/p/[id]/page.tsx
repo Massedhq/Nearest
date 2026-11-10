@@ -120,7 +120,7 @@ export default async function ProProfile({ params, searchParams }: { params: Pro
             <PortfolioViewer bookingOpen={bookingOpen} photos={photos.map((ph) => {
               const svc = ph.serviceId ? services.find((x) => x.id === ph.serviceId) : undefined;
               const blocked = svc?.adultsOnly && !adult;
-              return { id: ph.id, url: ph.url, kind: ph.kind, durationSec: ph.durationSec, serviceName: svc ? `${svc.name}${svc.adultsOnly ? " (18+)" : ""}` : null, price: svc ? money(svc.priceCents) : null, bookHref: svc && !blocked ? `/book/${svc.id}` : null };
+              return { id: ph.id, url: ph.url, kind: ph.kind, durationSec: ph.durationSec, more: ph.lookPhotos, lookVideo: ph.lookVideoUrl, lookVideoSec: ph.lookVideoSec, serviceName: svc ? `${svc.name}${svc.adultsOnly ? " (18+)" : ""}` : null, price: svc ? money(svc.priceCents) : null, bookHref: svc && !blocked ? `/book/${svc.id}` : null };
             })} />
           </>
         )}

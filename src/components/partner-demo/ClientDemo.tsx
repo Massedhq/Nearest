@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { ACCENT, GOLD, IMG, C, Btn, Choice, Row, Check, Stars, Ico, Done, DemoShell } from "./ui";
-import { DEMO, SERVICES, PORTFOLIO, VIDEOS, LINKS, MODEL_CALLS, PRODUCTS, mins } from "./data";
+import { DEMO, SERVICES, PORTFOLIO, LOOK_VIDEO, VIDEOS, LINKS, MODEL_CALLS, PRODUCTS, mins } from "./data";
 
 const TABS = ["Link page", "Book profile", "Booking", "Bundle", "Model Calls", "Shop", "Save to phone"];
 const svcOf = (id: string) => SERVICES.find((s) => s.id === id)!;
@@ -119,22 +119,53 @@ function LinkPage({ go, book, shop }: { go: (n: number) => void; book: (s?: stri
 
 function Profile({ book }: { book: (s?: string) => void }) {
   const [view, setView] = useState<number | null>(null);
+  const [shot, setShot] = useState(0);
+  const [playing, setPlaying] = useState(false);
   const cats = [...new Set(SERVICES.map((s) => s.cat))];
   if (view !== null) {
     const p = PORTFOLIO[view]; const s = svcOf(p.svc);
+    const shots = [p.img, ...(p.more ?? [])];
+    const cur = shots[Math.min(shot, shots.length - 1)];
+    const move = (d: number) => { setShot(0); setPlaying(false); setView((view + d + PORTFOLIO.length) % PORTFOLIO.length); };
     return (
       <>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <button type="button" onClick={() => setView(null)} style={{ background: "transparent", border: "1px solid #2A2A2E", color: "#F4F1EA", borderRadius: 999, padding: "8px 14px", font: "700 12px var(--font-body), sans-serif", cursor: "pointer" }}>Close</button>
+          <button type="button" onClick={() => { setView(null); setShot(0); setPlaying(false); }} style={{ background: "transparent", border: "1px solid #2A2A2E", color: "#F4F1EA", borderRadius: 999, padding: "8px 14px", font: "700 12px var(--font-body), sans-serif", cursor: "pointer" }}>Close</button>
           <span style={{ fontSize: 13, color: "#B8B2A7", fontWeight: 700 }}>{view + 1} of {PORTFOLIO.length}</span>
         </div>
         <div style={{ position: "relative", borderRadius: 18, overflow: "hidden", aspectRatio: "4 / 5" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={IMG(p.img)} alt={s.name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          <img src={IMG(cur)} alt={s.name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          {p.look360 && (
+            <button type="button" onClick={() => setPlaying(true)} style={{ position: "absolute", right: 10, bottom: 10, display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,.72)", color: "#FFF", border: "1px solid rgba(255,255,255,.35)", borderRadius: 999, padding: "8px 12px", font: "800 12px var(--font-body), sans-serif", cursor: "pointer" }}>
+              <span aria-hidden="true" style={{ width: 0, height: 0, borderLeft: "8px solid #FFF", borderTop: "5px solid transparent", borderBottom: "5px solid transparent" }} />See video of this look
+            </button>
+          )}
           {(["prev", "next"] as const).map((d) => (
-            <button key={d} type="button" aria-label={d === "prev" ? "Previous photo" : "Next photo"} onClick={() => setView((view + (d === "prev" ? PORTFOLIO.length - 1 : 1)) % PORTFOLIO.length)} style={{ position: "absolute", top: "50%", [d === "prev" ? "left" : "right"]: 10, transform: "translateY(-50%)", width: 40, height: 40, borderRadius: 20, border: "none", background: "rgba(0,0,0,.55)", color: "#FFF", cursor: "pointer" }}>{d === "prev" ? "‹" : "›"}</button>
+            <button key={d} type="button" aria-label={d === "prev" ? "Previous photo" : "Next photo"} onClick={() => move(d === "prev" ? -1 : 1)} style={{ position: "absolute", top: "50%", [d === "prev" ? "left" : "right"]: 10, transform: "translateY(-50%)", width: 40, height: 40, borderRadius: 20, border: "none", background: "rgba(0,0,0,.55)", color: "#FFF", cursor: "pointer" }}>{d === "prev" ? "‹" : "›"}</button>
           ))}
         </div>
+        {shots.length > 1 && (
+          <div style={{ display: "flex", gap: 6 }} aria-label="Photos of this look">
+            {shots.map((im, i) => (
+              <button key={im + i} type="button" onClick={() => setShot(i)} aria-pressed={i === shot} aria-label={`Photo ${i + 1} of this look`} style={{ width: 52, height: 52, padding: 0, borderRadius: 10, overflow: "hidden", border: i === shot ? `2px solid ${ACCENT}` : "1px solid #3A3A3F", cursor: "pointer" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={IMG(im)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              </button>
+            ))}
+            <span style={{ alignSelf: "center", fontSize: 12, color: "#B8B2A7" }}>{shots.length} photos of this look</span>
+          </div>
+        )}
+        {playing && (
+          <div role="dialog" aria-modal="true" aria-label="Video of this look" onClick={() => setPlaying(false)} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 420, background: "#0B0B0C", border: "1px solid #2A2A2E", borderRadius: 18, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><b style={{ fontSize: 14 }}>{s.name} — 360° video</b><button type="button" onClick={() => setPlaying(false)} style={{ background: "transparent", border: "1px solid #2A2A2E", color: "#F4F1EA", borderRadius: 999, padding: "6px 12px", font: "700 12px var(--font-body), sans-serif", cursor: "pointer" }}>Close</button></div>
+              <video src={LOOK_VIDEO} controls autoPlay playsInline loop muted style={{ width: "100%", borderRadius: 12, background: "#000" }} />
+              <span style={C.muted}>Front, side and back — up to 60 seconds. Sample video.</span>
+              <Btn onClick={() => { setPlaying(false); book(s.id); }}>Book this look</Btn>
+            </div>
+          </div>
+        )}
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}><span style={C.eyebrow}>This look</span><span style={{ fontSize: 18, fontWeight: 800 }}>{s.name}</span><span style={{ fontSize: 13, color: "#D9D4CA" }}>${s.price} · {mins(s.mins)}</span></div>
         <Btn onClick={() => book(s.id)}>Book this look</Btn>
       </>
@@ -167,6 +198,7 @@ function Profile({ book }: { book: (s?: string) => void }) {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={IMG(p.img)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
               {p.video && <span style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,.6)", borderRadius: 6, padding: "2px 5px", fontSize: 10, fontWeight: 800, color: "#FFF" }}>0:12</span>}
+              {!p.video && p.look360 && <span style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,.6)", borderRadius: 6, padding: "2px 5px", fontSize: 10, fontWeight: 800, color: "#FFF" }}>360°</span>}
             </button>
           ))}
         </div>

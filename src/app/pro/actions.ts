@@ -14,7 +14,7 @@ import { instagramHandle, tiktokHandle, facebookHandle, pinterestHandle } from "
 import { slugify, validSlug } from "@/lib/connections";
 import { MAX_PRICE_DOLLARS } from "@/lib/pricing";
 import type { FormState } from "@/components/ActionForm";
-import { MAX_PHOTOS, MAX_VIDEOS, MAX_VIDEO_SECONDS } from "@/lib/portfolio-limits";
+import { MAX_PHOTOS, MAX_VIDEOS, MAX_VIDEO_SECONDS, LOOK_MAX_PHOTOS, LOOK_VIDEO_SECONDS } from "@/lib/portfolio-limits";
 import { proReadiness } from "@/lib/live-check";
 
 const str = (f: FormData, k: string, max = 500) => String(f.get(k) ?? "").trim().slice(0, max);
@@ -326,6 +326,63 @@ export async function addPortfolioVideo(url: string): Promise<{ error?: string }
   return {};
 }
 
+// ---------- One look: more photos + a 360° video of the same look (2026-11-09) ----------
+async function myPhoto(userId: string, id: string) {
+  if (!/^[0-9a-f-]{36}$/.test(id)) return null;
+  return (await db.query.portfolioItems.findFirst({ where: and(eq(portfolioItems.id, id), eq(portfolioItems.userId, userId), eq(portfolioItems.kind, "image")) })) ?? null;
+}
+const lookRefresh = (userId: string) => { revalidatePath("/pro", "layout"); revalidatePath(`/p/${userId}`); };
+
+/** Add more photos of the same look (front, side, back…) — up to LOOK_MAX_PHOTOS in all, counting the main photo. */
+export async function addLookPhotos(itemId: string, urls: string[]): Promise<{ error?: string }> {
+  const { user } = await requirePro();
+  const it = await myPhoto(user.id, itemId);
+  if (!it) return { error: "That photo isn't in your portfolio anymore." };
+  const room = LOOK_MAX_PHOTOS - 1 - it.lookPhotos.length;
+  if (room <= 0) return { error: `A look can have up to ${LOOK_MAX_PHOTOS} photos. Remove one to add another.` };
+  const valid = urls.filter((u) => blobUrlOk(u, user.id) && new URL(u).pathname.startsWith(`/pros/${user.id}/look-photo/`));
+  if (!valid.length) return { error: "Upload didn't complete. Try again." };
+  await db.update(portfolioItems).set({ lookPhotos: [...it.lookPhotos, ...valid.slice(0, room)] }).where(eq(portfolioItems.id, it.id));
+  lookRefresh(user.id);
+  return valid.length > room ? { error: `Added ${room}. A look can have up to ${LOOK_MAX_PHOTOS} photos.` } : {};
+}
+
+export async function removeLookPhoto(form: FormData) {
+  const { user } = await requirePro();
+  const it = await myPhoto(user.id, String(form.get("id")));
+  const url = String(form.get("url") ?? "");
+  if (!it || !it.lookPhotos.includes(url)) return;
+  await db.update(portfolioItems).set({ lookPhotos: it.lookPhotos.filter((u) => u !== url) }).where(eq(portfolioItems.id, it.id));
+  try { const { del } = await import("@vercel/blob"); await del(url); } catch (e) { console.error(e); }
+  lookRefresh(user.id);
+}
+
+/** Add (or replace) the 360° video of a look. Its length is read from the file on the server — over 60 seconds is deleted and refused. */
+export async function addLookVideo(itemId: string, url: string): Promise<{ error?: string }> {
+  const { user } = await requirePro();
+  const discard = async (u: string) => { try { const { del } = await import("@vercel/blob"); await del(u); } catch (e) { console.error(e); } };
+  if (!url || !blobUrlOk(url, user.id) || !new URL(url).pathname.startsWith(`/pros/${user.id}/look-video/`)) return { error: "Upload didn't complete. Try again." };
+  const it = await myPhoto(user.id, itemId);
+  if (!it) { await discard(url); return { error: "That photo isn't in your portfolio anymore." }; }
+  const { videoSeconds } = await import("@/lib/video-length");
+  const secs = await videoSeconds(url);
+  if (secs === null) { await discard(url); return { error: "We couldn't read this video. Try an MP4 or a video straight from your phone's camera." }; }
+  if (secs > LOOK_VIDEO_SECONDS + 0.5) { await discard(url); return { error: `This video is ${Math.round(secs)} seconds. A look video can be up to ${LOOK_VIDEO_SECONDS} seconds — trim it and try again.` }; }
+  await db.update(portfolioItems).set({ lookVideoUrl: url, lookVideoSec: Math.round(secs * 10) / 10 }).where(eq(portfolioItems.id, it.id));
+  if (it.lookVideoUrl && it.lookVideoUrl !== url) await discard(it.lookVideoUrl);
+  lookRefresh(user.id);
+  return {};
+}
+
+export async function removeLookVideo(form: FormData) {
+  const { user } = await requirePro();
+  const it = await myPhoto(user.id, String(form.get("id")));
+  if (!it?.lookVideoUrl) return;
+  await db.update(portfolioItems).set({ lookVideoUrl: null, lookVideoSec: null }).where(eq(portfolioItems.id, it.id));
+  try { const { del } = await import("@vercel/blob"); await del(it.lookVideoUrl); } catch (e) { console.error(e); }
+  lookRefresh(user.id);
+}
+
 /** Tag a photo with the service it shows (or clear it) — used for "Book this look". */
 export async function setPortfolioService(form: FormData) {
   const { user } = await requirePro();
@@ -345,6 +402,8 @@ export async function removePortfolio(form: FormData) {
   const [gone] = await db.delete(portfolioItems).where(and(eq(portfolioItems.id, String(form.get("id"))), eq(portfolioItems.userId, user.id))).returning();
   // Videos are large: delete the file too (photos can be shared with client photos, so they stay).
   if (gone?.kind === "video") { try { const { del } = await import("@vercel/blob"); await del(gone.url); } catch (e) { console.error(e); } }
+  // The look's extra photos and 360° video go with it.
+  if (gone && (gone.lookPhotos.length || gone.lookVideoUrl)) { try { const { del } = await import("@vercel/blob"); await del([...gone.lookPhotos, ...(gone.lookVideoUrl ? [gone.lookVideoUrl] : [])]); } catch (e) { console.error(e); } }
   revalidatePath("/pro", "layout");
   revalidatePath(`/p/${user.id}`);
 }

@@ -99,7 +99,7 @@ export default async function PartnerBookProfile({ params }: { params: Promise<{
           <span style={PS.eyebrow}>Portfolio · tap a photo</span>
           <PortfolioViewer bookingOpen={bookingOpen} photos={photos.map((ph) => {
             const s = ph.serviceId ? services.find((v) => v.id === ph.serviceId) : undefined;
-            return { id: ph.id, url: ph.url, kind: ph.kind, durationSec: ph.durationSec, serviceName: s ? `${s.name}${s.adultsOnly ? " (18+)" : ""}` : null, price: s ? money(sidePrice(s)) : null, bookHref: s ? svcHref(s.id) : null };
+            return { id: ph.id, url: ph.url, kind: ph.kind, durationSec: ph.durationSec, more: ph.lookPhotos, lookVideo: ph.lookVideoUrl, lookVideoSec: ph.lookVideoSec, serviceName: s ? `${s.name}${s.adultsOnly ? " (18+)" : ""}` : null, price: s ? money(sidePrice(s)) : null, bookHref: s ? svcHref(s.id) : null };
           })} />
         </section>
       )}

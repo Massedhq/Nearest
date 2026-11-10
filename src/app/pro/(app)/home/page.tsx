@@ -107,7 +107,10 @@ export default async function ProHome({ searchParams }: { searchParams: Promise<
           </div>
         )}
 
-        <ShareMyLink link={proLink((await ensureProSlug(profile.userId)) ?? profile.userId)} name={profile.businessName ?? "Your business"} />
+        {/* Student side → usenearest.com/pro-<name>; Partner side → usenearest.com/par-<name> (their partner page). */}
+        {view.side === "partner"
+          ? <ShareMyLink partner link={(await import("@/lib/partners")).partnerShareLink((await ensureProSlug(profile.userId)) ?? profile.userId)} name={profile.businessName ?? "Your business"} />
+          : <ShareMyLink link={proLink((await ensureProSlug(profile.userId)) ?? profile.userId)} name={profile.businessName ?? "Your business"} />}
         <FollowNearest />
         {profile.entryType === "FIRST_IN" && (
           <div className="card pearl"><span className="tag solid" style={{ background: "#0A0A0A", color: "#ECE8E1", alignSelf: "flex-start" }}>First In</span><span className="small">Your First In rate is locked to your account.</span></div>

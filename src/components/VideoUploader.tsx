@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { Icon } from "./Icon";
-import { MAX_VIDEO_SECONDS, MAX_VIDEO_MB } from "@/lib/portfolio-limits";
+import { MAX_VIDEO_SECONDS as DEF_SECONDS, MAX_VIDEO_MB as DEF_MB } from "@/lib/portfolio-limits";
 
 type Save = (url: string) => Promise<{ error?: string }>;
 
@@ -26,7 +26,8 @@ function lengthOf(file: File): Promise<number | null> {
  * Portfolio video upload: one video at a time, MP4 or iPhone MOV, 15 seconds max.
  * The length is checked here first (so nothing over 15 seconds is uploaded), then again on the server from the file.
  */
-export function VideoUploader({ userId, save, label }: { userId: string; save: Save; label: string }) {
+export function VideoUploader({ userId, save, label, folder = "portfolio-video", maxSeconds = DEF_SECONDS, maxMb = DEF_MB }: { userId: string; save: Save; label: string; folder?: string; maxSeconds?: number; maxMb?: number }) {
+  const MAX_VIDEO_SECONDS = maxSeconds, MAX_VIDEO_MB = maxMb;
   const input = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const [busy, setBusy] = useState("");
@@ -47,7 +48,7 @@ export function VideoUploader({ userId, save, label }: { userId: string; save: S
         return;
       }
       const ext = type === "video/quicktime" ? "mov" : "mp4";
-      const blob = await upload(`pros/${userId}/portfolio-video/${Date.now()}.${ext}`, f, {
+      const blob = await upload(`pros/${userId}/${folder}/${Date.now()}.${ext}`, f, {
         access: "public", handleUploadUrl: "/api/blob", contentType: type,
         onUploadProgress: (p) => setBusy(`Uploading… ${Math.round(p.percentage)}%`),
       });

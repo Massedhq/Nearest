@@ -364,6 +364,11 @@ export const portfolioItems = pgTable("portfolio_items", {
   source: portfolioSource("source").notNull().default("upload"),
   kind: text("kind").notNull().default("image"), // "image" | "video" (videos are 15 seconds max)
   durationSec: doublePrecision("duration_sec"), // videos only, read from the file itself
+  // One "look" (2026-11-09): this photo plus up to LOOK_MAX_PHOTOS − 1 more photos of the same look (front, side, back),
+  // and an optional 360° video of the look (up to LOOK_VIDEO_SECONDS, read from the file). Shown in "This look".
+  lookPhotos: jsonb("look_photos").$type<string[]>().notNull().default([]),
+  lookVideoUrl: text("look_video_url"),
+  lookVideoSec: doublePrecision("look_video_sec"),
   featured: boolean("featured").notNull().default(false),
   sort: integer("sort").notNull().default(0),
   // The service this photo shows — powers "Book this look" on the profile. Optional.

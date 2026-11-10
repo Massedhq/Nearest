@@ -35,6 +35,10 @@ export async function POST(request: Request) {
           // Videos a pro adds to a client's review: up to 60 seconds (checked again from the file after upload).
           return { allowedContentTypes: ["video/mp4", "video/quicktime"], maximumSizeInBytes: 100 * 1024 * 1024, addRandomSuffix: true };
         }
+        if (pathname.startsWith(`pros/${u!.id}/look-video/`)) {
+          // 360° video of one look: up to 60 seconds (checked again from the file after upload), MP4 or iPhone MOV.
+          return { allowedContentTypes: ["video/mp4", "video/quicktime"], maximumSizeInBytes: 200 * 1024 * 1024, addRandomSuffix: true };
+        }
         if (pathname.startsWith(`pros/${u!.id}/portfolio-video/`)) {
           // Portfolio videos: 15 seconds max (checked again from the file after upload), MP4 or iPhone MOV.
           return { allowedContentTypes: ["video/mp4", "video/quicktime"], maximumSizeInBytes: 100 * 1024 * 1024, addRandomSuffix: true };
