@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -m "Card partners: add form on top, address required, give cards by full number, see every card number and code"
+git commit -m "Remove professional status from partner booking profile and demo"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

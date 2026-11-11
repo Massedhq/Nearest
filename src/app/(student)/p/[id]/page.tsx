@@ -39,7 +39,6 @@ export default async function ProProfile({ params, searchParams }: { params: Pro
   });
   if (!p) notFound();
   const today = chicagoNow().date;
-  // Categories where this pro was approved as a recent graduate (license pending) — shown honestly to students.
   const [services, photos, hours, openings, city, calls] = await Promise.all([
     db.select().from(proServices).where(and(eq(proServices.userId, id), eq(proServices.active, true), lte(proServices.priceCents, MAX_PRICE_CENTS), ne(proServices.showOn, "partner"))).orderBy(asc(proServices.sort)),
     db.select().from(portfolioItems).where(eq(portfolioItems.userId, id)).orderBy(desc(portfolioItems.featured), asc(portfolioItems.sort)).limit(15), // 10 photos + 5 videos

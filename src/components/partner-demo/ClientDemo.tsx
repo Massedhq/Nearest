@@ -180,7 +180,7 @@ function Profile({ book }: { book: (s?: string) => void }) {
         </div>
       </section>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {["Licensed", `4.2 mi · ${DEMO.city}`, "English · Spanish", "ASL — Basic"].map((t) => <span key={t} style={{ border: "1px solid #3A3A3F", borderRadius: 999, padding: "6px 11px", fontSize: 12 }}>{t}</span>)}
+        {[`4.2 mi · ${DEMO.city}`, "English · Spanish", "ASL — Basic"].map((t) => <span key={t} style={{ border: "1px solid #3A3A3F", borderRadius: 999, padding: "6px 11px", fontSize: 12 }}>{t}</span>)}
       </div>
       <div style={{ ...C.card, gap: 6 }}>
         <span style={{ fontSize: 14, fontWeight: 800 }}>Come to my studio or I travel</span>

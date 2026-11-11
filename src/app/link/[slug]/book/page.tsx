@@ -14,7 +14,6 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Book", robots: { index: false, follow: false } };
 
 const mins = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} hr${m % 60 ? ` ${m % 60} min` : ""}` : `${m} min`);
-const STATUS: Record<string, string> = { licensed: "Licensed", license_pending: "License pending", currently_enrolled: "Currently enrolled", self_taught: "Self-taught" };
 const ASL: Record<string, string> = { basic: "Basic", conversational: "Conversational", fluent: "Fluent" };
 const MODE: Record<string, string> = { come_to_me: "Come to me", travel: "I travel to you", both: "Come to me or I travel" };
 
@@ -45,7 +44,7 @@ export default async function PartnerBookProfile({ params }: { params: Promise<{
   const avg = revs.length ? Math.round((revs.reduce((a, r) => a + r.rating, 0) / revs.length) * 10) / 10 : null;
   const langs = (p.languages ?? []).filter((l) => l !== "ASL");
   const chips = [
-    p.professionalStatus ? STATUS[p.professionalStatus] : null,
+    // Professional status (licensed / license pending / enrolled / self-taught) is NEVER shown to clients — owner rule.
     city ? `${city.name}${city.state ? `, ${city.state}` : ""}` : null,
     langs.length ? langs.join(" · ") : null,
     p.aslLevel !== "none" ? `ASL — ${ASL[p.aslLevel]}` : null,
