@@ -64,16 +64,35 @@ export async function unassignedByBatch() {
 
 type Result = { ok: string } | { error: string };
 
-/** Give a stack of cards (#from to #to of a batch's printer file) to a place. Saved cards and cards already at a place are skipped. */
-export async function assignRange(placeId: string, batchId: string, from: number, to: number, by: string, move = false): Promise<Result> {
-  if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to < from) return { error: "Enter the first and last # of the stack (from the printer file)." };
-  if (to - from + 1 > 1000) return { error: "Assign up to 1,000 cards at a time." };
+/** One end of a stack: a full 16-digit card number (we look up its batch and #) or a plain # from the printer file. */
+async function stackEnd(raw: string): Promise<{ seq: number; batchId?: string } | null> {
+  const d = digits(raw);
+  if (d.length === 16) {
+    const c = await db.query.nearestCards.findFirst({ where: eq(nearestCards.number, d) });
+    return c && c.printSeq ? { seq: c.printSeq, batchId: c.batchId } : null;
+  }
+  const n = Number(d);
+  return d && d.length <= 6 && Number.isInteger(n) && n >= 1 ? { seq: n } : null;
+}
+
+/**
+ * Give a stack of cards to a place. Each end can be the full 16-digit card number (first and last card in the stack —
+ * the batch is found from the card) or the # from the printer file (then the batch must be chosen). Saved cards are skipped.
+ */
+export async function assignRange(placeId: string, batchIdIn: string, fromRaw: string, toRaw: string, by: string, move = false): Promise<Result> {
   const place = await db.query.cardPlaces.findFirst({ where: eq(cardPlaces.id, placeId) });
-  if (!place) return { error: "Choose a place." };
-  const batch = await db.query.nearestCardBatches.findFirst({ where: eq(nearestCardBatches.id, batchId) });
-  if (!batch || batch.status === "discarded") return { error: "Choose a batch." };
+  if (!place) return { error: "Choose a card partner." };
+  const a = await stackEnd(fromRaw), z = await stackEnd(toRaw);
+  if (!a || !z) return { error: "Enter the first and last card of the stack — the full 16-digit card number, or its # from the printer file. One of them wasn't found." };
+  const fromBatch = a.batchId ?? z.batchId ?? batchIdIn;
+  if ((a.batchId && z.batchId && a.batchId !== z.batchId) || (a.batchId && batchIdIn && a.batchId !== batchIdIn && !z.batchId)) return { error: "The first and last card are from different batches. Give each batch's stack separately." };
+  if (!fromBatch) return { error: "Using # numbers? Choose the batch too — or type the full card numbers instead." };
+  const from = Math.min(a.seq, z.seq), to = Math.max(a.seq, z.seq);
+  if (to - from + 1 > 1000) return { error: "Assign up to 1,000 cards at a time." };
+  const batch = await db.query.nearestCardBatches.findFirst({ where: eq(nearestCardBatches.id, fromBatch) });
+  if (!batch || batch.status === "discarded") return { error: "That batch wasn't found or was discarded." };
   const done = await db.update(nearestCards).set({ placeId, assignedAt: new Date(), assignedBy: by })
-    .where(and(eq(nearestCards.batchId, batchId), sql`${nearestCards.printSeq} between ${from} and ${to}`, inArray(nearestCards.status, ["issued", "off", "locked"]),
+    .where(and(eq(nearestCards.batchId, batch.id), sql`${nearestCards.printSeq} between ${from} and ${to}`, inArray(nearestCards.status, ["issued", "off", "locked"]),
       move ? sql`true` : sql`${nearestCards.placeId} is null`))
     .returning({ id: nearestCards.id });
   const asked = to - from + 1;
@@ -84,7 +103,7 @@ export async function assignRange(placeId: string, batchId: string, from: number
 /** Give specific cards (full 16-digit numbers, one per line or separated by commas) to a place. */
 export async function assignNumbers(placeId: string, raw: string, by: string, move = false): Promise<Result> {
   const place = await db.query.cardPlaces.findFirst({ where: eq(cardPlaces.id, placeId) });
-  if (!place) return { error: "Choose a place." };
+  if (!place) return { error: "Choose a card partner." };
   const nums = [...new Set(raw.split(/[\n,;]+/).map(digits).filter((n) => n.length > 0))];
   const bad = nums.filter((n) => n.length !== 16);
   if (!nums.length) return { error: "Paste or type at least one 16-digit card number." };
@@ -104,9 +123,36 @@ export async function cardsAtPlace(placeId: string) {
     .innerJoin(nearestCardBatches, eq(nearestCardBatches.id, nearestCards.batchId))
     .where(eq(nearestCards.placeId, placeId)).orderBy(asc(nearestCardBatches.createdAt), asc(nearestCards.printSeq)).limit(1000);
   return rows.map(({ c, b }) => ({
-    id: c.id, number: c.number, seq: c.printSeq, batch: b.name, kind: b.kind,
+    id: c.id, number: c.number, code: c.code, seq: c.printSeq, batch: b.name, kind: b.kind,
     state: c.status === "activated" ? "Saved by a student" : c.status === "issued" && b.status === "active" && activateBy(b, days) > new Date() && b.validThru > new Date() ? "Not saved yet" : c.status === "issued" ? "Inactive — not saved in time" : c.status === "off" ? "Turned off" : c.status === "locked" ? "Locked" : "Discarded",
   }));
 }
 
 export const cityName = async (id: number | null) => (id ? (await db.query.cities.findFirst({ where: eq(cities.id, id) }))?.name ?? null : null);
+
+/** Every card in one batch, in printer-file order, with its full number, security code, status and the partner it was given to. */
+export async function cardsInBatch(batchId: string, opts: { page?: number; show?: "all" | "given" | "not_given" } = {}) {
+  const per = 100, page = Math.max(1, opts.page ?? 1);
+  const days = await activateDays();
+  const batch = await db.query.nearestCardBatches.findFirst({ where: eq(nearestCardBatches.id, batchId) });
+  if (!batch) return null;
+  const filter = opts.show === "given" ? sql`and c.place_id is not null` : opts.show === "not_given" ? sql`and c.place_id is null` : sql``;
+  const total = Number(((await db.execute(sql`select count(*)::int as n from nearest_cards c where c.batch_id = ${batchId} ${filter}`)).rows[0] as { n: number }).n);
+  const rows = (await db.execute(sql`
+    select c.id, c.number, c.code, c.print_seq as seq, c.status, p.name as place
+    from nearest_cards c left join card_places p on p.id = c.place_id
+    where c.batch_id = ${batchId} ${filter}
+    order by c.print_seq nulls last, c.number
+    limit ${per} offset ${(page - 1) * per}`)).rows as { id: string; number: string; code: string; seq: number | null; status: string; place: string | null }[];
+  const open = batch.status === "active" && activateBy(batch, days) > new Date() && batch.validThru > new Date();
+  return {
+    batch, total, page, pages: Math.max(1, Math.ceil(total / per)),
+    rows: rows.map((r) => ({ ...r, state: r.status === "activated" ? "Saved by a student" : r.status === "issued" ? (open ? "Not saved yet" : "Inactive — not saved in time") : r.status === "off" ? "Turned off" : r.status === "locked" ? "Locked" : "Discarded" })),
+  };
+}
+
+/** Batches you can look through on Card places (not discarded), newest first. */
+export async function viewableBatches() {
+  return db.select({ id: nearestCardBatches.id, name: nearestCardBatches.name, kind: nearestCardBatches.kind, amountCents: nearestCardBatches.amountCents, count: nearestCardBatches.count })
+    .from(nearestCardBatches).where(sql`${nearestCardBatches.status} <> 'discarded'`).orderBy(sql`${nearestCardBatches.createdAt} desc`);
+}

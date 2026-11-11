@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { and, eq, sql } from "drizzle-orm";
 import { db, cardPlaces, cities } from "@/db";
 import { requireAdmin } from "@/lib/admin";
@@ -21,7 +22,9 @@ export async function addCardPlace(_: FormState, form: FormData): Promise<FormSt
   if (!user) return { error: "Only owners can add card places." };
   const name = s(form, "name", 120);
   const kind = PLACE_KINDS[s(form, "kind", 30)] ? s(form, "kind", 30) : "other";
-  if (!name) return { error: "Enter the place's name." };
+  if (!name) return { error: "Enter the card partner's name." };
+  const address = s(form, "address", 200);
+  if (address.length < 6 || !/\d/.test(address)) return { error: "Enter the card partner's street address (number and street) — students see it so they know where to pick up a card." };
   // City is typed with suggestions ("Lewisville, TX"); match it to a Nearest city by name (and state when given).
   const typed = s(form, "city", 80);
   const m = /^(.*?)(?:,\s*([A-Za-z]{2}))?$/.exec(typed);
@@ -32,8 +35,8 @@ export async function addCardPlace(_: FormState, form: FormData): Promise<FormSt
   if (matches.length === 0) return { error: `We couldn't find "${typed}". Start typing and pick the city from the list.` };
   if (matches.length > 1) return { error: `There's more than one ${cityName}. Pick it from the list so it includes the state (like "${cityName}, TX").` };
   const cityId = matches[0].id;
-  const [p] = await db.insert(cardPlaces).values({ name, kind, cityId, address: s(form, "address", 200) || null, notes: s(form, "notes", 500) || null, createdBy: user.id }).returning();
-  await logActivity({ actorUserId: user.id, action: "cards.place_added", targetType: "card_place", targetId: p.id, after: { name, kind, cityId } });
+  const [p] = await db.insert(cardPlaces).values({ name, kind, cityId, address, notes: s(form, "notes", 500) || null, createdBy: user.id }).returning();
+  await logActivity({ actorUserId: user.id, action: "cards.place_added", targetType: "card_place", targetId: p.id, after: { name, kind, cityId, address } });
   refresh();
   return { ok: `${name} added. Now give it cards below.` };
 }
@@ -59,10 +62,26 @@ export async function assignCardsToPlace(_: FormState, form: FormData): Promise<
   const numbers = String(form.get("numbers") ?? "").slice(0, 40000).trim();
   const r = numbers
     ? await assignNumbers(placeId, numbers, user.id, move)
-    : await assignRange(placeId, s(form, "batchId", 40), Number(s(form, "from", 6)), Number(s(form, "to", 6)), user.id, move);
+    : await assignRange(placeId, s(form, "batchId", 40), s(form, "from", 30), s(form, "to", 30), user.id, move);
   if ("ok" in r) {
-    await logActivity({ actorUserId: user.id, action: "cards.assigned_to_place", targetType: "card_place", targetId: placeId, after: { how: numbers ? "numbers" : "range", batchId: s(form, "batchId", 40) || null, from: s(form, "from", 6) || null, to: s(form, "to", 6) || null, move, result: r.ok } });
+    await logActivity({ actorUserId: user.id, action: "cards.assigned_to_place", targetType: "card_place", targetId: placeId, after: { how: numbers ? "numbers" : "range", batchId: s(form, "batchId", 40) || null, from: s(form, "from", 30) || null, to: s(form, "to", 30) || null, move, result: r.ok } });
     refresh();
+    // Show the partner's full card list (number, code, status) right after giving cards.
+    redirect(`/admin/card-places?place=${placeId}&given=${encodeURIComponent(r.ok.slice(0, 300))}#cards`);
   }
   return r;
+}
+
+/** Add or change a card partner's street address (required — students see it). */
+export async function setCardPlaceAddress(_: FormState, form: FormData): Promise<FormState> {
+  const user = await owner();
+  if (!user) return { error: "Only owners can change card partners." };
+  const id = s(form, "id", 40), address = s(form, "address", 200);
+  if (address.length < 6 || !/\d/.test(address)) return { error: "Enter the street address (number and street)." };
+  const before = await db.query.cardPlaces.findFirst({ where: eq(cardPlaces.id, id) });
+  if (!before) return { error: "That card partner wasn't found." };
+  await db.update(cardPlaces).set({ address }).where(eq(cardPlaces.id, id));
+  await logActivity({ actorUserId: user.id, action: "cards.place_address", targetType: "card_place", targetId: id, before: { address: before.address }, after: { address } });
+  refresh();
+  return { ok: "Address saved." };
 }

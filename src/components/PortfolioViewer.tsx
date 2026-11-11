@@ -2,9 +2,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { LookVideoTile } from "./LookVideoTile";
 
 type Photo = { id: string; url: string; serviceName: string | null; price: string | null; bookHref: string | null; kind?: string; durationSec?: number | null;
-  // One look (2026-11-09): more photos of the same look and a 360° video, opened from "See video of this look".
+  // One look (2026-11-09): more photos of the same look and a 360° video, opened from the 360° video tile in the photo's corner.
   more?: string[]; lookVideo?: string | null; lookVideoSec?: number | null };
 
 /** Portfolio on a pro's profile: tap a photo or video to see it full-screen and "Book this look". */
@@ -64,12 +65,7 @@ export function PortfolioViewer({ photos, bookingOpen }: { photos: Photo[]; book
             ) : (
               <>
                 <Image key={shots[shot]} src={shots[shot] ?? p.url} alt={p.serviceName ?? "Portfolio work"} fill sizes="100vw" style={{ objectFit: "contain" }} priority />
-                {p.lookVideo && (
-                  <button type="button" onClick={() => setPlaying(true)}
-                    style={{ position: "absolute", right: 10, bottom: 10, display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,.72)", color: "#FFF", border: "1px solid rgba(255,255,255,.35)", borderRadius: 999, padding: "8px 12px", font: "800 12px var(--font-body), sans-serif", cursor: "pointer" }}>
-                    <span className="vid-play" aria-hidden="true" />See video of this look
-                  </button>
-                )}
+                {p.lookVideo && <LookVideoTile src={p.lookVideo} onOpen={() => setPlaying(true)} />}
               </>
             )}
             {photos.length > 1 && (

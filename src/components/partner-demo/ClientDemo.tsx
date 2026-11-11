@@ -1,4 +1,5 @@
 "use client";
+import { LookVideoTile } from "@/components/LookVideoTile";
 import { useState } from "react";
 import { ACCENT, GOLD, IMG, C, Btn, Choice, Row, Check, Stars, Ico, Done, DemoShell } from "./ui";
 import { DEMO, SERVICES, PORTFOLIO, LOOK_VIDEO, VIDEOS, LINKS, MODEL_CALLS, PRODUCTS, mins } from "./data";
@@ -136,11 +137,7 @@ function Profile({ book }: { book: (s?: string) => void }) {
         <div style={{ position: "relative", borderRadius: 18, overflow: "hidden", aspectRatio: "4 / 5" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={IMG(cur)} alt={s.name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-          {p.look360 && (
-            <button type="button" onClick={() => setPlaying(true)} style={{ position: "absolute", right: 10, bottom: 10, display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,.72)", color: "#FFF", border: "1px solid rgba(255,255,255,.35)", borderRadius: 999, padding: "8px 12px", font: "800 12px var(--font-body), sans-serif", cursor: "pointer" }}>
-              <span aria-hidden="true" style={{ width: 0, height: 0, borderLeft: "8px solid #FFF", borderTop: "5px solid transparent", borderBottom: "5px solid transparent" }} />See video of this look
-            </button>
-          )}
+          {p.look360 && <LookVideoTile src={LOOK_VIDEO} onOpen={() => setPlaying(true)} />}
           {(["prev", "next"] as const).map((d) => (
             <button key={d} type="button" aria-label={d === "prev" ? "Previous photo" : "Next photo"} onClick={() => move(d === "prev" ? -1 : 1)} style={{ position: "absolute", top: "50%", [d === "prev" ? "left" : "right"]: 10, transform: "translateY(-50%)", width: 40, height: 40, borderRadius: 20, border: "none", background: "rgba(0,0,0,.55)", color: "#FFF", cursor: "pointer" }}>{d === "prev" ? "‹" : "›"}</button>
           ))}

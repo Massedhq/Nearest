@@ -44,7 +44,7 @@ export default async function PortfolioStep({ searchParams }: { searchParams: Pr
         <div id="whole-look" className="col" style={{ gap: 10 }}>
           <div className="col" style={{ gap: 2 }}>
             <span className="small b">Add more photos &amp; a 360° video to each look</span>
-            <span className="xs muted">Every photo below can have up to {LOOK_MAX_PHOTOS - 1} more photos of the same look (front, side, back) and one 360° video (up to {LOOK_VIDEO_SECONDS} seconds, MP4 or straight from your phone&apos;s camera). Clients see them when they tap the photo — the video opens from <span className="b">See video of this look</span>.</span>
+            <span className="xs muted">Every photo below can have up to {LOOK_MAX_PHOTOS - 1} more photos of the same look (front, side, back) and one 360° video (up to {LOOK_VIDEO_SECONDS} seconds, MP4 or straight from your phone&apos;s camera). Clients see them when they tap the photo — the video shows as a small 360° tile with a play button in the corner of the photo.</span>
           </div>
           {items.filter((i) => i.kind !== "video").map((it, n) => (
             <div key={it.id} id={`look-${it.id}`} className="card" style={{ gap: 10, padding: 12 }}>
