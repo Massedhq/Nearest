@@ -122,12 +122,11 @@ export function VoteFlow({ states, signedIn }: { states: string[]; signedIn: boo
             <button key={s.name} type="button" aria-pressed={on} onClick={() => setPicks(on ? picks.filter((x) => x !== s.name) : [...picks, s.name])}
               style={{ textAlign: "left", borderRadius: 14, padding: "12px 12px", border: `1px solid ${on ? "#ECE8E1" : "#2F2F33"}`, background: on ? "#ECE8E1" : "#0E0E10", color: on ? "#0A0A0A" : "#ECE8E1", cursor: "pointer", display: "flex", flexDirection: "column", gap: 3, font: "inherit" }}>
               <span style={{ fontWeight: 800, fontSize: 14 }}>{on ? "✓ " : ""}{s.name}</span>
-              <span style={{ fontSize: 11, opacity: 0.75 }}>{s.fromCents != null ? `From ${money(s.fromCents)}${s.near ? " nearby" : ""}` : "Coming soon"}</span>
+              <span style={{ fontSize: 11, opacity: 0.75 }}>{s.fromCents != null ? `From ${money(s.fromCents)}${s.near ? " nearby" : ""}` : "\u00a0"}</span>
             </button>
           );
         })}
       </div>
-      <p className="xs muted" style={{ margin: 0 }}>&quot;From&quot; prices are what students pay with professionals on Nearest today (booking fee included). &quot;Coming soon&quot; means nobody offers it near you yet — your vote helps bring them.</p>
       {err && <p className="err" role="alert">{err}</p>}
       <button className="btn" type="button" onClick={vote} disabled={busy}>{busy ? "Saving…" : "Submit my vote"}</button>
       <button className="link small" type="button" onClick={() => setStep("where")} style={{ background: "none", border: 0, color: "inherit" }}>Back</button>
