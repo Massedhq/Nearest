@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -m "GRANTED vote: voucher benefit per campaign, linked after register and verify, all services selectable"
+git commit -m "GRANTED certificate vouchers: Your City Your Choice vote, shared voucher campaigns, admin dashboard"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

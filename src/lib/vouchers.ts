@@ -21,12 +21,6 @@ export const VOUCHER = { name: "Nearest GRANTED Certificate Voucher", short: "GR
 
 export const voucherLabel = (kind: string) => (kind === "free" ? "GRANTED Voucher — free service" : "GRANTED Voucher — discount");
 
-/** The benefit of THIS campaign, read from its own type and value (free-service vs discount) — never a fixed wording. */
-export const benefitLine = (kind: string, amountCents: number) => {
-  const amt = `$${(amountCents / 100).toFixed(amountCents % 100 ? 2 : 0)}`;
-  return kind === "free" ? `GRANTED free-service voucher (covers one service up to ${amt})` : `GRANTED discount voucher (${amt} off a service)`;
-};
-
 export async function maxActivations() {
   const { getSettings } = await import("./settings");
   const n = Number((await getSettings())["vouchers.max_activations"] ?? 1500);
@@ -120,7 +114,7 @@ export async function claimVote(userId: string): Promise<{ linked: boolean; vouc
     const b = await db.query.nearestCardBatches.findFirst({ where: eq(nearestCardBatches.id, v.pendingBatchId) });
     if (b) {
       const r = await activateVoucher(userId, b);
-      voucher = r.ok ? { ok: true, message: `Your ${benefitLine(b.kind, b.amountCents)} is now linked to your student account. Choose it at checkout once you're verified to book.` } : { ok: false, message: r.error };
+      voucher = r.ok ? { ok: true, message: `Your ${voucherLabel(b.kind)} is activated and saved to your account. Choose it at checkout when you book.` } : { ok: false, message: r.error };
     }
     await db.update(studentVotes).set({ pendingBatchId: null }).where(eq(studentVotes.id, v.id));
   }
