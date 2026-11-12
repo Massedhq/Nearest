@@ -97,13 +97,13 @@ export default async function Confirm({ params, searchParams }: { params: Promis
         )}
         {!bundleItem && (
           <div className="card" style={{ gap: 10 }}>
-            <span className="b small">Use a Nearest Card on this booking?</span>
+            <span className="b small">Use a GRANTED voucher or Nearest Card on this booking?</span>
             {myCards.length > 0 ? (
               <div className="col" style={{ gap: 8 }}>
                 <Link className={`chip${!chosen ? " on" : ""}`} href={`/book/${svc.id}/confirm?day=${day}&time=${time}${q}`} replace scroll={false}>Don&apos;t use a card</Link>
                 {myCards.map((x) => (
                   <Link key={x.c.id} className={`chip${chosen?.c.id === x.c.id ? " on" : ""}`} href={`/book/${svc.id}/confirm?day=${day}&time=${time}${q}&card=${x.c.id}`} replace scroll={false}>
-                    {cardLabel(x.b.kind)} •••• {x.c.number.slice(-4)} — {x.b.kind === "free" ? `covers up to ${money(x.b.amountCents)}` : `${money(x.b.amountCents)} off`}
+                    {cardLabel(x.b.kind, !!x.b.sharedNumber)} •••• {x.c.number.slice(-4)} — {x.b.kind === "free" ? `covers up to ${money(x.b.amountCents)}` : `${money(x.b.amountCents)} off`}
                   </Link>
                 ))}
                 <span className="xs muted">Only the card you choose is used, and only on this booking. It covers the service — the Deposit/Booking Fee is still paid. One card per booking; any value it doesn&apos;t cover here isn&apos;t kept.</span>
@@ -117,7 +117,7 @@ export default async function Confirm({ params, searchParams }: { params: Promis
             </details>
           </div>
         )}
-        <PriceBox price={price} fee={svc.proPriceCents == null ? 0 : svc.serviceFeeCents} card={use.card} cardLabel={chosen ? `${cardLabel(chosen.b.kind)} •••• ${chosen.c.number.slice(-4)}` : undefined} deposit={deposit} pro={use.pro} general={use.general} charge={use.charge} invite={inv?.cents ?? 0} />
+        <PriceBox price={price} fee={svc.proPriceCents == null ? 0 : svc.serviceFeeCents} card={use.card} cardLabel={chosen ? `${cardLabel(chosen.b.kind, !!chosen.b.sharedNumber)} •••• ${chosen.c.number.slice(-4)}` : undefined} deposit={deposit} pro={use.pro} general={use.general} charge={use.charge} invite={inv?.cents ?? 0} />
         <Terms deposit={deposit} cutoffHours={Number(s["cancel.cutoff_hours"])} graceMin={Number(s["appt.grace_minutes"])} />
         <ActionForm action={bookService} submitLabel={instantBooking() ? "Pay and book" : "Send booking request"}>
           <input type="hidden" name="serviceId" value={svc.id} />

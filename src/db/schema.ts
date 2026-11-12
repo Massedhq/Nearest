@@ -1,7 +1,7 @@
 import {
   pgTable, pgEnum, uuid, text, date, timestamp, boolean, integer, jsonb, bigserial, primaryKey, index, uniqueIndex, doublePrecision,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 export const accountType = pgEnum("account_type", ["student", "professional", "staff", "customer"]); // customer = books partners from their partner page (2026-11-09)
 export const userStatus = pgEnum("user_status", ["active", "paused", "suspended", "deactivated"]);
@@ -1562,6 +1562,11 @@ export const nearestCardBatches = pgTable("nearest_card_batches", {
   // null on older batches = counted from created_at.
   handedOutAt: ts("handed_out_at"),
   discardedAt: ts("discarded_at"),
+  // Nearest GRANTED Certificate Voucher campaigns (2026-11-11): ONE shared 16-digit number + code printed on every voucher
+  // of this distributor × type. Each student who activates it gets their own nearest_cards row (shared = true).
+  sharedNumber: text("shared_number"),
+  sharedCode: text("shared_code"),
+  distributorId: uuid("distributor_id").references(() => users.id), // Avrial / Kisses / Lakeisha (owner accounts)
   createdBy: uuid("created_by").references(() => users.id),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
@@ -1595,8 +1600,42 @@ export const nearestCards = pgTable("nearest_cards", {
   placeId: uuid("place_id"), // the place this card was given to (card_places)
   assignedAt: ts("assigned_at"),
   assignedBy: uuid("assigned_by"),
+  // true = one student's activation of a GRANTED voucher campaign (number/code shared by every voucher in the campaign)
+  shared: boolean("shared").notNull().default(false),
   createdAt: ts("created_at").notNull().defaultNow(),
-}, (t) => [index("nearest_cards_place_idx").on(t.placeId), uniqueIndex("nearest_cards_number_idx").on(t.number), index("nearest_cards_batch_idx").on(t.batchId), index("nearest_cards_student_idx").on(t.studentId)]);
+}, (t) => [index("nearest_cards_place_idx").on(t.placeId), uniqueIndex("nearest_cards_number_idx").on(t.number).where(sql`shared = false`), uniqueIndex("nearest_cards_campaign_student_idx").on(t.batchId, t.studentId).where(sql`shared = true`), index("nearest_cards_batch_idx").on(t.batchId), index("nearest_cards_student_idx").on(t.studentId)]);
+
+// "YOUR CITY. YOUR CHOICE." votes from the /card voucher flow (2026-11-11). Recorded BEFORE an account exists (anonymous
+// session cookie nearest_vote); linked to the student when they sign up or sign in. One row per session — voting again
+// updates it. No name, email or address.
+export const studentVotes = pgTable("student_votes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sessionId: text("session_id").notNull(),
+  state: text("state").notNull(),
+  cityId: integer("city_id").references(() => cities.id), // city of residence
+  schoolId: integer("school_id").references(() => schools.id),
+  schoolOther: text("school_other"), // typed when their school isn't listed
+  categories: text("categories").array().notNull(),
+  userId: uuid("user_id").references(() => users.id),
+  linkedAt: ts("linked_at"),
+  pendingBatchId: uuid("pending_batch_id"), // voucher campaign entered on the thank-you screen, activated once they have an account
+  voucherTries: integer("voucher_tries").notNull().default(0),
+  voucherTriedAt: ts("voucher_tried_at"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+}, (t) => [uniqueIndex("student_votes_session_idx").on(t.sessionId), index("student_votes_user_idx").on(t.userId), index("student_votes_city_idx").on(t.cityId)]);
+
+// Who handed out how many vouchers of which campaign to which organization (card_places), and when.
+export const voucherDistributions = pgTable("voucher_distributions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  batchId: uuid("batch_id").notNull().references(() => nearestCardBatches.id),
+  placeId: uuid("place_id").references(() => cardPlaces.id),
+  quantity: integer("quantity").notNull(),
+  distributedAt: ts("distributed_at").notNull(),
+  notes: text("notes"),
+  createdBy: uuid("created_by").notNull().references(() => users.id),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
 
 export const nearestCardAttempts = pgTable("nearest_card_attempts", {
   id: uuid("id").primaryKey().defaultRandom(),

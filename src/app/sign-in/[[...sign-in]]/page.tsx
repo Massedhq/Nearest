@@ -10,7 +10,7 @@ export const metadata = { title: "Sign in" };
 function repNext(raw: string | undefined) {
   // Partner pages too: someone booking a partner signs in and goes straight back to that booking (2026-11-09).
   if (raw && /^\/link\/[a-z0-9-]{2,40}(\/[A-Za-z0-9/?&=%,._-]*)?$/.test(raw)) return raw;
-  return raw && /^\/(rep(\/|$|\?)|api\/rep\/accept\?token=[0-9a-f]{48}$|leads$|api\/leads\/accept\?token=[0-9a-f]{48}$)/.test(raw) ? raw : "/go";
+  return raw && /^\/(cards$|rep(\/|$|\?)|api\/rep\/accept\?token=[0-9a-f]{48}$|leads$|api\/leads\/accept\?token=[0-9a-f]{48}$)/.test(raw) ? raw : "/go";
 }
 
 export default async function SignInPage({ searchParams }: { searchParams: Promise<{ redirect_url?: string }> }) {

@@ -68,7 +68,7 @@ type Result = { ok: string } | { error: string };
 async function stackEnd(raw: string): Promise<{ seq: number; batchId?: string } | null> {
   const d = digits(raw);
   if (d.length === 16) {
-    const c = await db.query.nearestCards.findFirst({ where: eq(nearestCards.number, d) });
+    const c = await db.query.nearestCards.findFirst({ where: and(eq(nearestCards.number, d), eq(nearestCards.shared, false)) });
     return c && c.printSeq ? { seq: c.printSeq, batchId: c.batchId } : null;
   }
   const n = Number(d);
@@ -110,7 +110,7 @@ export async function assignNumbers(placeId: string, raw: string, by: string, mo
   if (nums.length > 1000) return { error: "Assign up to 1,000 cards at a time." };
   const good = nums.filter((n) => n.length === 16);
   const done = good.length ? await db.update(nearestCards).set({ placeId, assignedAt: new Date(), assignedBy: by })
-    .where(and(inArray(nearestCards.number, good), inArray(nearestCards.status, ["issued", "off", "locked"]), move ? sql`true` : sql`${nearestCards.placeId} is null`))
+    .where(and(inArray(nearestCards.number, good), eq(nearestCards.shared, false), inArray(nearestCards.status, ["issued", "off", "locked"]), move ? sql`true` : sql`${nearestCards.placeId} is null`))
     .returning({ id: nearestCards.id }) : [];
   const skipped = good.length - done.length;
   return { ok: `${done.length} card${done.length === 1 ? "" : "s"} given to ${place.name}.${skipped > 0 ? ` ${skipped} skipped — not found, already saved by a student${move ? "" : " or already at another place"}.` : ""}${bad.length ? ` ${bad.length} line${bad.length === 1 ? "" : "s"} weren't 16 digits.` : ""}` };

@@ -46,8 +46,9 @@ export async function completeStudent(_: FormState, form: FormData): Promise<For
     .onConflictDoNothing()
     .returning();
   if (user) await db.insert(studentProfiles).values({ userId: user.id }).onConflictDoNothing();
-  redirect("/verify");
+  redirect(user ? await (await import("@/lib/vouchers")).afterStudentCreated(user.id) : "/verify");
 }
+
 
 /** Called right after the email code: builds the student account from what they typed on the sign-up screen. */
 export async function createStudentFromSignUp(): Promise<boolean> {

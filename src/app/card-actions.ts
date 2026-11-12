@@ -16,7 +16,7 @@ export async function addNearestCard(_: FormState, form: FormData): Promise<Form
   const back = String(form.get("back") ?? "");
   if (back.startsWith("/") && !back.startsWith("//")) revalidatePath(back.split("?")[0]);
   revalidatePath("/cards");
-  return { ok: "Your card was successfully saved to your account. You may use it anytime during checkout." };
+  return { ok: r.kind && (await (await import("@/lib/vouchers")).campaignByNumber(String(form.get("number") ?? "").replace(/\D/g, ""))) ? "Your GRANTED voucher is activated and saved to your account. You may use it anytime during checkout." : "Your card was successfully saved to your account. You may use it anytime during checkout." };
 }
 
 /** The student picks a card for a booking that's a request or waiting for payment — or takes it off ("none"). */

@@ -61,6 +61,7 @@ export const SETTINGS: Record<string, SettingDef> = {
   "cards.max_total": { label: "Nearest Cards — most cards that can ever be made (all batches together)", group: "Fees", type: "number", value: 3000 },
   "cards.activate_days": { label: "Nearest Cards — days a student has to save a card to their account after it's handed out (then it goes inactive)", group: "Fees", type: "number", unit: "days", value: 30 },
   "cards.fund_per_booking_cents": { label: "Nearest Cards fund — part of the booking fee set aside from each completed booking to give back with Nearest Cards", group: "Fees", type: "cents", value: 500 },
+  "vouchers.max_activations": { label: "GRANTED vouchers — most different students who can activate a voucher (all campaigns together)", group: "Vouchers", type: "number", value: 1500 },
   "outreach.paused": { label: "Pause all outreach emails", group: "Outreach", type: "bool", value: false },
   "outreach.ai_enabled": { label: "AI recruiter answers replies", group: "Outreach", type: "bool", value: true },
   "outreach.per_run": { label: "Outreach emails sent per 15 minutes (all partners)", group: "Outreach", type: "number", value: 40 },
@@ -83,7 +84,7 @@ export const SETTINGS: Record<string, SettingDef> = {
  */
 export function mainOwnerOnlySetting(key: string) {
   const g = SETTINGS[key]?.group;
-  return g === "Fees" || g === "Partner shop" || key.startsWith("partner.") || key.startsWith("cards.") || key === "growth.second_cohort_end" || key === "sub.termination_days";
+  return g === "Fees" || g === "Partner shop" || key.startsWith("partner.") || key.startsWith("cards.") || key.startsWith("vouchers.") || key === "growth.second_cohort_end" || key === "sub.termination_days";
 }
 
 export const STATUS_KEYS = [

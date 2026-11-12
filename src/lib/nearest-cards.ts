@@ -34,7 +34,8 @@ export async function discountNumbersLeft() {
 }
 
 export type CardKind = "discount" | "free";
-export const cardLabel = (kind: string) => (kind === "free" ? "Nearest Free Card" : "Nearest Card");
+/** Card name students see. GRANTED vouchers (shared campaign number) get their own name. */
+export const cardLabel = (kind: string, voucher = false) => (voucher ? (kind === "free" ? "GRANTED Voucher — free service" : "GRANTED Voucher — discount") : kind === "free" ? "Nearest Free Card" : "Nearest Card");
 export const digits = (s: string) => String(s ?? "").replace(/\D/g, "");
 export const last4 = (n: string) => n.slice(-4);
 export const groupNumber = (n: string) => n.replace(/(\d{4})(?=\d)/g, "$1 ");
@@ -82,7 +83,8 @@ export function startOfDay(ymd: string): Date | null {
 }
 
 /** The last moment a card from this batch can be saved to an account: handed out + N days (or the Valid thru date, if sooner). */
-export function activateBy(b: { handedOutAt: Date | null; createdAt: Date; validThru: Date }, days: number) {
+export function activateBy(b: { handedOutAt: Date | null; createdAt: Date; validThru: Date; sharedNumber?: string | null }, days: number) {
+  if (b.sharedNumber) return b.validThru; // GRANTED vouchers: no save window, good until Valid thru
   const from = b.handedOutAt ?? b.createdAt;
   const by = new Date(from.getTime() + days * 86400000);
   return by < b.validThru ? by : b.validThru;
@@ -98,8 +100,8 @@ export async function maxCards() {
 /** Cards toward the limit: every card in a batch that isn't discarded, plus discarded cards a student had already saved. */
 export async function cardTotals() {
   const r = (await db.execute(sql`select
-      (select count(*)::int from nearest_cards c join nearest_card_batches b on b.id = c.batch_id where b.status <> 'discarded' or c.status = 'activated' or c.credit_id is not null) as made,
-      (select count(*)::int from nearest_cards where student_id is not null and status = 'activated') as activated`)).rows[0] as { made: number; activated: number };
+      (select count(*)::int from nearest_cards c join nearest_card_batches b on b.id = c.batch_id where not c.shared and (b.status <> 'discarded' or c.status = 'activated' or c.credit_id is not null)) as made,
+      (select count(*)::int from nearest_cards where not shared and student_id is not null and status = 'activated') as activated`)).rows[0] as { made: number; activated: number };
   const max = await maxCards();
   return { max, made: r.made, activated: r.activated, canMake: Math.max(0, max - r.made), leftToActivate: Math.max(0, max - r.activated) };
 }
@@ -180,7 +182,17 @@ export async function addCardToAccount(userId: string, rawNumber: string, rawCod
   };
   if (number.length !== 16) { await miss(); return { ok: false, error: "Enter all 16 digits from the front of the card." }; }
   if (code.length !== 3 && code.length !== 4) { await miss(); return { ok: false, error: "Enter the 3 or 4 digit code from the back of the card." }; }
-  const row = (await db.select({ c: nearestCards, b: nearestCardBatches }).from(nearestCards).innerJoin(nearestCardBatches, eq(nearestCardBatches.id, nearestCards.batchId)).where(eq(nearestCards.number, number)).limit(1))[0];
+  // Nearest GRANTED Certificate Voucher: one shared number + code per campaign (src/lib/vouchers.ts).
+  const { checkCampaign, activateVoucher } = await import("./vouchers");
+  const camp = await checkCampaign(number, code);
+  if (camp) {
+    if (!camp.ok) { await miss(); return { ok: false, error: camp.error }; }
+    const v = await activateVoucher(userId, camp.batch);
+    if (!v.ok) return { ok: false, error: v.error };
+    await db.insert(nearestCardAttempts).values({ userId, last4: last4(number), ok: true });
+    return { ok: true, amountCents: v.amountCents, kind: v.kind as CardKind, last4: last4(number), id: v.id };
+  }
+  const row = (await db.select({ c: nearestCards, b: nearestCardBatches }).from(nearestCards).innerJoin(nearestCardBatches, eq(nearestCardBatches.id, nearestCards.batchId)).where(and(eq(nearestCards.number, number), eq(nearestCards.shared, false))).limit(1))[0];
   if (!row) { await miss(); return { ok: false, error: WRONG }; }
   const { c, b } = row;
   if (c.status === "activated") return c.studentId === userId ? { ok: false, error: "This card is already saved on your account — choose it when you pay for a booking." } : { ok: false, error: "This card was already added to another account. Each card works once." };
@@ -192,7 +204,7 @@ export async function addCardToAccount(userId: string, rawNumber: string, rawCod
   const days = await activateDays();
   if (activateBy(b, days).getTime() < Date.now()) return { ok: false, error: `This card is no longer good — cards must be saved to an account within ${days} days of being handed out.` };
   // One Nearest Card per student, ever (a card an owner turned off or discarded doesn't count).
-  const mine = await db.query.nearestCards.findFirst({ where: and(eq(nearestCards.studentId, userId), eq(nearestCards.status, "activated")) });
+  const mine = await db.query.nearestCards.findFirst({ where: and(eq(nearestCards.studentId, userId), eq(nearestCards.status, "activated"), eq(nearestCards.shared, false)) });
   if (mine) return { ok: false, error: "You already have a Nearest Card on your account. It's one card per student." };
   // Claim it atomically so two people can never add the same card.
   const [claimed] = await db.update(nearestCards).set({ status: "activated", studentId: userId, activatedAt: new Date() })
@@ -273,7 +285,7 @@ export async function creditCardForBooking(b: { id: string; studentId: string; c
   if (!b.cardId || b.cardCents <= 0) return;
   const card = await db.query.nearestCards.findFirst({ where: eq(nearestCards.id, b.cardId) });
   const batch = card ? await db.query.nearestCardBatches.findFirst({ where: eq(nearestCardBatches.id, card.batchId) }) : null;
-  const [cr] = await db.insert(credits).values({ studentId: b.studentId, proId: null, promo: true, amountCents: b.cardCents, reason: `${cardLabel(batch?.kind ?? "discount")} •••• ${card ? last4(card.number) : ""} used on ${code}`, bookingId: b.id }).returning();
+  const [cr] = await db.insert(credits).values({ studentId: b.studentId, proId: null, promo: true, amountCents: b.cardCents, reason: `${cardLabel(batch?.kind ?? "discount", !!batch?.sharedNumber)} •••• ${card ? last4(card.number) : ""} used on ${code}`, bookingId: b.id }).returning();
   if (card) await db.update(nearestCards).set({ creditId: cr.id, usedBookingId: b.id }).where(eq(nearestCards.id, card.id));
 }
 

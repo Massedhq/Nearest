@@ -35,7 +35,7 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
       added: sql<number>`(select count(*)::int from nearest_cards c where c.batch_id = ${nearestCardBatches.id} and c.status = 'activated')`,
       used: sql<number>`(select count(*)::int from nearest_cards c where c.batch_id = ${nearestCardBatches.id} and c.credit_id is not null)`,
       notSaved: sql<number>`(select count(*)::int from nearest_cards c where c.batch_id = ${nearestCardBatches.id} and c.status = 'issued')`,
-    }).from(nearestCardBatches).orderBy(desc(nearestCardBatches.createdAt)).limit(100),
+    }).from(nearestCardBatches).where(sql`${nearestCardBatches.sharedNumber} is null`).orderBy(desc(nearestCardBatches.createdAt)).limit(100), // GRANTED voucher campaigns live on /admin/vouchers
     db.select({
       made: sql<number>`count(*)::int`,
       added: sql<number>`count(*) filter (where ${nearestCards.status} = 'activated')::int`,
@@ -77,7 +77,7 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
       <td>{c.printSeq ?? "—"}</td>
       <td className="b" style={{ whiteSpace: "nowrap" }}>{groupNumber(c.number)}</td>
       <td className="b">{c.code}</td>
-      <td>{cardLabel(b.kind)} • {b.name}{place ? <div className="xs muted">At {place}</div> : null}</td>
+      <td>{cardLabel(b.kind, !!b.sharedNumber)} • {b.name}{place ? <div className="xs muted">At {place}</div> : null}</td>
       <td>{c.creditId ? <span className="tag">Used — no longer works</span> : c.status === "activated" ? <span className="tag ok">Active — on a student&apos;s account</span> : c.status === "issued" && activateBy(b, days) < new Date() ? `Inactive — not saved within ${days} days` : (STATUS[c.status] ?? c.status)}{c.failedAttempts > 0 && c.status !== "activated" ? ` • ${c.failedAttempts} wrong code${c.failedAttempts === 1 ? "" : "s"}` : ""}</td>
       <td>{c.studentId ? ([first, last].filter(Boolean).join(" ") || "Student") : "—"}{c.activatedAt ? <div className="xs muted">added {fmtDate(c.activatedAt)}</div> : null}</td>
       <td>{c.usedBookingId ? <span className="xs">{c.creditId ? "Paid booking" : "Chosen for a booking (not paid yet)"} {c.usedBookingId.slice(0, 8).toUpperCase()}</span> : "—"}</td>
@@ -203,7 +203,7 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
             {usedCards.map(({ c, b, first, last, place, paidAt }) => (
               <tr key={c.id} style={{ opacity: 0.75 }}>
                 <td>{c.printSeq ?? "—"}</td><td style={{ whiteSpace: "nowrap" }}>{groupNumber(c.number)}</td><td>{c.code}</td>
-                <td>{cardLabel(b.kind)} • {b.name}{place ? <div className="xs muted">From {place}</div> : null}</td>
+                <td>{cardLabel(b.kind, !!b.sharedNumber)} • {b.name}{place ? <div className="xs muted">From {place}</div> : null}</td>
                 <td>{[first, last].filter(Boolean).join(" ") || "Student"}</td>
                 <td>{paidAt ? fmtDate(paidAt) : "—"}{c.usedBookingId ? <div className="xs muted">Booking {c.usedBookingId.slice(0, 8).toUpperCase()}</div> : null}</td>
               </tr>

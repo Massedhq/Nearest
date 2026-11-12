@@ -107,13 +107,13 @@ export default async function Booking({ params, searchParams }: { params: Promis
 
         {canPickCard && (
           <div className="card" style={{ gap: 10 }}>
-            <span className="b small">Use a Nearest Card on this booking?</span>
+            <span className="b small">Use a GRANTED voucher or Nearest Card on this booking?</span>
             {myCards.length > 0 ? (
               <div className="col" style={{ gap: 8 }}>
                 <form action={chooseBookingCard}><input type="hidden" name="bookingId" value={b.id} /><input type="hidden" name="cardId" value="" /><button className={`chip${!b.cardId ? " on" : ""}`} type="submit" style={{ width: "100%" }}>Don&apos;t use a card</button></form>
                 {myCards.map((x) => (
                   <form key={x.c.id} action={chooseBookingCard}><input type="hidden" name="bookingId" value={b.id} /><input type="hidden" name="cardId" value={x.c.id} />
-                    <button className={`chip${b.cardId === x.c.id ? " on" : ""}`} type="submit" style={{ width: "100%" }}>{cardLabel(x.b.kind)} •••• {x.c.number.slice(-4)} — {x.b.kind === "free" ? `covers up to ${money(x.b.amountCents)}` : `${money(x.b.amountCents)} off`}</button>
+                    <button className={`chip${b.cardId === x.c.id ? " on" : ""}`} type="submit" style={{ width: "100%" }}>{cardLabel(x.b.kind, !!x.b.sharedNumber)} •••• {x.c.number.slice(-4)} — {x.b.kind === "free" ? `covers up to ${money(x.b.amountCents)}` : `${money(x.b.amountCents)} off`}</button>
                   </form>
                 ))}
                 <span className="xs muted">Only the card you choose is used, and only on this booking. It covers the service — the Deposit/Booking Fee is still paid. One card per booking; any value it doesn&apos;t cover here isn&apos;t kept.</span>

@@ -4,6 +4,7 @@ import { TopBar } from "@/components/TopBar";
 import { Steps } from "@/components/Steps";
 import { StudentForm } from "./StudentForm";
 import { createStudentFromSignUp } from "./actions";
+import { afterStudentCreated } from "@/lib/vouchers";
 
 export const metadata = { title: "Finish your account" };
 
@@ -15,7 +16,10 @@ export default async function Onboarding() {
   const c = await clerkContact();
   if (c?.door === "pro") redirect(c.invite ? `/pro/onboarding?invite=${encodeURIComponent(c.invite)}` : "/pro/onboarding");
   // Normal path: everything was entered on the sign-up screen, so go straight to step 2.
-  if (await createStudentFromSignUp()) redirect("/verify");
+  if (await createStudentFromSignUp()) {
+    const me = await getViewer();
+    redirect(me?.user ? await afterStudentCreated(me.user.id) : "/verify");
+  }
   // Fallback (e.g. signed up another way): ask for the missing details.
   return (
     <div className="scr">
