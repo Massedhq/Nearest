@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -m "Free voucher covers full eligible service, exact confirmation text, remove thank-you footer"
+git commit -m "GRANTED voucher distribution: distributor accounts, organization assignments, voucher source on vote, per-campaign limits"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

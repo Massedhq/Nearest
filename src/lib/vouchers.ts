@@ -11,8 +11,9 @@ import { db, nearestCardBatches, nearestCards, studentVotes, studentProfiles } f
  * - each student who activates it gets their OWN nearest_cards row (shared = true, one per campaign per student — unique
  *   index), so checkout, promo credit, payouts and "Used" all work exactly like Nearest Cards (src/lib/nearest-cards.ts);
  * - one discount + one free-service voucher per student at most;
- * - at most vouchers.max_activations (1,500) different students across all campaigns. Students already counted can still
- *   add their other voucher type; everyone can always create a normal account.
+ * - each campaign takes at most `count` unique student claims (900 discount / 100 free per distributor — 3,000 in all),
+ *   counted atomically in nearest_card_batches.claimed. Voting and registration are never limited.
+ * - a distributor has ONE 16-digit number for both types; the code (3 digits discount / 4 digits free) picks the campaign.
  * Vouchers have no 30-day save window — they're good until the campaign's Valid thru date (or turned off).
  * The /card page is the "YOUR CITY. YOUR CHOICE." vote (src/app/vote-actions.ts); votes live in student_votes.
  */
@@ -27,32 +28,24 @@ export const benefitLine = (kind: string, amountCents: number) => {
   return kind === "free" ? "GRANTED free-service voucher" : `GRANTED discount voucher (${amt} off a service)`;
 };
 
-export async function maxActivations() {
-  const { getSettings } = await import("./settings");
-  const n = Number((await getSettings())["vouchers.max_activations"] ?? 1500);
-  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 1500;
-}
-
-/** Different students who have activated any GRANTED voucher (turned-off campaigns still count — those students keep it). */
-export async function activatedStudents() {
-  const r = (await db.execute(sql`select count(distinct student_id)::int as n from nearest_cards where shared and student_id is not null and status = 'activated'`)).rows[0] as { n: number };
-  return r.n;
-}
-
-/** The voucher campaign printed with this number (any status), or null. */
+/** Is this number a published GRANTED voucher number (any distributor, any status)? */
 export async function campaignByNumber(number: string) {
-  return (await db.query.nearestCardBatches.findFirst({ where: eq(nearestCardBatches.sharedNumber, number) })) ?? null;
+  return (await db.query.nearestCardBatches.findFirst({ where: and(eq(nearestCardBatches.sharedNumber, number), eq(nearestCardBatches.draft, false)) })) ?? null;
 }
 
 export type CampaignCheck = { ok: true; batch: typeof nearestCardBatches.$inferSelect } | { ok: false; error: string };
 
-/** Checks a number + code against the voucher campaigns (no account needed). Null = not a voucher number at all. */
+/**
+ * Checks a number + code against the published voucher campaigns (no account needed). The number names the distributor,
+ * the code the type. Null = not a voucher number at all. A security code only identifies a campaign — it never opens an account.
+ */
 export async function checkCampaign(number: string, code: string): Promise<CampaignCheck | null> {
-  const b = await campaignByNumber(number);
-  if (!b) return null;
-  if (b.sharedCode !== code) return { ok: false, error: "That voucher number and security code don't match. The discount voucher has a 3-digit code and the free-service voucher a 4-digit code — enter the one printed on your voucher." };
+  if (!(await campaignByNumber(number))) return null;
+  const b = (await db.query.nearestCardBatches.findFirst({ where: and(eq(nearestCardBatches.sharedNumber, number), eq(nearestCardBatches.sharedCode, code), eq(nearestCardBatches.draft, false)) })) ?? null;
+  if (!b) return { ok: false, error: "That voucher number and security code don't match. The discount voucher has a 3-digit code and the free-service voucher a 4-digit code — enter the one printed on your voucher." };
   if (b.status !== "active") return { ok: false, error: "This voucher campaign has ended. You can still create your free Nearest account." };
   if (b.validThru.getTime() < Date.now()) return { ok: false, error: "This voucher has expired. You can still create your free Nearest account." };
+  if (b.claimed >= b.count) return { ok: false, error: "All vouchers in this campaign have been claimed. You can still create your free Nearest account." };
   return { ok: true, batch: b };
 }
 
@@ -64,20 +57,47 @@ export async function activateVoucher(userId: string, batch: typeof nearestCardB
   if (same) return same.batchId === batch.id
     ? { ok: false, error: "This voucher is already activated on your account — choose it when you pay for a booking." }
     : { ok: false, error: `You already have a ${kind === "free" ? "free-service" : "discount"} GRANTED voucher on your account. It's one of each type per student.` };
-  const max = await maxActivations();
-  // One statement: only inserts while under the student limit (students already counted can still add their other type).
-  const r = await db.execute(sql`insert into nearest_cards (batch_id, number, code, status, student_id, activated_at, shared)
-    select ${batch.id}, ${batch.sharedNumber}, ${batch.sharedCode}, 'activated', ${userId}, now(), true
-    where exists (select 1 from nearest_cards where shared and student_id = ${userId} and status = 'activated')
-       or (select count(distinct student_id) from nearest_cards where shared and student_id is not null and status = 'activated') < ${max}
+  const already = await db.query.nearestCards.findFirst({ where: and(eq(nearestCards.batchId, batch.id), eq(nearestCards.studentId, userId), eq(nearestCards.shared, true)) });
+  if (already) return { ok: false, error: "This voucher is already activated on your account — choose it when you pay for a booking." };
+  // Bring the claim counter up to date (only ever raises it), then take one place and add the claim in ONE statement.
+  // The UPDATE locks the campaign row, so concurrent claims queue and can never pass the campaign's limit.
+  await db.execute(sql`update nearest_card_batches b set claimed = x.n
+    from (select count(*)::int as n from nearest_cards where batch_id = ${batch.id} and shared) x where b.id = ${batch.id} and b.claimed < x.n`);
+  const r = await db.execute(sql`with slot as (
+      update nearest_card_batches set claimed = claimed + 1 where id = ${batch.id} and claimed < count returning id)
+    insert into nearest_cards (batch_id, number, code, status, student_id, activated_at, shared)
+    select ${batch.id}, ${batch.sharedNumber}, ${batch.sharedCode}, 'activated', ${userId}, now(), true from slot
     on conflict do nothing returning id`);
   const row = r.rows[0] as { id: string } | undefined;
   if (!row) {
     const again = await db.query.nearestCards.findFirst({ where: and(eq(nearestCards.batchId, batch.id), eq(nearestCards.studentId, userId), eq(nearestCards.shared, true)) });
-    if (again) return { ok: false, error: "This voucher is already activated on your account — choose it when you pay for a booking." };
-    return { ok: false, error: "All GRANTED voucher activations have been claimed. Your Nearest account still works — you just can't add a voucher right now." };
+    if (again) {
+      // Same student twice at once: give the place back.
+      await db.execute(sql`update nearest_card_batches set claimed = greatest(claimed - 1, 0) where id = ${batch.id}`);
+      return { ok: false, error: "This voucher is already activated on your account — choose it when you pay for a booking." };
+    }
+    return { ok: false, error: "All vouchers in this campaign have been claimed. Your Nearest account still works — you just can't add this voucher." };
   }
+  try { await attributeActivation(row.id, userId, batch); } catch (e) { console.error("attributeActivation", e); }
   return { ok: true, id: row.id, amountCents: batch.amountCents, kind };
+}
+
+/**
+ * Student-reported attribution: copy where the student said they got the voucher (their vote) onto this activation, and
+ * match it to THIS distributor's assignment to that location (same type first). No assignment there, or "Other" /
+ * "Someone gave it to me" → unmatched, kept for the main owner to review. Never moved to an unrelated organization.
+ */
+export async function attributeActivation(cardId: string, userId: string, batch: { id: string; kind: string; distributorId: string | null }) {
+  const v = (await db.select().from(studentVotes).where(eq(studentVotes.userId, userId)).limit(1))[0];
+  if (!v?.sourceKind) { await db.update(nearestCards).set({ sourceMatch: "none" }).where(eq(nearestCards.id, cardId)); return; }
+  let distributionId: string | null = null;
+  if (v.sourceKind === "org" && v.sourcePlaceId && batch.distributorId) {
+    const m = (await db.execute(sql`select d.id from voucher_distributions d join nearest_card_batches b on b.id = d.batch_id
+      where d.place_id = ${v.sourcePlaceId} and b.distributor_id = ${batch.distributorId} and d.status <> 'cancelled'
+      order by (b.kind = ${batch.kind}) desc, d.distributed_at desc limit 1`)).rows[0] as { id: string } | undefined;
+    distributionId = m?.id ?? null;
+  }
+  await db.update(nearestCards).set({ sourcePlaceId: v.sourcePlaceId, sourceText: v.sourceText, distributionId, sourceMatch: distributionId ? "matched" : "unmatched" }).where(eq(nearestCards.id, cardId));
 }
 
 /** The current anonymous vote session id (cookie), creating one when asked. */

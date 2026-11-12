@@ -8,6 +8,7 @@ import { checkCampaign, voteSession, activateVoucher, benefitLine, VOUCHER } fro
 
 const FREE_REDEEM = "Redeem for one eligible free service selected by a participating professional.";
 import { digits } from "@/lib/nearest-cards";
+import { voteSourceOptions } from "@/lib/distribution";
 
 /**
  * "YOUR CITY. YOUR CHOICE." — the public /card voucher flow (2026-11-11). No account needed to vote: state → city they
@@ -54,21 +55,37 @@ export async function voteServices(cityId: number) {
   });
 }
 
+/**
+ * Screen 2 "Where did you receive your Nearest GRANTED voucher?" — live from distributors' assignments (Assigned,
+ * Delivered or Completed locations; src/lib/distribution.ts). Never a hand-kept list.
+ */
+export async function voteSources() {
+  return voteSourceOptions();
+}
+
 /** Save (or update) this browser's vote. Saved BEFORE the thank-you screen. */
-export async function submitVote(input: { state: string; cityId: number; schoolId: number | null; schoolOther: string; categories: string[] }): Promise<{ ok: true } | { error: string }> {
+export async function submitVote(input: { state: string; cityId: number; schoolId: number | null; schoolOther: string; categories: string[]; source?: { kind: string; placeId?: string | null; text?: string } }): Promise<{ ok: true } | { error: string }> {
   const state = String(input.state ?? "").toUpperCase().slice(0, 2);
   const city = Number.isInteger(input.cityId) ? await db.query.cities.findFirst({ where: and(eq(cities.id, input.cityId), eq(cities.state, state)) }) : null;
   if (!city) return { error: "Choose your state and the city you live in." };
   const school = input.schoolId ? await db.query.schools.findFirst({ where: eq(schools.id, input.schoolId) }) : null;
   const other = String(input.schoolOther ?? "").trim().slice(0, 120);
   if (!school && !other) return { error: "Choose your school, or type it if it isn't listed." };
+  const kind = ["org", "other", "someone"].includes(String(input.source?.kind)) ? String(input.source!.kind) : "";
+  if (!kind) return { error: "Choose where you received your voucher." };
+  let sourcePlaceId: string | null = null;
+  if (kind === "org") {
+    sourcePlaceId = (await voteSourceOptions()).find((o) => o.id === input.source?.placeId)?.id ?? null;
+    if (!sourcePlaceId) return { error: "Choose where you received your voucher." };
+  }
+  const sourceText = kind === "org" ? null : String(input.source?.text ?? "").trim().slice(0, 120) || null;
   const valid = new Set((await db.select({ name: categories.name }).from(categories)).map((c) => c.name));
   const picks = [...new Set((input.categories ?? []).map(String).filter((c) => valid.has(c) && !HIDDEN.has(c)))].slice(0, 20);
   if (!picks.length) return { error: "Pick at least one service you'd like in your city." };
   const sid = (await voteSession(true))!;
   const viewer = await getViewer();
   const userId = viewer?.user?.accountType === "student" ? viewer.user.id : null;
-  const values = { state, cityId: city.id, schoolId: school?.id ?? null, schoolOther: school ? null : other, categories: picks, updatedAt: new Date() };
+  const values = { state, cityId: city.id, schoolId: school?.id ?? null, schoolOther: school ? null : other, categories: picks, sourceKind: kind, sourcePlaceId, sourceText, updatedAt: new Date() };
   await db.insert(studentVotes).values({ sessionId: sid, ...values, ...(userId ? { userId, linkedAt: new Date() } : {}) })
     .onConflictDoUpdate({ target: studentVotes.sessionId, set: values });
   return { ok: true };

@@ -2,11 +2,12 @@
 import { useEffect, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { voteCities, voteSchools, voteServices, submitVote, enterVoucher } from "@/app/vote-actions";
+import { voteCities, voteSchools, voteServices, voteSources, submitVote, enterVoucher } from "@/app/vote-actions";
 
 type City = { id: number; name: string };
 type School = { id: number; name: string; type: string | null };
 type Svc = { name: string; fromCents: number | null; near: boolean };
+type Src = { id: string; name: string; street: string | null; city: string | null; state: string | null };
 const money = (c: number) => `$${(c / 100).toFixed(c % 100 ? 2 : 0)}`;
 
 /**
@@ -29,9 +30,16 @@ export function VoteFlow({ states, signedIn }: { states: string[]; signedIn: boo
   const [num, setNum] = useState("");
   const [code, setCode] = useState("");
   const [saved, setSaved] = useState<{ ok: string; signedIn: boolean } | null>(null);
+  const [sources, setSources] = useState<Src[]>([]);
+  const [srcQ, setSrcQ] = useState("");
+  const [src, setSrc] = useState("");
+  const [srcText, setSrcText] = useState("");
 
   const city = cities.find((c) => c.name.toLowerCase() === cityText.trim().toLowerCase()) ?? null;
   useEffect(() => { if (state) start(async () => { setCities(await voteCities(state)); }); }, [state]);
+  useEffect(() => { start(async () => { setSources(await voteSources()); }); }, []);
+  const srcLabel = (o: Src) => `${o.name} — ${[o.street, o.city, o.state].filter(Boolean).join(", ")}`;
+  const shownSources = srcQ.trim() ? sources.filter((o) => o.id === src || srcLabel(o).toLowerCase().includes(srcQ.trim().toLowerCase())) : sources;
   useEffect(() => {
     setSchoolId(null); setSchools([]);
     if (city) start(async () => { setSchools(await voteSchools(city.id)); });
@@ -41,13 +49,15 @@ export function VoteFlow({ states, signedIn }: { states: string[]; signedIn: boo
     setErr("");
     if (!city) return setErr("Start typing the city you live in and pick it from the list.");
     if (!schoolId && !schoolOther.trim()) return setErr("Choose your school, or type it if it isn't listed.");
+    if (!src) return setErr("Choose where you received your voucher.");
     start(async () => { setSvcs(await voteServices(city.id)); setStep("services"); window.scrollTo(0, 0); });
   };
   const vote = () => {
     setErr("");
     if (!picks.length) return setErr("Pick at least one service.");
     start(async () => {
-      const r = await submitVote({ state, cityId: city!.id, schoolId, schoolOther, categories: picks });
+      const source = src === "other" || src === "someone" ? { kind: src, text: srcText } : { kind: "org", placeId: src };
+      const r = await submitVote({ state, cityId: city!.id, schoolId, schoolOther, categories: picks, source });
       if ("error" in r) return setErr(r.error);
       setStep("thanks"); window.scrollTo(0, 0);
     });
@@ -101,6 +111,26 @@ export function VoteFlow({ states, signedIn }: { states: string[]; signedIn: boo
       {city && !schoolId && (
         <div className="field"><label htmlFor="v-other">My school isn&apos;t listed (or I go to school online)</label>
           <input id="v-other" maxLength={120} placeholder="Type your school's name" value={schoolOther} onChange={(e) => setSchoolOther(e.target.value)} />
+        </div>
+      )}
+      <div className="field"><label htmlFor="v-src">Where did you receive your Nearest GRANTED voucher?</label>
+        <span className="xs muted">Select the organization or location that gave you your voucher.</span>
+        {sources.length > 6 && <input aria-label="Search organizations" autoComplete="off" placeholder="Search by name or city" value={srcQ} onChange={(e) => setSrcQ(e.target.value)} />}
+        <select id="v-src" value={src} onChange={(e) => { setSrc(e.target.value); setSrcText(""); }}>
+          <option value="">Choose where you got it…</option>
+          {shownSources.map((o) => <option key={o.id} value={o.id}>{srcLabel(o)}</option>)}
+          <option value="other">Other / Not Listed</option>
+          <option value="someone">Someone gave it to me</option>
+        </select>
+      </div>
+      {src === "other" && (
+        <div className="field"><label htmlFor="v-src-text">Enter the name of the organization or location.</label>
+          <input id="v-src-text" maxLength={120} value={srcText} onChange={(e) => setSrcText(e.target.value)} />
+        </div>
+      )}
+      {src === "someone" && (
+        <div className="field"><label htmlFor="v-src-text">Their name, if you know it</label>
+          <input id="v-src-text" maxLength={120} value={srcText} onChange={(e) => setSrcText(e.target.value)} />
         </div>
       )}
       {err && <p className="err" role="alert">{err}</p>}

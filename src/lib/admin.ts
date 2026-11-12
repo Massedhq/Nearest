@@ -37,5 +37,7 @@ export async function activityVisibleTo(userId: string) {
   const { mainOwnerId } = await import("./partner");
   const main = await mainOwnerId();
   if (!main || main === userId) return undefined;
-  return sql`(${activityLog.actorUserId} is distinct from ${main} and not (${activityLog.actorUserId} is null and ${activityLog.action} like 'cards.%'))`;
+  // GRANTED voucher records (vouchers.*) are private to each distributor: others see only their own.
+  return sql`(${activityLog.actorUserId} is distinct from ${main} and not (${activityLog.actorUserId} is null and ${activityLog.action} like 'cards.%')
+    and (${activityLog.action} not like 'vouchers.%' or ${activityLog.actorUserId} = ${userId}))`;
 }

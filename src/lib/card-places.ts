@@ -10,6 +10,9 @@ import { activateDays, activateBy, digits } from "./nearest-cards";
  * (assigned cards not yet saved to an account and still able to be saved). Nobody meets students to hand out cards.
  */
 export const PLACE_KINDS: Record<string, string> = {
+  school: "School",
+  boys_girls_club: "Boys & Girls Club",
+  ymca: "YMCA",
   youth_program: "Youth program",
   community_center: "Community center",
   church: "Church",
