@@ -109,7 +109,7 @@ export default async function Vouchers({ searchParams }: { searchParams: Promise
             <tbody>{r.campaigns.length === 0 ? <tr><td className="empty" colSpan={9}>No campaigns yet.{main ? " Set up the six below (3 distributors × discount / free service)." : ""}</td></tr> : r.campaigns.map((c) => (
               <tr key={c.id}><td className="b">{c.name}<div className="xs muted">{c.status === "active" ? "On" : "Off — no new activations"}</div></td>
                 <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{groupNumber(c.number)} • <b>{c.code}</b></td>
-                <td>{c.kind === "free" ? `Free service up to ${money(c.amountCents)}` : `${money(c.amountCents)} off`}</td>
+                <td>{c.kind === "free" ? "Free service" : `${money(c.amountCents)} off`}</td>
                 <td>{validThruLabel(new Date(c.validThru))}</td>
                 <td className="num">{c.printed}</td><td className="num">{c.distributed}</td><td className="num">{c.activations}</td><td className="num">{pct(c.activations, c.distributed)}</td>
                 <td>{main && <div className="row" style={{ gap: 8 }}><a className="link xs" href={`?edit=${c.id}#campaign-form`}>Edit</a><form action={setVoucherCampaignStatus}><input type="hidden" name="id" value={c.id} /><input type="hidden" name="to" value={c.status === "active" ? "off" : "on"} /><button className="link xs" type="submit">{c.status === "active" ? "Turn off" : "Turn on"}</button></form></div>}</td></tr>

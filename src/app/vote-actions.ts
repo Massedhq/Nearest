@@ -5,6 +5,8 @@ import { liveProWhere } from "@/lib/search";
 import { MAX_PRICE_CENTS } from "@/lib/pricing";
 import { getViewer } from "@/lib/viewer";
 import { checkCampaign, voteSession, activateVoucher, benefitLine, VOUCHER } from "@/lib/vouchers";
+
+const FREE_REDEEM = "Redeem for one eligible free service selected by a participating professional.";
 import { digits } from "@/lib/nearest-cards";
 
 /**
@@ -96,8 +98,10 @@ export async function enterVoucher(rawNumber: string, rawCode: string): Promise<
   const viewer = await getViewer();
   if (viewer?.user?.accountType === "student") {
     const r = await activateVoucher(viewer.user.id, camp.batch);
-    return "ok" in r && r.ok ? { ok: `Voucher accepted: ${benefitLine(camp.batch.kind, camp.batch.amountCents)}. It's now linked to your student account.`, signedIn: true } : { error: (r as { error: string }).error };
+    return "ok" in r && r.ok ? { ok: `Voucher accepted: ${benefitLine(camp.batch.kind, camp.batch.amountCents)}.${camp.batch.kind === "free" ? ` ${FREE_REDEEM}` : ""} It's now linked to your student account.`, signedIn: true } : { error: (r as { error: string }).error };
   }
   await db.update(studentVotes).set({ pendingBatchId: camp.batch.id }).where(eq(studentVotes.id, v.id));
-  return { ok: `Voucher accepted: ${benefitLine(camp.batch.kind, camp.batch.amountCents)}. It will be linked to your student account after you register and verify.`, signedIn: false };
+  return { ok: camp.batch.kind === "free"
+    ? `Voucher accepted: ${benefitLine("free", 0)}. ${FREE_REDEEM} Your voucher will be linked to your student account after registration and verification.`
+    : `Voucher accepted: ${benefitLine(camp.batch.kind, camp.batch.amountCents)}. It will be linked to your student account after you register and verify.`, signedIn: false };
 }

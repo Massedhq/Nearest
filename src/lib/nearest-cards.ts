@@ -266,6 +266,13 @@ export function planWithCard(due: number, bal: { pro: number; general: number; p
 }
 
 /**
+ * What a card can cover at checkout. A free-service card/voucher covers the FULL price of the professional's designated
+ * free service, whatever its listed price — planWithCard caps it at promoCap (service only), so the deposit and booking
+ * fee stay payable. A discount card covers its stated amount.
+ */
+export const cardValue = (kind: string, amountCents: number) => (kind === "free" ? Number.MAX_SAFE_INTEGER : amountCents);
+
+/**
  * Put a card on a booking (or take it off with cardId null). Reserves the card atomically so it can't be on two
  * bookings. Returns the card's amount (0 when none) or an error.
  */
@@ -277,7 +284,7 @@ export async function setBookingCard(userId: string, bookingId: string, cardId: 
     .where(and(eq(nearestCards.id, cardId), eq(nearestCards.studentId, userId), eq(nearestCards.status, "activated"), FREE_SQL)).returning();
   if (!card) return { ok: false, error: "That card is already being used on another booking, or isn't on your account." };
   const batch = (await db.query.nearestCardBatches.findFirst({ where: eq(nearestCardBatches.id, card.batchId) }))!;
-  return { ok: true, amountCents: batch.amountCents, kind: batch.kind as CardKind, last4: last4(card.number) };
+  return { ok: true, amountCents: cardValue(batch.kind, batch.amountCents), kind: batch.kind as CardKind, last4: last4(card.number) };
 }
 
 /** On confirm: the chosen card's value becomes credit right before the booking uses it (net zero, keeps the books straight). */
@@ -299,9 +306,9 @@ export async function cardForBooking(b: { cardId: string | null; cardCents: numb
 /** The full value of the card a booking holds (0 if none, or if the card is no longer tied to that booking). */
 export async function cardAmount(cardId: string | null, bookingId: string) {
   if (!cardId) return 0;
-  const row = (await db.select({ amount: nearestCardBatches.amountCents }).from(nearestCards).innerJoin(nearestCardBatches, eq(nearestCardBatches.id, nearestCards.batchId))
+  const row = (await db.select({ amount: nearestCardBatches.amountCents, kind: nearestCardBatches.kind }).from(nearestCards).innerJoin(nearestCardBatches, eq(nearestCardBatches.id, nearestCards.batchId))
     .where(and(eq(nearestCards.id, cardId), eq(nearestCards.usedBookingId, bookingId))).limit(1))[0];
-  return row?.amount ?? 0;
+  return row ? cardValue(row.kind, row.amount) : 0;
 }
 
 /**

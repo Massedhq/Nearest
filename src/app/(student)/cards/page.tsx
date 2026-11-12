@@ -45,7 +45,7 @@ export default async function CardsPage({ searchParams }: { searchParams: Promis
         {current.map(({ c, b, state, bookingId }) => (
           <div key={c.id} className="card" style={{ gap: 4 }}>
             <div className="row between"><span className="b">{cardLabel(b.kind, !!b.sharedNumber)} •••• {c.number.slice(-4)}</span><span className={`tag ${state === "ready" ? "ok" : "warn"}`}>{state === "ready" ? "Ready to use" : "Chosen for a booking"}</span></div>
-            <span className="small">{b.kind === "free" ? `Covers a service up to ${money(b.amountCents)}` : `${money(b.amountCents)} off`}</span>
+            <span className="small">{b.kind === "free" ? "One eligible free service" : `${money(b.amountCents)} off`}</span>
             <span className="xs muted">Added {c.activatedAt ? fmtDate(c.activatedAt) : ""} • card valid thru {validThruLabel(b.validThru)}</span>
             {bookingId && <Link className="link xs" href={`/bookings/${bookingId}`}>See the booking (you can switch or remove the card there)</Link>}
           </div>
@@ -54,7 +54,7 @@ export default async function CardsPage({ searchParams }: { searchParams: Promis
         {used.map(({ c, b, bookingId, bPaidAt }) => (
           <div key={c.id} className="card" style={{ gap: 4, opacity: 0.7 }}>
             <div className="row between"><span className="b">{cardLabel(b.kind, !!b.sharedNumber)} •••• {c.number.slice(-4)}</span><span className="tag">Used</span></div>
-            <span className="small">{b.kind === "free" ? `Covered a service up to ${money(b.amountCents)}` : `${money(b.amountCents)} off`} • used {bPaidAt ? fmtDate(bPaidAt) : ""}</span>
+            <span className="small">{b.kind === "free" ? "One eligible free service" : `${money(b.amountCents)} off`} • used {bPaidAt ? fmtDate(bPaidAt) : ""}</span>
             <span className="xs muted">Each card works once, so this one can&apos;t be used again.</span>
             {bookingId && <Link className="link xs" href={`/bookings/${bookingId}`}>See the booking it paid for</Link>}
           </div>
@@ -65,7 +65,7 @@ export default async function CardsPage({ searchParams }: { searchParams: Promis
           <span>• Your card is never used automatically. When you book, choose it under &quot;Use a GRANTED voucher or Nearest Card on this booking?&quot; — or pick it later on the booking before you pay. You can switch or remove it until you pay.</span>
           <span>• One card covers one booking. If the booking costs less than the card, the rest isn&apos;t kept, so save bigger cards for bigger bookings.</span>
           <span>• If that booking expires or is declined before you pay, the card is ready to use again. If you cancel after paying, the card&apos;s part comes back as Nearest credit like the rest of your payment.</span>
-          <span>• A free card covers your service up to its amount; anything above that is what you pay.</span>
+          <span>• A free card covers the full price of the professional's eligible free service. The deposit and booking fee are paid separately.</span>
           <span>• Each voucher or card works once. GRANTED vouchers: one discount and one free-service voucher per student. Older Nearest Cards: one per student.</span>
           <span>• GRANTED vouchers can be activated until the Valid thru date printed on them. Older Nearest Cards must be saved within {days} days of getting them (and before Valid thru). Once saved, it stays until you use it.</span>
           <span>• GRANTED vouchers and Nearest Cards are promotional: no cash value, can&apos;t be sold or exchanged for cash, and can&apos;t be used on Bundle bookings.</span>

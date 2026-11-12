@@ -7,7 +7,7 @@ import { isAdult } from "@/lib/age";
 import { liveProWhere } from "@/lib/search";
 import { openSlots } from "@/lib/availability";
 import { creditBalances } from "@/lib/credits";
-import { usableCards, planWithCard, cardLabel } from "@/lib/nearest-cards";
+import { usableCards, planWithCard, cardLabel, cardValue } from "@/lib/nearest-cards";
 import Link from "next/link";
 import { NearestCardForm } from "@/components/NearestCardForm";
 import { getSettings } from "@/lib/settings";
@@ -67,7 +67,7 @@ export default async function Confirm({ params, searchParams }: { params: Promis
   const cap = promoCap({ priceCents: price, serviceFeeCents: svc.proPriceCents == null ? 0 : svc.serviceFeeCents, depositCents: deposit, inviteDiscountCents: inv?.cents ?? 0 });
   const use = bundleItem
     ? { card: 0, pro: 0, general: 0, charge: price } // credits can't be used on bundle bookings
-    : planWithCard(price - (inv?.cents ?? 0), await creditBalances(user.id, svc.userId), chosen?.b.amountCents ?? 0, cap);
+    : planWithCard(price - (inv?.cents ?? 0), await creditBalances(user.id, svc.userId), chosen ? cardValue(chosen.b.kind, chosen.b.amountCents) : 0, cap);
   const starts = chicagoToUtc(day, time);
   const city = pro.cityId ? await db.query.cities.findFirst({ where: eq(cities.id, pro.cityId) }) : null;
   const travels = pro.serviceMode === "travel" || pro.serviceMode === "both" || !pro.addressLine;
@@ -103,7 +103,7 @@ export default async function Confirm({ params, searchParams }: { params: Promis
                 <Link className={`chip${!chosen ? " on" : ""}`} href={`/book/${svc.id}/confirm?day=${day}&time=${time}${q}`} replace scroll={false}>Don&apos;t use a card</Link>
                 {myCards.map((x) => (
                   <Link key={x.c.id} className={`chip${chosen?.c.id === x.c.id ? " on" : ""}`} href={`/book/${svc.id}/confirm?day=${day}&time=${time}${q}&card=${x.c.id}`} replace scroll={false}>
-                    {cardLabel(x.b.kind, !!x.b.sharedNumber)} •••• {x.c.number.slice(-4)} — {x.b.kind === "free" ? `covers up to ${money(x.b.amountCents)}` : `${money(x.b.amountCents)} off`}
+                    {cardLabel(x.b.kind, !!x.b.sharedNumber)} •••• {x.c.number.slice(-4)} — {x.b.kind === "free" ? "free service" : `${money(x.b.amountCents)} off`}
                   </Link>
                 ))}
                 <span className="xs muted">Only the card you choose is used, and only on this booking. It covers the service — the Deposit/Booking Fee is still paid. One card per booking; any value it doesn&apos;t cover here isn&apos;t kept.</span>

@@ -163,7 +163,6 @@ export function VoteFlow({ states, signedIn }: { states: string[]; signedIn: boo
           </>
         )}
       </div>
-      <p className="xs muted" style={{ textAlign: "center", margin: 0 }}>Keep your Nearest GRANTED voucher. Vouchers are promotional, have no cash value and work once per student. Questions? support@usenearest.com</p>
     </div>
   );
 }

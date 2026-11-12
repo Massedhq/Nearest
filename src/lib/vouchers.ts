@@ -24,7 +24,7 @@ export const voucherLabel = (kind: string) => (kind === "free" ? "GRANTED Vouche
 /** The benefit of THIS campaign, read from its own type and value (free-service vs discount) — never a fixed wording. */
 export const benefitLine = (kind: string, amountCents: number) => {
   const amt = `$${(amountCents / 100).toFixed(amountCents % 100 ? 2 : 0)}`;
-  return kind === "free" ? `GRANTED free-service voucher (covers one service up to ${amt})` : `GRANTED discount voucher (${amt} off a service)`;
+  return kind === "free" ? "GRANTED free-service voucher" : `GRANTED discount voucher (${amt} off a service)`;
 };
 
 export async function maxActivations() {
