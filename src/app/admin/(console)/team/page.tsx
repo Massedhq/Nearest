@@ -1,10 +1,10 @@
 import { desc, eq } from "drizzle-orm";
 import { db, users, adminMembers, activityLog } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
-import { requireAdmin, activityVisibleTo } from "@/lib/admin";
+import { requireAdmin, activityVisibleTo, isMainOwner } from "@/lib/admin";
 import { displayName, ownerAllowed } from "@/lib/viewer";
 import { ActionForm } from "@/components/ActionForm";
-import { restoreOwner } from "@/app/admin/team-actions";
+import { restoreOwner, deleteActivity } from "@/app/admin/team-actions";
 
 export const metadata = { title: "Team & Activity Log" };
 
@@ -14,6 +14,7 @@ const show = (v: unknown) => (v === null || v === undefined ? "" : typeof v === 
 export default async function Team() {
   const { user } = await requireAdmin();
   const visible = await activityVisibleTo(user.id); // other owners never see the main owner's activity
+  const main = await isMainOwner(user.id); // only the main owner can delete log entries
   const [members, log] = await Promise.all([
     db
       .select({ m: adminMembers, u: users })
@@ -59,13 +60,15 @@ export default async function Team() {
           <p className="xs muted p">Owners are added on first sign-in only when their email is in OWNER_EMAILS and the account isn&apos;t a professional or student account. Access is re-checked on every page.</p>
         </div>
         <div className="card" style={{ gap: 12, overflowX: "auto" }}>
-          <div className="row between"><span className="eyebrow">Activity log</span><span className="tag">Cannot be deleted</span></div>
+          <form action={deleteActivity} className="col" style={{ gap: 12 }}>
+          <div className="row between"><span className="eyebrow">Activity log</span>{main && log.length > 0 && <button className="btn ghost sm" type="submit" style={{ width: "auto", color: "#F2A38F" }}>Delete selected</button>}</div>
           <table className="tbl">
-            <thead><tr><th>Time</th><th>Admin</th><th>Action</th><th>Target</th><th>Before → After</th></tr></thead>
+            <thead><tr>{main && <th />}<th>Time</th><th>Admin</th><th>Action</th><th>Target</th><th>Before → After</th></tr></thead>
             <tbody>
-              {log.length === 0 && <tr><td className="empty" colSpan={5}>Nothing logged yet.</td></tr>}
+              {log.length === 0 && <tr><td className="empty" colSpan={main ? 6 : 5}>Nothing logged yet.</td></tr>}
               {log.map(({ l, first, last }) => (
                 <tr key={l.id}>
+                  {main && <td><input type="checkbox" name="id" value={l.id} aria-label="Select this entry" /></td>}
                   <td>{when(l.createdAt)}</td>
                   <td>{[first, last].filter(Boolean).join(" ") || "System"}</td>
                   <td>{l.action}</td>
@@ -75,6 +78,7 @@ export default async function Team() {
               ))}
             </tbody>
           </table>
+          </form>
         </div>
       </div>
     </>

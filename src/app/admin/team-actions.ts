@@ -1,9 +1,9 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import { and, eq, gt, lte } from "drizzle-orm";
+import { and, eq, gt, inArray, lte } from "drizzle-orm";
 import { clerkClient } from "@clerk/nextjs/server";
-import { db, users, adminMembers, invitations } from "@/db";
-import { requireAdmin } from "@/lib/admin";
+import { db, users, adminMembers, invitations, activityLog } from "@/db";
+import { requireAdmin, isMainOwner } from "@/lib/admin";
 import { logActivity } from "@/lib/log";
 import { deleteAccount } from "@/lib/accounts";
 import type { FormState } from "@/components/ActionForm";
@@ -42,4 +42,15 @@ export async function restoreOwner(_: FormState, form: FormData): Promise<FormSt
   await logActivity({ actorUserId: me.id, action: "owner.restored", targetType: "owner", targetId: target.email ?? id, before: `${target.firstName} ${target.lastName}`, after: `${first ?? ""} ${last ?? ""}`.trim() });
   revalidatePath("/admin", "layout");
   return { ok: `Restored. This owner login is ${`${first ?? ""} ${last ?? ""}`.trim() || target.email} again, with no professional business attached. The invitation it used is open again.` };
+}
+
+/** Team & Activity Log: the main owner (only) can delete activity log entries she selects. Checked on the server. */
+export async function deleteActivity(form: FormData) {
+  const { user } = await requireAdmin();
+  if (!(await isMainOwner(user.id))) return;
+  const ids = form.getAll("id").map((x) => Number(x)).filter((n) => Number.isInteger(n) && n > 0).slice(0, 500);
+  if (!ids.length) return;
+  await db.delete(activityLog).where(inArray(activityLog.id, ids));
+  revalidatePath("/admin/team");
+  revalidatePath("/admin");
 }

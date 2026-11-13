@@ -14,7 +14,7 @@ import { ORG_KINDS, DIST_STATUS, locationKey } from "@/lib/distribution";
  */
 type FormState = { error?: string; ok?: string };
 const s = (f: FormData, k: string, max = 200) => String(f.get(k) ?? "").trim().slice(0, max);
-const refresh = () => { revalidatePath("/admin/my-vouchers"); revalidatePath("/admin/vouchers", "layout"); revalidatePath("/card"); };
+const refresh = () => { revalidatePath("/admin/cards"); revalidatePath("/admin/my-vouchers"); revalidatePath("/admin/vouchers", "layout"); revalidatePath("/card"); };
 const STATUSES = ["planned", "assigned", "delivered", "completed"] as const;
 
 async function owner() {

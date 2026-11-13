@@ -17,8 +17,8 @@ export default async function DistributorDetail({ params }: { params: Promise<{ 
   const name = [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email || "Distributor";
   return (
     <>
-      <AdminHead eyebrow="Voucher Distribution Management" title={name} />
-      <a className="link xs" href="/admin/vouchers">← All distributors</a>
+      <AdminHead eyebrow="Nearest Cards" title={name} />
+      <a className="link xs" href="/admin/cards">← Nearest Cards</a>
       <VoucherDistributionView userId={id} own={false} />
     </>
   );

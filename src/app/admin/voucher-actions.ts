@@ -8,7 +8,7 @@ import { digits, endOfMonth, CARD_LIMITS } from "@/lib/nearest-cards";
 
 type FormState = { error?: string; ok?: string };
 const s = (f: FormData, k: string, max = 200) => String(f.get(k) ?? "").trim().slice(0, max);
-const refresh = () => { revalidatePath("/admin/vouchers", "layout"); revalidatePath("/admin/my-vouchers"); revalidatePath("/cards"); revalidatePath("/card"); };
+const refresh = () => { revalidatePath("/admin/cards"); revalidatePath("/admin/vouchers", "layout"); revalidatePath("/admin/my-vouchers"); revalidatePath("/cards"); revalidatePath("/card"); };
 
 /**
  * Voucher Distribution Management (2026-11-12) — the main owner's alone. A campaign = one distributor × type: the
@@ -30,7 +30,8 @@ export async function saveVoucherCampaign(_: FormState, form: FormData): Promise
   const distributorId = s(form, "distributorId", 40);
   const kind = s(form, "kind", 10) === "free" ? "free" : "discount";
   const number = digits(s(form, "number", 30)), code = digits(s(form, "code", 10));
-  const amountCents = Math.round(Number(s(form, "amount", 10)) * 100);
+  // Free-service vouchers cover the professional's whole eligible free service, so their value isn't asked for.
+  const amountCents = kind === "free" && !s(form, "amount", 10) ? CARD_LIMITS.freeMax : Math.round(Number(s(form, "amount", 10)) * 100);
   const validThru = endOfMonth(s(form, "validThru", 7));
   const count = Math.round(Number(s(form, "printed", 6)) || 0);
   const isOwner = /^[0-9a-f-]{36}$/.test(distributorId) && await db.query.adminMembers.findFirst({ where: and(eq(adminMembers.userId, distributorId), eq(adminMembers.role, "OWNER")) });
@@ -51,7 +52,8 @@ export async function saveVoucherCampaign(_: FormState, form: FormData): Promise
   const mine = (await db.execute(sql`select distinct shared_number as n from nearest_card_batches where distributor_id = ${distributorId} and shared_number is not null and status = 'active' ${id ? sql`and id <> ${id}` : sql``}`)).rows as { n: string }[];
   if (mine.some((m) => m.n !== number)) return { error: "This distributor already uses a different 16-digit number. Both of their campaigns use the same number." };
   const dist = (await db.execute(sql`select coalesce(nullif(trim(first_name || ' ' || coalesce(last_name, '')), ''), email) as n from users where id = ${distributorId}`)).rows[0] as { n: string };
-  const name = `GRANTED ${kind === "free" ? "Free service" : "Discount"} — ${dist?.n ?? "Distributor"}`;
+  const batchName = s(form, "name", 80);
+  const name = batchName ? `${batchName} — ${kind === "free" ? "Free service" : "Discount"}` : `GRANTED ${kind === "free" ? "Free service" : "Discount"} — ${dist?.n ?? "Distributor"}`;
   if (id) {
     const before = await db.query.nearestCardBatches.findFirst({ where: eq(nearestCardBatches.id, id) });
     if (!before?.sharedNumber) return { error: "Campaign not found." };
@@ -69,6 +71,36 @@ export async function saveVoucherCampaign(_: FormState, form: FormData): Promise
   await logActivity({ actorUserId: user.id, action: "vouchers.campaign_added", targetType: "voucher_campaign", targetId: b.id, after: { name, number, kind, amountCents, validThru, count, distributorId, draft: true } });
   refresh();
   return { ok: `${name} saved as a draft. Review it, then Publish.` };
+}
+
+/**
+ * Nearest Cards → Set up a distributor's vouchers: ONE form for a distributor's batch — batch name, their 16-digit number,
+ * Valid thru, and the discount part (3-digit code, $ off, how many) and/or the free-service part (4-digit code, how many).
+ * Everything is checked first, then each part is saved as its own draft campaign (same rules as saveVoucherCampaign).
+ */
+export async function saveDistributorVouchers(_: FormState, form: FormData): Promise<FormState> {
+  const { main } = await owner();
+  if (!main) return { error: "Only the main owner can set up vouchers." };
+  const dCode = digits(s(form, "discountCode", 10)), fCode = digits(s(form, "freeCode", 10));
+  const dCount = s(form, "discountCount", 6), fCount = s(form, "freeCount", 6);
+  const wantD = !!(dCode || dCount || s(form, "discountAmount", 10)), wantF = !!(fCode || fCount);
+  if (!wantD && !wantF) return { error: "Fill in the discount vouchers, the free-service vouchers, or both." };
+  if (wantD && dCode.length !== 3) return { error: "The discount code is 3 digits." };
+  if (wantF && fCode.length !== 4) return { error: "The free-service code is 4 digits." };
+  const okCount = (c: string) => Number.isInteger(Number(c)) && Number(c) >= 1 && Number(c) <= 100000;
+  if (wantD && !okCount(dCount)) return { error: "Enter how many discount vouchers (for example 900)." };
+  if (wantF && !okCount(fCount)) return { error: "Enter how many free-service vouchers (for example 100)." };
+  const results: string[] = [];
+  for (const [want, kind, code, count, amount] of [[wantD, "discount", dCode, dCount, s(form, "discountAmount", 10)], [wantF, "free", fCode, fCount, ""]] as const) {
+    if (!want) continue;
+    const f = new FormData();
+    for (const k of ["distributorId", "number", "validThru", "name"]) f.set(k, s(form, k, 80));
+    f.set("kind", kind); f.set("code", code); f.set("printed", count); f.set("amount", amount);
+    const r = await saveVoucherCampaign({}, f);
+    if (r.error) return { error: results.length ? `${results.join(" ")} The free-service part wasn't saved: ${r.error}` : r.error };
+    results.push(r.ok ?? "");
+  }
+  return { ok: results.join(" ") };
 }
 
 /** Publish a draft: it appears in the distributor's account and students can activate it. */
