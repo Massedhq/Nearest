@@ -16,6 +16,8 @@ import { db, nearestCardBatches, nearestCards, studentVotes, studentProfiles } f
  * - a distributor has ONE 16-digit number for both types; the code (3 digits discount / 4 digits free) picks the campaign.
  * Vouchers have no 30-day save window — they're good until the campaign's Valid thru date (or turned off).
  * The /card page is the "YOUR CITY. YOUR CHOICE." vote (src/app/vote-actions.ts); votes live in student_votes.
+ * Since 2026-11-14 the printed card is UNIVERSAL (batch.scratch): one number for every distributor, a 4-digit code per
+ * distributor, and the reward (discount or free service) is revealed by a scratch-off — see scratch() in reward-wheel.ts.
  */
 export const VOTE_COOKIE = "nearest_vote";
 export const VOUCHER = { name: "Nearest GRANTED Certificate Voucher", short: "GRANTED voucher", triesPerHour: 5 };
@@ -42,7 +44,22 @@ export type CampaignCheck = { ok: true; batch: typeof nearestCardBatches.$inferS
 export async function checkCampaign(number: string, code: string): Promise<CampaignCheck | null> {
   if (!(await campaignByNumber(number))) return null;
   const b = (await db.query.nearestCardBatches.findFirst({ where: and(eq(nearestCardBatches.sharedNumber, number), eq(nearestCardBatches.sharedCode, code), eq(nearestCardBatches.draft, false)) })) ?? null;
-  if (!b) return { ok: false, error: "That voucher number and security code don't match. The discount voucher has a 3-digit code and the free-service voucher a 4-digit code — enter the one printed on your voucher." };
+  if (!b) {
+    const scratchNumber = (await db.execute(sql`select 1 from nearest_card_batches where shared_number = ${number} and scratch and not draft limit 1`)).rows.length;
+    return { ok: false, error: scratchNumber
+      ? "That number and security code don't match. Enter the 4-digit security code printed on your card."
+      : "That voucher number and security code don't match. The discount voucher has a 3-digit code and the free-service voucher a 4-digit code — enter the one printed on your voucher." };
+  }
+  if (b.scratch) {
+    // Universal scratch-off card: the number + code name a distributor's pool (discount + free rows).
+    const pool = (await db.select().from(nearestCardBatches).where(and(eq(nearestCardBatches.sharedNumber, number), eq(nearestCardBatches.sharedCode, code), eq(nearestCardBatches.scratch, true), eq(nearestCardBatches.draft, false))))
+      .filter((x) => x.status === "active");
+    if (!pool.length) return { ok: false, error: "This card campaign has ended. You can still create your free Nearest account." };
+    const open = pool.filter((x) => x.validThru.getTime() >= Date.now());
+    if (!open.length) return { ok: false, error: "This card has expired. You can still create your free Nearest account." };
+    if (!open.some((x) => x.claimed < x.count)) return { ok: false, error: "All rewards on this card have been given out. You can still create your free Nearest account." };
+    return { ok: true, batch: open.sort((x, y) => x.kind.localeCompare(y.kind))[0] };
+  }
   if (b.status !== "active") return { ok: false, error: "This voucher campaign has ended. You can still create your free Nearest account." };
   if (b.validThru.getTime() < Date.now()) return { ok: false, error: "This voucher has expired. You can still create your free Nearest account." };
   if (b.claimed >= b.count) return { ok: false, error: "All vouchers in this campaign have been claimed. You can still create your free Nearest account." };
@@ -51,6 +68,8 @@ export async function checkCampaign(number: string, code: string): Promise<Campa
 
 /** Attach a voucher campaign to a student's account (their own nearest_cards row). Safe to call twice. */
 export async function activateVoucher(userId: string, batch: typeof nearestCardBatches.$inferSelect): Promise<{ ok: true; id: string; amountCents: number; kind: string } | { ok: false; error: string }> {
+  // A scratch-off card's reward is revealed on screen and added by claimSpin (src/lib/reward-wheel.ts), never here.
+  if (batch.scratch) return { ok: false, error: "This GRANTED card is a scratch-off — vote at usenearest.com/card, enter the card, and scratch to reveal your reward." };
   const kind = batch.kind;
   const same = (await db.execute(sql`select c.id, c.batch_id as "batchId" from nearest_cards c join nearest_card_batches b on b.id = c.batch_id
     where c.shared and c.student_id = ${userId} and c.status = 'activated' and b.kind = ${kind} limit 1`)).rows[0] as { id: string; batchId: string } | undefined;
@@ -142,7 +161,7 @@ export async function claimVote(userId: string): Promise<{ linked: boolean; vouc
   let voucher: { ok: boolean; message: string } | undefined;
   if (v.pendingBatchId) {
     const b = await db.query.nearestCardBatches.findFirst({ where: eq(nearestCardBatches.id, v.pendingBatchId) });
-    if (b) {
+    if (b && !b.scratch) { // scratch-off rewards are added by claimSpin from the revealed result
       const r = await activateVoucher(userId, b);
       voucher = r.ok ? { ok: true, message: `Your ${benefitLine(b.kind, b.amountCents)} is now linked to your student account. Choose it at checkout once you're verified to book.` } : { ok: false, message: r.error };
     }

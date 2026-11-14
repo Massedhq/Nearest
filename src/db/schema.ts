@@ -1578,6 +1578,10 @@ export const nearestCardBatches = pgTable("nearest_card_batches", {
   channel: text("channel").notNull().default("physical"),
   onlineCampaignId: uuid("online_campaign_id"),
   weight: integer("weight").notNull().default(0), // wheel odds (relative); 0 = not on the wheel
+  // GRANTED scratch-off (2026-11-14): one universal printed card. Every distributor's cards carry the SAME 16-digit number
+  // and the distributor's own 4-digit code. A distributor's pool = their scratch rows on that number + code (one discount
+  // row, one free row, e.g. 900 / 100); the reward is picked on screen with odds = what's left, so totals land exactly.
+  scratch: boolean("scratch").notNull().default(false),
   createdBy: uuid("created_by").references(() => users.id),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
@@ -1766,13 +1770,14 @@ export const onlineCampaigns = pgTable("online_campaigns", {
 // own card is made when the account exists) | expired / declined (the reward goes back to the inventory).
 export const rewardSpins = pgTable("reward_spins", {
   id: uuid("id").primaryKey().defaultRandom(),
-  campaignId: uuid("campaign_id").notNull().references(() => onlineCampaigns.id),
+  campaignId: uuid("campaign_id").references(() => onlineCampaigns.id), // online wheel campaign; null for a physical scratch-off
+  channel: text("channel").notNull().default("online"), // online (reward wheel) | physical (GRANTED card scratch-off)
   voteId: uuid("vote_id").notNull(),
   sessionId: text("session_id").notNull(),
   batchId: uuid("batch_id").notNull().references(() => nearestCardBatches.id),
   kind: text("kind").notNull(),
   amountCents: integer("amount_cents").notNull(),
-  status: text("status").notNull().default("held"), // held | assigned | expired | declined
+  status: text("status").notNull().default("held"), // held | assigned | expired | declined | released (scratch reward of an account that never verified)
   holdUntil: ts("hold_until").notNull(),
   email: text("email"),
   claimTokenHash: text("claim_token_hash"),

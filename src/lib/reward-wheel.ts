@@ -3,7 +3,8 @@ import { createHash, randomBytes, randomInt } from "crypto";
 import { cookies, headers } from "next/headers";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { db, onlineCampaigns, nearestCardBatches, nearestCards, rewardSpins, studentVotes, users } from "@/db";
-import { voteSession } from "./vouchers";
+import { voteSession, attributeActivation } from "./vouchers";
+import { getSettings } from "./settings";
 
 /**
  * Online GRANTED reward wheel (2026-11-13). Students who vote on /vote (from an ad or directly) spin once:
@@ -17,6 +18,12 @@ import { voteSession } from "./vouchers";
  *  - one online reward per student, and never together with a physical GRANTED voucher (either way round);
  *  - free service is capped at ONLINE_FREE_MAX across every online campaign, ever — separate from the physical vouchers.
  * Student verification is still only required to BOOK (requireVerifiedStudent), never to spin or add the card.
+ *
+ * The SAME engine runs the physical GRANTED scratch-off (2026-11-14, scratch()): the printed card's number + 4-digit code
+ * name a distributor's pool (scratch batches, e.g. 900 discount + 100 free); the odds are what's left in each, so the
+ * totals land exactly. reward_spins.channel "physical", campaign_id null; holds / rate limit / the unverified release
+ * come from Rules & Settings (vouchers.*). The card a physical reward becomes carries the printed number + code and is
+ * attributed to the organization the student named (attributeActivation).
  */
 export const ONLINE_FREE_MAX = 100;
 export const SPIN_COOKIE = "nearest_spin";
@@ -97,15 +104,26 @@ export async function spin(viewer: { userId: string | null }): Promise<SpinResul
   const recent = (await db.execute(sql`select count(*)::int as n from reward_spins where ip_hash = ${ipHash} and created_at > now() - interval '1 hour'`)).rows[0] as { n: number };
   if (recent.n >= camp.spinsPerHourPerNetwork) return { ok: false, error: "Too many spins from this network. Please try again later — your vote still counts." };
 
-  let segs = (await wheelSegments(camp.id)).filter((x) => x.remaining > 0);
+  const segs = (await wheelSegments(camp.id)).filter((x) => x.remaining > 0);
+  return reserve({ voteId: vote.id, sessionId: vote.sessionId, campaignId: camp.id, channel: "online", holdMinutes: camp.quickHoldMinutes, ipHash, segs, byRemaining: false });
+}
+
+/**
+ * Pick one reward among `segs` and reserve it in ONE statement: `update … set claimed = claimed + 1 where claimed < count`
+ * + the spin insert (unique vote_id). Odds = each segment's weight (wheel) or what's left of it (scratch-off — so the
+ * totals come out exactly as set). A segment that ran out a moment ago is skipped and the others tried.
+ */
+async function reserve(o: { voteId: string; sessionId: string; campaignId: string | null; channel: "online" | "physical"; holdMinutes: number; ipHash: string; segs: { id: string; weight: number; remaining: number }[]; byRemaining: boolean }): Promise<SpinResult> {
+  let segs = o.segs.filter((x) => x.remaining > 0 && (o.byRemaining || x.weight > 0));
   while (segs.length) {
-    const total = segs.reduce((n, x) => n + x.weight, 0);
+    const w = (x: { weight: number; remaining: number }) => (o.byRemaining ? x.remaining : x.weight);
+    const total = segs.reduce((n, x) => n + w(x), 0);
     let roll = randomInt(total), pick = segs[0];
-    for (const x of segs) { if (roll < x.weight) { pick = x; break; } roll -= x.weight; }
+    for (const x of segs) { if (roll < w(x)) { pick = x; break; } roll -= w(x); }
     const r = (await db.execute(sql`with slot as (
         update nearest_card_batches set claimed = claimed + 1 where id = ${pick.id} and claimed < count returning id, kind, amount_cents),
-      ins as (insert into reward_spins (campaign_id, vote_id, session_id, batch_id, kind, amount_cents, hold_until, ip_hash, user_id)
-        select ${camp.id}, ${vote.id}, ${vote.sessionId}, id, kind, amount_cents, now() + make_interval(mins => ${camp.quickHoldMinutes}), ${ipHash}, null from slot
+      ins as (insert into reward_spins (campaign_id, channel, vote_id, session_id, batch_id, kind, amount_cents, hold_until, ip_hash, user_id)
+        select ${o.campaignId}, ${o.channel}, ${o.voteId}, ${o.sessionId}, id, kind, amount_cents, now() + make_interval(mins => ${o.holdMinutes}), ${o.ipHash}, null from slot
         on conflict (vote_id) do nothing returning id)
       select (select count(*) from slot)::int as took, (select id from ins) as spin_id`)).rows[0] as { took: number; spin_id: string | null };
     if (r.spin_id) {
@@ -113,14 +131,54 @@ export async function spin(viewer: { userId: string | null }): Promise<SpinResul
       return { ok: true, spin: view(s) };
     }
     if (r.took) {
-      // Spun twice at the same moment: give the place back and show the spin that won.
+      // Two at the same moment for one vote: give the place back and show the one that won.
       await db.execute(sql`update nearest_card_batches set claimed = greatest(claimed - 1, 0) where id = ${pick.id}`);
-      const s = (await db.select().from(rewardSpins).where(eq(rewardSpins.voteId, vote.id)))[0];
+      const s = (await db.select().from(rewardSpins).where(eq(rewardSpins.voteId, o.voteId)))[0];
       if (s) return { ok: true, spin: view(s) };
     }
-    segs = segs.filter((x) => x.id !== pick.id); // that segment just ran out — try the others
+    segs = segs.filter((x) => x.id !== pick.id); // that one just ran out — try the others
   }
   return { ok: false, error: "All rewards have been given out. Thank you — your vote still counts." };
+}
+
+/** A distributor's scratch-off pool for this printed number + code: their published scratch rows (discount + free). */
+export async function scratchPool(number: string, code: string) {
+  return db.select().from(nearestCardBatches).where(and(eq(nearestCardBatches.sharedNumber, number), eq(nearestCardBatches.sharedCode, code),
+    eq(nearestCardBatches.scratch, true), eq(nearestCardBatches.draft, false))).orderBy(asc(nearestCardBatches.kind));
+}
+
+/**
+ * Physical GRANTED card scratch-off. The vote must be a printed-card vote whose number + code were accepted (the pool is
+ * remembered on the vote as pending_batch_id). One result per vote — scratching again shows the same one. A signed-in
+ * student who already has a GRANTED card can't scratch for another. Odds = what's left in the distributor's pool.
+ */
+export async function scratch(viewer: { userId: string | null }): Promise<SpinResult> {
+  await expireSpins();
+  const sid = await voteSession(false);
+  const vote = sid ? (await db.select().from(studentVotes).where(eq(studentVotes.sessionId, sid)).limit(1))[0] : undefined;
+  if (!vote) return { ok: false, error: "Please vote first — then scratch." };
+  const existing = (await db.select().from(rewardSpins).where(eq(rewardSpins.voteId, vote.id)).limit(1))[0];
+  if (existing) return { ok: true, spin: view(existing) };
+  if (vote.channel === "online") return { ok: false, error: "The scratch-off is for printed GRANTED cards." };
+  const first = vote.pendingBatchId ? (await db.select().from(nearestCardBatches).where(eq(nearestCardBatches.id, vote.pendingBatchId)))[0] : undefined;
+  if (!first?.scratch || !first.sharedNumber || !first.sharedCode) return { ok: false, error: "Enter the number and security code on your card first." };
+  const pool = (await scratchPool(first.sharedNumber, first.sharedCode)).filter((b) => b.status === "active");
+  if (!pool.length) return { ok: false, error: "This card campaign has ended. Your vote still counts." };
+  if (pool.every((b) => b.validThru.getTime() < Date.now())) return { ok: false, error: "This card has expired. Your vote still counts." };
+  if (viewer.userId) {
+    if ((await grantedCardsOf(viewer.userId)).length) return { ok: false, error: "You already have a GRANTED card on your account — it's one per student. Your vote still counts." };
+    const had = (await db.execute(sql`select 1 from reward_spins where user_id = ${viewer.userId} and status in ('held', 'assigned') limit 1`)).rows.length;
+    if (had) return { ok: false, error: "You've already revealed a GRANTED reward. Your vote still counts." };
+  }
+  const set = await getSettings();
+  const perHour = Number(set["vouchers.scratches_per_hour"] ?? 20) || 20;
+  const ipHash = hashIp(await requestIp());
+  const recent = (await db.execute(sql`select count(*)::int as n from reward_spins where ip_hash = ${ipHash} and channel = 'physical' and created_at > now() - interval '1 hour'`)).rows[0] as { n: number };
+  if (recent.n >= perHour) return { ok: false, error: "Too many scratch-offs from this network. Please try again later — your vote still counts." };
+  const segs = pool.filter((b) => b.validThru.getTime() >= Date.now()).map((b) => ({ id: b.id, weight: 1, remaining: Math.max(0, b.count - b.claimed) }));
+  const r = await reserve({ voteId: vote.id, sessionId: vote.sessionId, campaignId: null, channel: "physical", holdMinutes: Number(set["vouchers.hold_minutes"] ?? 60) || 60, ipHash, segs, byRemaining: true });
+  if (!r.ok) return { ok: false, error: "All rewards on this card have been given out. Thank you — your vote still counts." };
+  return r;
 }
 
 /** Hold the reward for the campaign's hold time (3 days) with an email; emails a link back to it. */
@@ -129,15 +187,17 @@ export async function holdWithEmail(rawEmail: string): Promise<{ ok: true; holdU
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return { ok: false, error: "Enter your email address." };
   const s = await mySpin();
   if (!s || s.status !== "held") return { ok: false, error: "This reward isn't being held anymore." };
-  const camp = (await db.select().from(rewardSpins).innerJoin(onlineCampaigns, eq(onlineCampaigns.id, rewardSpins.campaignId)).where(eq(rewardSpins.id, s.id)))[0];
+  const row0 = (await db.select().from(rewardSpins).leftJoin(onlineCampaigns, eq(onlineCampaigns.id, rewardSpins.campaignId)).where(eq(rewardSpins.id, s.id)))[0];
+  // Online wheel: the campaign's hold. Physical scratch-off: Rules & Settings → vouchers.hold_hours.
+  const holdHours = row0?.online_campaigns?.holdHours ?? (Number((await getSettings())["vouchers.hold_hours"] ?? 72) || 72);
   const token = randomBytes(24).toString("hex");
   const r = await db.execute(sql`update reward_spins set email = ${email}, claim_token_hash = ${hashToken(token)},
-      hold_until = greatest(hold_until, created_at + make_interval(hours => ${camp.online_campaigns.holdHours}))
+      hold_until = greatest(hold_until, created_at + make_interval(hours => ${holdHours}))
     where id = ${s.id} and status = 'held' and hold_until > now() returning hold_until`);
   const row = r.rows[0] as { hold_until: string } | undefined;
   if (!row) return { ok: false, error: "This reward isn't being held anymore." };
   const holdUntil = new Date(row.hold_until);
-  (await cookies()).set(SPIN_COOKIE, token, { httpOnly: true, sameSite: "lax", secure: true, path: "/", maxAge: camp.online_campaigns.holdHours * 3600 });
+  (await cookies()).set(SPIN_COOKIE, token, { httpOnly: true, sameSite: "lax", secure: true, path: "/", maxAge: holdHours * 3600 });
   try {
     const { sendEmail } = await import("./email");
     const { SITE_URL } = await import("./public/site");
@@ -177,7 +237,7 @@ export async function claimSpin(userId: string): Promise<{ ok: boolean; message:
   };
   if ((await grantedCardsOf(userId)).length) {
     await release("already has a GRANTED card");
-    return { ok: false, message: "You already have a GRANTED card on your account, so this online reward couldn't be added — it's one GRANTED card per student." };
+    return { ok: false, message: "You already have a GRANTED card on your account, so this reward couldn't be added — it's one GRANTED card per student." };
   }
   // Take the hold for this account first (one assigned online reward per student — unique index), then make the card.
   let took;
@@ -186,10 +246,17 @@ export async function claimSpin(userId: string): Promise<{ ok: boolean; message:
       where id = ${s.id} and status = 'held' and hold_until > now() returning id`);
   } catch {
     await release("already has an online reward");
-    return { ok: false, message: "You already have an online GRANTED reward on your account — it's one per student." };
+    return { ok: false, message: "You already have a GRANTED reward on your account — it's one per student." };
   }
   if (!took.rows.length) return null;
   const batch = (await db.select().from(nearestCardBatches).where(eq(nearestCardBatches.id, s.batchId)))[0];
+  if (batch.scratch && batch.sharedNumber && batch.sharedCode) {
+    // Printed GRANTED card (scratch-off): the card keeps the printed number + code, attributed like any physical voucher.
+    const [card] = await db.insert(nearestCards).values({ batchId: batch.id, number: batch.sharedNumber, code: batch.sharedCode, status: "activated", studentId: userId, activatedAt: new Date(), shared: true }).returning();
+    await db.update(rewardSpins).set({ cardId: card.id }).where(eq(rewardSpins.id, s.id));
+    try { await attributeActivation(card.id, userId, batch); } catch (e) { console.error("attributeActivation", e); }
+    return { ok: true, message: `Your ${batch.kind === "free" ? "GRANTED free-service voucher" : `GRANTED discount voucher (${s.label} a service)`} is now linked to your student account. Choose it at checkout once you're verified to book.` };
+  }
   const code = String(batch.kind === "free" ? randomInt(1000, 10000) : randomInt(100, 1000));
   const [card] = await db.insert(nearestCards).values({ batchId: batch.id, number: await newCardNumber(), code, status: "activated", studentId: userId, activatedAt: new Date(), shared: true }).returning();
   await db.update(rewardSpins).set({ cardId: card.id }).where(eq(rewardSpins.id, s.id));
@@ -202,4 +269,32 @@ export async function claimSpin(userId: string): Promise<{ ok: boolean; message:
 export async function expireSpins() {
   await db.execute(sql`with x as (update reward_spins set status = 'expired' where status = 'held' and hold_until < now() returning batch_id)
     update nearest_card_batches b set claimed = greatest(b.claimed - c.n, 0) from (select batch_id, count(*)::int as n from x group by batch_id) c where b.id = c.batch_id`);
+}
+
+/**
+ * Scratch-off rewards of accounts that never finish verifying (Rules & Settings → vouchers.release_unverified_days, 30)
+ * go back to the distributor's pool, so leaked card codes can't tie up rewards meant for real students. Only unused
+ * rewards (never chosen for a booking) — the student is told in their inbox. Cron sweep.
+ */
+export async function releaseUnverifiedScratch() {
+  const days = Number((await getSettings())["vouchers.release_unverified_days"] ?? 30) || 30;
+  const rows = (await db.execute(sql`with x as (
+      update nearest_cards c set status = 'off' from nearest_card_batches b, student_profiles sp
+      where b.id = c.batch_id and b.scratch and c.shared and c.status = 'activated' and c.used_booking_id is null and c.credit_id is null
+        and sp.user_id = c.student_id and sp.verification_status <> 'verified' and c.activated_at < now() - make_interval(days => ${days})
+      returning c.id, c.batch_id, c.student_id),
+    s as (update reward_spins r set status = 'released', note = 'not verified in time' from x where r.card_id = x.id returning r.id),
+    b as (update nearest_card_batches nb set claimed = greatest(nb.claimed - n.k, 0) from (select batch_id, count(*)::int as k from x group by batch_id) n where nb.id = n.batch_id returning nb.id)
+    select x.student_id as "studentId" from x`)).rows as { studentId: string }[];
+  if (rows.length) {
+    const { inbox } = await import("./inbox");
+    for (const r of rows) await inbox(r.studentId, { kind: "voucher", title: "Your GRANTED reward was released", body: `Your account wasn't verified within ${days} days, so your GRANTED reward went back for other students.`, href: "/cards" });
+  }
+  return rows.length;
+}
+
+/** The last day a student can finish verifying and keep their scratch-off reward. */
+export async function keepScratchBy(activatedAt: Date) {
+  const days = Number((await getSettings())["vouchers.release_unverified_days"] ?? 30) || 30;
+  return new Date(activatedAt.getTime() + days * 86400000);
 }

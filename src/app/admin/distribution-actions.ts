@@ -23,14 +23,21 @@ async function owner() {
   return { user: a.user, main: await isMainOwner(a.user.id) };
 }
 
-/** A published campaign the signed-in owner may assign from (their own; the main owner: any). */
+/**
+ * A published campaign the signed-in owner may assign from (their own; the main owner: any). For a scratch-off pool the
+ * cards are one stock: assignments are kept on the pool's first row and the limit is the whole pool (discount + free).
+ */
 async function campaignFor(batchId: string, userId: string, main: boolean) {
   if (!/^[0-9a-f-]{36}$/.test(batchId)) return null;
   const b = await db.query.nearestCardBatches.findFirst({ where: eq(nearestCardBatches.id, batchId) });
   if (!b?.sharedNumber || b.draft) return null;
   if (!main && b.distributorId !== userId) return null;
-  return b;
+  if (!b.scratch) return b;
+  const pool = (await db.select().from(nearestCardBatches).where(and(eq(nearestCardBatches.sharedNumber, b.sharedNumber), eq(nearestCardBatches.sharedCode, b.sharedCode!), eq(nearestCardBatches.scratch, true))))
+    .sort((x, y) => x.kind.localeCompare(y.kind));
+  return { ...pool[0], count: pool.reduce((n, x) => n + x.count, 0) };
 }
+const kindWord = (b: { kind: string; scratch: boolean }) => (b.scratch ? "GRANTED card" : b.kind === "free" ? "free-service voucher" : "discount voucher");
 
 /** An assignment the signed-in owner may change (on their own campaign; the main owner: any). */
 async function assignmentFor(id: string, userId: string, main: boolean) {
@@ -100,13 +107,13 @@ export async function assignVouchers(_: FormState, form: FormData): Promise<Form
   const row = r.rows[0] as { id: string } | undefined;
   if (!row) {
     const used = (await db.execute(sql`select coalesce(sum(quantity), 0)::int as n from voucher_distributions where batch_id = ${b.id} and status <> 'cancelled'`)).rows[0] as { n: number };
-    return { error: `Only ${Math.max(0, b.count - used.n)} ${b.kind === "free" ? "free-service" : "discount"} vouchers are left to assign.` };
+    return { error: `Only ${Math.max(0, b.count - used.n)} ${kindWord(b)}s are left to assign.` };
   }
-  const after = { place: place.name, kind: b.kind, quantity: q.quantity, delivered: q.delivered, status: q.status, date: q.at, notes: q.notes };
+  const after = { place: place.name, kind: b.scratch ? "cards" : b.kind, quantity: q.quantity, delivered: q.delivered, status: q.status, date: q.at, notes: q.notes };
   await db.insert(voucherDistributionEvents).values({ distributionId: row.id, actorId: user.id, action: "created", after });
   await logActivity({ actorUserId: user.id, action: "vouchers.assigned", targetType: "voucher_distribution", targetId: row.id, after });
   refresh();
-  return { ok: `${q.quantity} ${b.kind === "free" ? "free-service" : "discount"} voucher${q.quantity === 1 ? "" : "s"} assigned to ${place.name} (${DIST_STATUS[q.status]}).` };
+  return { ok: `${q.quantity} ${kindWord(b)}${q.quantity === 1 ? "" : "s"} assigned to ${place.name} (${DIST_STATUS[q.status]}).` };
 }
 
 /** Edit an assignment: quantity, delivered, status, date, notes. Reducing returns vouchers to what's available. */

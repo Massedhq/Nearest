@@ -17,7 +17,7 @@ foreach ($r in $retired) { if (Test-Path $r) { Remove-Item -Recurse -Force $r; W
 Step "1/4  Installing packages"
 npm ci
 Check "Installing packages"
-Step "2/4  Updating Neon (adds the outreach meeting, partner page and partner shop tables and columns - nothing is removed)"
+Step "2/4  Updating Neon (adds the GRANTED scratch-off columns - nothing is removed)"
 # Neon can be slow to answer "Pulling schema" - retry up to 3 times before giving up.
 $ok = $false
 foreach ($try in 1..3) {
@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -m "Ad links ready in Nearest LIVE: platform + campaign dropdowns, TikTok added"
+git commit -m "GRANTED universal card: one number, a code per distributor, scratch-off reveal"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

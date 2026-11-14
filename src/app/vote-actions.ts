@@ -11,7 +11,7 @@ import { digits } from "@/lib/nearest-cards";
 import { voteSourceOptions } from "@/lib/distribution";
 import { adVisits } from "@/db";
 import { readAttribution, sendAdEvent } from "@/lib/ad-tags";
-import { spin, holdWithEmail, mySpin, liveOnlineCampaign, wheelSegments } from "@/lib/reward-wheel";
+import { spin, scratch, holdWithEmail, mySpin, liveOnlineCampaign, wheelSegments } from "@/lib/reward-wheel";
 
 /**
  * "YOUR CITY. YOUR CHOICE." — the public /card voucher flow (2026-11-11). No account needed to vote: state → city they
@@ -103,7 +103,7 @@ export async function submitVote(input: { state: string; cityId: number; schoolI
  * Thank-you screen: the student types the 16-digit number + code. Signed-in students get it activated right away;
  * everyone else has it held on their vote and activated the moment their account is created (claimVote).
  */
-export async function enterVoucher(rawNumber: string, rawCode: string): Promise<{ ok: string; signedIn: boolean } | { error: string }> {
+export async function enterVoucher(rawNumber: string, rawCode: string): Promise<{ ok: string; signedIn: boolean; scratch?: boolean } | { error: string }> {
   const number = digits(rawNumber), code = digits(rawCode);
   const sid = await voteSession(true);
   const v = sid ? await db.query.studentVotes.findFirst({ where: eq(studentVotes.sessionId, sid) }) : null;
@@ -120,6 +120,12 @@ export async function enterVoucher(rawNumber: string, rawCode: string): Promise<
   const camp = await checkCampaign(number, code);
   if (!camp) return fail("We couldn't find that voucher number. Check the 16 digits and try again.");
   if (!camp.ok) return fail(camp.error);
+  if (camp.batch.scratch) {
+    // Universal GRANTED card: remember the distributor's pool on the vote — the reward is revealed by the scratch-off.
+    await db.update(studentVotes).set({ pendingBatchId: camp.batch.id }).where(eq(studentVotes.id, v.id));
+    const viewer0 = await getViewer();
+    return { ok: "Card accepted. Scratch to reveal your reward.", signedIn: viewer0?.user?.accountType === "student", scratch: true };
+  }
   const viewer = await getViewer();
   if (viewer?.user?.accountType === "student") {
     const r = await activateVoucher(viewer.user.id, camp.batch);
@@ -162,4 +168,23 @@ export async function spinWheel() {
 export async function holdReward(email: string) {
   const r = await holdWithEmail(email);
   return r.ok ? { ok: true as const, holdUntil: r.holdUntil.toISOString() } : { error: r.error };
+}
+
+/** The confirmation shown once a scratch-off reward is revealed (same wording as the printed vouchers). */
+const revealLine = (kind: string, amountCents: number) => kind === "free"
+  ? `Voucher accepted: ${benefitLine("free", 0)}. ${FREE_REDEEM} Your voucher will be linked to your student account after registration and verification.`
+  : `Voucher accepted: ${benefitLine(kind, amountCents)}. It will be linked to your student account after you register and verify.`;
+
+/** This browser's scratch-off result, if it already scratched (coming back shows the same reward). */
+export async function scratchInfo() {
+  const s = await mySpin();
+  return s ? { label: s.label, kind: s.kind, status: s.status, holdUntil: s.holdUntil.toISOString(), email: s.email, line: revealLine(s.kind, s.amountCents) } : null;
+}
+
+/** Scratch once — the server picks and saves the reward first; the card only uncovers what was saved. */
+export async function scratchCard() {
+  const viewer = await getViewer();
+  const r = await scratch({ userId: viewer?.user?.accountType === "student" ? viewer.user.id : null });
+  if (!r.ok) return { error: r.error };
+  return { label: r.spin.label, kind: r.spin.kind, holdUntil: r.spin.holdUntil.toISOString(), line: revealLine(r.spin.kind, r.spin.amountCents) };
 }

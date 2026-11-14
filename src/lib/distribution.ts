@@ -6,7 +6,8 @@ import { PLACE_KINDS } from "./card-places";
 /**
  * GRANTED voucher distribution (2026-11-12). Three levels, never mixed up:
  *  1. Allocation — a distributor's campaigns (nearest_card_batches: one 16-digit number, 3-digit discount code + 4-digit
- *     free code; `count` = vouchers and claim limit, e.g. 900 / 100).
+ *     free code; `count` = vouchers and claim limit, e.g. 900 / 100). Since 2026-11-14 the printed card is universal:
+ *     a scratch-off pool (kind "cards" here) = the same number for everyone + the distributor's own 4-digit code.
  *  2. Physical distribution — voucher_distributions: vouchers assigned to an organization location (card_places) and how
  *     many were actually delivered. Inventory only — it never limits activations.
  *  3. Student activation — nearest_cards (shared), attributed to an organization only by what the student REPORTED on
@@ -23,30 +24,56 @@ const ACTIVE = sql.raw(`d.status <> 'cancelled'`);
 
 const nameSql = sql.raw(`coalesce(nullif(trim(u.first_name || ' ' || coalesce(u.last_name, '')), ''), u.email)`);
 
-export type Campaign = { id: string; kind: string; count: number; number: string; code: string; status: string; draft: boolean; amountCents: number; validThru: Date; assigned: number; delivered: number; activated: number };
+export type Campaign = { id: string; kind: string; count: number; number: string; code: string; status: string; draft: boolean; amountCents: number; validThru: Date; assigned: number; delivered: number; activated: number;
+  // Universal scratch-off cards (kind "cards"): the pool's split and what students revealed + added so far.
+  discountCount?: number; freeCount?: number; activatedDiscount?: number; activatedFree?: number };
 
-/** One distributor's published campaigns with inventory and activation counts. */
+/**
+ * One distributor's published campaigns with inventory and activation counts. A scratch-off pool (discount + free rows on
+ * one number + code) is ONE row of kind "cards": count = all its cards, assignments live on its first row (id), and
+ * activations are split by what students revealed.
+ */
 export async function distributorCampaigns(userId: string, includeDrafts = false) {
-  return (await db.execute(sql`select b.id, b.kind, b.count, b.shared_number as number, b.shared_code as code, b.status, b.draft,
+  const drafts = includeDrafts ? sql`` : sql`and not b.draft`;
+  const plain = (await db.execute(sql`select b.id, b.kind, b.count, b.shared_number as number, b.shared_code as code, b.status, b.draft,
       b.amount_cents as "amountCents", b.valid_thru as "validThru",
       coalesce((select sum(d.quantity) from voucher_distributions d where d.batch_id = b.id and ${ACTIVE}), 0)::int as assigned,
       coalesce((select sum(${DELIVERED}) from voucher_distributions d where d.batch_id = b.id), 0)::int as delivered,
       (select count(*) from nearest_cards c where c.batch_id = b.id and c.shared)::int as activated
-    from nearest_card_batches b where b.shared_number is not null and b.distributor_id = ${userId} ${includeDrafts ? sql`` : sql`and not b.draft`}
+    from nearest_card_batches b where b.shared_number is not null and not b.scratch and b.distributor_id = ${userId} ${drafts}
     order by b.kind`)).rows as Campaign[];
+  const cards = (await db.execute(sql`with p as (select b.shared_number, b.shared_code,
+        (array_agg(b.id order by b.kind))[1] as id, sum(b.count)::int as count, bool_or(b.draft) as draft,
+        (case when bool_or(b.status = 'active') then 'active' else 'off' end) as status,
+        max(b.amount_cents) filter (where b.kind = 'discount') as "amountCents", max(b.valid_thru) as "validThru",
+        coalesce(sum(b.count) filter (where b.kind = 'discount'), 0)::int as "discountCount",
+        coalesce(sum(b.count) filter (where b.kind = 'free'), 0)::int as "freeCount",
+        array_agg(b.id) as ids
+      from nearest_card_batches b where b.scratch and b.shared_number is not null and b.distributor_id = ${userId} ${drafts}
+      group by b.shared_number, b.shared_code)
+    select p.id, 'cards' as kind, p.count, p.shared_number as number, p.shared_code as code, p.status, p.draft, coalesce(p."amountCents", 0) as "amountCents", p."validThru",
+      p."discountCount", p."freeCount",
+      coalesce((select sum(d.quantity) from voucher_distributions d where d.batch_id = any(p.ids) and ${ACTIVE}), 0)::int as assigned,
+      coalesce((select sum(${DELIVERED}) from voucher_distributions d where d.batch_id = any(p.ids)), 0)::int as delivered,
+      (select count(*) from nearest_cards c where c.batch_id = any(p.ids) and c.shared)::int as activated,
+      (select count(*) from nearest_cards c join nearest_card_batches cb on cb.id = c.batch_id where c.batch_id = any(p.ids) and c.shared and cb.kind = 'discount')::int as "activatedDiscount",
+      (select count(*) from nearest_cards c join nearest_card_batches cb on cb.id = c.batch_id where c.batch_id = any(p.ids) and c.shared and cb.kind = 'free')::int as "activatedFree"
+    from p order by p."validThru" desc`)).rows as Campaign[];
+  return [...cards, ...plain];
 }
 
 /** Votes and registrations attributed to a distributor: the student entered (or activated) one of their campaigns. */
 export async function distributorVotes(userId: string) {
   return (await db.execute(sql`select count(*)::int as votes, count(*) filter (where v.user_id is not null)::int as registered
     from student_votes v where v.pending_batch_id in (select id from nearest_card_batches where distributor_id = ${userId} and shared_number is not null)
+      or exists (select 1 from reward_spins rs join nearest_card_batches rb on rb.id = rs.batch_id where rs.vote_id = v.id and rb.distributor_id = ${userId})
       or exists (select 1 from nearest_cards c join nearest_card_batches b on b.id = c.batch_id where c.shared and c.student_id = v.user_id and v.user_id is not null and b.distributor_id = ${userId})`)).rows[0] as { votes: number; registered: number };
 }
 
 export type OrgRow = {
   placeId: string; name: string; kind: string; street: string | null; city: string | null; state: string | null; zip: string | null; contactName: string | null; contact: string | null;
   distributorId: string; distributor: string;
-  assignedDiscount: number; assignedFree: number; deliveredDiscount: number; deliveredFree: number; deliveries: number; last: Date | null;
+  assignedDiscount: number; assignedFree: number; deliveredDiscount: number; deliveredFree: number; assignedCards: number; deliveredCards: number; deliveries: number; last: Date | null;
   votes: number; registered: number; actDiscount: number; actFree: number;
 };
 
@@ -55,10 +82,12 @@ export async function orgPerformance(distributorId: string | null): Promise<OrgR
   const only = distributorId ? sql`and b.distributor_id = ${distributorId}` : sql``;
   const rows = (await db.execute(sql`select p.id as "placeId", p.name, p.kind, p.street, ci.name as city, coalesce(p.state, ci.state) as state, p.zip,
       p.contact_name as "contactName", p.contact, b.distributor_id as "distributorId", ${nameSql} as distributor,
-      coalesce(sum(d.quantity) filter (where b.kind = 'discount' and ${ACTIVE}), 0)::int as "assignedDiscount",
-      coalesce(sum(d.quantity) filter (where b.kind = 'free' and ${ACTIVE}), 0)::int as "assignedFree",
-      coalesce(sum(${DELIVERED}) filter (where b.kind = 'discount'), 0)::int as "deliveredDiscount",
-      coalesce(sum(${DELIVERED}) filter (where b.kind = 'free'), 0)::int as "deliveredFree",
+      coalesce(sum(d.quantity) filter (where b.kind = 'discount' and not b.scratch and ${ACTIVE}), 0)::int as "assignedDiscount",
+      coalesce(sum(d.quantity) filter (where b.kind = 'free' and not b.scratch and ${ACTIVE}), 0)::int as "assignedFree",
+      coalesce(sum(${DELIVERED}) filter (where b.kind = 'discount' and not b.scratch), 0)::int as "deliveredDiscount",
+      coalesce(sum(${DELIVERED}) filter (where b.kind = 'free' and not b.scratch), 0)::int as "deliveredFree",
+      coalesce(sum(d.quantity) filter (where b.scratch and ${ACTIVE}), 0)::int as "assignedCards",
+      coalesce(sum(${DELIVERED}) filter (where b.scratch), 0)::int as "deliveredCards",
       count(*) filter (where ${DELIVERED} > 0)::int as deliveries,
       max(d.distributed_at) filter (where ${ACTIVE}) as last,
       (select count(*) from student_votes v where v.source_place_id = p.id and (
@@ -82,7 +111,7 @@ export type Assignment = { id: string; batchId: string; kind: string; placeId: s
 /** Individual assignments (every delivery is its own row). */
 export async function assignments(distributorId: string | null, limit = 300): Promise<Assignment[]> {
   const only = distributorId ? sql`and b.distributor_id = ${distributorId}` : sql``;
-  return (await db.execute(sql`select d.id, d.batch_id as "batchId", b.kind, d.place_id as "placeId", p.name as place, ci.name as city, p.street,
+  return (await db.execute(sql`select d.id, d.batch_id as "batchId", (case when b.scratch then 'cards' else b.kind end) as kind, d.place_id as "placeId", p.name as place, ci.name as city, p.street,
       d.quantity, ${DELIVERED}::int as delivered, d.status, d.distributed_at as at, d.notes, b.distributor_id as "distributorId", ${nameSql} as distributor,
       d.updated_at as "updatedAt", d.created_at as "createdAt"
     from voucher_distributions d join nearest_card_batches b on b.id = d.batch_id left join card_places p on p.id = d.place_id
@@ -93,7 +122,7 @@ export async function assignments(distributorId: string | null, limit = 300): Pr
 /** Change history (created, edited, delivered, canceled). */
 export async function assignmentHistory(distributorId: string | null, limit = 100) {
   const only = distributorId ? sql`and b.distributor_id = ${distributorId}` : sql``;
-  return (await db.execute(sql`select e.id, e.action, e.before, e.after, e.created_at as at, p.name as place, b.kind, ${nameSql} as actor,
+  return (await db.execute(sql`select e.id, e.action, e.before, e.after, e.created_at as at, p.name as place, (case when b.scratch then 'cards' else b.kind end) as kind, ${nameSql} as actor,
       (select coalesce(nullif(trim(x.first_name || ' ' || coalesce(x.last_name, '')), ''), x.email) from users x where x.id = b.distributor_id) as distributor
     from voucher_distribution_events e join voucher_distributions d on d.id = e.distribution_id join nearest_card_batches b on b.id = d.batch_id
       left join card_places p on p.id = d.place_id left join users u on u.id = e.actor_id
@@ -133,7 +162,9 @@ export async function distributorsOverview() {
     const sum = (k: "count" | "assigned" | "delivered" | "activated", kind?: string) => live.filter((c) => !kind || c.kind === kind).reduce((n, c) => n + Number(c[k]), 0);
     const x = extra.rows[0] as { visited: number; current: number; last: Date | null };
     return { ...d, allocated: sum("count"), assigned: sum("assigned"), delivered: sum("delivered"), remaining: Math.max(0, sum("count") - sum("delivered")),
-      votes: v.votes, registered: v.registered, activated: sum("activated"), free: sum("activated", "free"), discount: sum("activated", "discount"),
+      votes: v.votes, registered: v.registered, activated: sum("activated"),
+      free: sum("activated", "free") + live.reduce((n, c) => n + Number(c.activatedFree ?? 0), 0),
+      discount: sum("activated", "discount") + live.reduce((n, c) => n + Number(c.activatedDiscount ?? 0), 0),
       visited: x.visited, current: x.current, last: x.last, drafts: camps.length - live.length };
   }));
 }

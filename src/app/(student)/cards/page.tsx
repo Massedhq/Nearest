@@ -13,13 +13,15 @@ export const dynamic = "force-dynamic";
 
 /** Account → Cards & activations: add a Nearest Card so its value is saved on the account (and safe if the card is lost). */
 export default async function CardsPage({ searchParams }: { searchParams: Promise<{ welcome?: string; v?: string }> }) {
-  const { user, canBook, finishStep } = await requireBrowsingStudent();
+  const { user, profile, canBook, finishStep } = await requireBrowsingStudent();
   const sp = await searchParams;
   // Voted on /card and then signed in (or created the account): link the vote and activate the voucher they entered.
   const claimed = await (await import("@/lib/vouchers")).claimVote(user.id);
   // Online reward wheel: the held reward becomes this student's own digital GRANTED card.
   const wheel = await (await import("@/lib/reward-wheel")).claimSpin(user.id).catch(() => null);
-  const [cards, days] = await Promise.all([myCards(user.id), activateDays()]);
+  const [cards, days, settings] = await Promise.all([myCards(user.id), activateDays(), (await import("@/lib/settings")).getSettings()]);
+  // Scratch-off rewards go back to the pool if the account isn't verified in time (Rules & Settings → vouchers.release_unverified_days).
+  const keepDays = Number(settings["vouchers.release_unverified_days"] ?? 30) || 30;
   const current = cards.filter((x) => x.state !== "used");
   const used = cards.filter((x) => x.state === "used");
   return (
@@ -52,6 +54,7 @@ export default async function CardsPage({ searchParams }: { searchParams: Promis
             <div className="row between"><span className="b">{cardLabel(b.kind, !!b.sharedNumber || b.channel === "digital")} •••• {c.number.slice(-4)}</span><span className={`tag ${state === "ready" ? "ok" : "warn"}`}>{state === "ready" ? "Ready to use" : "Chosen for a booking"}</span></div>
             <span className="small">{b.kind === "free" ? "One eligible free service" : `${money(b.amountCents)} off`}</span>
             <span className="xs muted">Added {c.activatedAt ? fmtDate(c.activatedAt) : ""} • card valid thru {validThruLabel(b.validThru)}</span>
+            {b.scratch && profile.verificationStatus !== "verified" && c.activatedAt && <span className="xs b">Finish verifying by {fmtDate(new Date(c.activatedAt.getTime() + keepDays * 86400000))} to keep this reward.</span>}
             {bookingId && <Link className="link xs" href={`/bookings/${bookingId}`}>See the booking (you can switch or remove the card there)</Link>}
           </div>
         ))}

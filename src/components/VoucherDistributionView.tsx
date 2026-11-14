@@ -7,7 +7,8 @@ import { addOrganization, assignVouchers, updateAssignment, cancelAssignment } f
 import { fmtDate, money } from "@/lib/time";
 
 const field = { borderRadius: 10, border: "1px solid #2A2A2D", background: "#0E0E10", color: "#ECE8E1", padding: "0 10px", height: 40 } as const;
-const kindName = (k: string) => (k === "free" ? "Free service" : "Discount");
+const kind2 = (k: string) => (k === "cards" ? "GRANTED cards" : k === "free" ? "Free service" : "Discount");
+const kindName = (k: string) => (k === "cards" ? "GRANTED cards" : k === "free" ? "Free service" : "Discount");
 const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
 const day = (d: Date) => new Date(d).toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
 
@@ -24,7 +25,8 @@ export async function VoucherDistributionView({ userId, own }: { userId: string;
     db.select({ name: cities.name }).from(cities).where(eq(cities.state, "TX")).orderBy(asc(cities.name)),
   ]);
   const placeList = places.rows as { id: string; name: string; street: string | null; city: string | null; state: string | null }[];
-  const disc = camps.find((c) => c.kind === "discount"), free = camps.find((c) => c.kind === "free");
+  const disc = camps.find((c) => c.kind === "discount"), free = camps.find((c) => c.kind === "free"), card = camps.find((c) => c.kind === "cards");
+  const kinds = (["cards", "discount", "free"] as const).filter((k) => camps.some((c) => c.kind === k));
   const total = (k: "count" | "assigned" | "delivered" | "activated", kind?: string) => camps.filter((c) => !kind || c.kind === kind).reduce((n, c) => n + Number(c[k]), 0);
   const delivered = total("delivered"), activated = total("activated");
   const you = own ? "you" : "they";
@@ -36,28 +38,29 @@ export async function VoucherDistributionView({ userId, own }: { userId: string;
       <div className="card" style={{ gap: 10 }}>
         <span className="eyebrow">{own ? "My Assignment" : "Assignment"}</span>
         <div className="row" style={{ gap: 18, flexWrap: "wrap" }}>
-          <span className="col" style={{ gap: 0 }}><span className="xs muted">16-digit activation number</span><span className="b" style={{ fontVariantNumeric: "tabular-nums", fontSize: 18 }}>{groupNumber(camps[0].number)}</span></span>
+          <span className="col" style={{ gap: 0 }}><span className="xs muted">16-digit activation number</span><span className="b" style={{ fontVariantNumeric: "tabular-nums", fontSize: 18 }}>{groupNumber((card ?? camps[0]).number)}</span></span>
+          {card && <span className="col" style={{ gap: 0 }}><span className="xs muted">GRANTED card security code</span><span className="b" style={{ fontSize: 18 }}>{card.code}</span></span>}
           {disc && <span className="col" style={{ gap: 0 }}><span className="xs muted">Discount security code</span><span className="b" style={{ fontSize: 18 }}>{disc.code}</span></span>}
           {free && <span className="col" style={{ gap: 0 }}><span className="xs muted">Free-service security code</span><span className="b" style={{ fontSize: 18 }}>{free.code}</span></span>}
         </div>
         <table className="tbl"><thead><tr><th>Vouchers</th><th className="num">Quantity</th><th>Value</th><th>Valid thru</th><th>Status</th></tr></thead>
           <tbody>
-            {camps.map((c) => <tr key={c.id}><td className="b">{kindName(c.kind)}</td><td className="num">{c.count.toLocaleString()}</td><td>{c.kind === "free" ? "One eligible free service" : `${money(c.amountCents)} off`}</td><td>{validThruLabel(new Date(c.validThru))}</td><td>{c.status === "active" ? "On" : "Off"}</td></tr>)}
+            {camps.map((c) => <tr key={c.id}><td className="b">{kindName(c.kind)}</td><td className="num">{c.count.toLocaleString()}</td><td>{c.kind === "cards" ? `Scratch-off: ${c.discountCount ?? 0} × ${money(c.amountCents)} off + ${c.freeCount ?? 0} × one eligible free service` : c.kind === "free" ? "One eligible free service" : `${money(c.amountCents)} off`}</td><td>{validThruLabel(new Date(c.validThru))}</td><td>{c.status === "active" ? "On" : "Off"}</td></tr>)}
             <tr><td className="b">Total</td><td className="num b">{total("count").toLocaleString()}</td><td colSpan={3} /></tr>
           </tbody>
         </table>
-        <span className="xs muted">Every voucher {you} hand out carries this number. The code tells Nearest whether it&apos;s a discount or free-service voucher. Only the main owner can change numbers, codes or quantities.</span>
+        <span className="xs muted">{card ? <>Every GRANTED card carries this number; the code tells Nearest the card came from {you === "you" ? "you" : "this distributor"}. Students scratch on screen to reveal a discount or a free service. </> : <>Every voucher {you} hand out carries this number. The code tells Nearest whether it&apos;s a discount or free-service voucher. </>}Only the main owner can change numbers, codes or quantities.</span>
       </div>
 
       <div className="card" style={{ gap: 10 }}>
         <span className="eyebrow">{own ? "My Progress" : "Progress"}</span>
-        <table className="tbl"><thead><tr><th /><th className="num">Discount</th><th className="num">Free service</th><th className="num">Total</th></tr></thead>
+        <table className="tbl"><thead><tr><th />{kinds.map((k) => <th key={k} className="num">{kind2(k)}</th>)}{kinds.length > 1 && <th className="num">Total</th>}</tr></thead>
           <tbody>
             {([["Allocated", "count"], ["Assigned to organizations", "assigned"], ["Delivered (handed over)", "delivered"]] as const).map(([l, k]) => (
-              <tr key={k}><td>{l}</td><td className="num">{total(k, "discount")}</td><td className="num">{total(k, "free")}</td><td className="num b">{total(k)}</td></tr>
+              <tr key={k}><td>{l}</td>{kinds.map((t) => <td key={t} className="num">{total(k, t)}</td>)}{kinds.length > 1 && <td className="num b">{total(k)}</td>}</tr>
             ))}
-            <tr><td>Not yet assigned</td><td className="num">{total("count", "discount") - total("assigned", "discount")}</td><td className="num">{total("count", "free") - total("assigned", "free")}</td><td className="num b">{total("count") - total("assigned")}</td></tr>
-            <tr><td>Left to distribute</td><td className="num">{total("count", "discount") - total("delivered", "discount")}</td><td className="num">{total("count", "free") - total("delivered", "free")}</td><td className="num b">{total("count") - delivered}</td></tr>
+            <tr><td>Not yet assigned</td>{kinds.map((t) => <td key={t} className="num">{total("count", t) - total("assigned", t)}</td>)}{kinds.length > 1 && <td className="num b">{total("count") - total("assigned")}</td>}</tr>
+            <tr><td>Left to distribute</td>{kinds.map((t) => <td key={t} className="num">{total("count", t) - total("delivered", t)}</td>)}{kinds.length > 1 && <td className="num b">{total("count") - delivered}</td>}</tr>
             <tr><td>Activated by students</td><td className="num">{total("activated", "discount")}</td><td className="num">{total("activated", "free")}</td><td className="num b">{activated}</td></tr>
           </tbody>
         </table>
@@ -111,13 +114,13 @@ export async function VoucherDistributionView({ userId, own }: { userId: string;
       <div className="card" style={{ gap: 10 }}>
         <span className="eyebrow">{own ? "My Organizations" : "Organizations"}</span>
         <div style={{ overflowX: "auto" }}>
-          <table className="tbl"><thead><tr><th>Organization</th><th className="num">Discount assigned</th><th className="num">Free assigned</th><th className="num">Delivered</th><th className="num">Votes</th><th className="num">Registrations</th><th className="num">Discount act.</th><th className="num">Free act.</th><th className="num">Total act.</th><th className="num">Rate</th><th>Last date</th></tr></thead>
-            <tbody>{orgs.length === 0 ? <tr><td className="empty" colSpan={11}>No organizations yet.</td></tr> : [...orgs].sort((a, b) => (b.actDiscount + b.actFree) / Math.max(1, b.deliveredDiscount + b.deliveredFree) - (a.actDiscount + a.actFree) / Math.max(1, a.deliveredDiscount + a.deliveredFree)).map((o) => {
-              const del = o.deliveredDiscount + o.deliveredFree, act = o.actDiscount + o.actFree;
-              const over = o.actDiscount > o.deliveredDiscount || o.actFree > o.deliveredFree;
+          <table className="tbl"><thead><tr><th>Organization</th><th className="num">Cards assigned</th><th className="num">Discount assigned</th><th className="num">Free assigned</th><th className="num">Delivered</th><th className="num">Votes</th><th className="num">Registrations</th><th className="num">Discount act.</th><th className="num">Free act.</th><th className="num">Total act.</th><th className="num">Rate</th><th>Last date</th></tr></thead>
+            <tbody>{orgs.length === 0 ? <tr><td className="empty" colSpan={12}>No organizations yet.</td></tr> : [...orgs].sort((a, b) => (b.actDiscount + b.actFree) / Math.max(1, b.deliveredDiscount + b.deliveredFree + b.deliveredCards) - (a.actDiscount + a.actFree) / Math.max(1, a.deliveredDiscount + a.deliveredFree + a.deliveredCards)).map((o) => {
+              const del = o.deliveredDiscount + o.deliveredFree + o.deliveredCards, act = o.actDiscount + o.actFree;
+              const over = act > del;
               return (
                 <tr key={o.placeId}><td><span className="b">{o.name}</span><div className="xs muted">{[o.street, o.city, o.state].filter(Boolean).join(", ")}</div>{over && <span className="tag warn">More activations than delivered — check</span>}</td>
-                  <td className="num">{o.assignedDiscount}</td><td className="num">{o.assignedFree}</td><td className="num">{del}{o.deliveries > 1 ? <div className="xs muted">{o.deliveries} deliveries</div> : null}</td>
+                  <td className="num">{o.assignedCards}</td><td className="num">{o.assignedDiscount}</td><td className="num">{o.assignedFree}</td><td className="num">{del}{o.deliveries > 1 ? <div className="xs muted">{o.deliveries} deliveries</div> : null}</td>
                   <td className="num">{o.votes}</td><td className="num">{o.registered}</td><td className="num">{o.actDiscount}</td><td className="num">{o.actFree}</td><td className="num b">{act}</td><td className="num">{pct(act, del)}</td>
                   <td>{o.last ? fmtDate(new Date(o.last)) : "—"}</td></tr>
               );

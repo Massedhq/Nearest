@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { voteCities, voteSchools, voteServices, voteSources, submitVote, enterVoucher } from "@/app/vote-actions";
 import { RewardWheel } from "@/components/RewardWheel";
+import { ScratchOff } from "@/components/ScratchOff";
 import { track } from "@/components/AdTags";
 
 type City = { id: number; name: string };
@@ -31,7 +32,7 @@ export function VoteFlow({ states, signedIn, online = false }: { states: string[
   const [busy, start] = useTransition();
   const [num, setNum] = useState("");
   const [code, setCode] = useState("");
-  const [saved, setSaved] = useState<{ ok: string; signedIn: boolean } | null>(null);
+  const [saved, setSaved] = useState<{ ok: string; signedIn: boolean; scratch?: boolean } | null>(null);
   const [sources, setSources] = useState<Src[]>([]);
   const [srcQ, setSrcQ] = useState("");
   const [src, setSrc] = useState("");
@@ -172,7 +173,7 @@ export function VoteFlow({ states, signedIn, online = false }: { states: string[
       <div className="steps"><span className="on" /><span className="on" /><span className="on" /></div>
       <h1 className="disp h1" style={{ textAlign: "center", margin: 0 }}>Thank you for your vote!</h1>
       <p className="muted" style={{ textAlign: "center", margin: 0 }}>You&apos;ve helped Nearest identify the services students want in your city.</p>
-      {online ? <RewardWheel signedIn={signedIn} /> : <div className="lightbox" style={{ gap: 12 }}>
+      {online ? <RewardWheel signedIn={signedIn} /> : saved?.scratch ? <ScratchOff signedIn={signedIn} /> : <div className="lightbox" style={{ gap: 12 }}>
         <span className="b">Activate your GRANTED voucher</span>
         <span className="small">To activate your voucher and use it on Nearest, enter the 16-digit number and the security code printed on your voucher below, then finish creating your account.</span>
         {saved ? (

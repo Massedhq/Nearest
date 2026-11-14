@@ -36,6 +36,8 @@ export async function saveVoucherCampaign(_: FormState, form: FormData): Promise
   const count = Math.round(Number(s(form, "printed", 6)) || 0);
   const isOwner = /^[0-9a-f-]{36}$/.test(distributorId) && await db.query.adminMembers.findFirst({ where: and(eq(adminMembers.userId, distributorId), eq(adminMembers.role, "OWNER")) });
   if (!isOwner) return { error: "Choose the distributor (Avy, Kisses or Lakeesha)." };
+  const prior = id ? await db.query.nearestCardBatches.findFirst({ where: eq(nearestCardBatches.id, id) }) : undefined;
+  if (prior?.scratch) return saveScratchRow(user.id, prior, { amountCents, validThru, count, name: s(form, "name", 80) });
   if (number.length !== 16) return { error: "The voucher number must be 16 digits." };
   if (kind === "discount" && code.length !== 3) return { error: "A discount voucher's security code is 3 digits." };
   if (kind === "free" && code.length !== 4) return { error: "A free-service voucher's security code is 4 digits." };
@@ -71,6 +73,86 @@ export async function saveVoucherCampaign(_: FormState, form: FormData): Promise
   await logActivity({ actorUserId: user.id, action: "vouchers.campaign_added", targetType: "voucher_campaign", targetId: b.id, after: { name, number, kind, amountCents, validThru, count, distributorId, draft: true } });
   refresh();
   return { ok: `${name} saved as a draft. Review it, then Publish.` };
+}
+
+/**
+ * Edit one row of a scratch-off pool (2026-11-14): $ off (discount row), how many, Valid thru and the batch name. The
+ * number, code, type and distributor never change here. Valid thru and the batch name apply to the whole pool.
+ */
+async function saveScratchRow(userId: string, before: typeof nearestCardBatches.$inferSelect, v: { amountCents: number; validThru: Date | null; count: number; name: string }): Promise<FormState> {
+  const amountCents = before.kind === "free" ? before.amountCents : v.amountCents;
+  if (before.kind === "discount" && (amountCents < CARD_LIMITS.discountMin || amountCents > CARD_LIMITS.discountMax)) return { error: "A discount is $5 to $40 off." };
+  if (!v.validThru) return { error: "Enter Valid thru as the month printed on the card." };
+  if (v.count < 0 || v.count > 100000) return { error: "Enter how many." };
+  if (v.count < before.claimed) return { error: `${before.claimed} of these are already revealed — the number can't be lower than that.` };
+  const claimedOnCard = (await db.execute(sql`select count(*)::int as n from nearest_cards where batch_id = ${before.id} and shared`)).rows[0] as { n: number };
+  if (claimedOnCard.n > 0 && before.kind === "discount" && amountCents !== before.amountCents) return { error: "Students already have this discount, so its $ off can't change." };
+  const label = before.kind === "free" ? "Free service" : "Discount";
+  const name = v.name ? `${v.name} — ${label}` : before.name;
+  await db.update(nearestCardBatches).set({ amountCents, count: v.count, name }).where(eq(nearestCardBatches.id, before.id));
+  await db.update(nearestCardBatches).set({ validThru: v.validThru }).where(and(eq(nearestCardBatches.sharedNumber, before.sharedNumber!), eq(nearestCardBatches.sharedCode, before.sharedCode!), eq(nearestCardBatches.scratch, true)));
+  await logActivity({ actorUserId: userId, action: "vouchers.campaign_changed", targetType: "voucher_campaign", targetId: before.id, before: { amountCents: before.amountCents, count: before.count, validThru: before.validThru }, after: { amountCents, count: v.count, validThru: v.validThru } });
+  refresh();
+  return { ok: `${name} saved.${before.draft ? " Review it, then Publish." : ""}` };
+}
+
+/** The one 16-digit number on every universal GRANTED card (the newest scratch pool's), or a brand-new one. */
+async function universalNumber() {
+  const r = (await db.execute(sql`select shared_number as n from nearest_card_batches where scratch and shared_number is not null
+    order by (status = 'active') desc, created_at desc limit 1`)).rows[0] as { n: string } | undefined;
+  return r?.n ?? (await newVoucherNumber());
+}
+
+/**
+ * A 4-digit code for a distributor's pool on that number: 1000–9999, not used on that number, and different from every
+ * other code there in at least two places (so a typo never lands on someone else's pool).
+ */
+async function newScratchCode(number: string) {
+  const { randomInt } = await import("crypto");
+  const taken = ((await db.execute(sql`select distinct shared_code as c from nearest_card_batches where shared_number = ${number} and shared_code is not null`)).rows as { c: string }[]).map((r) => r.c);
+  const diff = (a: string, b: string) => [...a].filter((ch, i) => ch !== b[i]).length;
+  for (let i = 0; i < 500; i++) {
+    const c = String(randomInt(1000, 10000));
+    if (taken.every((t) => t.length !== 4 || diff(c, t) >= 2)) return c;
+  }
+  throw new Error("Couldn't make a new code — try again.");
+}
+
+/**
+ * Nearest Cards → Set up a distributor's GRANTED cards (2026-11-14, owner — universal scratch-off card). One printed card
+ * for everyone: Nearest uses ONE 16-digit number on every distributor's cards and makes each distributor their own 4-digit
+ * code. The distributor's pool = how many discount rewards ($ off) + how many free-service rewards (e.g. 900 + 100);
+ * students reveal which one they get by scratching. Saved as a DRAFT pool (one discount row + one free row) — Publish.
+ */
+export async function saveDistributorCards(_: FormState, form: FormData): Promise<FormState> {
+  const { user, main } = await owner();
+  if (!main) return { error: "Only the main owner can set up GRANTED cards." };
+  const distributorId = s(form, "distributorId", 40);
+  const isOwner = /^[0-9a-f-]{36}$/.test(distributorId) && await db.query.adminMembers.findFirst({ where: and(eq(adminMembers.userId, distributorId), eq(adminMembers.role, "OWNER")) });
+  if (!isOwner) return { error: "Choose who these cards are for (Avy, Kisses or Lakeesha)." };
+  const dCount = Number(s(form, "discountCount", 6)), fCount = Number(s(form, "freeCount", 6));
+  const amountCents = Math.round(Number(s(form, "discountAmount", 10)) * 100);
+  const validThru = endOfMonth(s(form, "validThru", 7));
+  if (!Number.isInteger(dCount) || !Number.isInteger(fCount) || dCount < 0 || fCount < 0 || dCount + fCount < 1 || dCount > 100000 || fCount > 100000) return { error: "Enter how many discount and free-service rewards (for example 900 and 100)." };
+  if (dCount > 0 && (amountCents < CARD_LIMITS.discountMin || amountCents > CARD_LIMITS.discountMax)) return { error: "A discount is $5 to $40 off." };
+  if (!validThru) return { error: "Enter Valid thru as the month printed on the card." };
+  const already = (await db.execute(sql`select 1 from nearest_card_batches where scratch and distributor_id = ${distributorId} and status = 'active' limit 1`)).rows.length;
+  if (already) return { error: "This person already has GRANTED cards set up. Edit their rows in GRANTED cards below, or turn them off first." };
+  const number = await universalNumber();
+  const code = await newScratchCode(number);
+  const batchName = s(form, "name", 80) || "GRANTED cards";
+  const dist = (await db.execute(sql`select coalesce(nullif(trim(first_name || ' ' || coalesce(last_name, '')), ''), email) as n from users where id = ${distributorId}`)).rows[0] as { n: string };
+  const rows = [
+    ...(dCount > 0 ? [{ kind: "discount", amountCents, count: dCount }] : []),
+    ...(fCount > 0 ? [{ kind: "free", amountCents: CARD_LIMITS.freeMax, count: fCount }] : []),
+  ];
+  const made = await db.insert(nearestCardBatches).values(rows.map((r) => ({
+    name: `${batchName} — ${dist?.n ?? "Distributor"} — ${r.kind === "free" ? "Free service" : "Discount"}`, kind: r.kind, amountCents: r.amountCents, count: r.count, validThru,
+    sharedNumber: number, sharedCode: code, distributorId, draft: true, scratch: true, createdBy: user.id,
+  }))).returning();
+  await logActivity({ actorUserId: user.id, action: "vouchers.cards_added", targetType: "voucher_campaign", targetId: made[0].id, after: { number, code, distributorId, discount: dCount, discountCents: amountCents, free: fCount, validThru, draft: true } });
+  refresh();
+  return { ok: `${dist?.n ?? "Their"} GRANTED cards saved as a draft: number ${number.replace(/(\d{4})(?=\d)/g, "$1 ")}, code ${code}, ${dCount} discount + ${fCount} free service. Check it below, then Publish.` };
 }
 
 /**
@@ -126,7 +208,10 @@ export async function publishVoucherCampaign(form: FormData) {
   const id = s(form, "id", 40);
   const b = /^[0-9a-f-]{36}$/.test(id) ? await db.query.nearestCardBatches.findFirst({ where: eq(nearestCardBatches.id, id) }) : null;
   if (!b?.sharedNumber || !b.draft) return;
-  await db.update(nearestCardBatches).set({ draft: false }).where(eq(nearestCardBatches.id, id));
+  // A scratch-off pool (discount + free rows on one number + code) is published together.
+  await db.update(nearestCardBatches).set({ draft: false }).where(b.scratch
+    ? and(eq(nearestCardBatches.sharedNumber, b.sharedNumber), eq(nearestCardBatches.sharedCode, b.sharedCode!), eq(nearestCardBatches.scratch, true))
+    : eq(nearestCardBatches.id, id));
   await logActivity({ actorUserId: user.id, action: "vouchers.campaign_published", targetType: "voucher_campaign", targetId: id, before: { draft: true }, after: { draft: false, distributorId: b.distributorId, number: b.sharedNumber, kind: b.kind, count: b.count } });
   refresh();
 }
@@ -138,7 +223,10 @@ export async function setVoucherCampaignStatus(form: FormData) {
   const id = s(form, "id", 40), on = s(form, "to", 4) === "on";
   const b = await db.query.nearestCardBatches.findFirst({ where: eq(nearestCardBatches.id, id) });
   if (!b?.sharedNumber) return;
-  await db.update(nearestCardBatches).set({ status: on ? "active" : "off" }).where(eq(nearestCardBatches.id, id));
+  // Scratch-off: on/off is the distributor's whole pool (pause switch) — both rows together.
+  await db.update(nearestCardBatches).set({ status: on ? "active" : "off" }).where(b.scratch
+    ? and(eq(nearestCardBatches.sharedNumber, b.sharedNumber), eq(nearestCardBatches.sharedCode, b.sharedCode!), eq(nearestCardBatches.scratch, true))
+    : eq(nearestCardBatches.id, id));
   await logActivity({ actorUserId: user.id, action: on ? "vouchers.campaign_on" : "vouchers.campaign_off", targetType: "voucher_campaign", targetId: id, before: { status: b.status }, after: { status: on ? "active" : "off" } });
   refresh();
 }

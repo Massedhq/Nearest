@@ -29,7 +29,7 @@ export async function voucherReport(f: VoucherFilters) {
         count(*) filter (where sp.verification_status = 'verified')::int as verified,
         count(*) filter (where exists (select 1 from nearest_cards c where c.shared and c.student_id = v.user_id and c.status = 'activated'))::int as activated
       from student_votes v left join users u on u.id = v.user_id left join student_profiles sp on sp.user_id = v.user_id where ${voteWhere}`),
-    db.execute(sql`select b.id, b.name, b.kind, b.status, b.count as printed, b.amount_cents as "amountCents", b.valid_thru as "validThru", b.shared_number as number, b.shared_code as code, b.distributor_id as "distributorId", b.draft,
+    db.execute(sql`select b.id, b.name, b.kind, b.status, b.count as printed, b.amount_cents as "amountCents", b.valid_thru as "validThru", b.shared_number as number, b.shared_code as code, b.distributor_id as "distributorId", b.draft, b.scratch, b.claimed,
         coalesce(nullif(trim(u.first_name || ' ' || coalesce(u.last_name, '')), ''), u.email) as distributor,
         (select coalesce(sum(${DELIVERED}), 0)::int from voucher_distributions d where d.batch_id = b.id ${placeFilter}) as distributed,
         (select coalesce(sum(d.quantity), 0)::int from voucher_distributions d where d.batch_id = b.id and d.status <> 'cancelled' ${placeFilter}) as assigned,
@@ -52,7 +52,7 @@ export async function voucherReport(f: VoucherFilters) {
   const catRows = cats.rows as { cityId: number; category: string; votes: number; verified: number }[];
   const totals = new Map<string, { votes: number; verified: number }>();
   for (const r of catRows) { const t = totals.get(r.category) ?? { votes: 0, verified: 0 }; t.votes += r.votes; t.verified += r.verified; totals.set(r.category, t); }
-  const campaigns = camps.rows as { id: string; name: string; kind: string; status: string; draft: boolean; assigned: number; printed: number; amountCents: number; validThru: Date; number: string; code: string; distributorId: string | null; distributor: string | null; distributed: number; activations: number; used: number }[];
+  const campaigns = camps.rows as { id: string; name: string; kind: string; status: string; draft: boolean; scratch: boolean; claimed: number; assigned: number; printed: number; amountCents: number; validThru: Date; number: string; code: string; distributorId: string | null; distributor: string | null; distributed: number; activations: number; used: number }[];
   const sum = (k: "printed" | "distributed" | "activations" | "used", kind?: string) => campaigns.filter((c) => !kind || c.kind === kind).reduce((n, c) => n + Number(c[k]), 0);
   return {
     funnel: funnel.rows[0] as { votes: number; registered: number; emailVerified: number; verified: number; activated: number },

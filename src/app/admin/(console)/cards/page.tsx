@@ -2,7 +2,7 @@ import { and, asc, desc, eq, like, or, sql } from "drizzle-orm";
 import { db, cardPlaces, nearestCardBatches, nearestCards, users, adminMembers, categories } from "@/db";
 import { voucherReport } from "@/lib/voucher-report";
 import { distributorsOverview, orgPerformance, unmatchedSources, typedSources, assignments, DIST_STATUS } from "@/lib/distribution";
-import { saveVoucherCampaign, saveDistributorVouchers, setVoucherCampaignStatus, publishVoucherCampaign } from "@/app/admin/voucher-actions";
+import { saveVoucherCampaign, saveDistributorCards, setVoucherCampaignStatus, publishVoucherCampaign } from "@/app/admin/voucher-actions";
 import { AdminHead } from "@/components/AdminHead";
 import { ActionForm } from "@/components/ActionForm";
 import { requireMainOwner } from "@/lib/admin";
@@ -114,7 +114,7 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
   return (
     <>
       <AdminHead eyebrow="Business" title="Nearest Cards" />
-      <span className="small muted">Nearest GRANTED Certificate Vouchers. Each distributor (Avy, Kisses, Lakeesha) has one 16-digit number on all their vouchers, a 3-digit code for discount vouchers and a 4-digit code for free-service vouchers. Kisses and Lakeesha see only their own in My Voucher Distribution. <a className="link" href="/admin/my-vouchers">Open my own distribution</a></span>
+      <span className="small muted">Nearest GRANTED cards. One printed card for everyone: the same 16-digit number on every card, and each distributor (Avy, Kisses, Lakeesha) has their own 4-digit code. Students scratch on screen to reveal a discount or a free service from that distributor&apos;s rewards. Kisses and Lakeesha see only their own in My Voucher Distribution. <a className="link" href="/admin/my-vouchers">Open my own distribution</a></span>
       <div className="card" style={{ gap: 10 }} id="voucher-setup">
         {editing ? (
           <>
@@ -124,7 +124,9 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
               <input type="hidden" name="kind" value={editing.kind} />
               <div className="grid2" style={{ gap: 8 }}>
                 <input name="name" maxLength={80} defaultValue={editing.name.replace(/ — (Free service|Discount)$/, "")} placeholder="Batch name" style={field} aria-label="Batch name" />
-                <select name="distributorId" required defaultValue={editing.distributorId ?? ""} style={field} aria-label="Distributor"><option value="" disabled>Distributor…</option>{owners.map((o) => <option key={o.id} value={o.id}>{ownerName(o)}</option>)}</select>
+                {editing.scratch
+                  ? <><input type="hidden" name="distributorId" value={editing.distributorId ?? ""} /><span className="small" style={{ alignSelf: "center" }}>{nameOf(editing.distributorId)} • scratch-off {editing.kind === "free" ? "free services" : "discounts"}</span></>
+                  : <select name="distributorId" required defaultValue={editing.distributorId ?? ""} style={field} aria-label="Distributor"><option value="" disabled>Distributor…</option>{owners.map((o) => <option key={o.id} value={o.id}>{ownerName(o)}</option>)}</select>}
                 <input type="hidden" name="number" value={editing.number} />
                 <input type="hidden" name="code" value={editing.code} />
                 <span className="small" style={{ alignSelf: "center" }}>{groupNumber(editing.number)} • code <b>{editing.code}</b></span>
@@ -137,44 +139,40 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
           </>
         ) : (
           <>
-            <span className="eyebrow">Set up a distributor&apos;s vouchers</span>
-            <ActionForm action={saveDistributorVouchers} submitLabel="Save batch" buttonClass="btn sm" className="col g8">
+            <span className="eyebrow">Set up a distributor&apos;s GRANTED cards</span>
+            <ActionForm action={saveDistributorCards} submitLabel="Save cards" buttonClass="btn sm" className="col g8">
               <div className="grid2" style={{ gap: 8 }}>
                 <select name="distributorId" required defaultValue="" style={field} aria-label="Who is this for"><option value="" disabled>Who is this for…</option>{owners.map((o) => <option key={o.id} value={o.id}>{ownerName(o)}</option>)}</select>
-                <select name="type" required defaultValue="both" style={field} aria-label="Voucher type"><option value="both">Discount and free service</option><option value="discount">Discount only</option><option value="free">Free service only</option></select>
                 <input name="name" maxLength={80} placeholder="Batch name (e.g. Fall 2026)" style={field} aria-label="Batch name" />
                 <label className="xs muted col" style={{ gap: 2 }}>Valid thru<input name="validThru" required type="month" defaultValue="2030-05" style={field} aria-label="Valid thru" /></label>
               </div>
-              <span className="small b">Discount vouchers</span>
+              <span className="small b">Rewards students can reveal</span>
               <div className="grid2" style={{ gap: 8 }}>
-                <select name="discountAmount" defaultValue="10" style={field} aria-label="Dollars off">{[5, 10, 20, 30, 40].map((d) => <option key={d} value={d}>${d} off</option>)}</select>
-                <input name="discountCount" inputMode="numeric" defaultValue="900" placeholder="How many" style={field} aria-label="How many discount vouchers" />
+                <label className="xs muted col" style={{ gap: 2 }}>Discount<select name="discountAmount" defaultValue="10" style={field} aria-label="Dollars off">{[5, 10, 20, 30, 40].map((d) => <option key={d} value={d}>${d} off</option>)}</select></label>
+                <label className="xs muted col" style={{ gap: 2 }}>How many discounts<input name="discountCount" inputMode="numeric" defaultValue="900" style={field} aria-label="How many discounts" /></label>
+                <label className="xs muted col" style={{ gap: 2 }}>How many free services<input name="freeCount" inputMode="numeric" defaultValue="100" style={field} aria-label="How many free services" /></label>
               </div>
-              <span className="small b">Free-service vouchers</span>
-              <div className="grid2" style={{ gap: 8 }}>
-                <input name="freeCount" inputMode="numeric" defaultValue="100" placeholder="How many" style={field} aria-label="How many free-service vouchers" />
-              </div>
-              <span className="xs muted">Nearest makes the 16-digit number and the codes (3 digits discount, 4 digits free service). Each person keeps one number for both types. It shows in Voucher batches below — check it, then Publish.</span>
+              <span className="xs muted">One card design for everyone. Nearest puts the same 16-digit number on every distributor&apos;s cards and makes this person their own 4-digit code. Students scratch on screen to reveal a discount or a free service; the odds follow what&apos;s left, so the totals come out exactly. It shows in GRANTED cards below — check it, then Publish.</span>
             </ActionForm>
           </>
         )}
       </div>
 
       <div className="card" style={{ gap: 10 }}>
-        <span className="eyebrow">Voucher batches</span>
+        <span className="eyebrow">GRANTED cards &amp; voucher batches</span>
         <div style={{ overflowX: "auto" }}>
           <table className="tbl"><thead><tr><th>Batch</th><th>Distributor</th><th>Number • code</th><th>Value</th><th>Valid thru</th><th className="num">Quantity (limit)</th><th className="num">Assigned to orgs</th><th className="num">Delivered</th><th className="num">Claimed</th><th className="num">Left to claim</th><th className="num">Rate</th><th /></tr></thead>
             <tbody>{r.campaigns.length === 0 ? <tr><td className="empty" colSpan={12}>No voucher batches yet. Set one up above for Avy, Kisses and Lakeesha (900 discount + 100 free service each).</td></tr> : r.campaigns.map((c) => (
-              <tr key={c.id}><td className="b">{c.name}<div className="xs muted">{c.draft ? "Draft — not published" : c.status === "active" ? "Published • On" : "Off — no new activations"}</div></td><td>{nameOf(c.distributorId)}</td>
+              <tr key={c.id}><td className="b">{c.name}<div className="xs muted">{c.scratch ? "Scratch-off card • " : ""}{c.draft ? "Draft — not published" : c.status === "active" ? "Published • On" : c.scratch ? "Paused — no new scratch-offs" : "Off — no new activations"}</div>{c.scratch && c.claimed > c.activations ? <div className="xs muted">{c.claimed - c.activations} revealed, waiting for an account</div> : null}</td><td>{nameOf(c.distributorId)}</td>
                 <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{groupNumber(c.number)} • <b>{c.code}</b></td>
                 <td>{c.kind === "free" ? "Free service" : `${money(c.amountCents)} off`}</td>
                 <td>{validThruLabel(new Date(c.validThru))}</td>
                 <td className="num">{c.printed}</td><td className="num">{c.assigned}</td><td className="num">{c.distributed}</td><td className="num b">{c.activations}</td><td className="num">{Math.max(0, c.printed - c.activations)}</td><td className="num">{pct(c.activations, c.distributed)}</td>
-                <td>{<div className="row" style={{ gap: 8 }}>{c.draft && <form action={publishVoucherCampaign}><input type="hidden" name="id" value={c.id} /><button className="link xs b" type="submit">Publish</button></form>}<a className="link xs" href={`/admin/cards?edit=${c.id}#voucher-setup`}>Edit</a><form action={setVoucherCampaignStatus}><input type="hidden" name="id" value={c.id} /><input type="hidden" name="to" value={c.status === "active" ? "off" : "on"} /><button className="link xs" type="submit">{c.status === "active" ? "Turn off" : "Turn on"}</button></form></div>}</td></tr>
+                <td>{<div className="row" style={{ gap: 8 }}>{c.draft && <form action={publishVoucherCampaign}><input type="hidden" name="id" value={c.id} /><button className="link xs b" type="submit">Publish</button></form>}<a className="link xs" href={`/admin/cards?edit=${c.id}#voucher-setup`}>Edit</a><form action={setVoucherCampaignStatus}><input type="hidden" name="id" value={c.id} /><input type="hidden" name="to" value={c.status === "active" ? "off" : "on"} /><button className="link xs" type="submit">{c.status === "active" ? (c.scratch ? "Pause" : "Turn off") : (c.scratch ? "Resume" : "Turn on")}</button></form></div>}</td></tr>
             ))}</tbody>
           </table>
         </div>
-        <span className="xs muted">Turning a campaign off stops new claims; students who already claimed keep their voucher. Changing the distributor (reassigning) is logged.</span>
+        <span className="xs muted">Turning a campaign off stops new claims; students who already claimed keep their voucher. Scratch-off cards: Publish and Pause/Resume work on the person&apos;s whole card (discount and free service together) — pause it if a card code gets posted online. Rewards revealed but not added to an account go back after the hold ends; rewards on accounts that never verify go back after the days set in Rules &amp; Settings → GRANTED vouchers. Changing the distributor (reassigning) is logged.</span>
       </div>
 
       <div className="card" style={{ gap: 10 }}>
@@ -238,13 +236,13 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
       <div className="card" style={{ gap: 10 }}>
         <span className="eyebrow">Organizations — every distributor</span>
         <div style={{ overflowX: "auto" }}>
-          <table className="tbl"><thead><tr><th>Organization</th><th>Distributor</th><th>Contact</th><th className="num">Discount assigned</th><th className="num">Free assigned</th><th className="num">Delivered</th><th className="num">Votes</th><th className="num">Registrations</th><th className="num">Discount act.</th><th className="num">Free act.</th><th className="num">Rate</th><th>Last date</th></tr></thead>
-            <tbody>{orgs.length === 0 ? <tr><td className="empty" colSpan={12}>No organizations assigned yet.</td></tr> : orgs.map((o) => {
-              const del = o.deliveredDiscount + o.deliveredFree, act = o.actDiscount + o.actFree;
+          <table className="tbl"><thead><tr><th>Organization</th><th>Distributor</th><th>Contact</th><th className="num">Cards assigned</th><th className="num">Discount assigned</th><th className="num">Free assigned</th><th className="num">Delivered</th><th className="num">Votes</th><th className="num">Registrations</th><th className="num">Discount act.</th><th className="num">Free act.</th><th className="num">Rate</th><th>Last date</th></tr></thead>
+            <tbody>{orgs.length === 0 ? <tr><td className="empty" colSpan={13}>No organizations assigned yet.</td></tr> : orgs.map((o) => {
+              const del = o.deliveredDiscount + o.deliveredFree + o.deliveredCards, act = o.actDiscount + o.actFree;
               return (
-                <tr key={`${o.placeId}-${o.distributorId}`}><td><span className="b">{o.name}</span><div className="xs muted">{[o.street, o.city, [o.state, o.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ")}</div>{(o.actDiscount > o.deliveredDiscount || o.actFree > o.deliveredFree) && <span className="tag warn">More activations than delivered</span>}</td>
+                <tr key={`${o.placeId}-${o.distributorId}`}><td><span className="b">{o.name}</span><div className="xs muted">{[o.street, o.city, [o.state, o.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ")}</div>{act > del && <span className="tag warn">More activations than delivered</span>}</td>
                   <td>{o.distributor}</td><td className="xs">{[o.contactName, o.contact].filter(Boolean).join(" · ") || "—"}</td>
-                  <td className="num">{o.assignedDiscount}</td><td className="num">{o.assignedFree}</td><td className="num">{del}</td><td className="num">{o.votes}</td><td className="num">{o.registered}</td>
+                  <td className="num">{o.assignedCards}</td><td className="num">{o.assignedDiscount}</td><td className="num">{o.assignedFree}</td><td className="num">{del}</td><td className="num">{o.votes}</td><td className="num">{o.registered}</td>
                   <td className="num">{o.actDiscount}</td><td className="num">{o.actFree}</td><td className="num">{pct(act, del)}</td><td>{o.last ? fmtDate(new Date(o.last)) : "—"}</td></tr>
               );
             })}</tbody>
@@ -276,7 +274,7 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
         <div style={{ overflowX: "auto" }}>
           <table className="tbl"><thead><tr><th>Date</th><th>Distributor</th><th>Organization</th><th>Type</th><th className="num">Assigned</th><th className="num">Delivered</th><th>Status</th></tr></thead>
             <tbody>{recent.length === 0 ? <tr><td className="empty" colSpan={7}>Nothing yet.</td></tr> : recent.map((a) => (
-              <tr key={a.id}><td className="xs">{fmtDate(new Date(a.at))}</td><td>{a.distributor}</td><td>{a.place ?? "—"}{a.city ? <span className="xs muted">, {a.city}</span> : null}{a.notes && <div className="xs muted">{a.notes}</div>}</td><td>{a.kind === "free" ? "Free service" : "Discount"}</td><td className="num">{a.quantity}</td><td className="num">{a.delivered}</td><td>{DIST_STATUS[a.status] ?? a.status}</td></tr>
+              <tr key={a.id}><td className="xs">{fmtDate(new Date(a.at))}</td><td>{a.distributor}</td><td>{a.place ?? "—"}{a.city ? <span className="xs muted">, {a.city}</span> : null}{a.notes && <div className="xs muted">{a.notes}</div>}</td><td>{a.kind === "cards" ? "GRANTED cards" : a.kind === "free" ? "Free service" : "Discount"}</td><td className="num">{a.quantity}</td><td className="num">{a.delivered}</td><td>{DIST_STATUS[a.status] ?? a.status}</td></tr>
             ))}</tbody>
           </table>
         </div>
