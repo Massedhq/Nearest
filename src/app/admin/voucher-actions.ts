@@ -88,8 +88,8 @@ async function saveScratchRow(userId: string, before: typeof nearestCardBatches.
   if (v.count < before.claimed) return { error: `${before.claimed} of these are already revealed — the number can't be lower than that.` };
   const claimedOnCard = (await db.execute(sql`select count(*)::int as n from nearest_cards where batch_id = ${before.id} and shared`)).rows[0] as { n: number };
   if (claimedOnCard.n > 0 && before.kind === "discount" && amountCents !== before.amountCents) return { error: "Students already have this discount, so its $ off can't change." };
-  const label = before.kind === "free" ? "Free service" : "Discount";
-  const name = v.name ? `${v.name} — ${label}` : before.name;
+  const label = before.kind === "free" ? "Free service" : `$${amountCents / 100} off`;
+  const name = v.name ? `${v.name} — ${label}` : before.name.replace(/ — \$\d+ off$/, ` — ${label}`);
   await db.update(nearestCardBatches).set({ amountCents, count: v.count, name }).where(eq(nearestCardBatches.id, before.id));
   await db.update(nearestCardBatches).set({ validThru: v.validThru }).where(and(eq(nearestCardBatches.sharedNumber, before.sharedNumber!), eq(nearestCardBatches.sharedCode, before.sharedCode!), eq(nearestCardBatches.scratch, true)));
   await logActivity({ actorUserId: userId, action: "vouchers.campaign_changed", targetType: "voucher_campaign", targetId: before.id, before: { amountCents: before.amountCents, count: before.count, validThru: before.validThru }, after: { amountCents, count: v.count, validThru: v.validThru } });
@@ -131,11 +131,14 @@ export async function saveDistributorCards(_: FormState, form: FormData): Promis
   const distributorId = s(form, "distributorId", 40);
   const isOwner = /^[0-9a-f-]{36}$/.test(distributorId) && await db.query.adminMembers.findFirst({ where: and(eq(adminMembers.userId, distributorId), eq(adminMembers.role, "OWNER")) });
   if (!isOwner) return { error: "Choose who these cards are for (Avy, Kisses or Lakeesha)." };
-  const dCount = Number(s(form, "discountCount", 6)), fCount = Number(s(form, "freeCount", 6));
-  const amountCents = Math.round(Number(s(form, "discountAmount", 10)) * 100);
+  // Any mix of discounts ($5 / $10 / $20 / $30 / $40 off — fields d5, d10, …) plus free services.
+  const mix = [5, 10, 20, 30, 40].map((d) => ({ amountCents: d * 100, count: Number(s(form, `d${d}`, 6) || 0) }));
+  const fCount = Number(s(form, "freeCount", 6) || 0);
+  if ([...mix.map((m) => m.count), fCount].some((n) => !Number.isInteger(n) || n < 0 || n > 100000)) return { error: "Enter how many of each reward as whole numbers (0 for none)." };
+  const dCount = mix.reduce((t, m) => t + m.count, 0);
+  if (dCount + fCount < 1) return { error: "Enter how many of each reward (for example 900 discounts and 100 free services)." };
+  if (mix.some((m) => m.count > 0 && (m.amountCents < CARD_LIMITS.discountMin || m.amountCents > CARD_LIMITS.discountMax))) return { error: "A discount is $5 to $40 off." };
   const validThru = endOfMonth(s(form, "validThru", 7));
-  if (!Number.isInteger(dCount) || !Number.isInteger(fCount) || dCount < 0 || fCount < 0 || dCount + fCount < 1 || dCount > 100000 || fCount > 100000) return { error: "Enter how many discount and free-service rewards (for example 900 and 100)." };
-  if (dCount > 0 && (amountCents < CARD_LIMITS.discountMin || amountCents > CARD_LIMITS.discountMax)) return { error: "A discount is $5 to $40 off." };
   if (!validThru) return { error: "Enter Valid thru as the month printed on the card." };
   const already = (await db.execute(sql`select 1 from nearest_card_batches where scratch and distributor_id = ${distributorId} and status = 'active' limit 1`)).rows.length;
   if (already) return { error: "This person already has GRANTED cards set up. Edit their rows in GRANTED cards below, or turn them off first." };
@@ -144,16 +147,16 @@ export async function saveDistributorCards(_: FormState, form: FormData): Promis
   const batchName = s(form, "name", 80) || "GRANTED cards";
   const dist = (await db.execute(sql`select coalesce(nullif(trim(first_name || ' ' || coalesce(last_name, '')), ''), email) as n from users where id = ${distributorId}`)).rows[0] as { n: string };
   const rows = [
-    ...(dCount > 0 ? [{ kind: "discount", amountCents, count: dCount }] : []),
+    ...mix.filter((m) => m.count > 0).map((m) => ({ kind: "discount", amountCents: m.amountCents, count: m.count })),
     ...(fCount > 0 ? [{ kind: "free", amountCents: CARD_LIMITS.freeMax, count: fCount }] : []),
   ];
   const made = await db.insert(nearestCardBatches).values(rows.map((r) => ({
-    name: `${batchName} — ${dist?.n ?? "Distributor"} — ${r.kind === "free" ? "Free service" : "Discount"}`, kind: r.kind, amountCents: r.amountCents, count: r.count, validThru,
+    name: `${batchName} — ${dist?.n ?? "Distributor"} — ${r.kind === "free" ? "Free service" : `$${r.amountCents / 100} off`}`, kind: r.kind, amountCents: r.amountCents, count: r.count, validThru,
     sharedNumber: number, sharedCode: code, distributorId, draft: true, scratch: true, createdBy: user.id,
   }))).returning();
-  await logActivity({ actorUserId: user.id, action: "vouchers.cards_added", targetType: "voucher_campaign", targetId: made[0].id, after: { number, code, distributorId, discount: dCount, discountCents: amountCents, free: fCount, validThru, draft: true } });
+  await logActivity({ actorUserId: user.id, action: "vouchers.cards_added", targetType: "voucher_campaign", targetId: made[0].id, after: { number, code, distributorId, discounts: mix.filter((m) => m.count > 0), free: fCount, validThru, draft: true } });
   refresh();
-  return { ok: `${dist?.n ?? "Their"} GRANTED cards saved as a draft: number ${number.replace(/(\d{4})(?=\d)/g, "$1 ")}, code ${code}, ${dCount} discount + ${fCount} free service. Check it below, then Publish.` };
+  return { ok: `${dist?.n ?? "Their"} GRANTED cards saved as a draft: number ${number.replace(/(\d{4})(?=\d)/g, "$1 ")}, code ${code}, ${mix.filter((m) => m.count > 0).map((m) => `${m.count} × $${m.amountCents / 100} off`).join(", ") || "no discounts"} + ${fCount} free service. Check it below, then Publish.` };
 }
 
 /**

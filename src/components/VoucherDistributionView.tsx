@@ -45,7 +45,7 @@ export async function VoucherDistributionView({ userId, own }: { userId: string;
         </div>
         <table className="tbl"><thead><tr><th>Vouchers</th><th className="num">Quantity</th><th>Value</th><th>Valid thru</th><th>Status</th></tr></thead>
           <tbody>
-            {camps.map((c) => <tr key={c.id}><td className="b">{kindName(c.kind)}</td><td className="num">{c.count.toLocaleString()}</td><td>{c.kind === "cards" ? `Scratch-off: ${c.discountCount ?? 0} × ${money(c.amountCents)} off + ${c.freeCount ?? 0} × one eligible free service` : c.kind === "free" ? "One eligible free service" : `${money(c.amountCents)} off`}</td><td>{validThruLabel(new Date(c.validThru))}</td><td>{c.status === "active" ? "On" : "Off"}</td></tr>)}
+            {camps.map((c) => <tr key={c.id}><td className="b">{kindName(c.kind)}</td><td className="num">{c.count.toLocaleString()}</td><td>{c.kind === "cards" ? `Scratch-off: ${c.discountMix || "no discounts"} + ${c.freeCount ?? 0} × one eligible free service` : c.kind === "free" ? "One eligible free service" : `${money(c.amountCents)} off`}</td><td>{validThruLabel(new Date(c.validThru))}</td><td>{c.status === "active" ? "On" : "Off"}</td></tr>)}
             <tr><td className="b">Total</td><td className="num b">{total("count").toLocaleString()}</td><td colSpan={3} /></tr>
           </tbody>
         </table>

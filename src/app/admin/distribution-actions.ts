@@ -34,7 +34,7 @@ async function campaignFor(batchId: string, userId: string, main: boolean) {
   if (!main && b.distributorId !== userId) return null;
   if (!b.scratch) return b;
   const pool = (await db.select().from(nearestCardBatches).where(and(eq(nearestCardBatches.sharedNumber, b.sharedNumber), eq(nearestCardBatches.sharedCode, b.sharedCode!), eq(nearestCardBatches.scratch, true))))
-    .sort((x, y) => x.kind.localeCompare(y.kind));
+    .sort((x, y) => x.kind.localeCompare(y.kind) || x.amountCents - y.amountCents || x.id.localeCompare(y.id));
   return { ...pool[0], count: pool.reduce((n, x) => n + x.count, 0) };
 }
 const kindWord = (b: { kind: string; scratch: boolean }) => (b.scratch ? "GRANTED card" : b.kind === "free" ? "free-service voucher" : "discount voucher");

@@ -26,7 +26,7 @@ const nameSql = sql.raw(`coalesce(nullif(trim(u.first_name || ' ' || coalesce(u.
 
 export type Campaign = { id: string; kind: string; count: number; number: string; code: string; status: string; draft: boolean; amountCents: number; validThru: Date; assigned: number; delivered: number; activated: number;
   // Universal scratch-off cards (kind "cards"): the pool's split and what students revealed + added so far.
-  discountCount?: number; freeCount?: number; activatedDiscount?: number; activatedFree?: number };
+  discountCount?: number; freeCount?: number; discountMix?: string | null; activatedDiscount?: number; activatedFree?: number };
 
 /**
  * One distributor's published campaigns with inventory and activation counts. A scratch-off pool (discount + free rows on
@@ -43,16 +43,17 @@ export async function distributorCampaigns(userId: string, includeDrafts = false
     from nearest_card_batches b where b.shared_number is not null and not b.scratch and b.distributor_id = ${userId} ${drafts}
     order by b.kind`)).rows as Campaign[];
   const cards = (await db.execute(sql`with p as (select b.shared_number, b.shared_code,
-        (array_agg(b.id order by b.kind))[1] as id, sum(b.count)::int as count, bool_or(b.draft) as draft,
+        (array_agg(b.id order by b.kind, b.amount_cents, b.id))[1] as id, sum(b.count)::int as count, bool_or(b.draft) as draft,
         (case when bool_or(b.status = 'active') then 'active' else 'off' end) as status,
         max(b.amount_cents) filter (where b.kind = 'discount') as "amountCents", max(b.valid_thru) as "validThru",
         coalesce(sum(b.count) filter (where b.kind = 'discount'), 0)::int as "discountCount",
         coalesce(sum(b.count) filter (where b.kind = 'free'), 0)::int as "freeCount",
+        string_agg(case when b.kind = 'discount' then b.count || ' × $' || (b.amount_cents / 100) || ' off' end, ' + ' order by b.amount_cents) as "discountMix",
         array_agg(b.id) as ids
       from nearest_card_batches b where b.scratch and b.shared_number is not null and b.distributor_id = ${userId} ${drafts}
       group by b.shared_number, b.shared_code)
     select p.id, 'cards' as kind, p.count, p.shared_number as number, p.shared_code as code, p.status, p.draft, coalesce(p."amountCents", 0) as "amountCents", p."validThru",
-      p."discountCount", p."freeCount",
+      p."discountCount", p."freeCount", p."discountMix",
       coalesce((select sum(d.quantity) from voucher_distributions d where d.batch_id = any(p.ids) and ${ACTIVE}), 0)::int as assigned,
       coalesce((select sum(${DELIVERED}) from voucher_distributions d where d.batch_id = any(p.ids)), 0)::int as delivered,
       (select count(*) from nearest_cards c where c.batch_id = any(p.ids) and c.shared)::int as activated,

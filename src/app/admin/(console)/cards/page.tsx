@@ -4,6 +4,7 @@ import { voucherReport } from "@/lib/voucher-report";
 import { distributorsOverview, orgPerformance, unmatchedSources, typedSources, assignments, DIST_STATUS } from "@/lib/distribution";
 import { saveVoucherCampaign, saveDistributorCards, setVoucherCampaignStatus, publishVoucherCampaign, deleteVoucherCampaign } from "@/app/admin/voucher-actions";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
+import { ScratchRewardMix } from "@/components/ScratchRewardMix";
 import { AdminHead } from "@/components/AdminHead";
 import { ActionForm } from "@/components/ActionForm";
 import { requireMainOwner } from "@/lib/admin";
@@ -148,12 +149,8 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
                 <label className="xs muted col" style={{ gap: 2 }}>Valid thru<input name="validThru" required type="month" defaultValue="2030-05" style={field} aria-label="Valid thru" /></label>
               </div>
               <span className="small b">Rewards students can reveal</span>
-              <div className="grid2" style={{ gap: 8 }}>
-                <label className="xs muted col" style={{ gap: 2 }}>Discount<select name="discountAmount" defaultValue="10" style={field} aria-label="Dollars off">{[5, 10, 20, 30, 40].map((d) => <option key={d} value={d}>${d} off</option>)}</select></label>
-                <label className="xs muted col" style={{ gap: 2 }}>How many discounts<input name="discountCount" inputMode="numeric" defaultValue="900" style={field} aria-label="How many discounts" /></label>
-                <label className="xs muted col" style={{ gap: 2 }}>How many free services<input name="freeCount" inputMode="numeric" defaultValue="100" style={field} aria-label="How many free services" /></label>
-              </div>
-              <span className="xs muted">One card design for everyone. Nearest puts the same 16-digit number on every distributor&apos;s cards and makes this person their own 4-digit code. Students scratch on screen to reveal a discount or a free service; the odds follow what&apos;s left, so the totals come out exactly. It shows in GRANTED cards below — check it, then Publish.</span>
+              <ScratchRewardMix field={field} />
+              <span className="xs muted">One card design for everyone. Nearest puts the same 16-digit number on every distributor&apos;s cards and makes this person their own 4-digit code. Students scratch on screen to reveal one of these rewards; the odds follow what&apos;s left of each, so the totals come out exactly as you set them. It shows in GRANTED cards below — check it, then Publish.</span>
             </ActionForm>
           </>
         )}
@@ -329,7 +326,10 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
         <span className="xs muted">&quot;Needed&quot; = students there want it and no live professional offers it in that city yet — recruit there first. City = where the student lives (from their vote).</span>
       </div>
 
-      <div className="col" style={{ gap: 4, marginTop: 8 }}><span className="eyebrow">Individually numbered Nearest Cards</span><span className="xs muted">The older cards where every card had its own number. GRANTED vouchers above replace them as the handout.</span></div>
+      {/* Older system (before GRANTED): individually numbered cards. Kept for cards students already saved — closed by default. */}
+      <details id="older-cards" className="card" style={{ gap: 14, marginTop: 8 }} open={Boolean(sp.batch)}>
+        <summary style={{ cursor: "pointer" }}><span className="eyebrow">Older cards (before GRANTED)</span><span className="xs muted" style={{ display: "block" }}>The old individually numbered Nearest Cards. You don&apos;t need this for GRANTED — open it only to look after cards made before. Cards students already saved keep working.</span></summary>
+        <div className="col" style={{ gap: 14, marginTop: 12 }}>
       <div className={`card${fund.available < fund.saved ? " warn" : " ok"}`} style={{ gap: 10 }}>
         <span className="eyebrow">Nearest Cards fund — what you can give back</span>
         <div className="kpis k4">
@@ -434,6 +434,8 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
           <div style={{ overflowX: "auto" }}><table className="tbl"><thead><tr><th>#</th><th>Number</th><th>Code</th><th>Card</th><th>Status</th><th>Student</th><th>Used on</th><th /></tr></thead><tbody>{locked.map(cardRow)}</tbody></table></div>
         </div>
       )}
+        </div>
+      </details>
     </>
   );
 }
