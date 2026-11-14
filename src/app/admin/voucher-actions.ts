@@ -14,7 +14,7 @@ const refresh = () => { revalidatePath("/admin/cards"); revalidatePath("/admin/v
  * Voucher Distribution Management (2026-11-12) — the main owner's alone. A campaign = one distributor × type: the
  * distributor's ONE 16-digit number, the 3-digit (discount) or 4-digit (free) code and how many vouchers (= the claim
  * limit, 900 / 100). New campaigns are saved as a DRAFT; Publish makes them appear in that distributor's account and lets
- * students activate them. Numbers and codes are only ever typed by the main owner — never generated. All logged.
+ * students activate them. The one-form setup (saveDistributorVouchers) makes the number and codes; this action checks and saves them. All logged.
  * Distributors record their own organization assignments in src/app/admin/distribution-actions.ts.
  */
 async function owner() {
@@ -74,28 +74,44 @@ export async function saveVoucherCampaign(_: FormState, form: FormData): Promise
 }
 
 /**
- * Nearest Cards → Set up a distributor's vouchers: ONE form for a distributor's batch — batch name, their 16-digit number,
- * Valid thru, and the discount part (3-digit code, $ off, how many) and/or the free-service part (4-digit code, how many).
- * Everything is checked first, then each part is saved as its own draft campaign (same rules as saveVoucherCampaign).
+ * Nearest Cards → Set up a distributor's vouchers (2026-11-13, owner): pick the distributor and the type (discount, free
+ * service or both) — Nearest makes the numbers. The distributor keeps ONE 16-digit number (8877 + 12 digits): reused when
+ * they already have one, otherwise made new and never used by any card or other distributor. Codes are made too: 3 digits
+ * (100–999) for discount, 4 digits (1000–9999) for free service. Each type is saved as its own DRAFT — review, then Publish.
  */
+async function newVoucherNumber() {
+  const { randomInt } = await import("crypto");
+  for (let i = 0; i < 50; i++) {
+    const n = `8877${Array.from({ length: 12 }, () => randomInt(10)).join("")}`;
+    const used = (await db.execute(sql`select 1 from nearest_cards where number = ${n} union all select 1 from nearest_card_batches where shared_number = ${n} limit 1`)).rows.length;
+    if (!used) return n;
+  }
+  throw new Error("Couldn't make a new number — try again.");
+}
+
 export async function saveDistributorVouchers(_: FormState, form: FormData): Promise<FormState> {
   const { main } = await owner();
   if (!main) return { error: "Only the main owner can set up vouchers." };
-  const dCode = digits(s(form, "discountCode", 10)), fCode = digits(s(form, "freeCode", 10));
+  const distributorId = s(form, "distributorId", 40);
+  const type = s(form, "type", 10);
+  const wantD = type === "discount" || type === "both", wantF = type === "free" || type === "both";
+  if (!/^[0-9a-f-]{36}$/.test(distributorId)) return { error: "Choose who these vouchers are for." };
+  if (!wantD && !wantF) return { error: "Choose discount, free service, or both." };
   const dCount = s(form, "discountCount", 6), fCount = s(form, "freeCount", 6);
-  const wantD = !!(dCode || dCount || s(form, "discountAmount", 10)), wantF = !!(fCode || fCount);
-  if (!wantD && !wantF) return { error: "Fill in the discount vouchers, the free-service vouchers, or both." };
-  if (wantD && dCode.length !== 3) return { error: "The discount code is 3 digits." };
-  if (wantF && fCode.length !== 4) return { error: "The free-service code is 4 digits." };
   const okCount = (c: string) => Number.isInteger(Number(c)) && Number(c) >= 1 && Number(c) <= 100000;
   if (wantD && !okCount(dCount)) return { error: "Enter how many discount vouchers (for example 900)." };
   if (wantF && !okCount(fCount)) return { error: "Enter how many free-service vouchers (for example 100)." };
+  const { randomInt } = await import("crypto");
+  // The distributor's one number: the one they already have, or a brand-new one.
+  const mine = (await db.execute(sql`select shared_number as n from nearest_card_batches where distributor_id = ${distributorId} and shared_number is not null
+    order by (status = 'active') desc, created_at desc limit 1`)).rows[0] as { n: string } | undefined;
+  const number = mine?.n ?? (await newVoucherNumber());
   const results: string[] = [];
-  for (const [want, kind, code, count, amount] of [[wantD, "discount", dCode, dCount, s(form, "discountAmount", 10)], [wantF, "free", fCode, fCount, ""]] as const) {
+  for (const [want, kind, count, amount] of [[wantD, "discount", dCount, s(form, "discountAmount", 10)], [wantF, "free", fCount, ""]] as const) {
     if (!want) continue;
     const f = new FormData();
-    for (const k of ["distributorId", "number", "validThru", "name"]) f.set(k, s(form, k, 80));
-    f.set("kind", kind); f.set("code", code); f.set("printed", count); f.set("amount", amount);
+    f.set("distributorId", distributorId); f.set("number", number); f.set("validThru", s(form, "validThru", 7)); f.set("name", s(form, "name", 80));
+    f.set("kind", kind); f.set("code", String(kind === "free" ? randomInt(1000, 10000) : randomInt(100, 1000))); f.set("printed", count); f.set("amount", amount);
     const r = await saveVoucherCampaign({}, f);
     if (r.error) return { error: results.length ? `${results.join(" ")} The free-service part wasn't saved: ${r.error}` : r.error };
     results.push(r.ok ?? "");

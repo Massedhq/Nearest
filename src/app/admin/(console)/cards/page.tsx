@@ -125,8 +125,9 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
               <div className="grid2" style={{ gap: 8 }}>
                 <input name="name" maxLength={80} defaultValue={editing.name.replace(/ — (Free service|Discount)$/, "")} placeholder="Batch name" style={field} aria-label="Batch name" />
                 <select name="distributorId" required defaultValue={editing.distributorId ?? ""} style={field} aria-label="Distributor"><option value="" disabled>Distributor…</option>{owners.map((o) => <option key={o.id} value={o.id}>{ownerName(o)}</option>)}</select>
-                <input name="number" required inputMode="numeric" defaultValue={groupNumber(editing.number)} placeholder="16-digit number" style={field} aria-label="16-digit number" />
-                <input name="code" required inputMode="numeric" defaultValue={editing.code} placeholder={editing.kind === "free" ? "4-digit code" : "3-digit code"} style={field} aria-label="Code" />
+                <input type="hidden" name="number" value={editing.number} />
+                <input type="hidden" name="code" value={editing.code} />
+                <span className="small" style={{ alignSelf: "center" }}>{groupNumber(editing.number)} • code <b>{editing.code}</b></span>
                 {editing.kind === "discount" && <input name="amount" required inputMode="decimal" defaultValue={(editing.amountCents / 100).toFixed(2)} placeholder="$ off" style={field} aria-label="Dollars off" />}
                 <input name="printed" required inputMode="numeric" defaultValue={editing.printed} placeholder="How many" style={field} aria-label="How many" />
                 <input name="validThru" required type="month" defaultValue={new Date(editing.validThru).toISOString().slice(0, 7)} style={field} aria-label="Valid thru" />
@@ -139,23 +140,21 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
             <span className="eyebrow">Set up a distributor&apos;s vouchers</span>
             <ActionForm action={saveDistributorVouchers} submitLabel="Save batch" buttonClass="btn sm" className="col g8">
               <div className="grid2" style={{ gap: 8 }}>
-                <input name="name" maxLength={80} placeholder="Batch name (e.g. Fall 2026 — Kisses)" style={field} aria-label="Batch name" />
-                <select name="distributorId" required defaultValue="" style={field} aria-label="Distributor"><option value="" disabled>Distributor…</option>{owners.map((o) => <option key={o.id} value={o.id}>{ownerName(o)}</option>)}</select>
-                <input name="number" required inputMode="numeric" placeholder="16-digit number printed on their vouchers" style={field} aria-label="16-digit number" />
+                <select name="distributorId" required defaultValue="" style={field} aria-label="Who is this for"><option value="" disabled>Who is this for…</option>{owners.map((o) => <option key={o.id} value={o.id}>{ownerName(o)}</option>)}</select>
+                <select name="type" required defaultValue="both" style={field} aria-label="Voucher type"><option value="both">Discount and free service</option><option value="discount">Discount only</option><option value="free">Free service only</option></select>
+                <input name="name" maxLength={80} placeholder="Batch name (e.g. Fall 2026)" style={field} aria-label="Batch name" />
                 <label className="xs muted col" style={{ gap: 2 }}>Valid thru<input name="validThru" required type="month" defaultValue="2030-05" style={field} aria-label="Valid thru" /></label>
               </div>
               <span className="small b">Discount vouchers</span>
               <div className="grid2" style={{ gap: 8 }}>
-                <input name="discountCode" inputMode="numeric" maxLength={3} placeholder="3-digit code" style={field} aria-label="Discount code" />
-                <input name="discountAmount" inputMode="decimal" placeholder="$ off (5 to 40)" style={field} aria-label="Dollars off" />
-                <input name="discountCount" inputMode="numeric" placeholder="How many (e.g. 900)" style={field} aria-label="How many discount vouchers" />
+                <select name="discountAmount" defaultValue="10" style={field} aria-label="Dollars off">{[5, 10, 20, 30, 40].map((d) => <option key={d} value={d}>${d} off</option>)}</select>
+                <input name="discountCount" inputMode="numeric" defaultValue="900" placeholder="How many" style={field} aria-label="How many discount vouchers" />
               </div>
               <span className="small b">Free-service vouchers</span>
               <div className="grid2" style={{ gap: 8 }}>
-                <input name="freeCode" inputMode="numeric" maxLength={4} placeholder="4-digit code" style={field} aria-label="Free-service code" />
-                <input name="freeCount" inputMode="numeric" placeholder="How many (e.g. 100)" style={field} aria-label="How many free-service vouchers" />
+                <input name="freeCount" inputMode="numeric" defaultValue="100" placeholder="How many" style={field} aria-label="How many free-service vouchers" />
               </div>
-              <span className="xs muted">Type the exact number and codes printed on that person&apos;s vouchers — nothing is made up for you. Their discount and free-service vouchers share the one 16-digit number. How many = also the most students who can claim them. Saved batches are drafts until you tap Publish below.</span>
+              <span className="xs muted">Nearest makes the 16-digit number and the codes (3 digits discount, 4 digits free service). Each person keeps one number for both types. It shows in Voucher batches below — check it, then Publish.</span>
             </ActionForm>
           </>
         )}

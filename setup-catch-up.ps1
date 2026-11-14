@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -m "Online voting with GRANTED reward wheel, digital cards, ad tracking and Nearest LIVE map"
+git commit -m "Nearest makes voucher numbers and codes; setup picks person and type"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""
