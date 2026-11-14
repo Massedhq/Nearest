@@ -329,43 +329,6 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
         <span className="xs muted">&quot;Needed&quot; = students there want it and no live professional offers it in that city yet — recruit there first. City = where the student lives (from their vote).</span>
       </div>
 
-      <div className="kpis k4">
-        <div className="card" style={{ gap: 4 }}><span className="xs muted">Vouchers in campaigns</span><span className="stat">{r.totals.printed.toLocaleString()}</span><span className="xs muted">{r.totals.distributed.toLocaleString()} delivered</span></div>
-        <div className="card" style={{ gap: 4 }}><span className="xs muted">Votes</span><span className="stat">{r.funnel.votes.toLocaleString()}</span><span className="xs muted">{r.funnel.registered} registered • {r.funnel.verified} verified students</span></div>
-        <div className="card" style={{ gap: 4 }}><span className="xs muted">Voucher activations</span><span className="stat">{r.totals.activations.toLocaleString()}</span><span className="xs muted">{r.totals.discount} discount • {r.totals.free} free service • {r.totals.used} used on a booking</span></div>
-        <div className="card" style={{ gap: 4 }}><span className="xs muted">Claims left</span><span className="stat">{Math.max(0, r.totals.printed - r.totals.activations).toLocaleString()}</span><span className="xs muted">of {r.totals.printed.toLocaleString()} across every campaign</span></div>
-      </div>
-
-      <div className="card" style={{ gap: 8 }}>
-        <span className="eyebrow">Student funnel</span>
-        <div className="row" style={{ gap: 18, flexWrap: "wrap" }}>
-          {[["Votes submitted", r.funnel.votes], ["Registered", r.funnel.registered], ["Email verified", r.funnel.emailVerified], ["School ID verified", r.funnel.verified], ["Activated a voucher", r.funnel.activated]].map(([l, n]) => (
-            <span key={String(l)} className="col" style={{ gap: 0 }}><span className="stat" style={{ fontSize: 22 }}>{Number(n).toLocaleString()}</span><span className="xs muted">{l}</span></span>
-          ))}
-        </div>
-        <span className="xs muted">Recruiting decisions should use verified students&apos; votes. Anonymous votes count as early interest only — each browser can vote once (voting again updates it), and a student keeps one vote.</span>
-      </div>
-
-      <div className="card" style={{ gap: 10 }}>
-        <span className="eyebrow">Most requested services</span>
-        <table className="tbl"><thead><tr><th>Service</th><th className="num">Votes</th><th className="num">Verified students</th></tr></thead>
-          <tbody>{r.categories.length === 0 ? <tr><td className="empty" colSpan={3}>No votes yet.</td></tr> : r.categories.map((c) => <tr key={c.category}><td>{c.category}</td><td className="num">{c.votes}</td><td className="num b">{c.verified}</td></tr>)}</tbody>
-        </table>
-      </div>
-
-      <div className="card" style={{ gap: 10 }}>
-        <span className="eyebrow">Demand by city</span>
-        <div style={{ overflowX: "auto" }}>
-          <table className="tbl"><thead><tr><th>City</th><th className="num">Votes</th><th className="num">Registered</th><th className="num">Verified</th><th className="num">Activated</th><th>Top requests (verified / all) — live pro?</th></tr></thead>
-            <tbody>{r.byCity.length === 0 ? <tr><td className="empty" colSpan={6}>No votes yet.</td></tr> : r.byCity.map((c) => (
-              <tr key={c.cityId}><td className="b">{c.city}, {c.state}</td><td className="num">{c.votes}</td><td className="num">{c.registered}</td><td className="num">{c.verified}</td><td className="num">{c.activated}</td>
-                <td className="xs">{c.top.map((t) => <span key={t.category} style={{ marginRight: 10, whiteSpace: "nowrap" }}>{t.category} {t.verified}/{t.votes} {t.live ? <span className="tag ok">live</span> : <span className="tag warn">needed</span>}</span>)}</td></tr>
-            ))}</tbody>
-          </table>
-        </div>
-        <span className="xs muted">&quot;Needed&quot; = students there want it and no live professional offers it in that city yet — recruit there first. City = where the student lives (from their vote).</span>
-      </div>
-
       <div className="col" style={{ gap: 4, marginTop: 8 }}><span className="eyebrow">Individually numbered Nearest Cards</span><span className="xs muted">The older cards where every card had its own number. GRANTED vouchers above replace them as the handout.</span></div>
       <div className={`card${fund.available < fund.saved ? " warn" : " ok"}`} style={{ gap: 10 }}>
         <span className="eyebrow">Nearest Cards fund — what you can give back</span>
