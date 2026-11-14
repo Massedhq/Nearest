@@ -40,6 +40,7 @@ export function readAttribution(params: Record<string, string>, referrer: string
   let platform = "direct";
   if (/^(ig|instagram)/.test(src) || ref.includes("instagram.")) platform = "instagram";
   else if (/^(fb|facebook|meta)/.test(src) || ref.includes("facebook.") || ref === "l.facebook.com" || click[0] === "fbclid") platform = "facebook";
+  else if (/^(tt|tiktok)/.test(src) || ref.includes("tiktok.") || click[0] === "ttclid") platform = "tiktok";
   else if (/^(google|adwords|gads)/.test(src) || ["gclid", "gbraid", "wbraid"].includes(String(click[0])) || ref.includes("google.")) platform = "google";
   else if (src || click[0] || (ref && !ref.endsWith("usenearest.com"))) platform = "other";
   return {

@@ -6,6 +6,9 @@ import { liveReports } from "@/lib/live/reports";
 import { ONLINE_FREE_MAX, rewardLabel } from "@/lib/reward-wheel";
 import { saveOnlineCampaign, setOnlineCampaignStatus, saveSegment, addAdSpend, setLivePublic } from "@/app/admin/live-actions";
 import { fmtDate, money } from "@/lib/time";
+import { AdLinks } from "@/components/AdLinks";
+import { adSlug } from "@/lib/ad-links";
+import { SITE_URL } from "@/lib/public/site";
 
 export const metadata = { title: "Nearest LIVE & Digital Rewards" };
 export const dynamic = "force-dynamic";
@@ -46,7 +49,7 @@ export default async function LiveAdmin({ searchParams }: { searchParams: Promis
           <form action={setLivePublic}><input type="hidden" name="on" value={isPublic ? "0" : "1"} /><button className="btn ghost sm" type="submit" style={{ width: "auto" }}>{isPublic ? "Make it owners only" : "Show it to everyone"}</button></form>
           <span className={`tag ${isPublic ? "ok" : ""}`}>{isPublic ? "Public" : "Owners only"}</span>
         </div>
-        <span className="xs muted">Ad link for online voting: usenearest.com/vote?utm_source=facebook&amp;utm_campaign=YOUR-CAMPAIGN (use instagram or google as the source for those ads).</span>
+        <AdLinks site={SITE_URL} campaigns={r.campaigns.map((c) => c.name)} />
       </div>
 
       <div className="card" style={{ gap: 10 }} id="wheel">
@@ -142,11 +145,11 @@ export default async function LiveAdmin({ searchParams }: { searchParams: Promis
             ))}</tbody>
           </table>
         </div>
-        <span className="xs muted">From Nearest&apos;s own records (the ad link&apos;s utm tags). Spend is what you enter below from Meta / Google — cost per vote shows only when spend is entered.</span>
+        <span className="xs muted">From Nearest&apos;s own records (the ad link&apos;s utm tags). Spend is what you enter below from Meta / TikTok / Google — cost per vote shows only when spend is entered.</span>
         <ActionForm action={addAdSpend} submitLabel="Save spend" buttonClass="btn sm" className="col g8">
           <div className="grid2" style={{ gap: 8 }}>
-            <select name="platform" defaultValue="facebook" style={field} aria-label="Platform"><option value="facebook">Facebook</option><option value="instagram">Instagram</option><option value="google">Google</option><option value="other">Other</option></select>
-            <input name="campaign" required placeholder="Campaign (same as utm_campaign)" style={field} aria-label="Campaign" />
+            <select name="platform" defaultValue="facebook" style={field} aria-label="Platform"><option value="facebook">Facebook</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="google">Google</option><option value="other">Other</option></select>
+            <select name="campaign" required defaultValue="" style={field} aria-label="Campaign"><option value="" disabled>Campaign</option>{[...new Set([...r.campaigns.map((c) => adSlug(c.name)), ...r.ads.map((a) => a.campaign).filter((x) => x !== "(no campaign tag)")])].map((n) => <option key={n} value={n}>{n}</option>)}</select>
             <input name="amount" required inputMode="decimal" placeholder="Spent ($)" style={field} aria-label="Spent" />
             <label className="xs muted col" style={{ gap: 2 }}>From<input name="fromDay" type="date" required style={field} /></label>
             <label className="xs muted col" style={{ gap: 2 }}>To<input name="toDay" type="date" required style={field} /></label>

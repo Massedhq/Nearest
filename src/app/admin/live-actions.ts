@@ -122,7 +122,7 @@ export async function saveSegment(_: FormState, form: FormData): Promise<FormSta
 /** Record ad spend from Meta / Google for cost per vote. */
 export async function addAdSpend(_: FormState, form: FormData): Promise<FormState> {
   const user = await main();
-  const platform = ["facebook", "instagram", "google", "other"].includes(s(form, "platform", 20)) ? s(form, "platform", 20) : "";
+  const platform = ["facebook", "instagram", "tiktok", "google", "other"].includes(s(form, "platform", 20)) ? s(form, "platform", 20) : "";
   const campaign = s(form, "campaign", 120);
   const amountCents = Math.round(Number(s(form, "amount", 12)) * 100);
   const fromDay = s(form, "fromDay", 10), toDay = s(form, "toDay", 10);
