@@ -65,33 +65,33 @@ export function LiveMap({ initial, outline, width, height }: { initial: LiveSnap
         </div>
 
         <div className="acols" style={{ gap: 14, alignItems: "flex-start" }}>
-          <div className="card" style={{ padding: 8, flex: "2 1 420px" }}>
+          <div id="nlmap" className="card" style={{ padding: 8, flex: "2 1 420px" }}>
             <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: "auto", display: "block" }} role="img" aria-label="Map of Texas with student votes by city">
               <defs><radialGradient id="nlglow"><stop offset="0" stopColor="#ECE8E1" stopOpacity=".9" /><stop offset="1" stopColor="#ECE8E1" stopOpacity="0" /></radialGradient></defs>
               <path d={outline} fill="#111113" stroke="#9C9A95" strokeWidth="1.4" />
               {snap.byCity.filter((c) => c.x != null).map((c) => {
                 const r = 2.5 + 9 * Math.sqrt(c.votes / max);
                 return (
-                  <g key={c.id} onClick={() => setCity(c.id === city ? null : c.id)} style={{ cursor: "pointer" }}>
-                    <circle cx={c.x!} cy={c.y!} r={r * 2.2} fill="url(#nlglow)" opacity={0.35} />
+                  <g key={c.id} role="button" tabIndex={0} aria-label={`${c.name}: ${c.votes} votes`} onClick={() => setCity(c.id === city ? null : c.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setCity(c.id === city ? null : c.id); } }} style={{ cursor: "pointer", outline: "none" }}>
+                    <circle cx={c.x!} cy={c.y!} r={r * 2.2} fill="url(#nlglow)" opacity={0.35} pointerEvents="none" />
                     <circle cx={c.x!} cy={c.y!} r={r} fill={c.id === city ? "#E3C58A" : "#ECE8E1"} fillOpacity={0.85} stroke="#050506" strokeWidth="0.8"><title>{`${c.name}: ${c.votes} vote${c.votes === 1 ? "" : "s"}`}</title></circle>
+                    <circle cx={c.x!} cy={c.y!} r={Math.max(16, r * 2.2)} fill="#000" fillOpacity={0} pointerEvents="all" />
                   </g>
                 );
               })}
-              {pulses.map((p) => <circle key={p.id} cx={p.x} cy={p.y} r="3" fill="none" stroke="#E3C58A" strokeWidth="2" style={{ animation: "nlpulse 2.4s ease-out forwards" }} />)}
+              {pulses.map((p) => <circle key={p.id} cx={p.x} cy={p.y} r="3" fill="none" stroke="#E3C58A" strokeWidth="2" pointerEvents="none" style={{ animation: "nlpulse 2.4s ease-out forwards" }} />)}
             </svg>
-            <span className="xs muted" style={{ display: "block", padding: "4px 6px" }}>Tap a city to see what students there want.</span>
-          </div>
-
-          <div className="col" style={{ gap: 14, flex: "1 1 280px" }}>
             {sel ? (
-              <div className="card" style={{ gap: 8 }}>
+              <div className="card" style={{ gap: 8, margin: 4, background: "#141416" }}>
                 <div className="row between"><span className="b">{sel.name}</span><button type="button" className="link xs" onClick={() => setCity(null)} style={{ background: "none", border: 0, color: "inherit" }}>Close</button></div>
                 <span className="stat" style={{ fontSize: 26 }}>{sel.votes.toLocaleString()} <span className="xs muted">votes • {sel.last24} in the last 24 h</span></span>
                 <span className="xs muted">Most requested</span>
-                {sel.top.map((t) => <span key={t} className="tag" style={{ alignSelf: "flex-start" }}>{t}</span>)}
+                <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>{sel.top.map((t) => <span key={t} className="tag">{t}</span>)}</div>
               </div>
-            ) : null}
+            ) : <span className="xs muted" style={{ display: "block", padding: "4px 6px" }}>Tap a city to see what students there want.</span>}
+          </div>
+
+          <div className="col" style={{ gap: 14, flex: "1 1 280px" }}>
             <div className="card" style={{ gap: 8 }}>
               <span className="eyebrow">Recent votes</span>
               {snap.recent.length === 0 ? <span className="small muted">No votes yet.</span> : snap.recent.slice(0, 8).map((v) => (
@@ -118,7 +118,7 @@ export function LiveMap({ initial, outline, width, height }: { initial: LiveSnap
           <div className="card" style={{ gap: 8 }}>
             <span className="eyebrow">Votes by city</span>
             <div style={{ maxHeight: 260, overflowY: "auto" }}>
-              {snap.byCity.slice(0, 30).map((c) => <button key={c.id} type="button" onClick={() => setCity(c.id)} className="row between" style={{ width: "100%", background: "none", border: 0, color: "inherit", padding: "4px 0", cursor: "pointer" }}><span className="small">{c.name}</span><span className="small b">{c.votes}</span></button>)}
+              {snap.byCity.slice(0, 30).map((c) => <button key={c.id} type="button" onClick={() => { setCity(c.id); document.getElementById("nlmap")?.scrollIntoView({ behavior: "smooth", block: "start" }); }} className="row between" style={{ width: "100%", background: "none", border: 0, color: "inherit", padding: "4px 0", cursor: "pointer" }}><span className="small">{c.name}</span><span className="small b">{c.votes}</span></button>)}
             </div>
           </div>
         </div>
