@@ -2,7 +2,8 @@ import { and, asc, desc, eq, like, or, sql } from "drizzle-orm";
 import { db, cardPlaces, nearestCardBatches, nearestCards, users, adminMembers, categories } from "@/db";
 import { voucherReport } from "@/lib/voucher-report";
 import { distributorsOverview, orgPerformance, unmatchedSources, typedSources, assignments, DIST_STATUS } from "@/lib/distribution";
-import { saveVoucherCampaign, saveDistributorCards, setVoucherCampaignStatus, publishVoucherCampaign } from "@/app/admin/voucher-actions";
+import { saveVoucherCampaign, saveDistributorCards, setVoucherCampaignStatus, publishVoucherCampaign, deleteVoucherCampaign } from "@/app/admin/voucher-actions";
+import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 import { AdminHead } from "@/components/AdminHead";
 import { ActionForm } from "@/components/ActionForm";
 import { requireMainOwner } from "@/lib/admin";
@@ -28,7 +29,7 @@ const pct = (a: number, b: number) => (b > 0 ? `${Math.round((a / b) * 100)}%` :
  * filters → the older individually numbered cards (fund, make cards, batches, locked). Kisses and Lakeesha only ever
  * see their own vouchers on My Voucher Distribution.
  */
-export default async function AdminCards({ searchParams }: { searchParams: Promise<{ q?: string; batch?: string; page?: string; city?: string; cat?: string; dist?: string; kind?: string; edit?: string }> }) {
+export default async function AdminCards({ searchParams }: { searchParams: Promise<{ q?: string; batch?: string; page?: string; city?: string; cat?: string; dist?: string; kind?: string; edit?: string; vmsg?: string }> }) {
   await requireMainOwner({ page: true });
   await ensurePrintSeq(); // also gives a new code to unsaved cards whose code started with 0
   const sp = await searchParams;
@@ -158,8 +159,9 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
         )}
       </div>
 
-      <div className="card" style={{ gap: 10 }}>
+      <div className="card" id="voucher-batches" style={{ gap: 10 }}>
         <span className="eyebrow">GRANTED cards &amp; voucher batches</span>
+        {sp.vmsg ? <div className="card small" role="status"><span>{sp.vmsg.slice(0, 300)}</span></div> : null}
         <div style={{ overflowX: "auto" }}>
           <table className="tbl"><thead><tr><th>Batch</th><th>Distributor</th><th>Number • code</th><th>Value</th><th>Valid thru</th><th className="num">Quantity (limit)</th><th className="num">Assigned to orgs</th><th className="num">Delivered</th><th className="num">Claimed</th><th className="num">Left to claim</th><th className="num">Rate</th><th /></tr></thead>
             <tbody>{r.campaigns.length === 0 ? <tr><td className="empty" colSpan={12}>No voucher batches yet. Set one up above for Avy, Kisses and Lakeesha (900 discount + 100 free service each).</td></tr> : r.campaigns.map((c) => (
@@ -168,11 +170,11 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
                 <td>{c.kind === "free" ? "Free service" : `${money(c.amountCents)} off`}</td>
                 <td>{validThruLabel(new Date(c.validThru))}</td>
                 <td className="num">{c.printed}</td><td className="num">{c.assigned}</td><td className="num">{c.distributed}</td><td className="num b">{c.activations}</td><td className="num">{Math.max(0, c.printed - c.activations)}</td><td className="num">{pct(c.activations, c.distributed)}</td>
-                <td>{<div className="row" style={{ gap: 8 }}>{c.draft && <form action={publishVoucherCampaign}><input type="hidden" name="id" value={c.id} /><button className="link xs b" type="submit">Publish</button></form>}<a className="link xs" href={`/admin/cards?edit=${c.id}#voucher-setup`}>Edit</a><form action={setVoucherCampaignStatus}><input type="hidden" name="id" value={c.id} /><input type="hidden" name="to" value={c.status === "active" ? "off" : "on"} /><button className="link xs" type="submit">{c.status === "active" ? (c.scratch ? "Pause" : "Turn off") : (c.scratch ? "Resume" : "Turn on")}</button></form></div>}</td></tr>
+                <td>{<div className="row" style={{ gap: 8 }}>{c.draft && <form action={publishVoucherCampaign}><input type="hidden" name="id" value={c.id} /><button className="link xs b" type="submit">Publish</button></form>}<a className="link xs" href={`/admin/cards?edit=${c.id}#voucher-setup`}>Edit</a><form action={setVoucherCampaignStatus}><input type="hidden" name="id" value={c.id} /><input type="hidden" name="to" value={c.status === "active" ? "off" : "on"} /><button className="link xs" type="submit">{c.status === "active" ? (c.scratch ? "Pause" : "Turn off") : (c.scratch ? "Resume" : "Turn on")}</button></form>{c.activations === 0 && c.claimed === 0 && <form action={deleteVoucherCampaign}><input type="hidden" name="id" value={c.id} /><ConfirmSubmit label="Delete" ask={c.scratch ? "Delete this person's whole card (discount + free)?" : "Delete this batch?"} /></form>}</div>}</td></tr>
             ))}</tbody>
           </table>
         </div>
-        <span className="xs muted">Turning a campaign off stops new claims; students who already claimed keep their voucher. Scratch-off cards: Publish and Pause/Resume work on the person&apos;s whole card (discount and free service together) — pause it if a card code gets posted online. Rewards revealed but not added to an account go back after the hold ends; rewards on accounts that never verify go back after the days set in Rules &amp; Settings → GRANTED vouchers. Changing the distributor (reassigning) is logged.</span>
+        <span className="xs muted">Turning a campaign off stops new claims; students who already claimed keep their voucher. Scratch-off cards: Publish and Pause/Resume work on the person&apos;s whole card (discount and free service together) — pause it if a card code gets posted online. Rewards revealed but not added to an account go back after the hold ends; rewards on accounts that never verify go back after the days set in Rules &amp; Settings → GRANTED vouchers. Delete removes a batch nobody has used yet (a scratch-off card is deleted whole, with its organization assignments) — once a student has a reward from it, use Turn off or Pause instead. Changing the distributor (reassigning) is logged.</span>
       </div>
 
       <div className="card" style={{ gap: 10 }}>

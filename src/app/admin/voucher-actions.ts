@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { and, eq, sql } from "drizzle-orm";
 import { db, nearestCardBatches, adminMembers } from "@/db";
 import { requireAdmin, isMainOwner } from "@/lib/admin";
@@ -229,4 +230,38 @@ export async function setVoucherCampaignStatus(form: FormData) {
     : eq(nearestCardBatches.id, id));
   await logActivity({ actorUserId: user.id, action: on ? "vouchers.campaign_on" : "vouchers.campaign_off", targetType: "voucher_campaign", targetId: id, before: { status: b.status }, after: { status: on ? "active" : "off" } });
   refresh();
+}
+
+/**
+ * Delete a voucher batch (main owner, 2026-11-14) — for batches made by mistake or replaced. A scratch-off card is
+ * deleted as a whole (discount + free rows). Refused once any student has revealed, held or added a reward from it,
+ * because those must keep working (Pause/Turn off instead). Its organization assignments and their history go with it;
+ * a full copy is kept in the activity log. Votes that entered it simply forget it.
+ */
+export async function deleteVoucherCampaign(form: FormData) {
+  const { user, main } = await owner();
+  if (!main) return;
+  const id = s(form, "id", 40);
+  if (!/^[0-9a-f-]{36}$/.test(id)) return;
+  const b = await db.query.nearestCardBatches.findFirst({ where: eq(nearestCardBatches.id, id) });
+  if (!b?.sharedNumber) return;
+  const rows = b.scratch
+    ? await db.select().from(nearestCardBatches).where(and(eq(nearestCardBatches.sharedNumber, b.sharedNumber), eq(nearestCardBatches.sharedCode, b.sharedCode!), eq(nearestCardBatches.scratch, true)))
+    : [b];
+  const ids = rows.map((r) => r.id);
+  const idList = sql.join(ids.map((x) => sql`${x}::uuid`), sql`, `);
+  const inUse = (await db.execute(sql`select
+      (select count(*) from nearest_cards where batch_id in (${idList}))::int as cards,
+      (select count(*) from reward_spins where batch_id in (${idList}))::int as spins`)).rows[0] as { cards: number; spins: number };
+  if (inUse.cards || inUse.spins) redirect(`/admin/cards?vmsg=${encodeURIComponent("Students already have rewards from this batch, so it can't be deleted. Turn it off (or Pause) instead.")}#voucher-batches`);
+  const dists = (await db.execute(sql`select * from voucher_distributions where batch_id in (${idList})`)).rows;
+  await db.execute(sql`delete from voucher_distribution_events where distribution_id in (select id from voucher_distributions where batch_id in (${idList}))`);
+  await db.execute(sql`delete from voucher_distributions where batch_id in (${idList})`);
+  await db.execute(sql`update student_votes set pending_batch_id = null where pending_batch_id in (${idList})`);
+  await db.execute(sql`delete from nearest_card_batches where id in (${idList}) and claimed = 0
+    and not exists (select 1 from nearest_cards c where c.batch_id = nearest_card_batches.id)
+    and not exists (select 1 from reward_spins r where r.batch_id = nearest_card_batches.id)`);
+  await logActivity({ actorUserId: user.id, action: "vouchers.campaign_deleted", targetType: "voucher_campaign", targetId: id, before: { batches: rows, assignments: dists } });
+  refresh();
+  redirect(`/admin/cards?vmsg=${encodeURIComponent(`${rows[0].name.replace(/ — (Discount|Free service)$/, "")} deleted.`)}#voucher-batches`);
 }
