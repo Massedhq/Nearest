@@ -9,6 +9,9 @@ import { checkCampaign, voteSession, activateVoucher, benefitLine, VOUCHER } fro
 const FREE_REDEEM = "Redeem for one eligible free service selected by a participating professional.";
 import { digits } from "@/lib/nearest-cards";
 import { voteSourceOptions } from "@/lib/distribution";
+import { adVisits } from "@/db";
+import { readAttribution, sendAdEvent } from "@/lib/ad-tags";
+import { spin, holdWithEmail, mySpin, liveOnlineCampaign, wheelSegments } from "@/lib/reward-wheel";
 
 /**
  * "YOUR CITY. YOUR CHOICE." — the public /card voucher flow (2026-11-11). No account needed to vote: state → city they
@@ -64,30 +67,35 @@ export async function voteSources() {
 }
 
 /** Save (or update) this browser's vote. Saved BEFORE the thank-you screen. */
-export async function submitVote(input: { state: string; cityId: number; schoolId: number | null; schoolOther: string; categories: string[]; source?: { kind: string; placeId?: string | null; text?: string } }): Promise<{ ok: true } | { error: string }> {
+export async function submitVote(input: { state: string; cityId: number; schoolId: number | null; schoolOther: string; categories: string[]; source?: { kind: string; placeId?: string | null; text?: string }; online?: boolean }): Promise<{ ok: true; eventId?: string } | { error: string }> {
   const state = String(input.state ?? "").toUpperCase().slice(0, 2);
   const city = Number.isInteger(input.cityId) ? await db.query.cities.findFirst({ where: and(eq(cities.id, input.cityId), eq(cities.state, state)) }) : null;
   if (!city) return { error: "Choose your state and the city you live in." };
   const school = input.schoolId ? await db.query.schools.findFirst({ where: eq(schools.id, input.schoolId) }) : null;
   const other = String(input.schoolOther ?? "").trim().slice(0, 120);
   if (!school && !other) return { error: "Choose your school, or type it if it isn't listed." };
-  const kind = ["org", "other", "someone"].includes(String(input.source?.kind)) ? String(input.source!.kind) : "";
-  if (!kind) return { error: "Choose where you received your voucher." };
+  const online = !!input.online;
+  // Online voters (/vote — ads or direct) aren't asked where they got a printed voucher: their source is the ad visit.
+  const kind = online ? "" : ["org", "other", "someone"].includes(String(input.source?.kind)) ? String(input.source!.kind) : "";
+  if (!online && !kind) return { error: "Choose where you received your voucher." };
   let sourcePlaceId: string | null = null;
   if (kind === "org") {
     sourcePlaceId = (await voteSourceOptions()).find((o) => o.id === input.source?.placeId)?.id ?? null;
     if (!sourcePlaceId) return { error: "Choose where you received your voucher." };
   }
-  const sourceText = kind === "org" ? null : String(input.source?.text ?? "").trim().slice(0, 120) || null;
+  const sourceText = online || kind === "org" ? null : String(input.source?.text ?? "").trim().slice(0, 120) || null;
   const valid = new Set((await db.select({ name: categories.name }).from(categories)).map((c) => c.name));
   const picks = [...new Set((input.categories ?? []).map(String).filter((c) => valid.has(c) && !HIDDEN.has(c)))].slice(0, 20);
   if (!picks.length) return { error: "Pick at least one service you'd like in your city." };
   const sid = (await voteSession(true))!;
   const viewer = await getViewer();
   const userId = viewer?.user?.accountType === "student" ? viewer.user.id : null;
-  const values = { state, cityId: city.id, schoolId: school?.id ?? null, schoolOther: school ? null : other, categories: picks, sourceKind: kind, sourcePlaceId, sourceText, updatedAt: new Date() };
+  const visit = online ? (await db.select().from(adVisits).where(eq(adVisits.sessionId, sid)).orderBy(sql`${adVisits.createdAt} desc`).limit(1))[0] : undefined;
+  const values = { state, cityId: city.id, schoolId: school?.id ?? null, schoolOther: school ? null : other, categories: picks, sourceKind: kind || null, sourcePlaceId, sourceText,
+    channel: online ? "online" : "physical", platform: online ? (visit?.platform ?? "direct") : null, adVisitId: visit?.id ?? null, updatedAt: new Date() };
   await db.insert(studentVotes).values({ sessionId: sid, ...values, ...(userId ? { userId, linkedAt: new Date() } : {}) })
     .onConflictDoUpdate({ target: studentVotes.sessionId, set: values });
+  if (online) { await sendAdEvent("Vote", `vote-${sid}`); return { ok: true, eventId: `vote-${sid}` }; }
   return { ok: true };
 }
 
@@ -121,4 +129,37 @@ export async function enterVoucher(rawNumber: string, rawCode: string): Promise<
   return { ok: camp.batch.kind === "free"
     ? `Voucher accepted: ${benefitLine("free", 0)}. ${FREE_REDEEM} Your voucher will be linked to your student account after registration and verification.`
     : `Voucher accepted: ${benefitLine(camp.batch.kind, camp.batch.amountCents)}. It will be linked to your student account after you register and verify.`, signedIn: false };
+}
+
+/** /vote landing: remember where this visitor came from (first-party), once per session + source. */
+export async function recordAdVisit(params: Record<string, string>, landing: string, referrer: string) {
+  const sid = (await voteSession(true))!;
+  const a = readAttribution(Object.fromEntries(Object.entries(params ?? {}).map(([k, v]) => [String(k).slice(0, 40), String(v)])), String(referrer ?? ""));
+  const last = (await db.select().from(adVisits).where(eq(adVisits.sessionId, sid)).orderBy(sql`${adVisits.createdAt} desc`).limit(1))[0];
+  // A direct reload never replaces a real ad source; the same ad within 30 minutes isn't counted twice.
+  if (last && (a.platform === "direct" || (last.platform === a.platform && last.campaign === a.campaign && Date.now() - last.createdAt.getTime() < 30 * 60000))) return;
+  await db.insert(adVisits).values({ sessionId: sid, ...a, landing: String(landing ?? "").slice(0, 300) || null });
+}
+
+/** The wheel as the student sees it: segments (labels only) and their own spin if they already spun. */
+export async function wheelInfo() {
+  const camp = await liveOnlineCampaign();
+  const segments = camp ? (await wheelSegments(camp.id)).filter((x) => x.remaining > 0).map((x) => ({ id: x.id, label: x.label, kind: x.kind })) : [];
+  const s = await mySpin();
+  return { open: !!camp && segments.length > 0, rules: camp?.rulesText ?? "", segments, spin: s ? { batchId: s.batchId, label: s.label, kind: s.kind, status: s.status, holdUntil: s.holdUntil.toISOString(), email: s.email } : null };
+}
+
+/** Spin once — the server picks and saves the result; the wheel only animates to it. */
+export async function spinWheel() {
+  const viewer = await getViewer();
+  const r = await spin({ userId: viewer?.user?.accountType === "student" ? viewer.user.id : null });
+  if (!r.ok) return { error: r.error };
+  await sendAdEvent("Spin", `spin-${r.spin.id}`);
+  return { batchId: r.spin.batchId, label: r.spin.label, kind: r.spin.kind, holdUntil: r.spin.holdUntil.toISOString(), eventId: `spin-${r.spin.id}` };
+}
+
+/** Hold the reward for 3 days with an email. */
+export async function holdReward(email: string) {
+  const r = await holdWithEmail(email);
+  return r.ok ? { ok: true as const, holdUntil: r.holdUntil.toISOString() } : { error: r.error };
 }

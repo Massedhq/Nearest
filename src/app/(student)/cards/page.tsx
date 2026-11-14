@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireBrowsingStudent } from "@/lib/student";
 import { myCards, cardLabel, validThruLabel, activateDays } from "@/lib/nearest-cards";
 import { NearestCardForm } from "@/components/NearestCardForm";
+import { GrantedCard } from "@/components/GrantedCard";
 import { CardPlacesList } from "@/components/CardPlacesList";
 import { TopBar } from "@/components/TopBar";
 import { Tabs } from "@/components/Tabs";
@@ -16,6 +17,8 @@ export default async function CardsPage({ searchParams }: { searchParams: Promis
   const sp = await searchParams;
   // Voted on /card and then signed in (or created the account): link the vote and activate the voucher they entered.
   const claimed = await (await import("@/lib/vouchers")).claimVote(user.id);
+  // Online reward wheel: the held reward becomes this student's own digital GRANTED card.
+  const wheel = await (await import("@/lib/reward-wheel")).claimSpin(user.id).catch(() => null);
   const [cards, days] = await Promise.all([myCards(user.id), activateDays()]);
   const current = cards.filter((x) => x.state !== "used");
   const used = cards.filter((x) => x.state === "used");
@@ -29,6 +32,7 @@ export default async function CardsPage({ searchParams }: { searchParams: Promis
             <span className="small muted">Thanks for telling us what you want in your city. We&apos;ll let you know when those professionals are here.</span>
           </div>
         )}
+        {wheel && <div className={`card small ${wheel.ok ? "" : "warn"}`}><span>{wheel.message}</span></div>}
         {claimed.voucher && <div className={`card small ${claimed.voucher.ok ? "" : "warn"}`}><span>{claimed.voucher.message}</span></div>}
         {sp.v === "no" && !claimed.voucher && <div className="card warn small"><span>We couldn&apos;t activate the voucher you entered. Check the number and code and enter it below.</span></div>}
         <div className="card" style={{ gap: 6 }}>
@@ -44,7 +48,8 @@ export default async function CardsPage({ searchParams }: { searchParams: Promis
         {current.length > 0 && <h3 className="eyebrow p">My card</h3>}
         {current.map(({ c, b, state, bookingId }) => (
           <div key={c.id} className="card" style={{ gap: 4 }}>
-            <div className="row between"><span className="b">{cardLabel(b.kind, !!b.sharedNumber)} •••• {c.number.slice(-4)}</span><span className={`tag ${state === "ready" ? "ok" : "warn"}`}>{state === "ready" ? "Ready to use" : "Chosen for a booking"}</span></div>
+            {b.channel === "digital" && <GrantedCard label={b.kind === "free" ? "Free service" : `${money(b.amountCents)} off`} kind={b.kind} number={c.number} code={c.code} validThru={validThruLabel(b.validThru)} />}
+            <div className="row between"><span className="b">{cardLabel(b.kind, !!b.sharedNumber || b.channel === "digital")} •••• {c.number.slice(-4)}</span><span className={`tag ${state === "ready" ? "ok" : "warn"}`}>{state === "ready" ? "Ready to use" : "Chosen for a booking"}</span></div>
             <span className="small">{b.kind === "free" ? "One eligible free service" : `${money(b.amountCents)} off`}</span>
             <span className="xs muted">Added {c.activatedAt ? fmtDate(c.activatedAt) : ""} • card valid thru {validThruLabel(b.validThru)}</span>
             {bookingId && <Link className="link xs" href={`/bookings/${bookingId}`}>See the booking (you can switch or remove the card there)</Link>}
@@ -53,7 +58,7 @@ export default async function CardsPage({ searchParams }: { searchParams: Promis
         {used.length > 0 && <h3 className="eyebrow p">Used cards</h3>}
         {used.map(({ c, b, bookingId, bPaidAt }) => (
           <div key={c.id} className="card" style={{ gap: 4, opacity: 0.7 }}>
-            <div className="row between"><span className="b">{cardLabel(b.kind, !!b.sharedNumber)} •••• {c.number.slice(-4)}</span><span className="tag">Used</span></div>
+            <div className="row between"><span className="b">{cardLabel(b.kind, !!b.sharedNumber || b.channel === "digital")} •••• {c.number.slice(-4)}</span><span className="tag">Used</span></div>
             <span className="small">{b.kind === "free" ? "One eligible free service" : `${money(b.amountCents)} off`} • used {bPaidAt ? fmtDate(bPaidAt) : ""}</span>
             <span className="xs muted">Each card works once, so this one can&apos;t be used again.</span>
             {bookingId && <Link className="link xs" href={`/bookings/${bookingId}`}>See the booking it paid for</Link>}

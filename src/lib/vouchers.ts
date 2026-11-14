@@ -57,6 +57,10 @@ export async function activateVoucher(userId: string, batch: typeof nearestCardB
   if (same) return same.batchId === batch.id
     ? { ok: false, error: "This voucher is already activated on your account — choose it when you pay for a booking." }
     : { ok: false, error: `You already have a ${kind === "free" ? "free-service" : "discount"} GRANTED voucher on your account. It's one of each type per student.` };
+  // A student with an online reward-wheel card can't also activate a physical voucher (and the other way round — claimSpin).
+  const online = (await db.execute(sql`select 1 from nearest_cards c join nearest_card_batches b on b.id = c.batch_id
+    where c.shared and c.student_id = ${userId} and c.status = 'activated' and b.channel = 'digital' limit 1`)).rows.length;
+  if (online) return { ok: false, error: "You already have a GRANTED card from the online reward wheel — it's one GRANTED card per student." };
   const already = await db.query.nearestCards.findFirst({ where: and(eq(nearestCards.batchId, batch.id), eq(nearestCards.studentId, userId), eq(nearestCards.shared, true)) });
   if (already) return { ok: false, error: "This voucher is already activated on your account — choose it when you pay for a booking." };
   // Bring the claim counter up to date (only ever raises it), then take one place and add the claim in ONE statement.
@@ -155,7 +159,13 @@ export async function claimVote(userId: string): Promise<{ linked: boolean; vouc
 export async function afterStudentCreated(userId: string): Promise<string> {
   try {
     const r = await claimVote(userId);
-    if (r.linked) return `/cards?welcome=1${r.voucher ? `&v=${r.voucher.ok ? "ok" : "no"}` : ""}`;
+    // Online voters with a reward-wheel result go to Cards & activations too — claimSpin adds the card there.
+    const { mySpin } = await import("./reward-wheel");
+    const spun = await mySpin().catch(() => null);
+    if (r.linked || spun) {
+      try { const { sendAdEvent } = await import("./ad-tags"); await sendAdEvent("CompleteRegistration", `reg-${userId}`); } catch { /* never blocks */ }
+      return `/cards?welcome=1${r.voucher ? `&v=${r.voucher.ok ? "ok" : "no"}` : ""}`;
+    }
   } catch (e) { console.error("claimVote", e); }
   return "/verify";
 }

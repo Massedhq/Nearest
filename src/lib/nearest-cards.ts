@@ -7,7 +7,7 @@ import { chicagoToUtc } from "./time";
 
 /**
  * Nearest Cards — printed promotional cards (no cash value) that students add to their account.
- * Discount cards: 16-digit number + 3-digit code, worth $5–$30. Free cards: 16-digit number + 4-digit code, cover a
+ * Discount cards: 16-digit number + 3-digit code, worth $5–$40. Free cards: 16-digit number + 4-digit code, cover a
  * service up to the batch amount. A card must be saved within cards.activate_days (30) of the batch's handed_out_at, or it
  * goes inactive. Owners can turn cards off and discard batches (src/app/admin/card-actions.ts). Adding a card SAVES it on the student's account (so a lost card can't be used by anyone
  * else). It is never applied automatically: the student chooses it on the booking they want (confirm page or a booking
@@ -18,7 +18,7 @@ import { chicagoToUtc } from "./time";
  * free service — see src/lib/promo.ts. Credit only, no cash value.
  */
 export const CARD_LIMITS = {
-  discountMin: 500, discountMax: 3000, // $5–$30
+  discountMin: 500, discountMax: 4000, // $5–$40 (2026-11-13, owner)
   freeMax: MAX_PRICE_CENTS, // a free card never covers more than the $150 student price cap
   batchMax: 5000,
   triesPerHour: 5, // wrong number/code tries per student per hour
@@ -139,7 +139,7 @@ export async function fixLeadingZeroCodes() {
 export function batchProblem(b: { kind: string; amountCents: number; count: number; validThru: Date | null }) {
   if (b.kind !== "discount" && b.kind !== "free") return "Choose Discount card or Free card.";
   if (!Number.isInteger(b.amountCents)) return "Enter the card value.";
-  if (b.kind === "discount" && (b.amountCents < CARD_LIMITS.discountMin || b.amountCents > CARD_LIMITS.discountMax)) return "Discount cards are $5 to $30.";
+  if (b.kind === "discount" && (b.amountCents < CARD_LIMITS.discountMin || b.amountCents > CARD_LIMITS.discountMax)) return "Discount cards are $5 to $40.";
   if (b.kind === "free" && (b.amountCents < 100 || b.amountCents > CARD_LIMITS.freeMax)) return `A free card covers a service up to an amount from $1 to $${CARD_LIMITS.freeMax / 100}.`;
   if (!Number.isInteger(b.count) || b.count < 1 || b.count > CARD_LIMITS.batchMax) return `Make 1 to ${CARD_LIMITS.batchMax} cards at a time.`;
   if (!b.validThru) return "Choose the Valid thru month printed on the cards.";

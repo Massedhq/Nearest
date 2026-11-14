@@ -3,6 +3,8 @@ import { useEffect, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { voteCities, voteSchools, voteServices, voteSources, submitVote, enterVoucher } from "@/app/vote-actions";
+import { RewardWheel } from "@/components/RewardWheel";
+import { track } from "@/components/AdTags";
 
 type City = { id: number; name: string };
 type School = { id: number; name: string; type: string | null };
@@ -15,7 +17,7 @@ const money = (c: number) => `$${(c / 100).toFixed(c % 100 ? 2 : 0)}`;
  * welcome → where you live + school → services → thank you + voucher number/code → finish creating the account.
  * No account, county, graduation year, ID or parent approval is needed to vote.
  */
-export function VoteFlow({ states, signedIn }: { states: string[]; signedIn: boolean }) {
+export function VoteFlow({ states, signedIn, online = false }: { states: string[]; signedIn: boolean; online?: boolean }) {
   const [step, setStep] = useState<"start" | "where" | "services" | "thanks">("start");
   const [state, setState] = useState("TX");
   const [cities, setCities] = useState<City[]>([]);
@@ -37,7 +39,7 @@ export function VoteFlow({ states, signedIn }: { states: string[]; signedIn: boo
 
   const city = cities.find((c) => c.name.toLowerCase() === cityText.trim().toLowerCase()) ?? null;
   useEffect(() => { if (state) start(async () => { setCities(await voteCities(state)); }); }, [state]);
-  useEffect(() => { start(async () => { setSources(await voteSources()); }); }, []);
+  useEffect(() => { if (!online) start(async () => { setSources(await voteSources()); }); }, [online]);
   const srcLabel = (o: Src) => `${o.name} — ${[o.street, o.city, o.state].filter(Boolean).join(", ")}`;
   const shownSources = srcQ.trim() ? sources.filter((o) => o.id === src || srcLabel(o).toLowerCase().includes(srcQ.trim().toLowerCase())) : sources;
   useEffect(() => {
@@ -49,7 +51,7 @@ export function VoteFlow({ states, signedIn }: { states: string[]; signedIn: boo
     setErr("");
     if (!city) return setErr("Start typing the city you live in and pick it from the list.");
     if (!schoolId && !schoolOther.trim()) return setErr("Choose your school, or type it if it isn't listed.");
-    if (!src) return setErr("Choose where you received your voucher.");
+    if (!online && !src) return setErr("Choose where you received your voucher.");
     start(async () => { setSvcs(await voteServices(city.id)); setStep("services"); window.scrollTo(0, 0); });
   };
   const vote = () => {
@@ -57,8 +59,9 @@ export function VoteFlow({ states, signedIn }: { states: string[]; signedIn: boo
     if (!picks.length) return setErr("Pick at least one service.");
     start(async () => {
       const source = src === "other" || src === "someone" ? { kind: src, text: srcText } : { kind: "org", placeId: src };
-      const r = await submitVote({ state, cityId: city!.id, schoolId, schoolOther, categories: picks, source });
+      const r = await submitVote({ state, cityId: city!.id, schoolId, schoolOther, categories: picks, source, online });
       if ("error" in r) return setErr(r.error);
+      if (online && r.eventId) track("Vote", r.eventId);
       setStep("thanks"); window.scrollTo(0, 0);
     });
   };
@@ -113,7 +116,7 @@ export function VoteFlow({ states, signedIn }: { states: string[]; signedIn: boo
           <input id="v-other" maxLength={120} placeholder="Type your school's name" value={schoolOther} onChange={(e) => setSchoolOther(e.target.value)} />
         </div>
       )}
-      <div className="field"><label htmlFor="v-src">Where did you receive your Nearest GRANTED voucher?</label>
+      {!online && <div className="field"><label htmlFor="v-src">Where did you receive your Nearest GRANTED voucher?</label>
         <span className="xs muted">Select the organization or location that gave you your voucher.</span>
         {sources.length > 6 && <input aria-label="Search organizations" autoComplete="off" placeholder="Search by name or city" value={srcQ} onChange={(e) => setSrcQ(e.target.value)} />}
         <select id="v-src" value={src} onChange={(e) => { setSrc(e.target.value); setSrcText(""); }}>
@@ -122,7 +125,7 @@ export function VoteFlow({ states, signedIn }: { states: string[]; signedIn: boo
           <option value="other">Other / Not Listed</option>
           <option value="someone">Someone gave it to me</option>
         </select>
-      </div>
+      </div>}
       {src === "other" && (
         <div className="field"><label htmlFor="v-src-text">Enter the name of the organization or location.</label>
           <input id="v-src-text" maxLength={120} value={srcText} onChange={(e) => setSrcText(e.target.value)} />
@@ -169,7 +172,7 @@ export function VoteFlow({ states, signedIn }: { states: string[]; signedIn: boo
       <div className="steps"><span className="on" /><span className="on" /><span className="on" /></div>
       <h1 className="disp h1" style={{ textAlign: "center", margin: 0 }}>Thank you for your vote!</h1>
       <p className="muted" style={{ textAlign: "center", margin: 0 }}>You&apos;ve helped Nearest identify the services students want in your city.</p>
-      <div className="lightbox" style={{ gap: 12 }}>
+      {online ? <RewardWheel signedIn={signedIn} /> : <div className="lightbox" style={{ gap: 12 }}>
         <span className="b">Activate your GRANTED voucher</span>
         <span className="small">To activate your voucher and use it on Nearest, enter the 16-digit number and the security code printed on your voucher below, then finish creating your account.</span>
         {saved ? (
@@ -192,7 +195,7 @@ export function VoteFlow({ states, signedIn }: { states: string[]; signedIn: boo
             {!signedIn && <span className="xs muted">No voucher with you? You can still <Link className="link" href="/sign-up">create your account</Link> and add it later in Account → Cards &amp; activations.</span>}
           </>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

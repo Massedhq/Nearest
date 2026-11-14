@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { Icon } from "./Icon";
 
 const NAV: [string, [string, string, string][]][] = [
-  ["Overview", [["Command Center", "home", "/admin"], ["First In", "sparkle", "/admin/founding"], ["Coverage", "map", "/admin/coverage"], ["Service coverage", "chart", "/admin/service-coverage"], ["Student demand", "users", "/admin/demand"]]],
+  ["Overview", [["Command Center", "home", "/admin"], ["First In", "sparkle", "/admin/founding"], ["Coverage", "map", "/admin/coverage"], ["Service coverage", "chart", "/admin/service-coverage"], ["Student demand", "users", "/admin/demand"], ["Nearest LIVE & Digital Rewards", "chart", "/admin/live"]]],
   ["People", [["Students", "users", "/admin/students"], ["Schools", "school", "/admin/schools"], ["Professionals", "store", "/admin/professionals"], ["Verification Queue", "shield", "/admin/verification"], ["Enrollment holds", "flag", "/admin/enrollment-holds"], ["Launch campaign", "sparkle", "/admin/campaign"], ["Supporters", "users", "/admin/supporters"]]],
   ["Operations", [["Bookings", "cal", "/admin/bookings"], ["Incident Review", "flag", "/admin/incidents"], ["Enforcement", "gavel", "/admin/enforcement"], ["Appeals", "file", "/admin/appeals"], ["Problem reports", "flag", "/admin/reports"], ["Find by photo", "camera", "/admin/photo-match"]]],
   ["Professional Outreach", [["Outreach", "users", "/admin/outreach"], ["Outreach meetings", "cal", "/admin/meet"], ["Partner pages", "link", "/admin/partners"], ["Learn at Nearest", "school", "/admin/learn"], ["Notifications", "bell", "/admin/notifications"]]],
@@ -17,7 +17,7 @@ export function AdminNav({ isMain = false }: { isMain?: boolean }) {
   const path = usePathname();
   // Sales Board is the main owner's alone (also enforced on the server).
   // Partner pages and Nearest Cards are the main owner's alone — hidden from every other admin.
-  const MAIN_ONLY = ["/admin/partners", "/admin/cards", "/admin/money", "/admin/pricing"]; // Nearest money: main owner only
+  const MAIN_ONLY = ["/admin/partners", "/admin/cards", "/admin/money", "/admin/pricing", "/admin/live"]; // Nearest money: main owner only
   const nav = isMain
     ? NAV.map(([h, items]) => [h, h === "Business" ? [...items, ["Sales Board", "users", "/admin/sales-board"]] : items] as (typeof NAV)[number])
     : NAV.map(([h, items]) => [h, (items as string[][]).filter((it) => !MAIN_ONLY.includes(it[2]))] as unknown as (typeof NAV)[number]);

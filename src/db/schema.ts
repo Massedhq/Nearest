@@ -1573,6 +1573,11 @@ export const nearestCardBatches = pgTable("nearest_card_batches", {
   // Unique student claims so far — the per-campaign limit is `count` (900 discount / 100 free per distributor). Raised
   // atomically in activateVoucher (src/lib/vouchers.ts) so concurrent claims can't pass the limit.
   claimed: integer("claimed").notNull().default(0),
+  // Online GRANTED reward wheel (2026-11-13): channel "digital" = one wheel segment of an online campaign (no shared
+  // number — each student gets their own card when the reward is assigned). claimed counts held + assigned rewards.
+  channel: text("channel").notNull().default("physical"),
+  onlineCampaignId: uuid("online_campaign_id"),
+  weight: integer("weight").notNull().default(0), // wheel odds (relative); 0 = not on the wheel
   createdBy: uuid("created_by").references(() => users.id),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
@@ -1639,6 +1644,10 @@ export const studentVotes = pgTable("student_votes", {
   userId: uuid("user_id").references(() => users.id),
   linkedAt: ts("linked_at"),
   pendingBatchId: uuid("pending_batch_id"), // voucher campaign entered on the thank-you screen, activated once they have an account
+  // physical = /card (printed voucher) | online = /vote (ads, the reward wheel). platform = facebook | instagram | google | other | direct.
+  channel: text("channel").notNull().default("physical"),
+  platform: text("platform"),
+  adVisitId: uuid("ad_visit_id"),
   // Where they got the voucher (Screen 2): org = a listed location (source_place_id), other = not listed, someone = a person.
   sourceKind: text("source_kind"),
   sourcePlaceId: uuid("source_place_id"),
@@ -1731,3 +1740,74 @@ export const coverageNotices = pgTable("coverage_notices", {
   silent: boolean("silent").notNull().default(false), // recorded when this started (already covered) — nobody notified
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [uniqueIndex("coverage_notices_city_cat_idx").on(t.cityId, t.category)]);
+
+// ── Online GRANTED reward wheel + ad attribution (2026-11-13) ─────────────────────────────────────────────────────────
+// An online campaign: dates, eligibility, hold times and the wheel. Its segments are nearest_card_batches rows with
+// channel "digital" (kind, amount, count = inventory, weight = odds). Free service is capped at 100 across every online
+// campaign, ever (ONLINE_FREE_MAX in src/lib/reward-wheel.ts).
+export const onlineCampaigns = pgTable("online_campaigns", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  status: text("status").notNull().default("draft"), // draft | live | paused | ended
+  startsAt: ts("starts_at"),
+  endsAt: ts("ends_at"),
+  states: text("states").array().notNull().default(sql`ARRAY['TX']::text[]`), // where voters must live
+  holdHours: integer("hold_hours").notNull().default(72), // a won reward is held this long once they give an email
+  quickHoldMinutes: integer("quick_hold_minutes").notNull().default(60), // held this long with no email
+  spinsPerHourPerNetwork: integer("spins_per_hour").notNull().default(5),
+  validThru: ts("valid_thru").notNull(), // the digital cards' Valid thru
+  rulesText: text("rules_text").notNull().default(""), // official rules, shown from the wheel
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  updatedAt: ts("updated_at"),
+});
+
+// One spin per online vote. The server picks and reserves the reward BEFORE the wheel animates. Held → assigned (their
+// own card is made when the account exists) | expired / declined (the reward goes back to the inventory).
+export const rewardSpins = pgTable("reward_spins", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  campaignId: uuid("campaign_id").notNull().references(() => onlineCampaigns.id),
+  voteId: uuid("vote_id").notNull(),
+  sessionId: text("session_id").notNull(),
+  batchId: uuid("batch_id").notNull().references(() => nearestCardBatches.id),
+  kind: text("kind").notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  status: text("status").notNull().default("held"), // held | assigned | expired | declined
+  holdUntil: ts("hold_until").notNull(),
+  email: text("email"),
+  claimTokenHash: text("claim_token_hash"),
+  ipHash: text("ip_hash"),
+  userId: uuid("user_id").references(() => users.id),
+  cardId: uuid("card_id"),
+  note: text("note"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  assignedAt: ts("assigned_at"),
+}, (t) => [
+  uniqueIndex("reward_spins_vote_idx").on(t.voteId),
+  uniqueIndex("reward_spins_user_idx").on(t.userId).where(sql`${t.userId} is not null and ${t.status} = 'assigned'`),
+  index("reward_spins_status_idx").on(t.status, t.holdUntil),
+  index("reward_spins_ip_idx").on(t.ipHash, t.createdAt),
+]);
+
+// First-party ad attribution: one row per landing from an ad link (or a direct visit) on /vote.
+export const adVisits = pgTable("ad_visits", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sessionId: text("session_id").notNull(),
+  platform: text("platform").notNull(), // facebook | instagram | google | other | direct
+  campaign: text("campaign"), campaignId: text("campaign_id"), adGroup: text("ad_group"), adId: text("ad_id"),
+  utmSource: text("utm_source"), utmMedium: text("utm_medium"), utmCampaign: text("utm_campaign"), utmContent: text("utm_content"), utmTerm: text("utm_term"),
+  clickIdKind: text("click_id_kind"), clickId: text("click_id"),
+  landing: text("landing"), referrer: text("referrer"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+}, (t) => [index("ad_visits_session_idx").on(t.sessionId), index("ad_visits_campaign_idx").on(t.platform, t.campaign)]);
+
+// Ad spend the main owner types in (platforms' own numbers), for cost per vote.
+export const adSpend = pgTable("ad_spend", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  platform: text("platform").notNull(),
+  campaign: text("campaign").notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  fromDay: text("from_day").notNull(), toDay: text("to_day").notNull(), // YYYY-MM-DD, Central
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});

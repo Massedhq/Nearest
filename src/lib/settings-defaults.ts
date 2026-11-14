@@ -58,6 +58,7 @@ export const SETTINGS: Record<string, SettingDef> = {
   "partner.pool_target_cents": { label: "Sales Track — shared pool each month (Nearest's earnings up to this amount are shared)", group: "Fees", type: "cents", value: 3850000 },
   "partner.monthly_estimate_cents": { label: "Sales Track — each partner's share when the shared pool is full", group: "Fees", type: "cents", value: 1280000 },
   "partner.link_per_pro_cents": { label: "Sales Track — after the pool is full, a partner earns this a month for each professional from their link who was booked that month", group: "Fees", type: "cents", value: 360 },
+  "live.public": { label: "Nearest LIVE — show the live voting map to everyone (off = owners only)", group: "Nearest LIVE", type: "bool", value: false },
   "cards.max_total": { label: "Nearest Cards — most cards that can ever be made (all batches together)", group: "Fees", type: "number", value: 3000 },
   "cards.activate_days": { label: "Nearest Cards — days a student has to save a card to their account after it's handed out (then it goes inactive)", group: "Fees", type: "number", unit: "days", value: 30 },
   "cards.fund_per_booking_cents": { label: "Nearest Cards fund — part of the booking fee set aside from each completed booking to give back with Nearest Cards", group: "Fees", type: "cents", value: 500 },
@@ -83,7 +84,7 @@ export const SETTINGS: Record<string, SettingDef> = {
  */
 export function mainOwnerOnlySetting(key: string) {
   const g = SETTINGS[key]?.group;
-  return g === "Fees" || g === "Partner shop" || key.startsWith("partner.") || key.startsWith("cards.") || key.startsWith("vouchers.") || key === "growth.second_cohort_end" || key === "sub.termination_days";
+  return g === "Fees" || g === "Partner shop" || key.startsWith("partner.") || key.startsWith("cards.") || key.startsWith("vouchers.") || key.startsWith("live.") || key === "growth.second_cohort_end" || key === "sub.termination_days";
 }
 
 export const STATUS_KEYS = [

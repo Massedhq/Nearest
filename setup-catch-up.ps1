@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -m "Vouchers managed in Nearest Cards with one-form setup, main owner can delete activity log entries"
+git commit -m "Online voting with GRANTED reward wheel, digital cards, ad tracking and Nearest LIVE map"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

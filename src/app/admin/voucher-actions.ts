@@ -39,7 +39,7 @@ export async function saveVoucherCampaign(_: FormState, form: FormData): Promise
   if (number.length !== 16) return { error: "The voucher number must be 16 digits." };
   if (kind === "discount" && code.length !== 3) return { error: "A discount voucher's security code is 3 digits." };
   if (kind === "free" && code.length !== 4) return { error: "A free-service voucher's security code is 4 digits." };
-  if (kind === "discount" && (amountCents < CARD_LIMITS.discountMin || amountCents > CARD_LIMITS.discountMax)) return { error: "A discount voucher is $5 to $30 off." };
+  if (kind === "discount" && (amountCents < CARD_LIMITS.discountMin || amountCents > CARD_LIMITS.discountMax)) return { error: "A discount voucher is $5 to $40 off." };
   if (kind === "free" && (amountCents < 500 || amountCents > CARD_LIMITS.freeMax)) return { error: "A free-service voucher covers $5 to $150." };
   if (!validThru) return { error: "Enter Valid thru as the month printed on the voucher (for example 2030-05 for 05/30)." };
   if (count < 1 || count > 100000) return { error: "Enter how many vouchers are in this campaign (for example 900 discount or 100 free service). It's also the most students who can claim it." };
