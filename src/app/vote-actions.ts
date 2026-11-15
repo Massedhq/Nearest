@@ -11,6 +11,7 @@ import { digits } from "@/lib/nearest-cards";
 import { voteSourceOptions } from "@/lib/distribution";
 import { adVisits } from "@/db";
 import { readAttribution, sendAdEvent } from "@/lib/ad-tags";
+import { currentTap } from "@/lib/tap-links";
 import { spin, scratch, holdWithEmail, mySpin, liveOnlineCampaign, wheelSegments } from "@/lib/reward-wheel";
 
 /**
@@ -67,7 +68,7 @@ export async function voteSources() {
 }
 
 /** Save (or update) this browser's vote. Saved BEFORE the thank-you screen. */
-export async function submitVote(input: { state: string; cityId: number; schoolId: number | null; schoolOther: string; categories: string[]; source?: { kind: string; placeId?: string | null; text?: string }; online?: boolean }): Promise<{ ok: true; eventId?: string } | { error: string }> {
+export async function submitVote(input: { state: string; cityId: number; schoolId: number | null; schoolOther: string; categories: string[]; source?: { kind: string; placeId?: string | null; text?: string }; online?: boolean; tap?: boolean }): Promise<{ ok: true; eventId?: string } | { error: string }> {
   const state = String(input.state ?? "").toUpperCase().slice(0, 2);
   const city = Number.isInteger(input.cityId) ? await db.query.cities.findFirst({ where: and(eq(cities.id, input.cityId), eq(cities.state, state)) }) : null;
   if (!city) return { error: "Choose your state and the city you live in." };
@@ -75,15 +76,18 @@ export async function submitVote(input: { state: string; cityId: number; schoolI
   const other = String(input.schoolOther ?? "").trim().slice(0, 120);
   if (!school && !other) return { error: "Choose your school, or type it if it isn't listed." };
   const online = !!input.online;
-  // Online voters (/vote — ads or direct) aren't asked where they got a printed voucher: their source is the ad visit.
-  const kind = online ? "" : ["org", "other", "someone"].includes(String(input.source?.kind)) ? String(input.source!.kind) : "";
+  // Tap link (/t/<slug> → /card?tap=1): checked again here from the cookie — never trusted from the browser.
+  const tap = !online && input.tap ? await currentTap() : null;
+  if (!online && input.tap && !tap) return { error: "This tap link has ended. Ask the Nearest team member to tap again, or use a printed GRANTED card." };
+  // Online voters (/vote — ads or direct) and tap voters aren't asked where they got a printed voucher.
+  const kind = online ? "" : tap ? "tap" : ["org", "other", "someone"].includes(String(input.source?.kind)) ? String(input.source!.kind) : "";
   if (!online && !kind) return { error: "Choose where you received your voucher." };
   let sourcePlaceId: string | null = null;
   if (kind === "org") {
     sourcePlaceId = (await voteSourceOptions()).find((o) => o.id === input.source?.placeId)?.id ?? null;
     if (!sourcePlaceId) return { error: "Choose where you received your voucher." };
   }
-  const sourceText = online || kind === "org" ? null : String(input.source?.text ?? "").trim().slice(0, 120) || null;
+  const sourceText = online || kind === "org" ? null : tap ? `Tap — ${tap.name}` : String(input.source?.text ?? "").trim().slice(0, 120) || null;
   const valid = new Set((await db.select({ name: categories.name }).from(categories)).map((c) => c.name));
   const picks = [...new Set((input.categories ?? []).map(String).filter((c) => valid.has(c) && !HIDDEN.has(c)))].slice(0, 20);
   if (!picks.length) return { error: "Pick at least one service you'd like in your city." };
@@ -92,7 +96,8 @@ export async function submitVote(input: { state: string; cityId: number; schoolI
   const userId = viewer?.user?.accountType === "student" ? viewer.user.id : null;
   const visit = online ? (await db.select().from(adVisits).where(eq(adVisits.sessionId, sid)).orderBy(sql`${adVisits.createdAt} desc`).limit(1))[0] : undefined;
   const values = { state, cityId: city.id, schoolId: school?.id ?? null, schoolOther: school ? null : other, categories: picks, sourceKind: kind || null, sourcePlaceId, sourceText,
-    channel: online ? "online" : "physical", platform: online ? (visit?.platform ?? "direct") : null, adVisitId: visit?.id ?? null, updatedAt: new Date() };
+    channel: online ? "online" : tap ? "tap" : "physical", platform: online ? (visit?.platform ?? "direct") : null, adVisitId: visit?.id ?? null,
+    tapUserId: tap?.userId ?? null, ...(tap ? { pendingBatchId: tap.batchId } : {}), updatedAt: new Date() };
   await db.insert(studentVotes).values({ sessionId: sid, ...values, ...(userId ? { userId, linkedAt: new Date() } : {}) })
     .onConflictDoUpdate({ target: studentVotes.sessionId, set: values });
   if (online) { await sendAdEvent("Vote", `vote-${sid}`); return { ok: true, eventId: `vote-${sid}` }; }

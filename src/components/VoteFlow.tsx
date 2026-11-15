@@ -18,7 +18,7 @@ const money = (c: number) => `$${(c / 100).toFixed(c % 100 ? 2 : 0)}`;
  * welcome → where you live + school → services → thank you + voucher number/code → finish creating the account.
  * No account, county, graduation year, ID or parent approval is needed to vote.
  */
-export function VoteFlow({ states, signedIn, online = false }: { states: string[]; signedIn: boolean; online?: boolean }) {
+export function VoteFlow({ states, signedIn, online = false, tap }: { states: string[]; signedIn: boolean; online?: boolean; tap?: { name: string } }) {
   const [step, setStep] = useState<"start" | "where" | "services" | "thanks">("start");
   const [state, setState] = useState("TX");
   const [cities, setCities] = useState<City[]>([]);
@@ -40,7 +40,7 @@ export function VoteFlow({ states, signedIn, online = false }: { states: string[
 
   const city = cities.find((c) => c.name.toLowerCase() === cityText.trim().toLowerCase()) ?? null;
   useEffect(() => { if (state) start(async () => { setCities(await voteCities(state)); }); }, [state]);
-  useEffect(() => { if (!online) start(async () => { setSources(await voteSources()); }); }, [online]);
+  useEffect(() => { if (!online && !tap) start(async () => { setSources(await voteSources()); }); }, [online, tap]);
   const srcLabel = (o: Src) => `${o.name} — ${[o.street, o.city, o.state].filter(Boolean).join(", ")}`;
   const shownSources = srcQ.trim() ? sources.filter((o) => o.id === src || srcLabel(o).toLowerCase().includes(srcQ.trim().toLowerCase())) : sources;
   useEffect(() => {
@@ -52,7 +52,7 @@ export function VoteFlow({ states, signedIn, online = false }: { states: string[
     setErr("");
     if (!city) return setErr("Start typing the city you live in and pick it from the list.");
     if (!schoolId && !schoolOther.trim()) return setErr("Choose your school, or type it if it isn't listed.");
-    if (!online && !src) return setErr("Choose where you received your voucher.");
+    if (!online && !tap && !src) return setErr("Choose where you received your voucher.");
     start(async () => { setSvcs(await voteServices(city.id)); setStep("services"); window.scrollTo(0, 0); });
   };
   const vote = () => {
@@ -60,7 +60,7 @@ export function VoteFlow({ states, signedIn, online = false }: { states: string[
     if (!picks.length) return setErr("Pick at least one service.");
     start(async () => {
       const source = src === "other" || src === "someone" ? { kind: src, text: srcText } : { kind: "org", placeId: src };
-      const r = await submitVote({ state, cityId: city!.id, schoolId, schoolOther, categories: picks, source, online });
+      const r = await submitVote({ state, cityId: city!.id, schoolId, schoolOther, categories: picks, source, online, tap: !!tap });
       if ("error" in r) return setErr(r.error);
       if (online && r.eventId) track("Vote", r.eventId);
       setStep("thanks"); window.scrollTo(0, 0);
@@ -85,6 +85,7 @@ export function VoteFlow({ states, signedIn, online = false }: { states: string[
     <div className="body" style={{ gap: 16, maxWidth: 480, margin: "0 auto", width: "100%" }}>
       <Head />
       <span className="eyebrow" style={{ textAlign: "center" }}>Nearest GRANTED Certificate Voucher</span>
+      {tap && <span className="xs muted" style={{ textAlign: "center" }}>Shared with you by {tap.name} from Nearest</span>}
       <h1 className="disp h1" style={{ textAlign: "center", margin: 0 }}>YOUR CITY.<br />YOUR CHOICE.</h1>
       <p className="muted" style={{ textAlign: "center", margin: 0 }}>Help us bring the beauty, grooming, wellness, and self-care professionals you want to your city at student-friendly prices.</p>
       <button className="btn" type="button" onClick={() => setStep("where")}>Let&apos;s get started</button>
@@ -117,7 +118,7 @@ export function VoteFlow({ states, signedIn, online = false }: { states: string[
           <input id="v-other" maxLength={120} placeholder="Type your school's name" value={schoolOther} onChange={(e) => setSchoolOther(e.target.value)} />
         </div>
       )}
-      {!online && <div className="field"><label htmlFor="v-src">Where did you receive your Nearest GRANTED voucher?</label>
+      {!online && !tap && <div className="field"><label htmlFor="v-src">Where did you receive your Nearest GRANTED voucher?</label>
         <span className="xs muted">Select the organization or location that gave you your voucher.</span>
         {sources.length > 6 && <input aria-label="Search organizations" autoComplete="off" placeholder="Search by name or city" value={srcQ} onChange={(e) => setSrcQ(e.target.value)} />}
         <select id="v-src" value={src} onChange={(e) => { setSrc(e.target.value); setSrcText(""); }}>
@@ -173,7 +174,7 @@ export function VoteFlow({ states, signedIn, online = false }: { states: string[
       <div className="steps"><span className="on" /><span className="on" /><span className="on" /></div>
       <h1 className="disp h1" style={{ textAlign: "center", margin: 0 }}>Thank you for your vote!</h1>
       <p className="muted" style={{ textAlign: "center", margin: 0 }}>You&apos;ve helped Nearest identify the services students want in your city.</p>
-      {online ? <RewardWheel signedIn={signedIn} /> : saved?.scratch ? <ScratchOff signedIn={signedIn} /> : <div className="lightbox" style={{ gap: 12 }}>
+      {online ? <RewardWheel signedIn={signedIn} /> : tap || saved?.scratch ? <ScratchOff signedIn={signedIn} /> : <div className="lightbox" style={{ gap: 12 }}>
         <span className="b">Activate your GRANTED voucher</span>
         <span className="small">To activate your voucher and use it on Nearest, enter the 16-digit number and the security code printed on your voucher below, then finish creating your account.</span>
         {saved ? (

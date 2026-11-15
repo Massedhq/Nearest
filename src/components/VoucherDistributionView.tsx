@@ -1,6 +1,7 @@
 import { asc, eq, sql } from "drizzle-orm";
 import { db, cities } from "@/db";
 import { ActionForm } from "@/components/ActionForm";
+import { TapLinkCard } from "@/components/TapLinkCard";
 import { groupNumber, validThruLabel } from "@/lib/nearest-cards";
 import { distributorCampaigns, distributorVotes, orgPerformance, assignments, assignmentHistory, ORG_KINDS, DIST_STATUS, pct } from "@/lib/distribution";
 import { addOrganization, assignVouchers, updateAssignment, cancelAssignment } from "@/app/admin/distribution-actions";
@@ -31,10 +32,11 @@ export async function VoucherDistributionView({ userId, own }: { userId: string;
   const delivered = total("delivered"), activated = total("activated");
   const you = own ? "you" : "they";
 
-  if (camps.length === 0) return <div className="card"><span className="small muted">No vouchers are assigned to {own ? "you" : "this distributor"} yet.{own ? " They'll show here as soon as the main owner publishes them." : ""}</span></div>;
+  if (camps.length === 0) return <><TapLinkCard userId={userId} own={own} /><div className="card"><span className="small muted">No vouchers are assigned to {own ? "you" : "this distributor"} yet.{own ? " They'll show here as soon as the main owner publishes them." : ""}</span></div></>;
 
   return (
     <>
+      <TapLinkCard userId={userId} own={own} />
       <div className="card" style={{ gap: 10 }}>
         <span className="eyebrow">{own ? "My Assignment" : "Assignment"}</span>
         <div className="row" style={{ gap: 18, flexWrap: "wrap" }}>

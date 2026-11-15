@@ -113,6 +113,8 @@ export async function activateVoucher(userId: string, batch: typeof nearestCardB
 export async function attributeActivation(cardId: string, userId: string, batch: { id: string; kind: string; distributorId: string | null }) {
   const v = (await db.select().from(studentVotes).where(eq(studentVotes.userId, userId)).limit(1))[0];
   if (!v?.sourceKind) { await db.update(nearestCards).set({ sourceMatch: "none" }).where(eq(nearestCards.id, cardId)); return; }
+  // Tap link: the owner tapped the student's phone themselves — no organization to match.
+  if (v.sourceKind === "tap") { await db.update(nearestCards).set({ sourceText: v.sourceText, sourceMatch: "none" }).where(eq(nearestCards.id, cardId)); return; }
   let distributionId: string | null = null;
   if (v.sourceKind === "org" && v.sourcePlaceId && batch.distributorId) {
     const m = (await db.execute(sql`select d.id from voucher_distributions d join nearest_card_batches b on b.id = d.batch_id

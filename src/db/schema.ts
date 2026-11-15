@@ -1653,7 +1653,8 @@ export const studentVotes = pgTable("student_votes", {
   platform: text("platform"),
   adVisitId: uuid("ad_visit_id"),
   // Where they got the voucher (Screen 2): org = a listed location (source_place_id), other = not listed, someone = a person.
-  sourceKind: text("source_kind"),
+  sourceKind: text("source_kind"), // org | other | someone | tap (owner's tap link — tapUserId)
+  tapUserId: uuid("tap_user_id").references(() => users.id), // GRANTED tap link (2026-11-14): whose tap card opened this vote
   sourcePlaceId: uuid("source_place_id"),
   sourceText: text("source_text"),
   voucherTries: integer("voucher_tries").notNull().default(0),
@@ -1816,3 +1817,16 @@ export const adSpend = pgTable("ad_spend", {
   createdBy: uuid("created_by").references(() => users.id),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
+
+/**
+ * GRANTED tap links (2026-11-14, owner): each owner's personal link usenearest.com/t/<slug>, written to an NFC tap card
+ * (or shown as a QR). Opening it starts the same vote; the reward is the scratch-off from THAT owner's GRANTED cards pool.
+ */
+export const tapLinks = pgTable("tap_links", {
+  userId: uuid("user_id").primaryKey().references(() => users.id),
+  slug: text("slug").notNull(),
+  active: boolean("active").notNull().default(true),
+  opens: integer("opens").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("tap_links_slug_idx").on(t.slug)]);
