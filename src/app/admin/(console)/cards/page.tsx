@@ -4,6 +4,7 @@ import { voucherReport } from "@/lib/voucher-report";
 import { distributorsOverview, orgPerformance, unmatchedSources, typedSources, assignments, DIST_STATUS } from "@/lib/distribution";
 import { saveVoucherCampaign, saveDistributorCards, setVoucherCampaignStatus, publishVoucherCampaign, deleteVoucherCampaign } from "@/app/admin/voucher-actions";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
+import { TapLinkCard } from "@/components/TapLinkCard";
 import { ScratchRewardMix } from "@/components/ScratchRewardMix";
 import { AdminHead } from "@/components/AdminHead";
 import { ActionForm } from "@/components/ActionForm";
@@ -172,6 +173,12 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
           </table>
         </div>
         <span className="xs muted">Turning a campaign off stops new claims; students who already claimed keep their voucher. Scratch-off cards: Publish and Pause/Resume work on the person&apos;s whole card (discount and free service together) — pause it if a card code gets posted online. Rewards revealed but not added to an account go back after the hold ends; rewards on accounts that never verify go back after the days set in Rules &amp; Settings → GRANTED vouchers. Delete removes a batch nobody has used yet (a scratch-off card is deleted whole, with its organization assignments) — once a student has a reward from it, use Turn off or Pause instead. Changing the distributor (reassigning) is logged.</span>
+      </div>
+
+      {/* Every owner's tap link + QR in one place — the main owner writes the NFC tap cards. */}
+      <div className="col" id="tap-links" style={{ gap: 10 }}>
+        <span className="eyebrow">Tap links for NFC cards (only you see these)</span>
+        {owners.map((o) => <TapLinkCard key={o.id} userId={o.id} own={false} showLink title={`${ownerName(o)}'s tap link`} />)}
       </div>
 
       <div className="card" style={{ gap: 10 }}>

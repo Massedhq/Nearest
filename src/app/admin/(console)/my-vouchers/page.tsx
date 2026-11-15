@@ -1,5 +1,5 @@
 import { AdminHead } from "@/components/AdminHead";
-import { requireAdmin } from "@/lib/admin";
+import { requireAdmin, isMainOwner } from "@/lib/admin";
 import { VoucherDistributionView } from "@/components/VoucherDistributionView";
 
 export const metadata = { title: "My Voucher Distribution" };
@@ -15,7 +15,7 @@ export default async function MyVouchers() {
   return (
     <>
       <AdminHead eyebrow="Business" title="My Voucher Distribution" />
-      <VoucherDistributionView userId={user.id} own />
+      <VoucherDistributionView userId={user.id} own showTapLink={await isMainOwner(user.id)} />
     </>
   );
 }

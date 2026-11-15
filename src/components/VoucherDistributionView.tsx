@@ -18,7 +18,7 @@ const day = (d: Date) => new Date(d).toLocaleDateString("en-CA", { timeZone: "Am
  * Everything below is queried for `userId` only (server side). Used by /admin/my-vouchers (yourself) and by the main
  * owner's /admin/vouchers/d/[id]. Counts only — never a student's name or details.
  */
-export async function VoucherDistributionView({ userId, own }: { userId: string; own: boolean }) {
+export async function VoucherDistributionView({ userId, own, showTapLink = false }: { userId: string; own: boolean; showTapLink?: boolean }) {
   const [camps, votes, orgs, rows, history, places, txCities] = await Promise.all([
     distributorCampaigns(userId), distributorVotes(userId), orgPerformance(userId), assignments(userId), assignmentHistory(userId),
     db.execute(sql`select p.id, p.name, p.street, ci.name as city, coalesce(p.state, ci.state) as state from card_places p left join cities ci on ci.id = p.city_id
@@ -32,11 +32,11 @@ export async function VoucherDistributionView({ userId, own }: { userId: string;
   const delivered = total("delivered"), activated = total("activated");
   const you = own ? "you" : "they";
 
-  if (camps.length === 0) return <><TapLinkCard userId={userId} own={own} /><div className="card"><span className="small muted">No vouchers are assigned to {own ? "you" : "this distributor"} yet.{own ? " They'll show here as soon as the main owner publishes them." : ""}</span></div></>;
+  if (camps.length === 0) return <><TapLinkCard userId={userId} own={own} showLink={showTapLink} /><div className="card"><span className="small muted">No vouchers are assigned to {own ? "you" : "this distributor"} yet.{own ? " They'll show here as soon as the main owner publishes them." : ""}</span></div></>;
 
   return (
     <>
-      <TapLinkCard userId={userId} own={own} />
+      <TapLinkCard userId={userId} own={own} showLink={showTapLink} />
       <div className="card" style={{ gap: 10 }}>
         <span className="eyebrow">{own ? "My Assignment" : "Assignment"}</span>
         <div className="row" style={{ gap: 18, flexWrap: "wrap" }}>

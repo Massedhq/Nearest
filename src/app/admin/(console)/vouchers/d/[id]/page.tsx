@@ -19,7 +19,7 @@ export default async function DistributorDetail({ params }: { params: Promise<{ 
     <>
       <AdminHead eyebrow="Nearest Cards" title={name} />
       <a className="link xs" href="/admin/cards">← Nearest Cards</a>
-      <VoucherDistributionView userId={id} own={false} />
+      <VoucherDistributionView userId={id} own={false} showTapLink />
     </>
   );
 }
