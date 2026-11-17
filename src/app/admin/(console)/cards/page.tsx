@@ -267,7 +267,7 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
         <span className="xs muted">The student activated a distributor&apos;s voucher but the place they picked (or typed) has no assignment from that distributor. Kept as reported — never moved to another organization.</span>
         {typed.length > 0 && (
           <>
-            <span className="small b">Names typed on the vote (Other / Someone gave it to me)</span>
+            <span className="small b">Names typed on the vote (Other / Not listed)</span>
             <table className="tbl"><thead><tr><th>Typed</th><th>Choice</th><th className="num">Votes</th><th>Latest</th></tr></thead>
               <tbody>{typed.map((t, n) => <tr key={n}><td>{t.text}</td><td className="xs">{t.kind === "someone" ? "Someone gave it to me" : "Other / Not listed"}</td><td className="num">{t.n}</td><td className="xs">{fmtDate(new Date(t.last))}</td></tr>)}</tbody>
             </table>

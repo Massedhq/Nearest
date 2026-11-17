@@ -1652,8 +1652,8 @@ export const studentVotes = pgTable("student_votes", {
   channel: text("channel").notNull().default("physical"),
   platform: text("platform"),
   adVisitId: uuid("ad_visit_id"),
-  // Where they got the voucher (Screen 2): org = a listed location (source_place_id), other = not listed, someone = a person.
-  sourceKind: text("source_kind"), // org | other | someone | tap (owner's tap link — tapUserId)
+  // Where they got the card — asked right AFTER the number + code (saveVoucherSource): org = one of that distributor's locations (source_place_id), distributor = "<Name> gave it to me directly", other = not listed, someone = a person (older votes).
+  sourceKind: text("source_kind"), // org | other | someone (older votes) | distributor ("<Name> gave it to me directly") | tap (owner's tap link — tapUserId)
   tapUserId: uuid("tap_user_id").references(() => users.id), // GRANTED tap link (2026-11-14): whose tap card opened this vote
   sourcePlaceId: uuid("source_place_id"),
   sourceText: text("source_text"),

@@ -2,7 +2,7 @@
 import { useEffect, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { voteCities, voteSchools, voteServices, voteSources, submitVote, enterVoucher } from "@/app/vote-actions";
+import { voteCities, voteSchools, voteServices, submitVote, enterVoucher, saveVoucherSource } from "@/app/vote-actions";
 import { RewardWheel } from "@/components/RewardWheel";
 import { ScratchOff } from "@/components/ScratchOff";
 import { track } from "@/components/AdTags";
@@ -15,7 +15,8 @@ const money = (c: number) => `$${(c / 100).toFixed(c % 100 ? 2 : 0)}`;
 
 /**
  * /card — "YOUR CITY. YOUR CHOICE." (Nearest GRANTED Certificate Voucher, 2026-11-11). Kept short on purpose:
- * welcome → where you live + school → services → thank you + voucher number/code → finish creating the account.
+ * welcome → where you live + school → services → thank you + voucher number/code → where you got the card (that
+ * distributor's places + "<Name> gave it to me directly") → scratch-off / finish creating the account.
  * No account, county, graduation year, ID or parent approval is needed to vote.
  */
 export function VoteFlow({ states, signedIn, online = false, tap }: { states: string[]; signedIn: boolean; online?: boolean; tap?: { name: string } }) {
@@ -33,15 +34,15 @@ export function VoteFlow({ states, signedIn, online = false, tap }: { states: st
   const [num, setNum] = useState("");
   const [code, setCode] = useState("");
   const [saved, setSaved] = useState<{ ok: string; signedIn: boolean; scratch?: boolean } | null>(null);
-  const [sources, setSources] = useState<Src[]>([]);
+  const [ask, setAsk] = useState<{ name: string; places: Src[] } | null>(null);
   const [srcQ, setSrcQ] = useState("");
   const [src, setSrc] = useState("");
   const [srcText, setSrcText] = useState("");
 
   const city = cities.find((c) => c.name.toLowerCase() === cityText.trim().toLowerCase()) ?? null;
   useEffect(() => { if (state) start(async () => { setCities(await voteCities(state)); }); }, [state]);
-  useEffect(() => { if (!online && !tap) start(async () => { setSources(await voteSources()); }); }, [online, tap]);
   const srcLabel = (o: Src) => `${o.name} — ${[o.street, o.city, o.state].filter(Boolean).join(", ")}`;
+  const sources = ask?.places ?? [];
   const shownSources = srcQ.trim() ? sources.filter((o) => o.id === src || srcLabel(o).toLowerCase().includes(srcQ.trim().toLowerCase())) : sources;
   useEffect(() => {
     setSchoolId(null); setSchools([]);
@@ -52,15 +53,13 @@ export function VoteFlow({ states, signedIn, online = false, tap }: { states: st
     setErr("");
     if (!city) return setErr("Start typing the city you live in and pick it from the list.");
     if (!schoolId && !schoolOther.trim()) return setErr("Choose your school, or type it if it isn't listed.");
-    if (!online && !tap && !src) return setErr("Choose where you received your voucher.");
     start(async () => { setSvcs(await voteServices(city.id)); setStep("services"); window.scrollTo(0, 0); });
   };
   const vote = () => {
     setErr("");
     if (!picks.length) return setErr("Pick at least one service.");
     start(async () => {
-      const source = src === "other" || src === "someone" ? { kind: src, text: srcText } : { kind: "org", placeId: src };
-      const r = await submitVote({ state, cityId: city!.id, schoolId, schoolOther, categories: picks, source, online, tap: !!tap });
+      const r = await submitVote({ state, cityId: city!.id, schoolId, schoolOther, categories: picks, online, tap: !!tap });
       if ("error" in r) return setErr(r.error);
       if (online && r.eventId) track("Vote", r.eventId);
       setStep("thanks"); window.scrollTo(0, 0);
@@ -71,7 +70,17 @@ export function VoteFlow({ states, signedIn, online = false, tap }: { states: st
     start(async () => {
       const r = await enterVoucher(num, code);
       if ("error" in r) return setErr(r.error);
+      if ("source" in r) { setAsk(r.source); setSrc(""); setSrcText(""); setSrcQ(""); return; }
       setSaved(r);
+    });
+  };
+  const addSource = () => {
+    setErr("");
+    if (!src) return setErr("Choose where you got your card.");
+    start(async () => {
+      const r = await saveVoucherSource(src, srcText);
+      if ("error" in r) return setErr(r.error);
+      setAsk(null); setSaved(r);
     });
   };
 
@@ -118,26 +127,6 @@ export function VoteFlow({ states, signedIn, online = false, tap }: { states: st
           <input id="v-other" maxLength={120} placeholder="Type your school's name" value={schoolOther} onChange={(e) => setSchoolOther(e.target.value)} />
         </div>
       )}
-      {!online && !tap && <div className="field"><label htmlFor="v-src">Where did you receive your Nearest GRANTED voucher?</label>
-        <span className="xs muted">Select the organization or location that gave you your voucher.</span>
-        {sources.length > 6 && <input aria-label="Search organizations" autoComplete="off" placeholder="Search by name or city" value={srcQ} onChange={(e) => setSrcQ(e.target.value)} />}
-        <select id="v-src" value={src} onChange={(e) => { setSrc(e.target.value); setSrcText(""); }}>
-          <option value="">Choose where you got it…</option>
-          {shownSources.map((o) => <option key={o.id} value={o.id}>{srcLabel(o)}</option>)}
-          <option value="other">Other / Not Listed</option>
-          <option value="someone">Someone gave it to me</option>
-        </select>
-      </div>}
-      {src === "other" && (
-        <div className="field"><label htmlFor="v-src-text">Enter the name of the organization or location.</label>
-          <input id="v-src-text" maxLength={120} value={srcText} onChange={(e) => setSrcText(e.target.value)} />
-        </div>
-      )}
-      {src === "someone" && (
-        <div className="field"><label htmlFor="v-src-text">Their name, if you know it</label>
-          <input id="v-src-text" maxLength={120} value={srcText} onChange={(e) => setSrcText(e.target.value)} />
-        </div>
-      )}
       {err && <p className="err" role="alert">{err}</p>}
       <button className="btn" type="button" onClick={toServices} disabled={busy}>{busy ? "Loading…" : "Continue"}</button>
       <button className="link small" type="button" onClick={() => setStep("start")} style={{ background: "none", border: 0, color: "inherit" }}>Back</button>
@@ -177,7 +166,26 @@ export function VoteFlow({ states, signedIn, online = false, tap }: { states: st
       {online ? <RewardWheel signedIn={signedIn} /> : tap || saved?.scratch ? <ScratchOff signedIn={signedIn} /> : <div className="lightbox" style={{ gap: 12 }}>
         <span className="b">Activate your GRANTED voucher</span>
         <span className="small">To activate your voucher and use it on Nearest, enter the 16-digit number and the security code printed on your voucher below, then finish creating your account.</span>
-        {saved ? (
+        {ask ? (
+          <>
+            <div className="field"><label htmlFor="v-src">Where did you get your card?</label>
+              {sources.length > 6 && <input aria-label="Search places" autoComplete="off" placeholder="Search by name or city" value={srcQ} onChange={(e) => setSrcQ(e.target.value)} />}
+              <select id="v-src" value={src} onChange={(e) => { setSrc(e.target.value); setSrcText(""); }}>
+                <option value="">Choose one…</option>
+                <option value="direct">{ask.name} gave it to me directly</option>
+                {shownSources.map((o) => <option key={o.id} value={o.id}>{srcLabel(o)}</option>)}
+                <option value="other">Other / Not listed</option>
+              </select>
+            </div>
+            {src === "other" && (
+              <div className="field"><label htmlFor="v-src-text">Where did you get it? (optional)</label>
+                <input id="v-src-text" maxLength={120} value={srcText} onChange={(e) => setSrcText(e.target.value)} />
+              </div>
+            )}
+            {err && <p className="err" role="alert">{err}</p>}
+            <button className="btn" type="button" onClick={addSource} disabled={busy}>{busy ? "Saving…" : "Continue"}</button>
+          </>
+        ) : saved ? (
           <div className="card" style={{ gap: 6 }}>
             <span className="b small" style={{ color: "#1F7A3A" }}>{saved.ok}</span>
             {saved.signedIn

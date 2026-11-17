@@ -108,13 +108,13 @@ export async function activateVoucher(userId: string, batch: typeof nearestCardB
 /**
  * Student-reported attribution: copy where the student said they got the voucher (their vote) onto this activation, and
  * match it to THIS distributor's assignment to that location (same type first). No assignment there, or "Other" /
- * "Someone gave it to me" → unmatched, kept for the main owner to review. Never moved to an unrelated organization.
+ * "<Name> gave it to me directly" → none (no organization). Other / "Someone gave it to me" (older votes) → unmatched, kept for the main owner to review. Never moved to an unrelated organization.
  */
 export async function attributeActivation(cardId: string, userId: string, batch: { id: string; kind: string; distributorId: string | null }) {
   const v = (await db.select().from(studentVotes).where(eq(studentVotes.userId, userId)).limit(1))[0];
   if (!v?.sourceKind) { await db.update(nearestCards).set({ sourceMatch: "none" }).where(eq(nearestCards.id, cardId)); return; }
-  // Tap link: the owner tapped the student's phone themselves — no organization to match.
-  if (v.sourceKind === "tap") { await db.update(nearestCards).set({ sourceText: v.sourceText, sourceMatch: "none" }).where(eq(nearestCards.id, cardId)); return; }
+  // Tap link, or "<Name> gave it to me directly": the distributor handed it over themselves — no organization to match.
+  if (v.sourceKind === "tap" || v.sourceKind === "distributor") { await db.update(nearestCards).set({ sourceText: v.sourceText, sourceMatch: "none" }).where(eq(nearestCards.id, cardId)); return; }
   let distributionId: string | null = null;
   if (v.sourceKind === "org" && v.sourcePlaceId && batch.distributorId) {
     const m = (await db.execute(sql`select d.id from voucher_distributions d join nearest_card_batches b on b.id = d.batch_id

@@ -175,11 +175,12 @@ export async function distributorsOverview() {
  * (and locations that already got vouchers stay listed). Planned-only and fully canceled locations aren't shown. One entry
  * per location even when several distributors use it. Public: name, street, city, state only.
  */
-export async function voteSourceOptions() {
+export async function voteSourceOptions(distributorId?: string | null) {
+  const mine = distributorId ? sql`and b.distributor_id = ${distributorId}` : sql``;
   return (await db.execute(sql`select p.id, p.name, p.street, ci.name as city, coalesce(p.state, ci.state) as state
     from card_places p left join cities ci on ci.id = p.city_id
     where exists (select 1 from voucher_distributions d join nearest_card_batches b on b.id = d.batch_id
-      where d.place_id = p.id and b.shared_number is not null and not b.draft and (d.status in ('assigned', 'delivered', 'completed') or ${DELIVERED} > 0))
+      where d.place_id = p.id and b.shared_number is not null and not b.draft ${mine} and (d.status in ('assigned', 'delivered', 'completed') or ${DELIVERED} > 0))
     order by p.name, ci.name`)).rows as { id: string; name: string; street: string | null; city: string | null; state: string | null }[];
 }
 
