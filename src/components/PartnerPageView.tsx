@@ -33,7 +33,8 @@ export async function PartnerPageView({ r, preview = false }: { r: NonNullable<A
   const services = top.length ? top.map((sid) => topServices.find((s) => s.id === sid)).filter((s): s is NonNullable<typeof s> => Boolean(s)) : fallback;
   // The partner side books here, open to anyone, with no $150 cap (2026-11-09). The student side (/pro-<slug>) stays separate.
   const bookHref = `${partnerPagePath(r.p.slug!)}/book`;
-  const studentPage = r.page.studentSide ? `/pro-${r.p.slug}` : null;
+  // Model Calls (students only) open THIS partner's own Model Calls page, never the student profile (2026-11-18).
+  const studentPage = r.page.studentSide ? `${partnerPagePath(r.p.slug!)}/model-calls` : null;
   const openCalls = calls[0]?.n ?? 0;
   const socials = [
     [instagramHandle(r.p.instagram), instagramUrl, "Instagram", <><rect key="a" x="4" y="4" width="16" height="16" rx="4.5" /><circle key="b" cx="12" cy="12" r="3.6" /><path key="c" d="M16.8 7.2v.01" /></>],
