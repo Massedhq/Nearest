@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { noteIfAssistant } from "@/lib/assistants";
 import { and, eq, inArray } from "drizzle-orm";
 import { db, partnerPages, proServices } from "@/db";
 import { requirePro } from "@/lib/pro";
@@ -11,7 +12,8 @@ const all = (f: FormData, k: string) => f.getAll(k).map((v) => String(v));
 
 /** Partner saves their link page: headline, links, videos, top services, live or hidden. */
 export async function savePartnerPage(_: FormState, form: FormData): Promise<FormState> {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ assistant: true });
+  await noteIfAssistant("partner_page_saved");
   const page = await partnerPageFor(user.id);
   if (!page) return { error: "Your partner page isn't approved yet." };
   if (page.pausedAt) return { error: "Nearest paused your partner page. Contact support to turn it back on." };

@@ -17,7 +17,7 @@ export const metadata = { title: "Create a model call" };
 const REQS = ["Photos / video required", "Natural hair only", "Natural lashes only", "No previous extensions", "Must be available for follow-up"];
 
 export default async function NewModelCall() {
-  const { user, profile } = await requirePro();
+  const { user, profile } = await requirePro({ assistant: true });
   const services = await db.select().from(proServices).where(eq(proServices.userId, user.id)).orderBy(asc(proServices.sort));
   const today = chicagoNow().date;
   const fee = Math.max(0, Number((await getSettings())["fees.service_fee_cents"] ?? 500));

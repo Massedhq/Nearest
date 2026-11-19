@@ -11,7 +11,7 @@ import Link from "next/link";
 export const metadata = { title: "Calendar" };
 
 export default async function Calendar({ searchParams }: { searchParams: Promise<{ day?: string }> }) {
-  const { user, profile } = await requirePro();
+  const { user, profile } = await requirePro({ assistant: true });
   const sp = await searchParams;
   const [hours, blocks] = await Promise.all([
     db.select().from(proHours).where(eq(proHours.userId, user.id)),

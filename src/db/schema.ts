@@ -1830,3 +1830,23 @@ export const tapLinks = pgTable("tap_links", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex("tap_links_slug_idx").on(t.slug)]);
+
+/**
+ * Partner assistants (2026-11-18, owner): a Nearest Partner invites someone to help run their business. The assistant
+ * has their OWN login (staff account) and, while managing, works in the partner's account for Model Calls, services &
+ * prices, photos & looks, the partner page, appointments and client messages — never payouts, earnings, ID, Terms or
+ * account settings. Partners only. See src/lib/assistants.ts.
+ */
+export const partnerAssistants = pgTable("partner_assistants", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  partnerId: uuid("partner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  email: text("email").notNull(), // lowercase — their login must use this exact email
+  token: text("token").notNull(), // 48 hex, invitation link
+  status: text("status").notNull().default("invited"), // invited | active | removed
+  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+  inviteExpiresAt: timestamp("invite_expires_at", { withTimezone: true }).notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  removedAt: timestamp("removed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("partner_assistants_partner_idx").on(t.partnerId), index("partner_assistants_user_idx").on(t.userId), index("partner_assistants_token_idx").on(t.token)]);

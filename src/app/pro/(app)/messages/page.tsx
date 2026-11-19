@@ -7,7 +7,7 @@ import { Tabs } from "@/components/Tabs";
 export const metadata = { title: "Messages" };
 
 export default async function ProMessages() {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ assistant: true });
   const rows = await threadsFor(user.id, "pro");
   return (
     <div className="scr">

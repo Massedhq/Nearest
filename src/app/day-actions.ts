@@ -1,5 +1,6 @@
 "use server";
 import { redirect } from "next/navigation";
+import { noteIfAssistant } from "@/lib/assistants";
 import { revalidatePath } from "next/cache";
 import { and, eq, gt } from "drizzle-orm";
 import { db, bookings, messages } from "@/db";
@@ -25,7 +26,7 @@ async function studentBooking(id: string) {
   return { user, b };
 }
 async function proBooking(id: string) {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ assistant: true }); // a partner's assistant can run appointments + message clients
   const b = await db.query.bookings.findFirst({ where: and(eq(bookings.id, id), eq(bookings.proId, user.id)) });
   if (!b) redirect("/pro/appointments");
   return { user, b };
@@ -91,16 +92,19 @@ export async function finishStep(_: FormState, form: FormData): Promise<FormStat
 // ---------- Pro ----------
 export async function proStart(form: FormData) {
   const { b } = await proBooking(String(form.get("id")));
+  await noteIfAssistant("appointment_started");
   await startService(b);
   revalidatePath(`/pro/appointments/${b.id}`);
 }
 export async function proFinish(form: FormData) {
   const { b } = await proBooking(String(form.get("id")));
+  await noteIfAssistant("appointment_finished");
   await finishService(b);
   revalidatePath(`/pro/appointments/${b.id}`);
 }
 export async function proNoShow(_: FormState, form: FormData): Promise<FormState> {
   const { b } = await proBooking(String(form.get("id")));
+  await noteIfAssistant("no_show");
   const res = await markNoShow(b);
   revalidatePath("/pro", "layout");
   return res;
@@ -117,6 +121,7 @@ export async function sendMessage(_: FormState, form: FormData): Promise<FormSta
   const closes = new Date(b.endsAt.getTime() + Number(s["appt.messaging_days"]) * 86400000);
   if (!["confirmed", "completed", "no_show"].includes(b.status) || Date.now() > closes.getTime()) return { error: "This conversation is closed." };
   await db.insert(messages).values({ bookingId: b.id, senderId: user.id, body });
+  if (as === "pro") await noteIfAssistant("message_sent");
   const toStudent = as === "pro";
   await inboxOnce(toStudent ? b.studentId : b.proId, b.id, {
     kind: "message", title: toStudent ? "New message from your professional" : `New message from ${user.firstName ?? "your client"}`,

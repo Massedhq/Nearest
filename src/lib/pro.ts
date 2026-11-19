@@ -10,11 +10,14 @@ import { getProViewer } from "./build-mode";
  * the Professional Terms on the last step (no payment to join). `allowUnpaid` is kept for older callers; it has no effect.
  * While a Nearest owner is building a profile for a professional (Admin → Build a profile), this returns that
  * professional's account. `self: true` marks things only the professional can do themselves (accept Terms, ID selfie,
- * payouts, bookings) — an owner who is building is sent back to the profile instead.
+ * payouts, bookings) — an owner who is building is sent back to the profile instead. `assistant: true` lets a partner's
+ * assistant in (src/lib/assistants.ts); everything else refuses them.
  */
-export async function requirePro(opts: { allowUnpaid?: boolean; self?: boolean } = {}) {
+export async function requirePro(opts: { allowUnpaid?: boolean; self?: boolean; assistant?: boolean } = {}) {
   const viewer = await getProViewer();
   if (!viewer) redirect("/pro/sign-in");
+  // Partner assistants: deny by default. Only pages/actions that pass { assistant: true } (and never `self` ones) work.
+  if (viewer.assisting && (!opts.assistant || opts.self)) redirect("/pro/assistant?blocked=1");
   if (!viewer.user || !(await proAccess(viewer))) redirect(await destinationFor(viewer));
   if (opts.self && viewer.building) redirect("/pro/setup/review");
   const profile = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.userId, viewer.user!.id) });
@@ -25,7 +28,7 @@ export async function requirePro(opts: { allowUnpaid?: boolean; self?: boolean }
     const { activeHold } = await import("./enrollment-holds");
     if (await activeHold({ userId: viewer.user!.id })) redirect("/pro/enrollment-closed");
   }
-  return { viewer, user: viewer.user!, profile, building: Boolean(viewer.building) };
+  return { viewer, user: viewer.user!, profile, building: Boolean(viewer.building), assisting: viewer.assisting ?? null };
 }
 
 export type SetupStep = { key: string; label: string; href: string; done: boolean; optional?: boolean };

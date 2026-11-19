@@ -13,7 +13,7 @@ import { MAX_PHOTOS, MAX_VIDEOS, MAX_VIDEO_SECONDS, LOOK_MAX_PHOTOS, LOOK_VIDEO_
 export const metadata = { title: "Portfolio" };
 
 export default async function PortfolioStep({ searchParams }: { searchParams: Promise<{ edit?: string }> }) {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ assistant: true });
   const edit = (await searchParams).edit === "1";
   const [steps, items, services] = await Promise.all([
     setupSteps(user.id),

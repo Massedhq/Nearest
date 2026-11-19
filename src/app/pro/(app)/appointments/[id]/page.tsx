@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ProAppointment({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ accepted?: string; activated?: string; activation?: string }> }) {
   const sp2 = await searchParams;
-  const { user, profile } = await requirePro();
+  const { user, profile } = await requirePro({ assistant: true });
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const row = (await db.select({ b: bookings, first: users.firstName, last: users.lastName, sp: studentProfiles }).from(bookings)

@@ -13,12 +13,12 @@ import { publicPartnerPage, partnerPagePath } from "@/lib/partners";
  * instead of stepping back through setup.
  */
 export async function EditDoneBar() {
-  const { user } = await requirePro();
+  const { user, assisting } = await requirePro({ assistant: true });
   const [slug, sides] = await Promise.all([ensureProSlug(user.id), partnerSides(user.id)]);
   const live = slug ? Boolean((await db.select({ id: professionalProfiles.userId }).from(professionalProfiles)
     .where(and(eq(professionalProfiles.userId, user.id), ...liveProWhere(null, "all"))).limit(1))[0]) : false;
   const partnerLive = sides.partner && slug ? Boolean(await publicPartnerPage(slug)) : false;
-  const studentHref = live && slug ? `/pro-${slug}` : "/pro/setup/review";
+  const studentHref = live && slug ? `/pro-${slug}` : assisting ? "/pro/assistant" : "/pro/setup/review";
   const partnerHref = partnerLive && slug ? partnerPagePath(slug) : "/pro/partner-preview";
   return (
     <div className="card" style={{ gap: 8, padding: 12 }}>
@@ -26,7 +26,7 @@ export async function EditDoneBar() {
       <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
         {!sides.partnerOnly && <Link className="btn sm" href={studentHref}>{live ? "See my profile (student side)" : "Preview my profile (student side)"}</Link>}
         {sides.partner && <Link className="btn sm" href={partnerHref}>{partnerLive ? "See my partner page" : "Preview my partner page"}</Link>}
-        <Link className="btn ghost sm" href="/pro/business">Back to Business</Link>
+        {assisting ? <Link className="btn ghost sm" href="/pro/assistant">Assistant home</Link> : <Link className="btn ghost sm" href="/pro/business">Back to Business</Link>}
       </div>
     </div>
   );

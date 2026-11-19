@@ -12,7 +12,7 @@ export const metadata = { title: "Model calls" };
 const TAG: Record<string, string> = { open: "ok", full: "warn", cancelled: "bad", completed: "" };
 
 export default async function ModelCalls() {
-  const { user, profile } = await requirePro();
+  const { user, profile } = await requirePro({ assistant: true });
   const calls = await db.select().from(modelCalls).where(eq(modelCalls.userId, user.id)).orderBy(desc(modelCalls.startsAt)).limit(50);
   const now = Date.now();
   return (

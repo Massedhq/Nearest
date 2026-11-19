@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function PartnerPreview() {
   const viewer = await getProViewer();
   if (!viewer?.user) redirect("/pro/sign-in");
+  if (viewer.user.accountType !== "professional" && !viewer.admin) redirect("/pro/sign-in");
   await ensureProSlug(viewer.user.id);
   const r = await partnerPagePreview(viewer.user.id);
   if (!r) redirect("/pro/partner");

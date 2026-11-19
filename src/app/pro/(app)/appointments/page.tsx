@@ -11,7 +11,7 @@ import { Icon } from "@/components/Icon";
 export const metadata = { title: "Appointments" };
 
 export default async function Appointments({ searchParams }: { searchParams: Promise<{ declined?: string }> }) {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ assistant: true });
   const sp = await searchParams;
   const declined = sp.declined;
   // Partners keep their two sides apart (2026-11-09): the Student side / Partner side switch picks which bookings show.

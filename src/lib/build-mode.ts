@@ -36,6 +36,8 @@ export async function buildTarget(userId: string) {
  */
 export async function getProViewer(): Promise<Viewer | null> {
   const viewer = await getViewer();
+  // A partner's assistant managing that partner (their own staff login + the assist cookie; re-checked every request).
+  if (viewer?.user?.accountType === "staff" && !viewer.admin) return (await (await import("./assistants")).assistViewer(viewer)) ?? viewer;
   if (!viewer?.user || viewer.admin?.role !== "OWNER") return viewer;
   const id = (await cookies()).get(BUILD_COOKIE)?.value ?? "";
   if (!id) return viewer;

@@ -11,7 +11,7 @@ import { saveServices } from "@/app/pro/actions";
 export const metadata = { title: "Services" };
 
 export default async function ServicesStep({ searchParams }: { searchParams: Promise<{ edit?: string }> }) {
-  const { user, profile } = await requirePro();
+  const { user, profile } = await requirePro({ assistant: true });
   const edit = (await searchParams).edit === "1";
   const [steps, cats, sugg, mine] = await Promise.all([
     setupSteps(user.id),

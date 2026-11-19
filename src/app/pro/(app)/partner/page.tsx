@@ -11,13 +11,14 @@ import { normEmail, partnerPageFor, partnerPageLink, partnerPagePath, PARTNER_AP
 import { ensureProSlug } from "@/lib/connections";
 import { money } from "@/lib/time";
 import { SITE_URL } from "@/lib/public/site";
+import { PartnerAssistants } from "@/components/PartnerAssistants";
 
 export const metadata = { title: "Partner page" };
 export const dynamic = "force-dynamic";
 
 /** Business → Partner page: the link-in-bio page approved Nearest Partners share (usenearest.com/link/<slug>). */
 export default async function PartnerEditor({ searchParams }: { searchParams: Promise<{ welcome?: string }> }) {
-  const { user, profile } = await requirePro();
+  const { user, profile, assisting } = await requirePro({ assistant: true });
   const welcome = (await searchParams).welcome === "1";
   const page = await partnerPageFor(user.id);
 
@@ -54,11 +55,13 @@ export default async function PartnerEditor({ searchParams }: { searchParams: Pr
           <span className="small muted">Put it in your Instagram and TikTok bio. Your photo, name, rating, social links and services come from your profile — edit those in Business.</span>
         </div>
 
-        <div className="card" style={{ gap: 8 }}>
+        {!assisting && <PartnerAssistants partnerId={user.id} />}
+
+        {!assisting && <div className="card" style={{ gap: 8 }}>
           <span className="b">My shop</span>
           <span className="small muted">Sell digital downloads (like a workbook — delivered the moment they pay) and physical products (shampoo, tools, lash kits) right on your page.</span>
           <div className="row" style={{ gap: 16 }}><Link className="link small" href="/pro/partner/shop">Products</Link><Link className="link small" href="/pro/partner/orders">Orders</Link></div>
-        </div>
+        </div>}
 
         <ActionForm action={savePartnerPage} submitLabel="Save my page" className="col g16">
           <div className="col g8">

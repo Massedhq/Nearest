@@ -10,7 +10,7 @@ import { ChatThread } from "@/components/ChatThread";
 export const metadata = { title: "Messages" };
 
 export default async function ProChat({ params }: { params: Promise<{ id: string }> }) {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ assistant: true });
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const row = (await db.select({ b: bookings, first: users.firstName, last: users.lastName }).from(bookings).innerJoin(users, eq(users.id, bookings.studentId)).where(and(eq(bookings.id, id), eq(bookings.proId, user.id))).limit(1))[0];

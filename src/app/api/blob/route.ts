@@ -23,6 +23,8 @@ export async function POST(request: Request) {
         // Pros upload portfolio/profile photos; students upload their appointment result photo.
         const ok = u && (((await proAccess(viewer)) && pathname.startsWith(`pros/${u.id}/`)) || ((u.accountType === "student" || viewer?.admin?.role === "OWNER") && pathname.startsWith(`students/${u.id}/`)));
         if (!ok) throw new Error("Invalid upload.");
+        // A partner's assistant: only photos/videos for the work they manage (portfolio, looks, services, Model Calls).
+        if (viewer?.assisting && !/^pros\/[0-9a-f-]{36}\/(portfolio|portfolio-video|look-photo|look-video|service|modelcalls)\//.test(pathname)) throw new Error("Invalid upload.");
         if (viewer?.admin?.role === "OWNER" && pathname.startsWith(`students/${u!.id}/explainer-video/`)) {
           // Owners: the supporter explainer video (shown on the supporter invitation form).
           return { allowedContentTypes: ["video/mp4", "video/quicktime", "video/webm"], maximumSizeInBytes: 200 * 1024 * 1024, addRandomSuffix: true };

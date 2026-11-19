@@ -1,5 +1,6 @@
 "use server";
 import { redirect } from "next/navigation";
+import { noteIfAssistant } from "@/lib/assistants";
 import { revalidatePath } from "next/cache";
 import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import {
@@ -98,7 +99,8 @@ export async function saveAvatar(urls: string[]): Promise<{ error?: string }> {
 type Row = { categoryId: number; name: string; price: string; duration: string; adultsOnly?: boolean; forKids?: boolean; photo?: string | null; video?: string | null; videoSec?: number | null; addFee?: boolean; addons?: unknown; showOn?: string; partnerPrice?: string };
 
 export async function saveServices(_: FormState, form: FormData): Promise<FormState> {
-  const { user, profile } = await requirePro();
+  const { user, profile } = await requirePro({ assistant: true });
+  await noteIfAssistant("services_saved");
   let rows: Row[];
   try {
     rows = JSON.parse(String(form.get("payload") ?? "[]"));
@@ -308,7 +310,8 @@ export async function saveCommunication(_: FormState, form: FormData): Promise<F
 const MAX_PORTFOLIO = MAX_PHOTOS; // also shown on the Portfolio screen
 
 export async function addPortfolio(urls: string[]): Promise<{ error?: string }> {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ assistant: true });
+  await noteIfAssistant("photos_added");
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(portfolioItems).where(and(eq(portfolioItems.userId, user.id), eq(portfolioItems.kind, "image")));
   const room = MAX_PORTFOLIO - n;
   if (room <= 0) return { error: `You can show up to ${MAX_PORTFOLIO} photos. Remove one to add another.` };
@@ -324,7 +327,8 @@ export async function addPortfolio(urls: string[]): Promise<{ error?: string }> 
 
 /** Add a portfolio video. Its length is read from the file itself on the server — over 15 seconds is deleted and refused. */
 export async function addPortfolioVideo(url: string): Promise<{ error?: string }> {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ assistant: true });
+  await noteIfAssistant("video_added");
   if (!url || !blobUrlOk(url, user.id) || !new URL(url).pathname.startsWith(`/pros/${user.id}/portfolio-video/`)) return { error: "Upload didn't complete. Try again." };
   const discard = async () => { try { const { del } = await import("@vercel/blob"); await del(url); } catch (e) { console.error(e); } };
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(portfolioItems).where(and(eq(portfolioItems.userId, user.id), eq(portfolioItems.kind, "video")));
@@ -348,7 +352,8 @@ const lookRefresh = (userId: string) => { revalidatePath("/pro", "layout"); reva
 
 /** Add more photos of the same look (front, side, back…) — up to LOOK_MAX_PHOTOS in all, counting the main photo. */
 export async function addLookPhotos(itemId: string, urls: string[]): Promise<{ error?: string }> {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ assistant: true });
+  await noteIfAssistant("look_updated");
   const it = await myPhoto(user.id, itemId);
   if (!it) return { error: "That photo isn't in your portfolio anymore." };
   const room = LOOK_MAX_PHOTOS - 1 - it.lookPhotos.length;
@@ -361,7 +366,8 @@ export async function addLookPhotos(itemId: string, urls: string[]): Promise<{ e
 }
 
 export async function removeLookPhoto(form: FormData) {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ assistant: true });
+  await noteIfAssistant("look_updated");
   const it = await myPhoto(user.id, String(form.get("id")));
   const url = String(form.get("url") ?? "");
   if (!it || !it.lookPhotos.includes(url)) return;
@@ -372,7 +378,8 @@ export async function removeLookPhoto(form: FormData) {
 
 /** Add (or replace) the 360° video of a look. Its length is read from the file on the server — over 60 seconds is deleted and refused. */
 export async function addLookVideo(itemId: string, url: string): Promise<{ error?: string }> {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ assistant: true });
+  await noteIfAssistant("look_updated");
   const discard = async (u: string) => { try { const { del } = await import("@vercel/blob"); await del(u); } catch (e) { console.error(e); } };
   if (!url || !blobUrlOk(url, user.id) || !new URL(url).pathname.startsWith(`/pros/${user.id}/look-video/`)) return { error: "Upload didn't complete. Try again." };
   const it = await myPhoto(user.id, itemId);
@@ -388,7 +395,8 @@ export async function addLookVideo(itemId: string, url: string): Promise<{ error
 }
 
 export async function removeLookVideo(form: FormData) {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ assistant: true });
+  await noteIfAssistant("look_updated");
   const it = await myPhoto(user.id, String(form.get("id")));
   if (!it?.lookVideoUrl) return;
   await db.update(portfolioItems).set({ lookVideoUrl: null, lookVideoSec: null }).where(eq(portfolioItems.id, it.id));
@@ -398,7 +406,8 @@ export async function removeLookVideo(form: FormData) {
 
 /** Tag a photo with the service it shows (or clear it) — used for "Book this look". */
 export async function setPortfolioService(form: FormData) {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ assistant: true });
+  await noteIfAssistant("photo_tagged");
   const id = String(form.get("id"));
   const serviceId = String(form.get("serviceId") ?? "") || null;
   if (serviceId) {
@@ -411,7 +420,8 @@ export async function setPortfolioService(form: FormData) {
 }
 
 export async function removePortfolio(form: FormData) {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ assistant: true });
+  await noteIfAssistant("photo_removed");
   const [gone] = await db.delete(portfolioItems).where(and(eq(portfolioItems.id, String(form.get("id"))), eq(portfolioItems.userId, user.id))).returning();
   // Videos are large: delete the file too (photos can be shared with client photos, so they stay).
   if (gone?.kind === "video") { try { const { del } = await import("@vercel/blob"); await del(gone.url); } catch (e) { console.error(e); } }
@@ -422,7 +432,8 @@ export async function removePortfolio(form: FormData) {
 }
 
 export async function toggleFeatured(form: FormData) {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ assistant: true });
+  await noteIfAssistant("photo_featured");
   const id = String(form.get("id"));
   const item = await db.query.portfolioItems.findFirst({ where: and(eq(portfolioItems.id, id), eq(portfolioItems.userId, user.id)) });
   if (!item) return;
@@ -435,7 +446,7 @@ export async function toggleFeatured(form: FormData) {
 }
 
 export async function finishPortfolio(_: FormState, form: FormData): Promise<FormState> {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ assistant: true });
   return done(user.id, "portfolio", form);
 }
 
@@ -506,7 +517,8 @@ export async function saveOpenings(_: FormState, form: FormData): Promise<FormSt
 
 // ---------- Model calls ----------
 export async function createModelCall(_: FormState, form: FormData): Promise<FormState> {
-  const { user, profile } = await requirePro();
+  const { user, profile } = await requirePro({ assistant: true });
+  await noteIfAssistant("model_call_posted");
   if (profile.reviewStatus !== "approved") return { error: "You can publish model calls once your profile is approved." };
   const serviceId = str(form, "serviceId", 40);
   const service = serviceId ? await db.query.proServices.findFirst({ where: and(eq(proServices.id, serviceId), eq(proServices.userId, user.id)) }) : null;
@@ -560,7 +572,8 @@ export async function createModelCall(_: FormState, form: FormData): Promise<For
 }
 
 export async function cancelModelCall(form: FormData) {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ assistant: true });
+  await noteIfAssistant("model_call_cancelled");
   await db
     .update(modelCalls)
     .set({ status: "cancelled" })
@@ -599,7 +612,8 @@ export async function toggleVacation() {
 
 /** Remove a cancelled or finished Model Call from your list. Past appointments made through it are kept. */
 export async function deleteModelCall(form: FormData) {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ assistant: true });
+  await noteIfAssistant("model_call_deleted");
   const id = String(form.get("id"));
   const call = await db.query.modelCalls.findFirst({ where: and(eq(modelCalls.id, id), eq(modelCalls.userId, user.id)) });
   if (!call) return;
@@ -632,7 +646,7 @@ export async function setGoLive(form: FormData) {
 
 /** Services & prices: check a just-uploaded 360° service video (length ≤ the look-video limit) before it's added to the row. */
 export async function checkServiceVideo(url: string): Promise<{ error?: string; sec?: number }> {
-  const { user } = await requirePro();
+  const { user } = await requirePro({ assistant: true });
   const discard = async () => { try { const { del } = await import("@vercel/blob"); await del(url); } catch (e) { console.error(e); } };
   if (!url || !blobUrlOk(url, user.id) || !new URL(url).pathname.startsWith(`/pros/${user.id}/look-video/`)) return { error: "Upload didn't complete. Try again." };
   const secs = await (await import("@/lib/video-length")).videoSeconds(url);
