@@ -75,6 +75,7 @@ export default async function ProAppointment({ params, searchParams }: { params:
           )}
           <hr className="hr" />
           <div className="row between"><span>Price</span><span className="b">{money(b.priceCents)}</span></div>
+          {b.balanceDueCents > 0 && <div className="row between"><span>Collect at the appointment (Model Call deposit booking)</span><span className="b">{money(b.balanceDueCents)}</span></div>}
           {b.inviteDiscountCents > 0 && <div className="row between"><span>Student invite reward</span><span className="b">−{money(b.inviteDiscountCents)}</span></div>}
           {b.promoCents > 0 && <div className="row between"><span>{cardUsed?.kind === "free" ? "Nearest Free Card (your free service)" : cardUsed ? "Nearest Card" : "Nearest promotional credit"}</span><span className="b">−{money(b.promoCents)}</span></div>}
           {b.serviceFeeCents > 0 && <div className="row between"><span>Booking fee</span><span className="b">−{money(b.serviceFeeCents)}</span></div>}

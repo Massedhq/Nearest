@@ -61,7 +61,7 @@ export default function Terms() {
               "Where the service happens — at the Professional's location or at an address you provide — is shown at checkout. The appointment address is shared with the booked Student (or, for travel appointments, with the Professional) starting at 12:00 AM Central Time on the appointment day.",
               "Each booking has its own message thread. Keep booking communication inside Nearest; phone numbers and email addresses are not shared between users.",
             ],
-            "Model Calls are appointments a Professional offers, often at a reduced price, to practice techniques or build a portfolio. Results may differ from a standard service. Model Calls may list requirements (for example, natural hair only, or photos/video required); by booking you confirm you meet them. A Professional may cancel a Model Call; if they do, Section 7's Professional cancellation terms apply.",
+            "Model Calls are appointments a Professional offers, often at a reduced price, to practice techniques or build a portfolio. Results may differ from a standard service. Model Calls may list requirements (for example, natural hair only, or photos/video required); by booking you confirm you meet them. A Model Call may require only a deposit to book; in that case the deposit (plus the booking fee) is paid through Nearest and the remaining balance shown at booking is paid directly to the Professional at the appointment, outside Nearest — Nearest's payment protection, credits and refunds apply only to the amount paid through Nearest. A Professional may cancel a Model Call; if they do, Section 7's Professional cancellation terms apply.",
           ],
         },
         {

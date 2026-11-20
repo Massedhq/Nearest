@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PARTNER_SIDE_SQL } from "@/lib/model-calls";
 import Image from "next/image";
 import { and, asc, eq, gt, inArray, sql, ne } from "drizzle-orm";
 import { db, professionalProfiles, proServices, modelCalls, reviews } from "@/db";
@@ -25,7 +26,7 @@ export async function PartnerPageView({ r, preview = false }: { r: NonNullable<A
     db.select({ id: professionalProfiles.userId }).from(professionalProfiles).where(and(eq(professionalProfiles.userId, id), ...liveProWhere(null, "all", { partnerPage: true }))).limit(1),
     top.length ? db.select().from(proServices).where(and(eq(proServices.userId, id), eq(proServices.active, true), inArray(proServices.id, top), ne(proServices.showOn, "student"))) : Promise.resolve([]),
     db.select().from(proServices).where(and(eq(proServices.userId, id), eq(proServices.active, true), ne(proServices.showOn, "student"))).orderBy(asc(proServices.sort)).limit(4),
-    db.select({ n: sql<number>`count(*)::int`, min: sql<number | null>`min(${modelCalls.priceCents})::int` }).from(modelCalls).where(and(eq(modelCalls.userId, id), eq(modelCalls.status, "open"), gt(modelCalls.startsAt, new Date()))),
+    db.select({ n: sql<number>`count(*)::int`, min: sql<number | null>`min(${modelCalls.publicPriceCents})::int` }).from(modelCalls).where(and(eq(modelCalls.userId, id), eq(modelCalls.status, "open"), gt(modelCalls.startsAt, new Date()), sql`${modelCalls.spotsTaken} < ${modelCalls.spots}`, PARTNER_SIDE_SQL)),
     db.select({ avg: sql<number | null>`avg(${reviews.rating})::float`, n: sql<number>`count(*)::int` }).from(reviews).where(eq(reviews.proId, id)),
   ]);
   const products = await shopProducts(id);
@@ -33,8 +34,8 @@ export async function PartnerPageView({ r, preview = false }: { r: NonNullable<A
   const services = top.length ? top.map((sid) => topServices.find((s) => s.id === sid)).filter((s): s is NonNullable<typeof s> => Boolean(s)) : fallback;
   // The partner side books here, open to anyone, with no $150 cap (2026-11-09). The student side (/pro-<slug>) stays separate.
   const bookHref = `${partnerPagePath(r.p.slug!)}/book`;
-  // Model Calls (students only) open THIS partner's own Model Calls page, never the student profile (2026-11-18).
-  const studentPage = r.page.studentSide ? `${partnerPagePath(r.p.slug!)}/model-calls` : null;
+  // Model Calls open THIS partner's own public Model Calls page (public price, anyone 18+), never the student profile.
+  const studentPage = `${partnerPagePath(r.p.slug!)}/model-calls`;
   const openCalls = calls[0]?.n ?? 0;
   const socials = [
     [instagramHandle(r.p.instagram), instagramUrl, "Instagram", <><rect key="a" x="4" y="4" width="16" height="16" rx="4.5" /><circle key="b" cx="12" cy="12" r="3.6" /><path key="c" d="M16.8 7.2v.01" /></>],
@@ -99,7 +100,7 @@ export async function PartnerPageView({ r, preview = false }: { r: NonNullable<A
             {studentPage ? (
               <Link href={studentPage} style={{ display: "flex", flexDirection: "column", gap: 6, background: "#E9E4D9", color: "#0B0B0C", borderRadius: 16, padding: 14, textDecoration: "none" }}>
                 <span style={{ fontFamily: "var(--font-display), Georgia, serif", fontSize: 22, lineHeight: 1.05 }}>Model Calls</span>
-                <span style={{ fontSize: 12, fontWeight: 700 }}>{openCalls ? `${openCalls} open${calls[0]?.min ? ` · from ${money(calls[0].min)}` : ""} · for students` : "None open right now"}</span>
+                <span style={{ fontSize: 12, fontWeight: 700 }}>{openCalls ? `${openCalls} open${calls[0]?.min ? ` · from ${money(calls[0].min)}` : ""}` : "None open right now"}</span>
               </Link>
             ) : <span />}
             {/* Bundle = several of THIS partner's own services in one visit. Never other professionals. */}

@@ -1,5 +1,6 @@
 "use server";
 import { redirect } from "next/navigation";
+import { onSide, callCharge } from "@/lib/model-calls";
 import { revalidatePath } from "next/cache";
 import { and, eq, gt, inArray, ne, or, lt } from "drizzle-orm";
 import { db, bookings, proServices, modelCalls, professionalProfiles, cities } from "@/db";
@@ -76,6 +77,7 @@ async function createAndPay(opts: {
   // "partner" = booked from a partner's own page (2026-11-09): anyone with an account, no $150 cap, no Nearest Cards,
   // invite rewards or promotional credit (their own credit from a cancelled partner booking still applies).
   channel?: "student" | "partner";
+  balanceDueCents?: number; // deposit-only Model Calls: the rest, paid to the pro at the appointment (priceCents = what's paid online)
 }): Promise<FormState> {
   const partner = opts.channel === "partner";
   if (!partner && opts.priceCents > MAX_PRICE_CENTS) return { error: `This is priced above Nearest's $${MAX_PRICE_CENTS / 100} student limit, so it can't be booked.` };
@@ -118,7 +120,7 @@ async function createAndPay(opts: {
     studentId: opts.studentId, proId: opts.proId, serviceId: opts.serviceId ?? null, modelCallId: opts.modelCallId ?? null,
     serviceName: opts.serviceName, startsAt: opts.startsAt, endsAt, priceCents: opts.priceCents, travelFeeCents: travelFee, depositCents: deposit,
     addons: opts.addons?.length ? opts.addons : null, addonsCents: (opts.addons ?? []).reduce((t, a) => t + a.priceCents, 0),
-    creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge, inviteDiscountCents: inv?.cents ?? 0, bundleId: opts.bundleId ?? null, isRequest, serviceFeeCents: opts.serviceFeeCents ?? 0,
+    creditProCents: use.pro, creditGeneralCents: use.general, chargedCents: use.charge, inviteDiscountCents: inv?.cents ?? 0, bundleId: opts.bundleId ?? null, isRequest, serviceFeeCents: opts.serviceFeeCents ?? 0, balanceDueCents: Math.max(0, opts.balanceDueCents ?? 0),
     status: isRequest ? "requested" : "pending_payment",
     holdExpiresAt: isRequest ? null : new Date(Date.now() + HOLD_MIN * 60000),
     requestExpiresAt: isRequest ? requestDeadline(opts.startsAt) : null,
@@ -224,7 +226,7 @@ export async function bookModelCall(_: FormState, form: FormData): Promise<FormS
   if (form.get("agree") !== "on") return { error: "Please agree to the booking and cancellation terms." };
   const id = String(form.get("modelCallId") ?? "");
   const call = await db.query.modelCalls.findFirst({ where: and(eq(modelCalls.id, id), eq(modelCalls.status, "open")) });
-  if (!call || call.startsAt.getTime() < Date.now() || call.spotsTaken >= call.spots) return { error: "This model call is full or no longer open." };
+  if (!call || call.startsAt.getTime() < Date.now() || call.spotsTaken >= call.spots || !onSide(call, "student")) return { error: "This model call is full or no longer open." };
   const pro = await livePro(call.userId);
   if (!pro) return { error: "This professional isn't taking bookings right now." };
   const mine = await db.query.bookings.findFirst({ where: and(eq(bookings.modelCallId, id), eq(bookings.studentId, user.id), inArray(bookings.status, ["confirmed", "pending_payment"])) });
@@ -239,10 +241,47 @@ export async function bookModelCall(_: FormState, form: FormData): Promise<FormS
   }
   const where = await resolveLocation(pro, form, Boolean(pro.addressLine));
   if ("error" in where) return { error: where.error };
+  const pay = callCharge(call, "student");
   return createAndPay({ where, travelFeeCents: pro.travelFeeCents ?? 3500,
     studentId: user.id, email: user.email, proId: call.userId, proName: pro.businessName ?? "your professional", modelCallId: call.id,
-    serviceName: `${call.serviceName} (Model Call)`, startsAt, durationMin: call.durationMin, priceCents: call.priceCents,
+    serviceName: `${call.serviceName} (Model Call)`, startsAt, durationMin: call.durationMin, priceCents: pay.onlineCents, balanceDueCents: pay.balanceDueCents,
     serviceFeeCents: call.serviceFeeCents, // Nearest's service fee (0 on Model Calls published before the fee)
+  });
+}
+
+/**
+ * A Model Call booked from a partner's public page (2026-11-20): anyone signed in (partner clients are 18+), the PUBLIC
+ * price, no student account or verification. Deposit-only calls charge the deposit + fee now, the rest at the appointment.
+ */
+export async function bookPartnerModelCall(_: FormState, form: FormData): Promise<FormState> {
+  const { getViewer } = await import("@/lib/viewer");
+  const user = (await getViewer())?.user;
+  if (!user || user.status === "deactivated") return { error: "Please sign in to book." };
+  if (form.get("agree") !== "on") return { error: "Please agree to the booking and cancellation terms." };
+  const { partnerForBooking } = await import("@/lib/partner-booking");
+  const x = await partnerForBooking(String(form.get("slug") ?? ""));
+  if (!x) return { error: "This partner isn't taking bookings right now." };
+  if (x.pro.userId === user.id) return { error: "You can't book yourself." };
+  const id = String(form.get("modelCallId") ?? "");
+  const call = /^[0-9a-f-]{36}$/.test(id) ? await db.query.modelCalls.findFirst({ where: and(eq(modelCalls.id, id), eq(modelCalls.userId, x.pro.userId), eq(modelCalls.status, "open")) }) : null;
+  if (!call || call.startsAt.getTime() < Date.now() || call.spotsTaken >= call.spots || !onSide(call, "partner")) return { error: "This model call is full or no longer open." };
+  const mine = await db.query.bookings.findFirst({ where: and(eq(bookings.modelCallId, id), eq(bookings.studentId, user.id), eq(bookings.status, "confirmed")) });
+  if (mine) return { error: "You already have a spot in this model call." };
+  let startsAt = call.startsAt;
+  if (call.flexible) {
+    const day = String(form.get("day") ?? ""), time = String(form.get("time") ?? "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !/^\d{2}:\d{2}$/.test(time)) return { error: "Pick a day and time first." };
+    if (!(await openSlots(call.userId, call.durationMin, day)).includes(time)) return { error: "That time was just taken or isn't available. Please pick another." };
+    startsAt = chicagoToUtc(day, time);
+    if (startsAt.getTime() > call.startsAt.getTime()) return { error: "That time is after this model call closes. Please pick an earlier time." };
+  }
+  const where = await resolveLocation(x.pro, form, Boolean(x.pro.addressLine));
+  if ("error" in where) return { error: where.error };
+  const pay = callCharge(call, "partner");
+  return createAndPay({ channel: "partner", where, travelFeeCents: x.pro.travelFeeCents ?? 3500,
+    studentId: user.id, email: user.email, proId: call.userId, proName: x.name, modelCallId: call.id,
+    serviceName: `${call.serviceName} (Model Call)`, startsAt, durationMin: call.durationMin, priceCents: pay.onlineCents, balanceDueCents: pay.balanceDueCents,
+    serviceFeeCents: call.serviceFeeCents,
   });
 }
 

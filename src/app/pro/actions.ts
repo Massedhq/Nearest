@@ -516,9 +516,63 @@ export async function saveOpenings(_: FormState, form: FormData): Promise<FormSt
 }
 
 // ---------- Model calls ----------
+/**
+ * Model Call fields shared by create + edit (2026-11-20, owner): 1–3 inspiration photos required, optional video ≤ 60 s,
+ * where it shows (partners: student / partner / both), student price (≤ $150 with the fee) and public price (no cap),
+ * and pay in full or a deposit to book (rest paid to the pro at the appointment).
+ */
+async function modelCallFields(userId: string, form: FormData, opts: { spotsTaken?: number } = {}) {
+  const { MC_MIN_PHOTOS, MC_MAX_PHOTOS } = await import("@/lib/model-calls");
+  const photos = [...new Set(form.getAll("photoUrls").map(String))].filter((u) => blobUrlOk(u, userId) && new URL(u).pathname.startsWith(`/pros/${userId}/modelcalls/`)).slice(0, MC_MAX_PHOTOS);
+  if (photos.length < MC_MIN_PHOTOS) return { error: `Add at least ${MC_MIN_PHOTOS} inspiration photo (up to ${MC_MAX_PHOTOS}) so models can see the look.` } as const;
+  const videoRaw = str(form, "videoUrl", 500);
+  let videoUrl: string | null = null, videoSec: number | null = null;
+  if (videoRaw) {
+    if (!blobUrlOk(videoRaw, userId) || !new URL(videoRaw).pathname.startsWith(`/pros/${userId}/look-video/`)) return { error: "That video didn't upload. Remove it and try again." } as const;
+    const secs = await (await import("@/lib/video-length")).videoSeconds(videoRaw);
+    if (secs === null || secs > LOOK_VIDEO_SECONDS + 0.5) return { error: `Videos can be up to ${LOOK_VIDEO_SECONDS} seconds. Remove it and add a shorter one.` } as const;
+    videoUrl = videoRaw; videoSec = Math.round(secs);
+  }
+  const partner = await (await import("@/lib/partner-booking")).isPartner(userId);
+  const want = str(form, "showOn", 10);
+  const showOn = partner && ["student", "partner", "both"].includes(want) ? want : "student";
+  const student = showOn !== "partner", pub = showOn !== "student";
+  const fee = Math.max(0, Number((await getSettings())["fees.service_fee_cents"] ?? 500));
+  const dollars = (k: string) => { const v = str(form, k, 12).replace(/[$,\s]/g, ""); return v === "" ? NaN : Number(v); };
+  const price = dollars("price"), publicPrice = dollars("publicPrice");
+  if (student && (!Number.isFinite(price) || price < 0)) return { error: "Enter the student price (0 for free)." } as const;
+  if (pub && (!Number.isFinite(publicPrice) || publicPrice < 0)) return { error: "Enter the public price for your partner page (0 for free)." } as const;
+  const studentPro = student ? Math.round(price * 100) : null;
+  const publicPro = pub ? Math.round(publicPrice * 100) : null;
+  if (studentPro !== null && studentPro + fee > MAX_PRICE_DOLLARS * 100) return { error: `Students can't be charged more than $${MAX_PRICE_DOLLARS} — with the $${(fee / 100).toFixed(0)} booking fee, the student price can be up to $${(MAX_PRICE_DOLLARS - fee / 100).toFixed(0)}.` } as const;
+  const payMode = str(form, "payMode", 10) === "deposit" ? "deposit" : "full";
+  let depositPro: number | null = null;
+  if (payMode === "deposit") {
+    const d = dollars("deposit");
+    const lowest = Math.min(...[studentPro, publicPro].filter((x): x is number => x !== null));
+    if (!Number.isFinite(d) || d < 1) return { error: "Enter a deposit of at least $1, or choose Pay in full." } as const;
+    if (Math.round(d * 100) >= lowest) return { error: "The deposit has to be less than your price. For the full amount, choose Pay in full." } as const;
+    depositPro = Math.round(d * 100);
+  }
+  const spots = Number(str(form, "spots", 3));
+  if (!Number.isInteger(spots) || spots < 1 || spots > 20) return { error: "Spots should be between 1 and 20." } as const;
+  if (opts.spotsTaken && spots < opts.spotsTaken) return { error: `${opts.spotsTaken} spot${opts.spotsTaken === 1 ? " is" : "s are"} already booked — spots can't go below that.` } as const;
+  const requirements = form.getAll("requirements").map(String).filter(Boolean).slice(0, 10);
+  const extra = str(form, "otherRequirement", 120);
+  if (extra) requirements.push(extra);
+  // price_cents is the student price (the column the student side and older code read); partner-only calls keep the public one there too.
+  const mainPro = studentPro ?? publicPro!;
+  return { values: {
+    priceCents: mainPro + fee, proPriceCents: mainPro, serviceFeeCents: fee,
+    publicProPriceCents: publicPro, publicPriceCents: publicPro === null ? null : publicPro + fee,
+    showOn, payMode, depositProCents: depositPro,
+    photos, photoUrl: photos[0], videoUrl, videoSec,
+    spots, requirements, about: str(form, "about", 2000) || null,
+  } } as const;
+}
+
 export async function createModelCall(_: FormState, form: FormData): Promise<FormState> {
   const { user, profile } = await requirePro({ assistant: true });
-  await noteIfAssistant("model_call_posted");
   if (profile.reviewStatus !== "approved") return { error: "You can publish model calls once your profile is approved." };
   const serviceId = str(form, "serviceId", 40);
   const service = serviceId ? await db.query.proServices.findFirst({ where: and(eq(proServices.id, serviceId), eq(proServices.userId, user.id)) }) : null;
@@ -538,37 +592,28 @@ export async function createModelCall(_: FormState, form: FormData): Promise<For
     startsAt = chicagoToUtc(day, time);
     if (startsAt.getTime() < Date.now() + 60 * 60 * 1000) return { error: "Pick a time at least an hour from now." };
   }
-  const photoRaw = str(form, "photoUrl", 500);
-  const photoUrl = photoRaw && blobUrlOk(photoRaw, user.id) ? photoRaw : null;
-  const price = Number(str(form, "price", 10).replace(/[$,\s]/g, ""));
-  if (!Number.isFinite(price) || price < 0) return { error: "Enter the model price (0 for free)." };
-  // Model Calls are bookings too: Nearest's service fee is added on top, so students see one total (your price + the fee).
-  const mcFee = Math.max(0, Number((await getSettings())["fees.service_fee_cents"] ?? 500));
-  const studentCents = Math.round(price * 100) + mcFee;
-  if (studentCents > MAX_PRICE_DOLLARS * 100) return { error: `Students can't be charged more than $${MAX_PRICE_DOLLARS} — with the $${(mcFee / 100).toFixed(0)} service fee, a model price can be up to $${(MAX_PRICE_DOLLARS - mcFee / 100).toFixed(0)}.` };
-  const spots = Number(str(form, "spots", 3));
-  if (!Number.isInteger(spots) || spots < 1 || spots > 20) return { error: "Spots should be between 1 and 20." };
+  const f = await modelCallFields(user.id, form);
+  if ("error" in f) return { error: f.error };
   const duration = Number(str(form, "duration", 4)) || service.durationMin;
-  const requirements = form.getAll("requirements").map(String).filter(Boolean).slice(0, 10);
-  const extra = str(form, "otherRequirement", 120);
-  if (extra) requirements.push(extra);
-  await db.insert(modelCalls).values({
-    userId: user.id,
-    categoryId: service.categoryId,
-    serviceName: service.name,
-    startsAt,
-    durationMin: duration,
-    priceCents: studentCents,
-    proPriceCents: Math.round(price * 100),
-    serviceFeeCents: mcFee,
-    spots,
-    requirements,
-    about: str(form, "about", 2000) || null,
-    flexible,
-    photoUrl,
-  });
+  await db.insert(modelCalls).values({ userId: user.id, categoryId: service.categoryId, serviceName: service.name, startsAt, durationMin: duration, flexible, ...f.values });
+  await noteIfAssistant("model_call_posted");
   revalidatePath("/pro", "layout");
   redirect("/pro/model-calls");
+}
+
+/** Edit an open Model Call — add the required inspiration photos, change where it shows, prices, payment, spots, details. */
+export async function updateModelCall(_: FormState, form: FormData): Promise<FormState> {
+  const { user } = await requirePro({ assistant: true });
+  const id = str(form, "id", 40);
+  const call = /^[0-9a-f-]{36}$/.test(id) ? await db.query.modelCalls.findFirst({ where: and(eq(modelCalls.id, id), eq(modelCalls.userId, user.id)) }) : null;
+  if (!call || !["open", "full"].includes(call.status)) return { error: "This model call can't be edited anymore." };
+  const f = await modelCallFields(user.id, form, { spotsTaken: call.spotsTaken });
+  if ("error" in f) return { error: f.error };
+  const status = call.status === "full" && f.values.spots > call.spotsTaken ? "open" : call.status;
+  await db.update(modelCalls).set({ ...f.values, status }).where(and(eq(modelCalls.id, call.id), eq(modelCalls.userId, user.id)));
+  await noteIfAssistant("model_call_edited");
+  revalidatePath("/pro", "layout");
+  redirect("/pro/model-calls?saved=1");
 }
 
 export async function cancelModelCall(form: FormData) {

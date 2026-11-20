@@ -5,22 +5,16 @@ import { requirePro } from "@/lib/pro";
 import { chicagoNow, money } from "@/lib/time";
 import { TopBar } from "@/components/TopBar";
 import { ActionForm } from "@/components/ActionForm";
-import { Icon } from "@/components/Icon";
-import { PriceInput } from "@/components/PriceInput";
 import { ModelCallWhen } from "@/components/ModelCallWhen";
-import { ModelCallPhoto } from "@/components/ModelCallPhoto";
+import { ModelCallDetails } from "@/components/ModelCallDetails";
 import { createModelCall } from "@/app/pro/actions";
-import { getSettings } from "@/lib/settings";
 
 export const metadata = { title: "Create a model call" };
-
-const REQS = ["Photos / video required", "Natural hair only", "Natural lashes only", "No previous extensions", "Must be available for follow-up"];
 
 export default async function NewModelCall() {
   const { user, profile } = await requirePro({ assistant: true });
   const services = await db.select().from(proServices).where(eq(proServices.userId, user.id)).orderBy(asc(proServices.sort));
   const today = chicagoNow().date;
-  const fee = Math.max(0, Number((await getSettings())["fees.service_fee_cents"] ?? 500));
   const maxDay = new Date(Date.now() + 90 * 86400_000).toISOString().slice(0, 10);
   if (profile.reviewStatus !== "approved" || services.length === 0) {
     return (
@@ -45,18 +39,8 @@ export default async function NewModelCall() {
             </select>
           </div>
           <ModelCallWhen today={today} maxDay={maxDay} />
-          <ModelCallPhoto userId={user.id} />
-          <div className="grid2">
-            <PriceInput id="price" name="price" label="Your model price ($)" placeholder="15" />
-            <div className="field"><label htmlFor="spots">Spots</label><input id="spots" name="spots" inputMode="numeric" defaultValue="1" required /></div>
-          </div>
-          <span className="xs muted" style={{ marginTop: -8 }}>A {money(fee)} booking fee is added, so models see one price: your price + {money(fee)} (a $15 model price shows as {money(1500 + fee)}; a free model call shows as {money(fee)}). You receive your price, minus card processing.</span>
           <div className="field"><label htmlFor="duration">Approx. length (minutes, optional)</label><input id="duration" name="duration" inputMode="numeric" placeholder="Uses the service length if blank" /></div>
-          <span className="lbl">Requirements</span>
-          {REQS.map((r) => <label key={r} className="check"><input type="checkbox" name="requirements" value={r} />{r}</label>)}
-          <div className="field"><label htmlFor="otherRequirement">Other requirement (optional)</label><input id="otherRequirement" name="otherRequirement" /></div>
-          <div className="field"><label htmlFor="about">Additional information</label><textarea id="about" name="about" rows={5} placeholder="Anything models should know — what you're practicing, how long it takes, what to bring, parking, how to prep." /></div>
-          <div className="card small"><div className="row"><Icon name="eye" size="s" /><span className="grow">Shows under <span className="b">Model Calls near me</span> for students nearby.</span></div></div>
+          <ModelCallDetails userId={user.id} />
         </ActionForm>
       </div>
     </div>

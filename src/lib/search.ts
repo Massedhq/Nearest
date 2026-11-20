@@ -1,4 +1,5 @@
 import "server-only";
+import { STUDENT_SIDE_SQL } from "./model-calls";
 import { and, asc, desc, eq, gt, inArray, sql, type SQL } from "drizzle-orm";
 import { db, catalogServices, professionalProfiles, proServices, proOpenings, portfolioItems, cities, modelCalls, reviews, fines, favorites } from "@/db";
 import { chicagoNow } from "./time";
@@ -141,7 +142,7 @@ export async function searchPros(f: Filters, area: Area, place?: Place | null) {
 
 /** How many Model Calls are open right now — "all" = every area the student can see (owners: everywhere). */
 export async function countOpenModelCalls(area: Area) {
-  const where = [...liveProWhere(area, "all"), sql`${modelCalls.priceCents} <= 15000`, eq(modelCalls.status, "open"), gt(modelCalls.startsAt, new Date()), sql`${modelCalls.spotsTaken} < ${modelCalls.spots}`];
+  const where = [...liveProWhere(area, "all"), STUDENT_SIDE_SQL, eq(modelCalls.status, "open"), gt(modelCalls.startsAt, new Date()), sql`${modelCalls.spotsTaken} < ${modelCalls.spots}`];
   const [r] = await db.select({ n: sql<number>`count(*)::int` }).from(modelCalls)
     .innerJoin(professionalProfiles, eq(professionalProfiles.userId, modelCalls.userId))
     .where(and(...where));
@@ -149,7 +150,7 @@ export async function countOpenModelCalls(area: Area) {
 }
 
 export async function openModelCalls(area: Area, areaMode: string | undefined, userId?: string) {
-  const where = [...liveProWhere(area, areaMode), sql`${modelCalls.priceCents} <= 15000`, inArray(modelCalls.status, ["open"]), gt(modelCalls.startsAt, new Date()), sql`${modelCalls.spotsTaken} < ${modelCalls.spots}`];
+  const where = [...liveProWhere(area, areaMode), STUDENT_SIDE_SQL, inArray(modelCalls.status, ["open"]), gt(modelCalls.startsAt, new Date()), sql`${modelCalls.spotsTaken} < ${modelCalls.spots}`];
   if (userId) where.push(eq(modelCalls.userId, userId));
   return db
     .select({ call: modelCalls, businessName: professionalProfiles.businessName, photoUrl: professionalProfiles.photoUrl, city: cities.name })

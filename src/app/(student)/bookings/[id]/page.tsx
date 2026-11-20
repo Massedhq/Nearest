@@ -101,6 +101,7 @@ export default async function Booking({ params, searchParams }: { params: Promis
           {b.cardCents > 0 && <div className="row between small" style={{ color: "#8FD3A8" }}><span>Nearest Card</span><span className="num">−{money(b.cardCents)}</span></div>}
           {b.creditProCents + b.creditGeneralCents - b.cardCents > 0 && <div className="row between small muted"><span>Paid with credit</span><span className="num">{money(b.creditProCents + b.creditGeneralCents - b.cardCents)}</span></div>}
           <div className="row between small muted"><span>Paid by card</span><span className="num">{money(b.chargedCents)}</span></div>
+          {b.balanceDueCents > 0 && <div className="row between small"><span className="b">Pay the professional at your appointment</span><span className="num b">{money(b.balanceDueCents)}</span></div>}
           <DepositFeeNote deposit={b.depositCents} fee={b.serviceFeeCents} />
           <div className="row between small muted"><span>{b.status === "completed" ? "Released to your professional" : b.status === "requested" ? "Nothing charged yet — you pay after the professional accepts" : "Held until you release it"}</span><Icon name={b.status === "completed" ? "check" : "lock"} size="s" /></div>
         </div>

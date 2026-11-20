@@ -419,7 +419,16 @@ export const modelCalls = pgTable("model_calls", {
   requirements: text("requirements").array(),
   about: text("about"), // "Additional information"
   flexible: boolean("flexible").notNull().default(false), // open time: each model picks a time from the pro's availability; startsAt = open-until
-  photoUrl: text("photo_url"), // the look they're practicing
+  photoUrl: text("photo_url"), // the look they're practicing (= photos[0] since 2026-11-20)
+  // 2026-11-20 (owner): 1–3 inspiration photos are REQUIRED to show (src/lib/model-calls.ts); optional video ≤ 60 s.
+  photos: jsonb("photos").$type<string[]>(),
+  videoUrl: text("video_url"),
+  videoSec: integer("video_sec"),
+  showOn: text("show_on").notNull().default("student"), // student | partner | both (partner = the public partner page)
+  publicProPriceCents: integer("public_pro_price_cents"), // partner-page (public) price the pro entered — no cap
+  publicPriceCents: integer("public_price_cents"), // public price shown = public pro price + service fee
+  payMode: text("pay_mode").notNull().default("full"), // full | deposit (the model pays a deposit online, the rest at the appointment)
+  depositProCents: integer("deposit_pro_cents"), // the pro's deposit (pay_mode deposit); online charge = deposit + service fee
   status: modelCallStatus("status").notNull().default("open"),
   createdAt: ts("created_at").notNull().defaultNow(),
 }, (t) => [index("model_calls_user_idx").on(t.userId), index("model_calls_starts_idx").on(t.startsAt)]);
@@ -508,6 +517,7 @@ export const bookings = pgTable("bookings", {
   // their payout, per the Professional Terms). Credit only; no cash value.
   promoCents: integer("promo_cents").notNull().default(0),
   serviceFeeCents: integer("service_fee_cents").notNull().default(0), // Nearest's service fee in this price — kept when the booking completes
+  balanceDueCents: integer("balance_due_cents").notNull().default(0), // deposit-only Model Calls: paid to the pro at the appointment, outside Nearest
   // Launch campaign reward booking: the student pays $0; Nearest pays the pro campaign_payout_cents when it completes.
   campaignEntryId: uuid("campaign_entry_id"),
   campaignOfferId: uuid("campaign_offer_id"),

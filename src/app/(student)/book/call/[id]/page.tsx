@@ -6,7 +6,7 @@ import { requireVerifiedStudent } from "@/lib/student";
 import { liveProWhere } from "@/lib/search";
 import { creditBalances, applyCredits } from "@/lib/credits";
 import { getSettings } from "@/lib/settings";
-import { fmtDate, fmtTime, chicagoToUtc } from "@/lib/time";
+import { fmtDate, fmtTime, chicagoToUtc, money } from "@/lib/time";
 import { TopBar } from "@/components/TopBar";
 import { ActionForm } from "@/components/ActionForm";
 import { PriceBox, Terms } from "@/components/BookingTerms";
@@ -15,6 +15,8 @@ import { bookModelCall } from "@/app/book-actions";
 import { WherePicker } from "@/components/WherePicker";
 import Link from "next/link";
 import { openSlots, nextDays } from "@/lib/availability";
+import { ModelCallGallery } from "@/components/ModelCallGallery";
+import { callCharge, callPhotos, onSide } from "@/lib/model-calls";
 
 export const metadata = { title: "Book a model call" };
 
@@ -23,13 +25,14 @@ export default async function BookCall({ params, searchParams }: { params: Promi
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const call = await db.query.modelCalls.findFirst({ where: eq(modelCalls.id, id) });
-  if (!call) notFound();
+  if (!call || !onSide(call, "student")) notFound();
   const [pro] = await db.select().from(professionalProfiles).where(and(eq(professionalProfiles.userId, call.userId), ...liveProWhere(null, "all"))).limit(1);
   if (!pro) notFound();
   const full = call.status !== "open" || call.spotsTaken >= call.spots || call.startsAt.getTime() < Date.now();
   const s = await getSettings();
-  const deposit = Math.min(Number(s["appt.deposit_cents"]), call.priceCents);
-  const use = applyCredits(call.priceCents, await creditBalances(user.id, call.userId));
+  const pay = callCharge(call, "student");
+  const deposit = Math.min(Number(s["appt.deposit_cents"]), pay.onlineCents);
+  const use = applyCredits(pay.onlineCents, await creditBalances(user.id, call.userId));
   // Open time: the model picks a day and time from the pro's availability (up to the open-until date).
   const sp = await searchParams;
   const untilDay = new Date(call.startsAt.toLocaleString("en-US", { timeZone: "America/Chicago" })).toISOString().slice(0, 10);
@@ -52,10 +55,7 @@ export default async function BookCall({ params, searchParams }: { params: Promi
           <div className="row small"><Icon name="clock" size="s" /> About {call.durationMin} minutes</div>
           {call.requirements && call.requirements.length > 0 && <div className="chips">{call.requirements.map((r) => <span key={r} className="tag">{r}</span>)}</div>}
         </div>
-        {call.photoUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={call.photoUrl} alt={`The look for this ${call.serviceName} model call`} style={{ width: "100%", maxHeight: 360, objectFit: "cover", borderRadius: 18 }} />
-        )}
+        <ModelCallGallery photos={callPhotos(call)} video={call.videoUrl} alt={`${call.serviceName} by ${pro.businessName ?? "this professional"}`} />
         {call.about && <div className="card" style={{ gap: 6 }}><span className="eyebrow">Additional information</span><p className="small p" style={{ margin: 0, whiteSpace: "pre-wrap" }}>{call.about}</p></div>}
         {call.flexible && !full && (
           <div className="card" style={{ gap: 10 }}>
@@ -79,7 +79,8 @@ export default async function BookCall({ params, searchParams }: { params: Promi
         ) : (
           <div className="card small"><span><span className="b">Nothing is charged now.</span> Your request goes to the professional to confirm. Once they accept, you&apos;ll pay to lock in your appointment.</span></div>
         )}
-            {call.priceCents > 0 && <PriceBox price={call.priceCents} deposit={deposit} fee={call.serviceFeeCents} pro={use.pro} general={use.general} charge={use.charge} />}
+            {pay.deposit && <div className="card small" style={{ gap: 4 }}><span className="eyebrow">Deposit to book</span><span>Model price {money(pay.totalCents)}. Pay <span className="b">{money(pay.onlineCents)}</span> now to book, and <span className="b">{money(pay.balanceDueCents)}</span> to the professional at your appointment.</span></div>}
+            {pay.onlineCents > 0 && <PriceBox price={pay.onlineCents} deposit={deposit} fee={call.serviceFeeCents} pro={use.pro} general={use.general} charge={use.charge} />}
             <Terms deposit={deposit} cutoffHours={Number(s["cancel.cutoff_hours"])} graceMin={Number(s["appt.grace_minutes"])} />
             {call.flexible && !time ? <div className="card small"><span>Pick a day and time above to claim your spot.</span></div> : (
             <ActionForm action={bookModelCall} submitLabel={instantBooking() ? "Pay and claim this spot" : "Send request for this spot"}>

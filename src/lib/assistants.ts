@@ -76,6 +76,7 @@ export async function assistantActivity(partnerId: string, limit = 25) {
 export const ASSIST_WORDS: Record<string, string> = {
   "assistant.model_call_posted": "Posted a Model Call",
   "assistant.model_call_cancelled": "Closed a Model Call",
+  "assistant.model_call_edited": "Edited a Model Call",
   "assistant.model_call_deleted": "Deleted a Model Call",
   "assistant.services_saved": "Updated services & prices",
   "assistant.photos_added": "Added photos",
