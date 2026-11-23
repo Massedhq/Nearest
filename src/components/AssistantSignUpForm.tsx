@@ -9,7 +9,7 @@ import { useSignUp } from "@clerk/nextjs";
 const msg = (e: { longMessage?: string; message: string } | null) => (e ? e.longMessage ?? e.message : "");
 
 /** Partner assistant sign-up: the email is the one the partner invited and can't be changed. Their OWN login. */
-export function AssistantSignUpForm({ email, token, firstName, lastName }: { email: string; token: string; firstName: string; lastName: string }) {
+export function AssistantSignUpForm({ email, token, firstName, lastName, team = false }: { email: string; token: string; firstName: string; lastName: string; team?: boolean }) {
   const { signUp, fetchStatus } = useSignUp();
   const router = useRouter();
   const alreadySignedIn = useAlreadySignedIn();
@@ -18,7 +18,8 @@ export function AssistantSignUpForm({ email, token, firstName, lastName }: { ema
   const [error, setError] = useState("");
   const [wait, setWait] = useState(0);
   const busy = fetchStatus === "fetching";
-  const accept = `/api/assistant/accept?token=${encodeURIComponent(token)}`;
+  // team = an owner's assistant (Field team, 2026-11-22); otherwise a partner's assistant.
+  const accept = team ? `/api/team/accept?token=${encodeURIComponent(token)}` : `/api/assistant/accept?token=${encodeURIComponent(token)}`;
   useEffect(() => { if (wait <= 0) return; const t = setTimeout(() => setWait((w) => w - 1), 1000); return () => clearTimeout(t); }, [wait]);
 
   async function sendCode() {
@@ -35,12 +36,12 @@ export function AssistantSignUpForm({ email, token, firstName, lastName }: { ema
     const last = String(form.get("last") ?? "").trim();
     if (!first || !last) return setError("Enter your first and last name.");
     if (password.length < 8) return setError("Use at least 8 characters for your password.");
-    const params = { emailAddress: email, password, firstName: first, lastName: last, legalAccepted: true, unsafeMetadata: { door: "assistant", assistantToken: token } };
+    const params = { emailAddress: email, password, firstName: first, lastName: last, legalAccepted: true, unsafeMetadata: team ? { door: "team", teamToken: token } : { door: "assistant", assistantToken: token } };
     await signUp.reset();
     let { error } = await signUp.password(params);
     if (error && /signed out/i.test(msg(error))) { await signUp.reset(); ({ error } = await signUp.password(params)); }
     if (error) {
-      if (/taken|already exists/i.test(msg(error))) return setError("There's already a Nearest login for this email. Sign in below instead — you'll be taken to the business you're helping.");
+      if (/taken|already exists/i.test(msg(error))) return setError("There's already a Nearest login for this email. Sign in below instead — you'll be taken to your workspace.");
       if (!(await alreadySignedIn(msg(error), email))) setError(msg(error));
       return;
     }

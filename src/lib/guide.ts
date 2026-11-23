@@ -7,7 +7,7 @@ import { money } from "./time";
 
 export type GuideTopic = { q: string; a: string[]; steps?: string[]; link?: { label: string; href: string } };
 export type GuideSection = { id: string; title: string; icon: string; topics: GuideTopic[] };
-export type GuideAudience = "student" | "pro" | "admin" | "rep";
+export type GuideAudience = "student" | "pro" | "admin" | "rep" | "team";
 
 const clock = (hhmm: string) => {
   const [h, m] = hhmm.split(":").map(Number);
@@ -373,6 +373,16 @@ function admin(r: R): GuideSection[] {
       ],
     },
     {
+      id: "field", title: "Areas & field team", icon: "pin", topics: [
+        { q: "Areas — who works where", a: ["Professional Outreach → Areas. Every DFW city belongs to one owner, and the City of Dallas is split by ZIP code (North, South, East). A ZIP code always wins over its city. The main owner set the starting split with one button — North (Collin, Denton and north Dallas County), South (south Dallas County and Ellis), East (east Dallas County, Rockwall, Kaufman and Hunt), and the West split three ways (northeast Tarrant and Wise → North, central Tarrant → East, south Tarrant, Johnson and Parker → South) — and can move any city or ZIP code anytime. Other owners see their own area (My area).", "What follows the area: a prospect the main owner adds or imports with Partner set to \"By area\" goes to that area's owner; organizations, meetings, drop-offs and pop-ups belong to the owner whose area they're in; Field team, Recruit next and each assistant only show that owner's area. Every change is in the activity log."], link: { label: "Open Areas", href: "/admin/areas" } },
+        { q: "Field team — organizations, meetings and drop-offs", a: ["Professional Outreach → Field team. Organizations lists every place cards can go in your area (Boys & Girls Clubs, schools, churches, YMCAs…). Open one to add the people you talk to (name, title, phone, email), log every call, email, text or visit on its timeline, and book an in-person meeting, a virtual meeting (with the link) or a card drop-off with a date and time.", "Home shows everything coming up — meetings, drop-offs and pop-ups — soonest first with the address and a Map link, so you know where to drive. The main owner sees every owner's; other owners see their own."], link: { label: "Open Field team", href: "/admin/field" } },
+        { q: "Assistants", a: [`Field team → My assistants → invite someone by name and email (for example a @usenearest.com address). They create their own login from the email and work at usenearest.com/outreach — only your outreach and your area: organizations, people, calls and emails, meetings and drop-offs, card requests, pop-ups, professionals and sign-up links, ad prep, ad spend and the live vote map. They never see money, students, card numbers or codes, settings, or anyone else's area. Every owner can have up to 3; Remove ends access right away and keeps everything they logged.`, "When your assistant books a meeting, drop-off or pop-up, asks for cards or sends an ad for approval, you get a bell and an email. My assistants also shows what they did lately."] },
+        { q: "Card requests (you approve)", a: [`On an organization's page your assistant picks your cards and how many (10 is filled in) — that's a request. It shows on Field team → Home under Card requests waiting for you: Approve (it becomes an Assigned assignment in My Voucher Distribution) or Decline (the cards go back to your supply). When you assign cards yourself from an organization's page they're Assigned right away. Requests can't go past what's left in your supply.`] },
+        { q: "Pop-up sign-up events", a: ["Field team → Pop-ups. Add our own pop-up (for example at a Boys & Girls Club) or someone else's event Nearest signed up for as a vendor: name, host, address, date, start and end time, the event listing link, a private contact and private notes, and details for the public page. Planned pop-ups are private; Confirmed ones get a public event page (usenearest.com/pop-ups/…) with Copy link. Professionals come by in person to sign up — no link or QR needed. After the event, set it to Done and enter how many signed up."] },
+        { q: "Ads — prep, approval and tracking", a: ["Field team → Ads. Your assistant prepares each campaign (platform, name, goal, audience, budget, dates, headline, ad text, link and a link to the images or video) and sends it for approval. You Approve, Ask for changes (with a note) or Mark launched once you've set it up and paid in the ad platform — assistants never enter a card. Ad links, how the ads are doing (visits, votes, cost per vote) and Add ad spend are on the same page.", "Tracking (main owner's team only): paste the Meta Pixel, Google Analytics 4, Google Ads and TikTok Pixel IDs and save — they go live on the voting page (after a visitor allows ad measurement). An empty box uses the Vercel setting. The Meta Conversions API token stays in Vercel."] },
+      ],
+    },
+    {
       id: "owner", title: "Owner tools", icon: "gear", topics: [
         { q: "Link previews when you share Nearest", a: ["Any Nearest link you text or post shows the Nearest logo preview. Apps like Messenger and Facebook remember an old preview for a while — if one still shows the wrong picture, paste the link into Facebook's Sharing Debugger (developers.facebook.com/tools/debug) and tap Scrape Again, or add something like &v=2 to the end of the link."] },
         { q: "Why don't some people see \"Install Nearest\"?", a: ["The Install banner appears 3–4 seconds after opening Nearest in a browser, and never once it's installed. iPhones never show a one-tap install — the banner gives Share → Add to Home Screen steps. People who open your link inside Instagram, Facebook or TikTok are told to open it in Safari/Chrome first, since those apps can't install. Anyone who tapped Not now won't see it again for 14 days."] },
@@ -396,6 +406,43 @@ function admin(r: R): GuideSection[] {
 }
 
 // ---------------------------------------------------------------- Sales reps
+function team(): GuideSection[] {
+  return [
+    {
+      id: "start", title: "Getting started", icon: "sparkle", topics: [
+        { q: "What do I do here?", a: ["You work your owner's outreach and area: find organizations where cards can go, call and email them, book meetings and card drop-offs, set up pop-up sign-up events, bring in professionals and prepare ads. Everything you do is saved and your owner sees it.", "You only see your owner's area. You never see money, student accounts, card numbers or codes, or settings."] },
+        { q: "Trouble signing in? (\"You are signed out\")", a: ["Make sure your device's date and time are set automatically, then try again. You can also sign in with a 6-digit code sent to your email instead of your password."] },
+      ],
+    },
+    {
+      id: "orgs", title: "Organizations & drop-offs", icon: "pin", topics: [
+        { q: "How do I add an organization?", a: ["Organizations → Add an organization: name, type, street address, city, state and ZIP (and the person you talked to, if you have one). One row per location. If the address is in another owner's area it won't save — ask your owner."] },
+        { q: "How do I keep track of calls and emails?", a: ["Open the organization. Add each person you talk to (name, title, phone, email, notes). Then use Log a call, email, text or visit — pick who it was with, the date and what happened. It all goes on the organization's timeline, newest first. Email from your own email account and log it here."] },
+        { q: "How do I book a meeting or drop-off?", a: ["On the organization's page → Book a meeting or drop-off: in-person meeting, virtual meeting (paste the link) or card drop-off, the date and time, who to meet and notes (like which door to use). Your owner gets a bell and an email right away. It shows on Today under Upcoming with the address and a Map link. Mark it Done or Cancel it afterward."] },
+        { q: "How do I get cards for an organization?", a: ["On the organization's page → Cards for this organization: choose the cards, how many (10 is filled in), the drop-off date and a note, then Ask for approval. Your owner approves or declines it — you'll see Waiting for approval, Approved or Declined on that page and on Today."] },
+      ],
+    },
+    {
+      id: "popups", title: "Pop-up events", icon: "cal", topics: [
+        { q: "How do I set up a pop-up?", a: ["Pop-ups → Add a pop-up. Choose Our pop-up (for example at a Boys & Girls Club that's letting us set up) or Someone else's event (Nearest signed up as a vendor — paste the event listing link). Add the address, date, start and end time, the host, a private contact and notes, and the details professionals will read.", "Leave it Planned while it's being worked out. Set it to Confirmed when it's set — that turns on its public event page; use Copy to share the link. Professionals come in person to sign up. After the event set it to Done and enter how many signed up."] },
+      ],
+    },
+    {
+      id: "pros", title: "Professionals", icon: "users", topics: [
+        { q: "How do I bring in a professional?", a: ["Professionals → Add a professional: name, service, city, email or phone, where you found them and notes. Tick Email them the sign-up link now to send it — replies come back to your email. They join free, set up their profile and submit it for review. You can also email the link later from the list, and log calls or notes on anyone.", "Your count at the top shows how many you've added and how many created their account."] },
+        { q: "Where should I recruit next?", a: ["Today and Vote map show Recruit next: the services students voted for in each city of your area, with how many votes (and this week's). \"None yet — recruit\" means no live professional offers that service there — that's where to look first. Open the live vote map to watch votes come in."] },
+      ],
+    },
+    {
+      id: "ads", title: "Ads", icon: "chart", topics: [
+        { q: "How do I prepare an ad?", a: ["Ads → Prepare an ad campaign: platform, name, goal, audience, budget, dates, headline, ad text, the link (copy one from Ad links so votes are tracked) and a link to the images or video. Save the draft, then tick Send for approval. Your owner approves it, asks for changes (you'll see their note) or launches it — you never enter a card."] },
+        { q: "Ad spend and results", a: ["How the ads are doing shows visits, votes, vote rate, registrations and cost per vote for every ad link. Add ad spend from the ad platform's numbers (platform, the campaign name exactly as in the ad link, amount and dates) so cost per vote is right."] },
+        { q: "Installing the pixels", a: ["Ads → Tracking (main owner's team): paste the Meta Pixel ID, Google Analytics 4 ID, Google Ads tag and conversion label, and the TikTok Pixel ID, then Save tracking. They load on the voting page only after a visitor allows ad measurement."] },
+      ],
+    },
+  ];
+}
+
 function rep(): GuideSection[] {
   return [
     {
@@ -436,6 +483,7 @@ function rep(): GuideSection[] {
 
 export async function guideFor(audience: GuideAudience): Promise<GuideSection[]> {
   if (audience === "rep") return rep();
+  if (audience === "team") return team();
   const r = rules(await getSettings());
   return audience === "student" ? student(r) : audience === "pro" ? pro(r) : admin(r);
 }

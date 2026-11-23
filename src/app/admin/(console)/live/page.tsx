@@ -36,7 +36,8 @@ export default async function LiveAdmin({ searchParams }: { searchParams: Promis
   const online = r.channels.find((c) => c.channel === "online") ?? { votes: 0, registered: 0 };
   const physical = r.channels.filter((c) => c.channel !== "online").reduce((a, c) => ({ votes: a.votes + c.votes, registered: a.registered + c.registered }), { votes: 0, registered: 0 });
   const dayMax = Math.max(1, ...r.daily.map((d) => d.physical + d.online));
-  const tags = [["Meta Pixel", !!process.env.NEXT_PUBLIC_META_PIXEL_ID], ["Meta Conversions API", !!process.env.META_CAPI_TOKEN], ["Google Analytics 4", !!process.env.NEXT_PUBLIC_GA4_ID], ["Google Ads", !!process.env.NEXT_PUBLIC_GOOGLE_ADS_ID]] as const;
+  const ids = await (await import("@/lib/tracking")).trackingIds();
+  const tags = [["Meta Pixel", !!ids.meta], ["Meta Conversions API", !!process.env.META_CAPI_TOKEN], ["Google Analytics 4", !!ids.ga4], ["Google Ads", !!ids.gads], ["TikTok Pixel", !!ids.tiktok]] as const;
 
   return (
     <>

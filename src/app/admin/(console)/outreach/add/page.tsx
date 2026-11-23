@@ -36,7 +36,7 @@ export default async function AddProspect() {
             <div className="field"><label htmlFor="ap-phone">Phone</label><input id="ap-phone" name="phone" maxLength={30} /></div>
           </div>
           {isMain && partners.length > 0 && (
-            <div className="field"><label htmlFor="ap-rec">Partner</label><select id="ap-rec" name="recruiter" defaultValue={user.id}>{partners.map((p) => <option key={p.id} value={p.id}>{[p.first, p.last].filter(Boolean).join(" ")}</option>)}</select></div>
+            <div className="field"><label htmlFor="ap-rec">Partner</label><select id="ap-rec" name="recruiter" defaultValue=""><option value="">By area (the owner whose area the city is in)</option>{partners.map((p) => <option key={p.id} value={p.id}>{[p.first, p.last].filter(Boolean).join(" ")}</option>)}</select></div>
           )}
           <div className="field"><label htmlFor="ap-notes">Notes</label><textarea id="ap-notes" name="notes" rows={3} maxLength={1000} placeholder="e.g. Student pricing, within Nearest limits" /></div>
           <label className="check xs"><input type="checkbox" name="addAnyway" /><span>Add anyway if there&apos;s a possible duplicate (same name in the same city)</span></label>

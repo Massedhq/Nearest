@@ -1687,6 +1687,10 @@ export const voucherDistributions = pgTable("voucher_distributions", {
   distributedAt: ts("distributed_at").notNull(), // delivered or scheduled date
   notes: text("notes"),
   createdBy: uuid("created_by").notNull().references(() => users.id),
+  // Asked for by an owner's assistant (2026-11-22): status planned until the owner approves (→ assigned) or declines (→ cancelled).
+  requestedBy: uuid("requested_by"),
+  approvedBy: uuid("approved_by"),
+  approvedAt: ts("approved_at"),
   createdAt: ts("created_at").notNull().defaultNow(),
   updatedAt: ts("updated_at"),
 }, (t) => [index("voucher_distributions_batch_idx").on(t.batchId), index("voucher_distributions_place_idx").on(t.placeId)]);
@@ -1860,3 +1864,141 @@ export const partnerAssistants = pgTable("partner_assistants", {
   removedAt: timestamp("removed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("partner_assistants_partner_idx").on(t.partnerId), index("partner_assistants_user_idx").on(t.userId), index("partner_assistants_token_idx").on(t.token)]);
+
+/**
+ * Areas (2026-11-22, owner): who works which part of a market. A city belongs to one owner (area_cities); a ZIP can
+ * override its city (area_zips — used to split the City of Dallas North / South / East). areaOwnerFor() in
+ * src/lib/areas.ts: ZIP first, then city. Prospect routing, Where to recruit, organizations, pop-ups and reports use it.
+ */
+export const areaCities = pgTable("area_cities", {
+  cityId: integer("city_id").primaryKey().references(() => cities.id, { onDelete: "cascade" }),
+  ownerId: uuid("owner_id").notNull().references(() => users.id),
+  updatedBy: uuid("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("area_cities_owner_idx").on(t.ownerId)]);
+
+export const areaZips = pgTable("area_zips", {
+  zip: text("zip").primaryKey(), // 5 digits
+  ownerId: uuid("owner_id").notNull().references(() => users.id),
+  cityId: integer("city_id").references(() => cities.id), // the city the ZIP sits in (for display)
+  updatedBy: uuid("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("area_zips_owner_idx").on(t.ownerId)]);
+
+/**
+ * Owner assistants (2026-11-22, owner): an owner invites a personal assistant who works ONLY that owner's outreach and
+ * area — organizations, contacts, calls/emails log, meetings and drop-offs, card requests (owner approves), pop-up
+ * events, pro prospects and sign-up links, ad prep (owner approves), ad spend, tracking IDs and the live vote map. Their
+ * own staff login at /outreach. Never money, students, card codes, settings or other owners' areas. src/lib/team.ts.
+ */
+export const teamAssistants = pgTable("team_assistants", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  ownerId: uuid("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  email: text("email").notNull(), // lowercase — their login must use this exact email
+  token: text("token").notNull(), // 48 hex
+  status: text("status").notNull().default("invited"), // invited | active | removed
+  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+  inviteExpiresAt: timestamp("invite_expires_at", { withTimezone: true }).notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  removedAt: timestamp("removed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("team_assistants_owner_idx").on(t.ownerId), index("team_assistants_user_idx").on(t.userId), index("team_assistants_token_idx").on(t.token)]);
+
+/** People the team talks to at an organization (card_places) or about a pop-up. Private — owners and their assistant only. */
+export const fieldContacts = pgTable("field_contacts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  placeId: uuid("place_id").references(() => cardPlaces.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  title: text("title"),
+  phone: text("phone"),
+  email: text("email"),
+  notes: text("notes"),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("field_contacts_place_idx").on(t.placeId)]);
+
+/** Every call, email, text, visit or note — insert only (the timeline). */
+export const fieldTouches = pgTable("field_touches", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  placeId: uuid("place_id").references(() => cardPlaces.id, { onDelete: "cascade" }),
+  popupId: uuid("popup_id"),
+  contactId: uuid("contact_id"),
+  kind: text("kind").notNull(), // call | email | text | visit | note
+  summary: text("summary").notNull(),
+  at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("field_touches_place_idx").on(t.placeId, t.at), index("field_touches_popup_idx").on(t.popupId)]);
+
+/** Next steps booked with an organization: in-person meeting, virtual meeting or a card drop-off (who goes = ownerId). */
+export const fieldSteps = pgTable("field_steps", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  placeId: uuid("place_id").notNull().references(() => cardPlaces.id, { onDelete: "cascade" }),
+  ownerId: uuid("owner_id").notNull().references(() => users.id), // the owner it's booked for
+  kind: text("kind").notNull(), // meeting | virtual | dropoff
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  contactId: uuid("contact_id"),
+  meetWith: text("meet_with"),
+  link: text("link"), // virtual meeting link
+  notes: text("notes"),
+  status: text("status").notNull().default("planned"), // planned | done | cancelled
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }),
+}, (t) => [index("field_steps_owner_idx").on(t.ownerId, t.startsAt), index("field_steps_place_idx").on(t.placeId)]);
+
+/**
+ * Pop-up sign-up events: Nearest's own (at an organization) or someone else's event Nearest signed up for as a vendor.
+ * Confirmed events have a public page /pop-ups/<id>. Professionals come in person to sign up; signups is recorded after.
+ */
+export const fieldPopups = pgTable("field_popups", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  ownerId: uuid("owner_id").notNull().references(() => users.id),
+  name: text("name").notNull(),
+  kind: text("kind").notNull().default("ours"), // ours | vendor (someone else's event Nearest joined)
+  hostName: text("host_name"), // organization or company hosting
+  placeId: uuid("place_id"),
+  street: text("street").notNull(),
+  cityId: integer("city_id").references(() => cities.id),
+  cityName: text("city_name").notNull(),
+  state: text("state").notNull().default("TX"),
+  zip: text("zip").notNull(),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+  details: text("details"), // shown on the public page
+  sourceUrl: text("source_url"), // the event listing (Facebook etc.)
+  contactName: text("contact_name"), // private
+  contact: text("contact"), // private
+  notes: text("notes"), // private
+  status: text("status").notNull().default("planned"), // planned | confirmed | done | cancelled
+  signups: integer("signups"),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }),
+}, (t) => [index("field_popups_owner_idx").on(t.ownerId, t.startsAt)]);
+
+/** Ad campaigns an assistant prepares; the owner approves and launches them (assistants never enter a card). */
+export const adDrafts = pgTable("ad_drafts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  ownerId: uuid("owner_id").notNull().references(() => users.id),
+  platform: text("platform").notNull(), // facebook | instagram | tiktok | google
+  name: text("name").notNull(),
+  goal: text("goal"),
+  audience: text("audience"),
+  budgetCents: integer("budget_cents"),
+  budgetKind: text("budget_kind").notNull().default("daily"), // daily | total
+  startsOn: text("starts_on"), endsOn: text("ends_on"), // YYYY-MM-DD
+  headline: text("headline"),
+  primaryText: text("primary_text"),
+  link: text("link"),
+  creative: text("creative"), // link to the images/video (Drive, Canva…)
+  notes: text("notes"),
+  status: text("status").notNull().default("draft"), // draft | submitted | approved | changes | launched
+  reviewNote: text("review_note"),
+  reviewedBy: uuid("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }),
+}, (t) => [index("ad_drafts_owner_idx").on(t.ownerId, t.status)]);

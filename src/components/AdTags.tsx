@@ -7,12 +7,12 @@ import { recordAdVisit } from "@/app/vote-actions";
  * only after the visitor taps Allow — loads the Meta Pixel and Google tag (GA4 + Google Ads). They receive event names
  * only (Vote, Spin); never names, schools, cities or service picks. Env IDs missing = that tag stays off.
  */
-const META = process.env.NEXT_PUBLIC_META_PIXEL_ID;
-const GA4 = process.env.NEXT_PUBLIC_GA4_ID;
-const GADS = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID;
-const GADS_VOTE = process.env.NEXT_PUBLIC_GOOGLE_ADS_VOTE_LABEL;
+// IDs come from the server (Ads → Tracking in Nearest, else the Vercel variables) — see src/lib/tracking.ts. TikTok added 2026-11-22.
+type Ids = { meta: string | null; ga4: string | null; gads: string | null; gadsVote: string | null; tiktok: string | null };
+let IDS: Ids = { meta: null, ga4: null, gads: null, gadsVote: null, tiktok: null };
 
-type W = Window & { fbq?: (...a: unknown[]) => void; gtag?: (...a: unknown[]) => void; dataLayer?: unknown[]; _fbq?: unknown };
+type TtQ = unknown[] & { methods?: string[]; setAndDefer?: (t: TtQ, e: string) => void; load?: (id: string) => void; page?: () => void; track?: (...a: unknown[]) => void; _i?: Record<string, unknown>; _t?: Record<string, number>; _o?: Record<string, unknown> };
+type W = Window & { fbq?: (...a: unknown[]) => void; gtag?: (...a: unknown[]) => void; dataLayer?: unknown[]; _fbq?: unknown; ttq?: TtQ; TiktokAnalyticsObject?: string };
 const allowed = () => { try { return document.cookie.split("; ").includes("nearest_ads=yes"); } catch { return false; } };
 
 /** Send one event to whichever tags are loaded (same event id as the server, so Meta counts it once). */
@@ -22,12 +22,28 @@ export function track(name: string, eventId: string) {
   try {
     w.fbq?.("trackCustom", name, {}, { eventID: eventId });
     w.gtag?.("event", name.toLowerCase(), {});
-    if (name === "Vote" && GADS && GADS_VOTE) w.gtag?.("event", "conversion", { send_to: `${GADS}/${GADS_VOTE}` });
+    if (name === "Vote" && IDS.gads && IDS.gadsVote) w.gtag?.("event", "conversion", { send_to: `${IDS.gads}/${IDS.gadsVote}` });
+    w.ttq?.track?.(name, {}, { event_id: eventId });
   } catch { /* never breaks the page */ }
 }
 
 function load() {
   const w = window as W;
+  const { meta: META, ga4: GA4, gads: GADS, tiktok: TIKTOK } = IDS;
+  if (TIKTOK && !w.ttq) {
+    // TikTok's standard base code, written out (queues calls until events.js loads).
+    const ttq = [] as unknown as TtQ;
+    w.TiktokAnalyticsObject = "ttq"; w.ttq = ttq;
+    ttq.methods = ["page", "track", "identify", "instances", "debug", "on", "off", "once", "ready", "alias", "group", "enableCookie", "disableCookie"];
+    ttq.setAndDefer = (t, e) => { (t as unknown as Record<string, unknown>)[e] = (...a: unknown[]) => { t.push([e, ...a]); }; };
+    for (const m of ttq.methods) ttq.setAndDefer(ttq, m);
+    ttq._i = {}; ttq._t = {}; ttq._o = {};
+    ttq.load = (id: string) => {
+      ttq._i![id] = []; ttq._t![id] = Date.now(); ttq._o![id] = {};
+      const s = document.createElement("script"); s.async = true; s.src = `https://analytics.tiktok.com/i18n/pixel/events.js?sdkid=${id}&lib=ttq`; document.head.appendChild(s);
+    };
+    ttq.load(TIKTOK); ttq.page?.();
+  }
   if (META && !w.fbq) {
     const f = function (...a: unknown[]) { (f as unknown as { q: unknown[] }).q.push(a); } as unknown as ((...a: unknown[]) => void) & { q: unknown[]; loaded: boolean; version: string; queue: unknown[]; push: unknown };
     f.q = []; f.queue = f.q; f.loaded = true; f.version = "2.0"; f.push = f;
@@ -46,12 +62,14 @@ function load() {
   }
 }
 
-export function AdTags() {
+export function AdTags({ ids }: { ids: Ids }) {
+  IDS = ids;
   const [ask, setAsk] = useState(false);
   useEffect(() => {
+    const { meta: META, ga4: GA4, gads: GADS, tiktok: TIKTOK } = IDS;
     const p = Object.fromEntries(new URLSearchParams(window.location.search).entries());
     recordAdVisit(p, window.location.pathname + window.location.search, document.referrer).catch(() => {});
-    if (!META && !GA4 && !GADS) return;
+    if (!META && !GA4 && !GADS && !TIKTOK) return;
     const c = document.cookie.split("; ").find((x) => x.startsWith("nearest_ads="));
     if (!c) setAsk(true); else if (c === "nearest_ads=yes") load();
   }, []);

@@ -18,7 +18,7 @@ export async function adsAllowed() {
 /** Meta Conversions API — same event_id as the browser pixel so Meta counts it once. Never throws, never blocks. */
 export async function sendAdEvent(name: string, eventId: string) {
   try {
-    const pixel = process.env.NEXT_PUBLIC_META_PIXEL_ID, token = process.env.META_CAPI_TOKEN;
+    const pixel = (await (await import("./tracking")).trackingIds()).meta, token = process.env.META_CAPI_TOKEN;
     if (!pixel || !token || !(await adsAllowed())) return;
     const jar = await cookies(), h = await headers();
     const ip = (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || undefined;

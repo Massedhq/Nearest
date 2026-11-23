@@ -14,8 +14,10 @@ async function canTouch(userId: string, recruiterId: string | null) {
   return recruiterId === userId || (await outreachScope(userId)).isMain;
 }
 
-async function create(p: ProspectInput, recruiterId: string, actorId: string, importId?: string) {
+async function create(p: ProspectInput, recruiterIdIn: string, actorId: string, importId?: string, route = false) {
   const [cityId, cat] = await Promise.all([resolvePlace(p.city, p.state), resolveCategory(p.category)]);
+  // Areas (2026-11-22): a prospect the main owner adds or imports without picking a partner goes to the owner whose area it's in.
+  const recruiterId = route ? ((await (await import("@/lib/areas")).areaOwnerFor(cityId)) ?? recruiterIdIn) : recruiterIdIn;
   const [row] = await db.insert(prospects).values({
     recruiterId, name: p.name || "Unknown", business: p.business || null, city: p.city || null, state: (p.state || "TX").toUpperCase().slice(0, 2),
     cityId, category: cat?.name ?? p.category ?? null, categoryId: cat?.id ?? null,
@@ -31,7 +33,9 @@ export async function addProspect(_: FormState, form: FormData): Promise<FormSta
   const { user } = await requireAdmin();
   const p: ProspectInput = { name: s(form, "name", 120), business: s(form, "business", 120), city: s(form, "city", 80), state: s(form, "state", 20) || "TX", category: s(form, "category", 80), email: s(form, "email", 120), phone: s(form, "phone", 30), source: s(form, "source", 60), notes: s(form, "notes", 1000) };
   if (!p.name) return { error: "Enter their name." };
-  const recruiterId = (await outreachScope(user.id)).isMain && s(form, "recruiter", 40) ? s(form, "recruiter", 40) : user.id;
+  const isMain = (await outreachScope(user.id)).isMain;
+  const recruiterId = isMain && s(form, "recruiter", 40) ? s(form, "recruiter", 40) : user.id;
+  const route = isMain && !s(form, "recruiter", 40);
   const c = await checkProspect(p);
   if (c.kind === "no_contact") return { error: "Add an email or phone number." };
   if (c.kind === "suppressed") return { error: "This person asked not to be contacted, so they can't be added." };
@@ -41,7 +45,7 @@ export async function addProspect(_: FormState, form: FormData): Promise<FormSta
     return { error: `Duplicate found — already in Outreach${c.recruiter ? ` with ${c.recruiter}` : ""} (status: ${c.status}). Your notes were added to their record; no second outreach was created.` };
   }
   if (c.kind === "possible" && form.get("addAnyway") !== "on") return { error: `Possible duplicate: someone with that name is already in ${p.city}${c.recruiter ? ` (with ${c.recruiter})` : ""}. Check "Add anyway" if this is a different person.` };
-  const row = await create(p, recruiterId, user.id);
+  const row = await create(p, recruiterId, user.id, undefined, route);
   revalidatePath("/admin/outreach");
   redirect(`/admin/outreach/prospects/${row.id}`);
 }
@@ -102,7 +106,7 @@ export async function approveImport(_: FormState, form: FormData): Promise<FormS
     // Re-check at approval time — someone may have been added or registered since the upload.
     const c = await checkProspect(r);
     if (c.kind === "ready" || c.kind === "no_city" || (c.kind === "possible" && form.get(`force_${i}`) === "on")) {
-      await create(r, imp.recruiterId ?? user.id, user.id, imp.id); added++;
+      await create(r, imp.recruiterId ?? user.id, user.id, imp.id, imp.recruiterId === (await (await import("@/lib/partner")).mainOwnerId())); added++;
     } else {
       if (c.kind === "duplicate" && c.prospectId && (r.notes || r.source)) await logProspect(c.prospectId, "note", `Also in "${imp.filename}"${r.source ? ` (source: ${r.source})` : ""}${r.notes ? `: ${r.notes}` : ""}`, user.id);
       skipped++;

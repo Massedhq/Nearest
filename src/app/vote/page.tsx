@@ -3,6 +3,7 @@ import { db, cities } from "@/db";
 import { getViewer } from "@/lib/viewer";
 import { VoteFlow } from "@/components/VoteFlow";
 import { AdTags } from "@/components/AdTags";
+import { trackingIds } from "@/lib/tracking";
 
 export const metadata = { title: "Your city. Your choice.", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export default async function OnlineVote() {
   return (
     <div className="scr">
       <VoteFlow states={states.length ? states : ["TX"]} signedIn={viewer?.user?.accountType === "student"} online />
-      <AdTags />
+      <AdTags ids={await trackingIds()} />
     </div>
   );
 }

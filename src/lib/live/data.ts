@@ -56,5 +56,7 @@ export async function canSeeLive() {
   if (!v?.user) return false;
   const { db: d, adminMembers } = await import("@/db");
   const { eq } = await import("drizzle-orm");
-  return !!(await d.query.adminMembers.findFirst({ where: eq(adminMembers.userId, v.user.id) }));
+  if (await d.query.adminMembers.findFirst({ where: eq(adminMembers.userId, v.user.id) })) return true;
+  // Owners' assistants see the vote map too, to plan where to work next (2026-11-22).
+  return !!(await (await import("../team")).teamAssistantFor(v.user.id));
 }
