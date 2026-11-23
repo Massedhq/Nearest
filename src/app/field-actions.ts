@@ -575,7 +575,19 @@ export async function createAssistantLogin(_: FormState, form: FormData): Promis
     legalName: legalName || null, title: title || null, canSign: form.get("canSign") === "on" }).returning();
   await logActivity({ actorUserId: a.user.id, action: "team.assistant_login_created", targetType: "team_assistant", targetId: row.id, after: { name, email, legalName, title, canSign: row.canSign } });
   refresh();
+  if (form.get("sendEmail") === "on") {
+    await emailLogin(email, name, password, a.user.firstName);
+    return { ok: `Login ready and emailed to ${email}. Password: ${password} (shown once).` };
+  }
   return { ok: `Login ready. Email: ${email} · Password: ${password} — give her these, she signs in at usenearest.com/sign-in. (Shown once.)` };
+}
+
+/** Email an assistant her sign-in details (only when the owner ticks "Email it to her"). */
+async function emailLogin(to: string, name: string, password: string, owner: string | null) {
+  const url = `${process.env.APP_URL || "https://usenearest.com"}/sign-in`;
+  await sendEmail({ to, subject: "Your Nearest Field team login", eyebrow: "Nearest Field team", heading: `Welcome, ${name}!`,
+    lines: [`${owner ?? "Your owner"} set up your Nearest Field team login.`, `Email: ${to}`, `Password: ${password}`, "Sign in with the button below. You'll land on Today, where your tasks are. You can change your password anytime with Forgot password on the sign-in page."],
+    button: { label: "Sign in", url } }).catch(() => undefined);
 }
 
 export async function resetAssistantPassword(_: FormState, form: FormData): Promise<FormState> {
@@ -589,7 +601,11 @@ export async function resetAssistantPassword(_: FormState, form: FormData): Prom
   const u = await db.query.users.findFirst({ where: eq(users.id, row.userId) });
   try { const { clerkClient } = await import("@clerk/nextjs/server"); await (await clerkClient()).users.updateUser(u!.clerkUserId, { password, skipPasswordChecks: true }); }
   catch (e) { console.error("reset assistant password", e); return { error: "We couldn't change the password. Try a different one." }; }
-  await logActivity({ actorUserId: a.user.id, action: "team.assistant_password_reset", targetType: "team_assistant", targetId: row.id });
+  await logActivity({ actorUserId: a.user.id, action: "team.assistant_password_reset", targetType: "team_assistant", targetId: row.id, after: { emailed: form.get("sendEmail") === "on" } });
+  if (form.get("sendEmail") === "on") {
+    await emailLogin(row.email, row.name, password, a.user.firstName);
+    return { ok: `New password emailed to ${row.email}: ${password} (shown once).` };
+  }
   return { ok: `New password for ${row.email}: ${password} (shown once).` };
 }
 

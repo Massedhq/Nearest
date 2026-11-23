@@ -320,3 +320,13 @@ textarea.fin{padding:8px 10px;height:auto}
 .ws .okmsg{color:#1F6B43}
 html:has(.ws),html:has(.ws) body{background:#FFFFFF}
 html:has(.agree),html:has(.agree) body{background:#FFFFFF}
+/* field team hamburger menu (2026-11-23): replaces the row of tabs */
+.fmenu{position:relative;align-self:flex-start;z-index:20}
+.fmenu summary{list-style:none;display:inline-flex;align-items:center;gap:10px;height:44px;padding:0 16px 0 12px;border-radius:22px;border:1px solid #2F2F33;background:#0E0E10;color:#ECE8E1;font-weight:600;font-size:14px;cursor:pointer}
+.fmenu summary::-webkit-details-marker{display:none}
+.fmenu nav{position:absolute;top:52px;left:0;min-width:240px;display:flex;flex-direction:column;padding:8px;border-radius:16px;border:1px solid #2F2F33;background:#111113;box-shadow:0 12px 32px rgba(0,0,0,.35)}
+.fmenu .ftab{padding:11px 12px;border-radius:10px;border-bottom:0}
+.fmenu .ftab[aria-current=page]{background:#1C1C1F}
+.ws .fmenu summary{background:#FFFFFF;border-color:#D9D3C8;color:#141414}
+.ws .fmenu nav{background:#FFFFFF;border-color:#E6E1D8;box-shadow:0 12px 32px rgba(0,0,0,.12)}
+.ws .fmenu .ftab[aria-current=page]{background:#F4EFE6}

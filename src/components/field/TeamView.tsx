@@ -33,6 +33,7 @@ export async function TeamView({ actor }: { actor: FieldActor }) {
             <div className="field"><label>Department / title</label><input name="title" maxLength={120} placeholder="Outreach &amp; Marketing Department" /></div>
           </div>
           <label className="row small" style={{ gap: 8 }}><input type="checkbox" name="canSign" /> Allowed to sign video educator agreements for Nearest</label>
+          <label className="row small" style={{ gap: 8 }}><input type="checkbox" name="sendEmail" defaultChecked /> Email her the sign-in link, email and password</label>
         </ActionForm>
         <details><summary className="link xs">Or email her an invitation link instead</summary>
           <div style={{ marginTop: 10 }}>
@@ -65,6 +66,7 @@ export async function TeamView({ actor }: { actor: FieldActor }) {
                   <ActionForm action={resetAssistantPassword} submitLabel="Set new password" buttonClass="btn ghost sm">
                     <input type="hidden" name="id" value={a.id} />
                     <div className="field"><label>New password (empty = make one)</label><input name="password" type="text" autoComplete="new-password" maxLength={128} /></div>
+                    <label className="row small" style={{ gap: 8 }}><input type="checkbox" name="sendEmail" defaultChecked /> Email it to her with the sign-in link</label>
                   </ActionForm>
                   <ActionForm action={saveAssistantSigner} submitLabel="Save signing" buttonClass="btn ghost sm">
                     <input type="hidden" name="id" value={a.id} />

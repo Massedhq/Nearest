@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -m "Field team: tasks, reports, AI plan, video educators; Nicky on info@usenearest.com"
+git commit -m "Field team: hamburger menu, email assistant logins, tasks, reports, AI plan, video educators"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""
