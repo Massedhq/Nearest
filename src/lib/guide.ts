@@ -441,7 +441,7 @@ function team(): GuideSection[] {
       ],
     },
     {
-      id: "training", title: "Training", icon: "book", topics: [
+      id: "training", title: "Training", icon: "school", topics: [
         { q: "Where do I learn the work?", a: ["Training has step-by-step lessons: your first week, calling organizations, schools and counselors, finding pop-ups, video educators, Meta (Facebook and Instagram) ads, TikTok ads, Google ads and Google Trends. Tap Mark done on each step as you go — your owner sees your progress. Ads lessons are for preparing campaigns; your owner launches and pays."] },
       ],
     },
