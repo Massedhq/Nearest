@@ -460,13 +460,13 @@ export async function AdsView({ actor, base, editId }: { actor: FieldActor; base
   );
 }
 
-export async function MapView({ actor }: { actor: FieldActor }) {
+export async function MapView({ actor, base = "/outreach" }: { actor: FieldActor; base?: string }) {
   const rows = await recruitNext(actor.scope, 200);
   return (
     <div className="col" style={{ gap: 18 }}>
       <section className="card row between" style={{ flexWrap: "wrap", gap: 10 }}>
         <span className="small">The live map shows every vote as it comes in.</span>
-        <a className="btn sm" href="/live" target="_blank" rel="noreferrer" style={{ width: "auto" }}>Open the live vote map</a>
+        <Link className="btn sm" href={`/live?back=${encodeURIComponent(`${base}/map`)}`} style={{ width: "auto" }}>Open the live vote map</Link>
       </section>
       <RecruitNext rows={rows} />
     </div>

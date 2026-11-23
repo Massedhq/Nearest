@@ -225,3 +225,4 @@ Every admin write (invite, pause, refund, setting change, status switch) inserts
 - (2026-11-23, owner) Field team navigation is a hamburger menu (FieldTabs → <details className="fmenu">, key resets it closed on each page; .fmenu CSS), not a row of tabs — owner and assistant.
 - (2026-11-23, owner) /outreach (.ws) never scrolls sideways: cards scroll their own wide tables, long text wraps (overflow-wrap:anywhere), grids collapse to one column on phones.
 - (2026-11-23, owner) Assistants see ONLY the professionals they entered (prospects.entered_by = them) on /outreach/pros — never the owner's own prospects; teamSendLink/teamProspectNote refuse others for assistants.
+- (2026-11-23, owner) Vote map opens /live in the SAME window with ?back=<base>/map; /live shows "Back to Field team" only for whitelisted backs (/outreach/map, /admin/field/map, /admin/live).
