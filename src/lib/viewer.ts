@@ -135,7 +135,11 @@ export async function destinationFor(viewer: Viewer | null): Promise<string> {
   const { user, admin } = viewer;
   if (admin && (user?.accountType === "professional" || (await hasProBusiness(user?.id)))) return "/workspace";
   if (admin) return "/admin";
-  if (user?.accountType === "professional") return "/pro/home";
+  if (user?.accountType === "professional") {
+    // Pros who are also Nearest Partners (both sides) choose where they're working first (2026-11-22, owner).
+    const sides = await (await import("./partner-booking")).partnerSides(user.id);
+    return sides.partner && !sides.partnerOnly ? "/pro/choose-side" : "/pro/home";
+  }
   if (user?.accountType === "student") return "/home";
   if (user?.accountType === "customer") return "/bookings"; // partner clients: their bookings with partners
   if (user?.accountType === "staff" && (await (await import("./lead-contributors")).contributorForUser(user.id))) return "/leads";

@@ -40,13 +40,12 @@ export default async function PartnerModelCall({ params, searchParams }: { param
       </div>
 
       <div style={{ ...PS.card, gap: 8 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}><span style={PS.muted}>Model price</span><b style={{ fontSize: 22 }}>{pay.totalCents === 0 ? "Free" : money(pay.totalCents)}</b></div>
-        {pay.deposit && (
+        {pay.deposit ? (
           <>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}><span>Pay now to book</span><b style={{ color: P_GOLD }}>{money(pay.onlineCents)}</b></div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}><span>Pay {x.name} at your appointment</span><b>{money(pay.balanceDueCents)}</b></div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}><span>Service <span style={PS.muted}>(remaining balance — pay {x.name} at your appointment)</span></span><b>{money(pay.balanceDueCents)}</b></div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}><span>Deposit/Booking Fee <span style={PS.muted}>(pay now to book)</span></span><b style={{ color: P_GOLD }}>{money(pay.onlineCents)}</b></div>
           </>
-        )}
+        ) : <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}><span style={PS.muted}>Model price</span><b style={{ fontSize: 22 }}>{pay.totalCents === 0 ? "Free" : money(pay.totalCents)}</b></div>}
       </div>
 
       {c.requirements && c.requirements.length > 0 && (

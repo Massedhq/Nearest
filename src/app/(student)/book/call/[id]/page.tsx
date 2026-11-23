@@ -79,8 +79,7 @@ export default async function BookCall({ params, searchParams }: { params: Promi
         ) : (
           <div className="card small"><span><span className="b">Nothing is charged now.</span> Your request goes to the professional to confirm. Once they accept, you&apos;ll pay to lock in your appointment.</span></div>
         )}
-            {pay.deposit && <div className="card small" style={{ gap: 4 }}><span className="eyebrow">Deposit to book</span><span>Model price {money(pay.totalCents)}. Pay <span className="b">{money(pay.onlineCents)}</span> now to book, and <span className="b">{money(pay.balanceDueCents)}</span> to the professional at your appointment.</span></div>}
-            {pay.onlineCents > 0 && <PriceBox price={pay.onlineCents} deposit={deposit} fee={call.serviceFeeCents} pro={use.pro} general={use.general} charge={use.charge} />}
+            {pay.onlineCents > 0 && <PriceBox price={pay.onlineCents} deposit={deposit} fee={call.serviceFeeCents} pro={use.pro} general={use.general} charge={use.charge} balance={pay.balanceDueCents} />}
             <Terms deposit={deposit} cutoffHours={Number(s["cancel.cutoff_hours"])} graceMin={Number(s["appt.grace_minutes"])} />
             {call.flexible && !time ? <div className="card small"><span>Pick a day and time above to claim your spot.</span></div> : (
             <ActionForm action={bookModelCall} submitLabel={instantBooking() ? "Pay and claim this spot" : "Send request for this spot"}>

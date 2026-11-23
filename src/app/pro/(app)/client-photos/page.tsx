@@ -83,7 +83,7 @@ export default async function ClientPhotos() {
           );
         })}
       </div>
-      <Tabs kind="pro" active="Business" />
+      <Tabs kind="pro" active="Menu" />
     </div>
   );
 }

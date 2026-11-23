@@ -19,7 +19,7 @@ const PRO = [
   { label: "Calendar", icon: "cal", href: "/pro/calendar" },
   { label: "Messages", icon: "msg", href: "/pro/messages" },
   { label: "Earnings", icon: "wallet", href: "/pro/earnings" },
-  { label: "Business", icon: "store", href: "/pro/business" },
+  { label: "Menu", icon: "store", href: "/pro/business" }, // the pro menu (2026-11-22): side-aware — Partner menu on the Partner side
 ];
 
 export function Tabs({ kind, active }: { kind: "student" | "pro" | "customer"; active: string }) {

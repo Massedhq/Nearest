@@ -47,3 +47,37 @@ export async function applyPartner(_: FormState, form: FormData): Promise<FormSt
   }).catch(() => {});
   return { ok: "Thanks — your application is in. We'll email you after we review it." };
 }
+
+/**
+ * A professional applies from their app (Menu → Become a Nearest Partner, 2026-11-22). Only after
+ * partner.apply_min_bookings completed bookings; one open request at a time; the main owner approves on Admin →
+ * Partner pages → Applications (same row as public applications, matched to their account email on approval).
+ */
+export async function requestPartnership(_: FormState, form: FormData): Promise<FormState> {
+  const { requirePro } = await import("@/lib/pro");
+  const { user, profile } = await requirePro();
+  const { partnerApplyStatus } = await import("@/lib/partner-apply");
+  if (await (await import("@/lib/partners")).partnerPageFor(user.id)) return { ok: "You're already a Nearest Partner — open the Partner side from your Menu." };
+  const st = await partnerApplyStatus(user.id, user.email);
+  if (!st.eligible) return { error: `You can apply once you have ${st.min} completed bookings on Nearest. You have ${st.completed}.` };
+  if (st.pending) return { ok: "Your request is already in — we'll email you after we review it." };
+  if (!user.email) return { error: "Add an email to your account first." };
+  const about = s(form, "about", 1000);
+  if (about.length < 20) return { error: "Tell us a little about what you'd share with your clients and followers (a sentence or two)." };
+  if (form.get("agree") !== "on") return { error: "Check the box to send your request." };
+  const name = profile.businessName || [user.firstName, user.lastName].filter(Boolean).join(" ") || "Professional";
+  const specialty = s(form, "specialty", 120) || "Beauty professional";
+  const [row] = await db.insert(partnerApplications).values({
+    name, email: normEmail(user.email), instagram: profile.instagram || null, specialty, about: `${about}\n\n(Applied from the pro app — ${st.completed} completed bookings on Nearest.)`, city: s(form, "city", 80) || "—",
+  }).returning();
+  try {
+    const mainId = await (await import("@/lib/partner")).mainOwnerId();
+    await notifyAdmins({ kind: "partner", title: "Partner request from a professional", body: `${name} · ${st.completed} completed bookings · ${specialty}`, href: `/admin/partners#a-${row.id}` }, mainId ? [mainId] : undefined);
+  } catch { /* never block the request */ }
+  sendEmail({
+    to: user.email, subject: "We got your Nearest Partner request", eyebrow: "Nearest Partner", heading: `Thanks, ${(user.firstName ?? name).split(" ")[0]}.`,
+    lines: ["We'll review your request and email you. Once you're approved, the Partner side opens right in your app."],
+    button: { label: "See how partner pages look", url: partnerDemoLink() },
+  }).catch(() => {});
+  return { ok: "Your request is in. We'll email you after we review it." };
+}

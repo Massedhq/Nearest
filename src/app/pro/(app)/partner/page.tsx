@@ -22,7 +22,7 @@ export default async function PartnerEditor({ searchParams }: { searchParams: Pr
   const welcome = (await searchParams).welcome === "1";
   const page = await partnerPageFor(user.id);
 
-  if (!page) redirect("/pro/business"); // partner accounts are switched on by Nearest — nothing to apply for here
+  if (!page) redirect("/pro/become-partner"); // not a partner yet → progress + apply (2026-11-22)
 
   const [services, slug] = await Promise.all([
     db.select().from(proServices).where(and(eq(proServices.userId, user.id), eq(proServices.active, true))).orderBy(asc(proServices.sort)),

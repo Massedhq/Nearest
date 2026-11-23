@@ -21,7 +21,19 @@ export function DepositFeeNote({ deposit, fee }: { deposit: number; fee: number 
   );
 }
 
-export function PriceBox({ price, deposit, fee = 0, pro, general, charge, invite = 0, card = 0, cardLabel }: { price: number; deposit: number; fee?: number; pro: number; general: number; charge: number; invite?: number; card?: number; cardLabel?: string }) {
+export function PriceBox({ price, deposit, fee = 0, pro, general, charge, invite = 0, card = 0, cardLabel, balance = 0, balanceTo }: { price: number; deposit: number; fee?: number; pro: number; general: number; charge: number; invite?: number; card?: number; cardLabel?: string; balance?: number; balanceTo?: string }) {
+  // Deposit to book (Model Calls, 2026-11-20 owner): only two lines — the Service is the remaining balance paid at the
+  // appointment, and everything paid now is ONE Deposit/Booking Fee line.
+  if (balance > 0) return (
+    <div className="card">
+      <div className="row between"><span>Service <span className="muted small">(remaining balance — pay {balanceTo ?? "the professional"} at your appointment)</span></span><span className="num">{money(balance)}</span></div>
+      <div className="row between"><span>Deposit/Booking Fee</span><span className="num">{money(price)}</span></div>
+      {general > 0 && <div className="row between muted"><span>Nearest credit</span><span className="num">−{money(general)}</span></div>}
+      {pro > 0 && <div className="row between muted"><span>Credit with this professional</span><span className="num">−{money(pro)}</span></div>}
+      <hr className="hr" />
+      <div className="row between b"><span>Total due today</span><span className="num">{money(charge)}</span></div>
+    </div>
+  );
   const sp = depositFeeSplit(price, deposit, fee);
   return (
     <div className="card">

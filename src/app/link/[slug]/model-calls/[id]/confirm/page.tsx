@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, cities, modelCalls } from "@/db";
-import { PartnerBookShell, PS, P_GOLD } from "@/components/PartnerBookShell";
+import { PartnerBookShell, PS } from "@/components/PartnerBookShell";
 import { ActionForm } from "@/components/ActionForm";
 import { PriceBox, Terms } from "@/components/BookingTerms";
 import { WherePicker } from "@/components/WherePicker";
@@ -51,13 +51,7 @@ export default async function PartnerModelCallConfirm({ params, searchParams }: 
           <div className="row small"><Icon name="clock" size="s" /> About {c.durationMin} minutes</div>
           {x.pro.addressLine && <div className="row small top-a"><Icon name="pin" size="s" /><span>At {x.name}&apos;s place{city ? ` in ${city.name}` : ""}. Address shared at 12:00 AM on your appointment day.</span></div>}
         </div>
-        {pay.deposit && (
-          <div style={{ ...PS.card, gap: 6 }}>
-            <span style={PS.eyebrow}>Deposit to book</span>
-            <span style={{ fontSize: 14 }}>Model price {money(pay.totalCents)}. Pay <b style={{ color: P_GOLD }}>{money(pay.onlineCents)}</b> now to book, and <b>{money(pay.balanceDueCents)}</b> to {x.name} at your appointment.</span>
-          </div>
-        )}
-        {pay.onlineCents > 0 && <PriceBox price={pay.onlineCents} fee={c.serviceFeeCents} deposit={deposit} pro={use.pro} general={use.general} charge={use.charge} />}
+        {pay.onlineCents > 0 && <PriceBox price={pay.onlineCents} fee={c.serviceFeeCents} deposit={deposit} pro={use.pro} general={use.general} charge={use.charge} balance={pay.balanceDueCents} balanceTo={x.name} />}
         <Terms deposit={deposit} cutoffHours={Number(s["cancel.cutoff_hours"])} graceMin={Number(s["appt.grace_minutes"])} />
         <ActionForm action={bookPartnerModelCall} submitLabel={instantBooking() ? "Pay and claim this spot" : "Send request for this spot"}>
           <input type="hidden" name="slug" value={x.r.p.slug!} />
