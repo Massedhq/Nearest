@@ -32,11 +32,12 @@ const F = ({ label, children }: { label: string; children: React.ReactNode }) =>
 const KIND_TAG: Record<string, string> = { meeting: "Meeting", virtual: "Virtual", dropoff: "Drop-off", popup: "Pop-up" };
 
 export function FieldTabs({ base, at: on, owner }: { base: string; at: string; owner: boolean }) {
-  const tabs = [["", "Home"], ["/orgs", "Organizations"], ["/popups", "Pop-ups"], ["/pros", "Professionals"], ["/ads", "Ads"], ["/map", "Vote map"], ...(owner ? [["/team", "My assistants"]] : [["/guide", "How it works"]])];
+  const tabs = owner
+    ? [["", "Home"], ["/tasks", "Tasks"], ["/reports", "Reports"], ["/orgs", "Organizations"], ["/popups", "Pop-ups"], ["/pros", "Professionals"], ["/educators", "Video educators"], ["/ads", "Ads"], ["/map", "Vote map"], ["/team", "My assistants"]]
+    : [["", "Today"], ["/tasks", "Tasks"], ["/orgs", "Organizations"], ["/cards", "Cards"], ["/popups", "Pop-ups"], ["/pros", "Professionals"], ["/educators", "Video educators"], ["/ads", "Ads"], ["/map", "Vote map"], ["/training", "Training"], ["/guide", "How it works"]];
   return (
-    <nav className="row" style={{ gap: 18, borderBottom: "1px solid #232326", flexWrap: "wrap" }} aria-label="Field team">
-      {tabs.map(([p, l]) => <Link key={p} href={`${base}${p}`} aria-current={on === p ? "page" : undefined}
-        style={{ padding: "10px 2px", borderBottom: `2px solid ${on === p ? "#E8C4C0" : "transparent"}`, color: on === p ? "#ECE8E1" : "#9A958D", textDecoration: "none", fontWeight: 600, fontSize: 14 }}>{l}</Link>)}
+    <nav className="ftabs" aria-label="Field team">
+      {tabs.map(([p, l]) => <Link key={p} href={`${base}${p}`} className="ftab" aria-current={on === p ? "page" : undefined}>{l}</Link>)}
     </nav>
   );
 }
@@ -121,7 +122,7 @@ export async function OrgsView({ actor, base, q }: { actor: FieldActor; base: st
         </ActionForm>
       </section>
       <section className="card" style={{ gap: 10 }}>
-        <form className="row" style={{ gap: 8 }}><input name="q" defaultValue={q} placeholder="Search name, street, city or ZIP" style={{ flex: 1, height: 40, borderRadius: 10, border: "1px solid #2A2A2D", background: "#0E0E10", color: "#ECE8E1", padding: "0 10px" }} /><button className="btn ghost sm" style={{ width: "auto" }}>Search</button></form>
+        <form className="row" style={{ gap: 8 }}><input name="q" defaultValue={q} placeholder="Search name, street, city or ZIP" className="fin" style={{ flex: 1, height: 40 }} /><button className="btn ghost sm" style={{ width: "auto" }}>Search</button></form>
         <table className="tbl"><thead><tr><th>Organization</th><th>Address</th><th className="num">Touches</th><th>Last</th><th>Next</th><th className="num">Cards</th>{actor.scope === null && <th>Area</th>}</tr></thead>
           <tbody>{rows.length === 0 ? <tr><td className="empty" colSpan={7}>No organizations yet.</td></tr> : rows.map((r) => (
             <tr key={r.id}><td><Link className="link b" href={`${base}/org/${r.id}`}>{r.name}</Link><div className="xs muted">{ORG_KINDS[r.kind] ?? r.kind}</div></td>
@@ -153,7 +154,7 @@ export async function OrgDetail({ actor, base, placeId }: { actor: FieldActor; b
         <section className="card" style={{ gap: 10 }}>
           <span className="eyebrow">People</span>
           {t.contacts.length === 0 ? <span className="small muted">No one added yet.</span> : t.contacts.map((c) => (
-            <div key={c.id} className="col" style={{ gap: 2, borderBottom: "1px solid #1C1C1F", paddingBottom: 8 }}>
+            <div key={c.id} className="col fsep" style={{ gap: 2, paddingBottom: 8 }}>
               <span className="b">{c.name}{c.title ? <span className="muted small"> · {c.title}</span> : null}</span>
               <span className="small">{c.phone && <a className="link" href={`tel:${c.phone}`}>{c.phone}</a>}{c.phone && c.email ? " · " : ""}{c.email && <a className="link" href={`mailto:${c.email}`}>{c.email}</a>}</span>
               {c.notes && <span className="xs muted">{c.notes}</span>}
@@ -235,7 +236,7 @@ export async function OrgDetail({ actor, base, placeId }: { actor: FieldActor; b
       <section className="card" style={{ gap: 10 }}>
         <span className="eyebrow">Timeline</span>
         {t.touches.length === 0 ? <span className="small muted">Nothing logged yet.</span> : t.touches.map((x) => (
-          <div key={x.id} className="col" style={{ gap: 2, borderBottom: "1px solid #1C1C1F", paddingBottom: 8 }}>
+          <div key={x.id} className="col fsep" style={{ gap: 2, paddingBottom: 8 }}>
             <span className="xs muted">{at(x.at)} · {TOUCH_KINDS[x.kind] ?? x.kind}{x.contact ? ` with ${x.contact}` : ""} · {x.by}</span>
             <span className="small" style={{ whiteSpace: "pre-wrap" }}>{x.summary}</span>
           </div>
@@ -274,6 +275,13 @@ export async function PopupsView({ actor, base, editId }: { actor: FieldActor; b
             <F label="Contact at the event (private)"><input name="contactName" maxLength={100} defaultValue={edit?.contact_name ?? ""} /></F>
             <F label="Their phone or email (private)"><input name="contact" maxLength={160} defaultValue={edit?.contact ?? ""} /></F>
           </div>
+          <div className="grid2">
+            <F label="Space cost (our pop-up — free or $)"><input name="spaceCost" maxLength={120} defaultValue={edit?.space_cost ?? ""} placeholder="Free / $75" /></F>
+            <F label="Vendor fee (their event — what they charge us)"><input name="vendorFee" maxLength={120} defaultValue={edit?.vendor_fee ?? ""} placeholder="$40 per table" /></F>
+            <F label="Our fee (what we charge other vendors, if any)"><input name="ourFee" maxLength={120} defaultValue={edit?.our_fee ?? ""} placeholder="None" /></F>
+            <F label="What we bring"><input name="bring" maxLength={600} defaultValue={edit?.bring ?? ""} placeholder="Refreshments, cards, banner, sign-up tablet" /></F>
+          </div>
+          <span className="xs muted">Anything that costs money goes to {actor.assistant ? "your owner" : "you"} — {actor.assistant ? "never agree to or pay a fee yourself" : "your assistant can't agree to or pay a fee"}.</span>
           <F label="Details for the public page"><textarea name="details" maxLength={1500} defaultValue={edit?.details ?? ""} placeholder="Beauty professionals: stop by our table to set up your free Nearest profile. Bring your phone and a photo of your work." /></F>
           <F label="Private notes"><textarea name="notes" maxLength={1500} defaultValue={edit?.notes ?? ""} placeholder="Set-up at 9:30, table provided, park in back." /></F>
         </ActionForm>
@@ -284,7 +292,9 @@ export async function PopupsView({ actor, base, editId }: { actor: FieldActor; b
         <table className="tbl"><thead><tr><th>When</th><th>Event</th><th>Where</th><th>Status</th><th className="num">Sign-ups</th><th /></tr></thead>
           <tbody>{rows.length === 0 ? <tr><td className="empty" colSpan={6}>No pop-ups yet.</td></tr> : rows.map((r) => (
             <tr key={r.id} id={`p-${r.id}`}><td className="small b">{at(r.starts_at)}</td>
-              <td><span className="b">{r.name}</span><div className="xs muted">{r.kind === "vendor" ? "Vendor at " : ""}{r.host_name ?? ""}{actor.scope === null && r.owner ? ` · ${r.owner}` : ""}</div></td>
+              <td><span className="b">{r.name}</span><div className="xs muted">{r.kind === "vendor" ? "Vendor at " : ""}{r.host_name ?? ""}{actor.scope === null && r.owner ? ` · ${r.owner}` : ""}</div>
+                {(r.space_cost || r.vendor_fee || r.our_fee || r.bring) && <div className="xs">{[r.space_cost && `Space ${r.space_cost}`, r.vendor_fee && `Vendor fee ${r.vendor_fee}`, r.our_fee && `Our fee ${r.our_fee}`, r.bring && `Bring: ${r.bring}`].filter(Boolean).join(" · ")}</div>}
+                {[r.space_cost, r.vendor_fee].some((x) => x && !/^(free|\$?0(\.00)?|none|no)$/i.test(x.trim())) && r.status === "planned" && <span className="tag warn">Needs owner OK — costs money</span>}</td>
               <td className="small">{r.street}, {r.city_name} {r.zip}</td>
               <td><span className={`tag ${r.status === "confirmed" ? "ok" : r.status === "cancelled" ? "bad" : ""}`}>{POPUP_STATUS[r.status]}</span>
                 {r.status === "confirmed" && <div><Link className="link xs" href={`/pop-ups/${r.id}`} target="_blank">Public page</Link> <CopyButton text={`${SITE_URL}/pop-ups/${r.id}`} label="Copy" /></div>}</td>
@@ -292,8 +302,8 @@ export async function PopupsView({ actor, base, editId }: { actor: FieldActor; b
               <td><Link className="link xs" href={`${base}/popups?edit=${r.id}#form`}>Edit</Link>
                 <form action={popupStatus} className="row" style={{ gap: 6, marginTop: 6 }}>
                   <input type="hidden" name="id" value={r.id} />
-                  <select name="status" defaultValue={r.status} style={{ height: 32, borderRadius: 8, background: "#0E0E10", color: "#ECE8E1", border: "1px solid #2A2A2D" }}>{Object.entries(POPUP_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
-                  <input name="signups" type="number" min={0} placeholder="Sign-ups" defaultValue={r.signups ?? ""} style={{ width: 80, height: 32, borderRadius: 8, background: "#0E0E10", color: "#ECE8E1", border: "1px solid #2A2A2D", padding: "0 6px" }} />
+                  <select name="status" defaultValue={r.status} className="fin" style={{ height: 32 }}>{Object.entries(POPUP_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+                  <input name="signups" type="number" min={0} placeholder="Sign-ups" defaultValue={r.signups ?? ""} className="fin" style={{ width: 80, height: 32 }} />
                   <button className="link xs">Save</button>
                 </form></td></tr>
           ))}</tbody></table>
@@ -399,7 +409,7 @@ export async function AdsView({ actor, base, editId }: { actor: FieldActor; base
               <td><Link className="link xs" href={`${base}/ads?edit=${d.id}#form`}>Open</Link>
                 {owner && d.status !== "launched" && <form action={reviewAdDraft} className="col" style={{ gap: 4, marginTop: 6 }}>
                   <input type="hidden" name="id" value={d.id} />
-                  <input name="note" placeholder="Note (optional)" maxLength={1000} style={{ height: 30, borderRadius: 8, background: "#0E0E10", color: "#ECE8E1", border: "1px solid #2A2A2D", padding: "0 6px" }} />
+                  <input name="note" placeholder="Note (optional)" maxLength={1000} className="fin" style={{ height: 30 }} />
                   <span className="row" style={{ gap: 8 }}>
                     <button className="link xs" name="decision" value="approved">Approve</button>
                     <button className="link xs" name="decision" value="changes">Ask for changes</button>

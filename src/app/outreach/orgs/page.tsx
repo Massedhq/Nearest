@@ -6,7 +6,7 @@ export const metadata = { title: "Organizations", robots: { index: false, follow
 export const dynamic = "force-dynamic";
 
 export default async function Orgs({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const { a, name, owner } = await assistantField();
+  const f = await assistantField(); const { a, name, owner } = f;
   const { q } = await searchParams;
-  return <OutreachShell at="/orgs" title="Organizations" name={name} owner={owner}><OrgsView actor={a} base="/outreach" q={(q ?? "").slice(0, 80)} /></OutreachShell>;
+  return <OutreachShell viewAs={f.viewAs} at="/orgs" title="Organizations" name={name} owner={owner}><OrgsView actor={a} base="/outreach" q={(q ?? "").slice(0, 80)} /></OutreachShell>;
 }

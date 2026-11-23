@@ -13,7 +13,7 @@ export default function robots(): MetadataRoute.Robots {
       disallow: [
         "/api/", "/admin", "/pro/", "/sign-in", "/sign-up", "/go", "/workspace", "/onboarding", "/verify", "/home", "/account", "/book", "/bookings",
         "/bundle", "/campaign", "/connections", "/credits", "/favorites", "/messages", "/notifications", "/model-calls", "/appeal", "/guide", "/p/",
-        "/leads", "/rep", "/r/", "/guardian/", "/unsubscribe/", "/invite-expired", "/not-authorized", "/supporters/invite/", "/supporters/manage/", "/ocr/", "/meet", "/card", "/cards",
+        "/leads", "/rep", "/r/", "/guardian/", "/unsubscribe/", "/invite-expired", "/not-authorized", "/supporters/invite/", "/supporters/manage/", "/ocr/", "/meet", "/card", "/cards", "/agreement/", "/outreach",
       ],
     }],
     sitemap: `${SITE_URL}/sitemap.xml`,

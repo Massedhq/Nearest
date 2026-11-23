@@ -230,8 +230,11 @@ export async function savePopup(_: FormState, form: FormData): Promise<FormState
   const v = {
     name, kind, hostName: s(form, "hostName", 120) || null, street, cityId: city.id, cityName: city.name, state, zip, startsAt: start, endsAt: end,
     details: s(form, "details", 1500) || null, sourceUrl: src || null, contactName: s(form, "contactName", 100) || null, contact: s(form, "contact", 160) || null, notes: s(form, "notes", 1500) || null,
+    spaceCost: s(form, "spaceCost", 120) || null, vendorFee: s(form, "vendorFee", 120) || null, ourFee: s(form, "ourFee", 120) || null, bring: s(form, "bring", 600) || null,
     status: ["planned", "confirmed"].includes(s(form, "status", 12)) ? s(form, "status", 12) : existing?.status ?? "planned",
   };
+  const paid = (x: string | null) => !!x && !/^(free|\$?0(\.00)?|none|no)$/i.test(x.trim());
+  if (a.assistant && v.status === "confirmed" && existing?.status !== "confirmed" && (paid(v.spaceCost) || paid(v.vendorFee))) return { error: "This pop-up costs money — save it as Planned. Your owner confirms it." };
   if (existing) {
     await db.update(fieldPopups).set({ ...v, updatedAt: new Date() }).where(eq(fieldPopups.id, existing.id));
     await logActivity({ actorUserId: a.user.id, action: "field.popup_changed", targetType: "field_popup", targetId: existing.id, after: { name, at: start, status: v.status } });
@@ -240,6 +243,11 @@ export async function savePopup(_: FormState, form: FormData): Promise<FormState
     await logActivity({ actorUserId: a.user.id, action: "field.popup_added", targetType: "field_popup", targetId: row.id, after: { name, at: start, status: v.status } });
     await tellOwner(a, ownerId, `Pop-up booked — ${name}`, `${who(a)} set up "${name}" at ${street}, ${city.name} on ${fmtDate(start)} (${v.status}).`, "/admin/field/popups");
   }
+  // Anything that costs money goes to the owner (assistants never pay or agree to a fee).
+  const costs = [v.spaceCost && `space: ${v.spaceCost}`, v.vendorFee && `vendor fee: ${v.vendorFee}`].filter(Boolean);
+  const free = (x: string | null) => !x || /^(free|\$?0(\.00)?|none|no)$/i.test(x.trim());
+  if (a.assistant && (!free(v.spaceCost) || !free(v.vendorFee)) && (!existing || existing.spaceCost !== v.spaceCost || existing.vendorFee !== v.vendorFee))
+    await tellOwner(a, ownerId, `Pop-up needs your OK — ${name}`, `${who(a)}: "${name}" costs money (${costs.join(", ")}). Only you agree to or pay a fee.`, "/admin/field/popups");
   refresh(); revalidatePath("/pop-ups", "layout");
   return { ok: existing ? "Pop-up saved." : `Pop-up saved.${v.status === "confirmed" ? " Its public page is live." : " Mark it Confirmed when it's set to show its public page."}` };
 }
@@ -250,6 +258,7 @@ export async function popupStatus(form: FormData) {
   if (!ID.test(id) || !["planned", "confirmed", "done", "cancelled"].includes(status)) return;
   const p = await db.query.fieldPopups.findFirst({ where: eq(fieldPopups.id, id) });
   if (!p || !mayWork(a, p.ownerId)) return;
+  if (a.assistant && status === "confirmed" && p.status !== "confirmed" && [p.spaceCost, p.vendorFee].some((x) => !!x && !/^(free|\$?0(\.00)?|none|no)$/i.test(x.trim()))) return; // costs money → owner confirms
   const signupsRaw = s(form, "signups", 5);
   const signups = signupsRaw === "" ? p.signups : Math.max(0, Math.min(9999, Math.round(Number(signupsRaw)) || 0));
   await db.update(fieldPopups).set({ status, signups, updatedAt: new Date() }).where(eq(fieldPopups.id, id));
@@ -514,4 +523,84 @@ export async function setZipArea(_: FormState, form: FormData): Promise<FormStat
   await logActivity({ actorUserId: a.user.id, action: "areas.zips", targetType: "zip", targetId: zips.join(","), after: { ownerId: ownerId || null } });
   refresh();
   return { ok: ownerId ? `${zips.length} ZIP code${zips.length === 1 ? "" : "s"} saved.` : `${zips.length} ZIP code${zips.length === 1 ? "" : "s"} removed (they follow their city again).` };
+}
+
+/* ───────────── Assistant logins & signing (owners only, 2026-11-23) ───────────── */
+
+const words = ["North", "Field", "Bloom", "Glow", "Studio", "Velvet", "Rose", "Grace", "Shine", "Polish"];
+function makePassword() {
+  const r = (n: number) => Math.floor(Math.random() * n);
+  return `${words[r(words.length)]}-${words[r(words.length)]}-${1000 + r(9000)}!`;
+}
+
+/** Create an assistant's login with a password the owner sets (or one made for them) — ready right away. */
+export async function createAssistantLogin(_: FormState, form: FormData): Promise<FormState> {
+  const a = await ownerOnly();
+  const name = s(form, "name", 80), email = s(form, "email", 160).toLowerCase();
+  const legalName = s(form, "legalName", 120), title = s(form, "title", 120);
+  let password = String(form.get("password") ?? "").trim();
+  if (!name) return { error: "Enter the name she goes by." };
+  if (!EMAIL.test(email)) return { error: "Enter a valid email." };
+  if (password && password.length < 10) return { error: "Use at least 10 characters for the password, or leave it empty and one is made for you." };
+  if (password.length > 128) return { error: "That password is too long." };
+  if (!password) password = makePassword();
+  const taken = await db.query.users.findFirst({ where: eq(users.email, email) });
+  if (taken && taken.accountType !== "staff") return { error: "That email already has a student or professional account. Use a different email." };
+  const mine = await db.select().from(teamAssistants).where(and(eq(teamAssistants.ownerId, a.user.id), inArray(teamAssistants.status, ["invited", "active"])));
+  if (mine.some((x) => x.email === email)) return { error: "You already added this email." };
+  if (mine.length >= MAX_TEAM_ASSISTANTS) return { error: `You can have up to ${MAX_TEAM_ASSISTANTS} assistants. Remove one first.` };
+  const { clerkClient } = await import("@clerk/nextjs/server");
+  const clerk = await clerkClient();
+  const [first, ...rest] = (legalName || name).split(" ");
+  let clerkId: string;
+  try {
+    const found = await clerk.users.getUserList({ emailAddress: [email] });
+    if (found.data[0]) {
+      clerkId = found.data[0].id;
+      await clerk.users.updateUser(clerkId, { password, skipPasswordChecks: true });
+    } else {
+      const cu = await clerk.users.createUser({ emailAddress: [email], password, skipPasswordChecks: true, firstName: first, lastName: rest.join(" ") || undefined, unsafeMetadata: { door: "team" } });
+      clerkId = cu.id;
+    }
+  } catch (e) {
+    console.error("create assistant login", e);
+    return { error: "We couldn't create the sign-in. Try a different password, or use Email her a link instead." };
+  }
+  let u = taken ?? (await db.query.users.findFirst({ where: eq(users.clerkUserId, clerkId) }));
+  if (!u) [u] = await db.insert(users).values({ clerkUserId: clerkId, accountType: "staff", firstName: first, lastName: rest.join(" ") || null, email, emailVerifiedAt: new Date() }).returning();
+  else await db.update(users).set({ clerkUserId: clerkId, emailVerifiedAt: u.emailVerifiedAt ?? new Date(), updatedAt: new Date() }).where(eq(users.id, u.id));
+  const [row] = await db.insert(teamAssistants).values({ ownerId: a.user.id, name, email, token: newTeamToken(), status: "active", userId: u.id, acceptedAt: new Date(), inviteExpiresAt: new Date(),
+    legalName: legalName || null, title: title || null, canSign: form.get("canSign") === "on" }).returning();
+  await logActivity({ actorUserId: a.user.id, action: "team.assistant_login_created", targetType: "team_assistant", targetId: row.id, after: { name, email, legalName, title, canSign: row.canSign } });
+  refresh();
+  return { ok: `Login ready. Email: ${email} · Password: ${password} — give her these, she signs in at usenearest.com/sign-in. (Shown once.)` };
+}
+
+export async function resetAssistantPassword(_: FormState, form: FormData): Promise<FormState> {
+  const a = await ownerOnly();
+  const id = s(form, "id", 40);
+  const row = ID.test(id) ? await db.query.teamAssistants.findFirst({ where: eq(teamAssistants.id, id) }) : null;
+  if (!row || row.status !== "active" || !row.userId || (a.scope && row.ownerId !== a.user.id)) return { error: "Not found." };
+  let password = String(form.get("password") ?? "").trim();
+  if (password && password.length < 10) return { error: "Use at least 10 characters." };
+  if (!password) password = makePassword();
+  const u = await db.query.users.findFirst({ where: eq(users.id, row.userId) });
+  try { const { clerkClient } = await import("@clerk/nextjs/server"); await (await clerkClient()).users.updateUser(u!.clerkUserId, { password, skipPasswordChecks: true }); }
+  catch (e) { console.error("reset assistant password", e); return { error: "We couldn't change the password. Try a different one." }; }
+  await logActivity({ actorUserId: a.user.id, action: "team.assistant_password_reset", targetType: "team_assistant", targetId: row.id });
+  return { ok: `New password for ${row.email}: ${password} (shown once).` };
+}
+
+/** Signing for Nearest: legal name + department, and the owner's switch. */
+export async function saveAssistantSigner(_: FormState, form: FormData): Promise<FormState> {
+  const a = await ownerOnly();
+  const id = s(form, "id", 40);
+  const row = ID.test(id) ? await db.query.teamAssistants.findFirst({ where: eq(teamAssistants.id, id) }) : null;
+  if (!row || (a.scope && row.ownerId !== a.user.id)) return { error: "Not found." };
+  const legalName = s(form, "legalName", 120), title = s(form, "title", 120), canSign = form.get("canSign") === "on";
+  if (canSign && (!legalName || !title)) return { error: "Add her legal name and department to let her sign." };
+  await db.update(teamAssistants).set({ legalName: legalName || null, title: title || null, canSign }).where(eq(teamAssistants.id, row.id));
+  await logActivity({ actorUserId: a.user.id, action: "team.assistant_signer", targetType: "team_assistant", targetId: row.id, before: { legalName: row.legalName, title: row.title, canSign: row.canSign }, after: { legalName, title, canSign } });
+  refresh();
+  return { ok: canSign ? `${legalName} can sign agreements for Nearest.` : "Saved — she can't sign agreements." };
 }

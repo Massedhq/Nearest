@@ -1859,6 +1859,10 @@ export const partnerAssistants = pgTable("partner_assistants", {
   token: text("token").notNull(), // 48 hex, invitation link
   status: text("status").notNull().default("invited"), // invited | active | removed
   userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+  // Contract signing (2026-11-23): legal name + department shown on agreements she signs for Nearest; can_sign is the owner's switch.
+  legalName: text("legal_name"),
+  title: text("title"),
+  canSign: boolean("can_sign").notNull().default(false),
   inviteExpiresAt: timestamp("invite_expires_at", { withTimezone: true }).notNull(),
   acceptedAt: timestamp("accepted_at", { withTimezone: true }),
   removedAt: timestamp("removed_at", { withTimezone: true }),
@@ -1899,6 +1903,10 @@ export const teamAssistants = pgTable("team_assistants", {
   token: text("token").notNull(), // 48 hex
   status: text("status").notNull().default("invited"), // invited | active | removed
   userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+  // Contract signing (2026-11-23): legal name + department shown on agreements she signs for Nearest; can_sign is the owner's switch.
+  legalName: text("legal_name"),
+  title: text("title"),
+  canSign: boolean("can_sign").notNull().default(false),
   inviteExpiresAt: timestamp("invite_expires_at", { withTimezone: true }).notNull(),
   acceptedAt: timestamp("accepted_at", { withTimezone: true }),
   removedAt: timestamp("removed_at", { withTimezone: true }),
@@ -1973,6 +1981,11 @@ export const fieldPopups = pgTable("field_popups", {
   notes: text("notes"), // private
   status: text("status").notNull().default("planned"), // planned | confirmed | done | cancelled
   signups: integer("signups"),
+  // Costs (2026-11-23): free-text so "Free", "$40", "$25 per table" all work. Anything that costs money shows "Needs owner".
+  spaceCost: text("space_cost"), // our own pop-up: is the space free or paid
+  vendorFee: text("vendor_fee"), // someone else's event: what they charge us
+  ourFee: text("our_fee"), // our own pop-up: what we charge other vendors
+  bring: text("bring"), // what we bring (refreshments, cards, banner…)
   createdBy: uuid("created_by").references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }),
@@ -2002,3 +2015,136 @@ export const adDrafts = pgTable("ad_drafts", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }),
 }, (t) => [index("ad_drafts_owner_idx").on(t.ownerId, t.status)]);
+
+/**
+ * Field tasks (2026-11-23): an owner's assistant's to-do list. Made by the owner, by the assistant, or by the daily AI
+ * plan (src/lib/field-plan.ts). Status todo → work → needs (sent to the owner) → done (report sent) → approved, or back.
+ * A finished task carries a report: summary + every call/visit in field_task_calls. Owner gets a bell + email on start,
+ * send and complete; the assistant gets one when the owner adds, approves or sends back.
+ */
+export const fieldTasks = pgTable("field_tasks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  ownerId: uuid("owner_id").notNull().references(() => users.id),
+  assistantId: uuid("assistant_id"), // team_assistants.id; null = any assistant of the owner
+  title: text("title").notNull(),
+  why: text("why"),
+  steps: jsonb("steps").$type<string[]>().notNull().default([]),
+  dueDate: text("due_date").notNull(), // YYYY-MM-DD (Central)
+  dueTime: text("due_time"), // "9:00 AM"
+  priority: text("priority").notNull().default("normal"), // high | normal
+  repeat: text("repeat").notNull().default("once"), // once | weekdays (a template the plan copies each weekday)
+  repeatOf: uuid("repeat_of"),
+  source: text("source").notNull().default("owner"), // owner | assistant | ai
+  kind: text("kind").notNull().default("general"), // calls | popups | ads | training | edu | pros | general
+  status: text("status").notNull().default("todo"), // todo | work | needs | done | approved | back
+  needsMsg: text("needs_msg"),
+  backNote: text("back_note"),
+  summary: text("summary"),
+  cardsAsked: integer("cards_asked"),
+  createdBy: uuid("created_by").references(() => users.id),
+  startedAt: timestamp("started_at", { withTimezone: true }),
+  doneAt: timestamp("done_at", { withTimezone: true }),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }),
+}, (t) => [index("field_tasks_owner_idx").on(t.ownerId, t.dueDate), index("field_tasks_status_idx").on(t.ownerId, t.status)]);
+
+/** Every call, email, text or visit reported when a task is finished (date/time, place, person, outcome, next step). */
+export const fieldTaskCalls = pgTable("field_task_calls", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  taskId: uuid("task_id").notNull().references(() => fieldTasks.id, { onDelete: "cascade" }),
+  at: timestamp("at", { withTimezone: true }).notNull(),
+  how: text("how").notNull().default("call"), // call | email | text | visit
+  orgName: text("org_name").notNull(),
+  address: text("address").notNull(),
+  placeId: uuid("place_id"),
+  person: text("person").notNull(),
+  personTitle: text("person_title"),
+  contact: text("contact"),
+  outcome: text("outcome").notNull(),
+  notes: text("notes"),
+  nextStep: text("next_step"),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("field_task_calls_task_idx").on(t.taskId)]);
+
+/** Daily AI plan settings per owner (send hour in Central, hours of work per day). */
+export const fieldPlanSettings = pgTable("field_plan_settings", {
+  ownerId: uuid("owner_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  on: boolean("on").notNull().default(true),
+  hour: integer("hour").notNull().default(7), // 6–10, Central
+  hours: integer("hours").notNull().default(4),
+  lastPlanDate: text("last_plan_date"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }),
+});
+
+/** Minutes an assistant spends working in /outreach, per Central day (page pings while the tab is visible). */
+export const fieldPresence = pgTable("field_presence", {
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  day: text("day").notNull(),
+  minutes: integer("minutes").notNull().default(0),
+  firstAt: timestamp("first_at", { withTimezone: true }).notNull().defaultNow(),
+  lastAt: timestamp("last_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("field_presence_user_day").on(t.userId, t.day)]);
+
+/** Training steps an assistant has ticked (lessons in src/lib/training.ts). */
+export const fieldTraining = pgTable("field_training", {
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  lesson: text("lesson").notNull(),
+  step: integer("step").notNull(),
+  doneAt: timestamp("done_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("field_training_step").on(t.userId, t.lesson, t.step)]);
+
+/**
+ * Video educators (2026-11-23): creators found on Instagram/TikTok/Facebook/YouTube to make paid step-by-step training
+ * videos for Learn at Nearest. Status found → talking → price (needs owner) → agreed (owner approved) → contract → received.
+ */
+export const educators = pgTable("educators", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  ownerId: uuid("owner_id").notNull().references(() => users.id),
+  name: text("name").notNull(),
+  platform: text("platform").notNull(),
+  handle: text("handle"),
+  phone: text("phone"),
+  email: text("email"),
+  skill: text("skill").notNull(),
+  spokeAt: text("spoke_at"),
+  asked: text("asked"),
+  price: text("price"),
+  products: text("products"),
+  notes: text("notes"),
+  status: text("status").notNull().default("found"), // found | talking | price | agreed | received | no
+  ownerNote: text("owner_note"),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }),
+}, (t) => [index("educators_owner_idx").on(t.ownerId)]);
+
+/**
+ * The Training Video Production, License & Confidentiality Agreement sent to an educator (src/lib/educator-agreement.ts,
+ * versioned). Signed for Nearest by an assistant the owner allowed (can_sign) when sent; the creator opens the emailed
+ * link (/agreement/[token], token hash only), fills their part, types their name; then uploads the video there.
+ */
+export const educatorContracts = pgTable("educator_contracts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  educatorId: uuid("educator_id").notNull().references(() => educators.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull(),
+  version: text("version").notNull(),
+  fields: jsonb("fields").$type<Record<string, string>>().notNull(),
+  nearestSigner: text("nearest_signer").notNull(),
+  nearestTitle: text("nearest_title").notNull(),
+  nearestSignedAt: timestamp("nearest_signed_at", { withTimezone: true }).notNull(),
+  nearestIp: text("nearest_ip"),
+  creatorName: text("creator_name"),
+  creatorSignedAt: timestamp("creator_signed_at", { withTimezone: true }),
+  creatorIp: text("creator_ip"),
+  creatorAgent: text("creator_agent"),
+  status: text("status").notNull().default("sent"), // sent | signed | uploaded | cancelled
+  videoUrl: text("video_url"),
+  videoAccess: text("video_access"),
+  videoName: text("video_name"),
+  productList: text("product_list"),
+  uploadedAt: timestamp("uploaded_at", { withTimezone: true }),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("educator_contracts_token").on(t.tokenHash), index("educator_contracts_educator_idx").on(t.educatorId)]);

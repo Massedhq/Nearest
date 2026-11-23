@@ -32,6 +32,7 @@ export async function GET(req: Request) {
   const coverageNotices = await safe("coverageNotices", async () => (await import("@/lib/demand")).notifyNewCoverage()); // first pro for a service in a city → tell the students who picked it
   const spinsExpired = await safe("spinsExpired", async () => (await import("@/lib/reward-wheel")).expireSpins()); // reward holds (wheel + scratch-off) that ran out go back
   const scratchReleased = await safe("scratchReleased", async () => (await import("@/lib/reward-wheel")).releaseUnverifiedScratch()); // scratch-off rewards on accounts that never verified go back
+  const fieldPlans = await safe("fieldPlans", async () => (await import("@/lib/field-plan")).runFieldPlans()); // owners' assistants: daily AI plan at the owner's send hour (weekdays)
   const indexNow = await safe("indexNow", async () => (await import("@/lib/indexnow")).pingSitemap()); // Bing & co.: public pages, once a day
-  return Response.json({ result, spinsExpired, scratchReleased, coverageNotices, enrollmentHolds, lookIndex, indexNow, reminders, steppedUp, seatsReleased, bundlesExpired, verifyReminders, setupReminders, outreach, broadcastSent, requestsExpired, requestReminders, spotsReleased, membershipsEnded, inactiveSpots, campaign });
+  return Response.json({ result, fieldPlans, spinsExpired, scratchReleased, coverageNotices, enrollmentHolds, lookIndex, indexNow, reminders, steppedUp, seatsReleased, bundlesExpired, verifyReminders, setupReminders, outreach, broadcastSent, requestsExpired, requestReminders, spotsReleased, membershipsEnded, inactiveSpots, campaign });
 }

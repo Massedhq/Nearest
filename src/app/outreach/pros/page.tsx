@@ -6,6 +6,6 @@ export const metadata = { title: "Professionals", robots: { index: false, follow
 export const dynamic = "force-dynamic";
 
 export default async function Pros() {
-  const { a, name, owner } = await assistantField();
-  return <OutreachShell at="/pros" title="Professionals" name={name} owner={owner}><ProsView actor={a} /></OutreachShell>;
+  const f = await assistantField(); const { a, name, owner } = f;
+  return <OutreachShell viewAs={f.viewAs} at="/pros" title="Professionals" name={name} owner={owner}><ProsView actor={a} /></OutreachShell>;
 }

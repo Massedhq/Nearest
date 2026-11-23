@@ -6,7 +6,7 @@ export const metadata = { title: "Pop-ups", robots: { index: false, follow: fals
 export const dynamic = "force-dynamic";
 
 export default async function Popups({ searchParams }: { searchParams: Promise<{ edit?: string }> }) {
-  const { a, name, owner } = await assistantField();
+  const f = await assistantField(); const { a, name, owner } = f;
   const { edit } = await searchParams;
-  return <OutreachShell at="/popups" title="Pop-up events" name={name} owner={owner}><PopupsView actor={a} base="/outreach" editId={edit} /></OutreachShell>;
+  return <OutreachShell viewAs={f.viewAs} at="/popups" title="Pop-up events" name={name} owner={owner}><PopupsView actor={a} base="/outreach" editId={edit} /></OutreachShell>;
 }

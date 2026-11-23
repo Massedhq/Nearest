@@ -113,7 +113,7 @@ export async function popups(scope: string | null) {
 }
 export type PopupRow = { id: string; owner_id: string; name: string; kind: string; host_name: string | null; street: string; city_name: string; state: string; zip: string;
   starts_at: string; ends_at: string; details: string | null; source_url: string | null; contact_name: string | null; contact: string | null; notes: string | null; status: string;
-  signups: number | null; owner: string | null; by: string | null };
+  signups: number | null; owner: string | null; by: string | null; space_cost: string | null; vendor_fee: string | null; our_fee: string | null; bring: string | null };
 
 export async function adDraftsFor(scope: string | null) {
   return (await db.execute(sql`select a.*, o.first_name as owner, u.first_name as by from ad_drafts a left join users o on o.id = a.owner_id left join users u on u.id = a.created_by

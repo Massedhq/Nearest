@@ -4,6 +4,7 @@ import { getViewer } from "@/lib/viewer";
 import { teamAssistantFor } from "@/lib/team";
 import { FieldHome } from "@/components/field/FieldViews";
 import { OutreachShell } from "@/components/field/OutreachShell";
+import { TodayTasks } from "@/components/field/TaskViews";
 import { assistantField } from "./team";
 
 export const metadata = { title: "Field team", robots: { index: false, follow: false } };
@@ -34,6 +35,6 @@ export default async function OutreachHome({ searchParams }: { searchParams: Pro
       </div>
     );
   }
-  const { a, name, owner } = await assistantField();
-  return <OutreachShell at="" title="Today" name={name} owner={owner}><FieldHome actor={a} base="/outreach" /></OutreachShell>;
+  const f = await assistantField(); const { a, name, owner } = f;
+  return <OutreachShell viewAs={f.viewAs} at="" title="Today" name={name} owner={owner}><div className="col" style={{ gap: 18 }}><TodayTasks actor={a} base="/outreach" userId={f.assistantUserId} /><FieldHome actor={a} base="/outreach" /></div></OutreachShell>;
 }
