@@ -323,11 +323,13 @@ export async function PopupsView({ actor, base, editId }: { actor: FieldActor; b
 export async function ProsView({ actor }: { actor: FieldActor }) {
   const { sql } = await import("drizzle-orm");
   const cats = await db.select({ name: categories.name }).from(categories).where(eq(categories.active, true)).orderBy(asc(categories.sort), asc(categories.name));
-  const scopeSql = actor.scope ? sql`where p.recruiter_id = ${actor.scope}` : sql``;
+  // Assistants see ONLY the professionals they added themselves — never the owner's own prospects.
+  const helper = actor.assistant?.userId ?? null;
+  const scopeSql = actor.assistant ? sql`where p.recruiter_id = ${actor.scope} and p.entered_by = ${helper}` : actor.scope ? sql`where p.recruiter_id = ${actor.scope}` : sql``;
   const rows = (await db.execute(sql`select p.id, p.name, p.business, p.city, p.category, p.email, p.phone, p.status, p.updated_at as "updatedAt", p.entered_by as "enteredById", u.first_name as "enteredBy", o.first_name as owner
     from prospects p left join users u on u.id = p.entered_by left join users o on o.id = p.recruiter_id ${scopeSql} order by p.updated_at desc limit 150`)).rows as
     { id: string; name: string; business: string | null; city: string | null; category: string | null; email: string | null; phone: string | null; status: string; updatedAt: string; enteredById: string | null; enteredBy: string | null; owner: string | null }[];
-  const mine = actor.assistant ? rows.filter((r) => r.enteredById === actor.user.id) : [];
+  const mine = actor.assistant ? rows : [];
   return (
     <div className="col" style={{ gap: 18 }}>
       <section className="card" style={{ gap: 12 }}>
@@ -349,7 +351,7 @@ export async function ProsView({ actor }: { actor: FieldActor }) {
       </section>
       {actor.assistant && <div className="card small">You&apos;ve added <b>{mine.length}</b> professionals — <b>{mine.filter((r) => ["registered", "profile_complete"].includes(r.status)).length}</b> have created their account.</div>}
       <section className="card" style={{ gap: 10 }}>
-        <span className="eyebrow">Prospects</span>
+        <span className="eyebrow">{actor.assistant ? "Professionals you added" : "Prospects"}</span>
         <table className="tbl"><thead><tr><th>Name</th><th>Service · city</th><th>Contact</th><th>Status</th><th>Added by</th><th /></tr></thead>
           <tbody>{rows.length === 0 ? <tr><td className="empty" colSpan={6}>No prospects yet.</td></tr> : rows.map((r) => (
             <tr key={r.id}><td className="b">{r.name}<div className="xs muted">{r.business ?? ""}{actor.scope === null && r.owner ? ` · ${r.owner}` : ""}</div></td>

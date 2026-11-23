@@ -330,3 +330,13 @@ html:has(.agree),html:has(.agree) body{background:#FFFFFF}
 .ws .fmenu summary{background:#FFFFFF;border-color:#D9D3C8;color:#141414}
 .ws .fmenu nav{background:#FFFFFF;border-color:#E6E1D8;box-shadow:0 12px 32px rgba(0,0,0,.12)}
 .ws .fmenu .ftab[aria-current=page]{background:#F4EFE6}
+/* field team workspace: nothing runs off the right side on a phone (2026-11-23) */
+.ws{overflow-x:hidden}
+.ws .col,.ws .card,.ws .row{min-width:0;max-width:100%}
+.ws .card{overflow-x:auto}
+.ws .row{flex-wrap:wrap}
+.ws .grid2,.ws .grid3{grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))}
+.ws p,.ws span,.ws td,.ws th,.ws label,.ws a,.ws b,.ws h1,.ws h2{overflow-wrap:anywhere}
+.ws .eyebrow{letter-spacing:.08em;line-height:1.5}
+.ws .h1{font-size:30px}
+.ws .tbl{width:100%}

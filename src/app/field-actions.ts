@@ -315,7 +315,7 @@ export async function teamSendLink(form: FormData) {
   const id = s(form, "id", 40);
   if (!ID.test(id)) return;
   const p = await db.query.prospects.findFirst({ where: eq(prospects.id, id) });
-  if (!p || !p.email || !mayWork(a, p.recruiterId)) return;
+  if (!p || !p.email || !mayWork(a, p.recruiterId) || (a.assistant && p.enteredBy !== a.user.id)) return;
   await emailSignupLink(a, p.recruiterId!, p.email, p.name);
   await db.update(prospects).set({ status: ["approved", "contacted", "conversation", "interested", "scheduled", "no_response"].includes(p.status) ? "link_sent" : p.status, linkSentAt: new Date(), updatedAt: new Date() }).where(eq(prospects.id, id));
   await logProspect(id, "link_sent", `Sign-up link emailed by ${who(a)}`, a.user.id);
@@ -327,7 +327,7 @@ export async function teamProspectNote(_: FormState, form: FormData): Promise<Fo
   const a = await actor();
   const id = s(form, "id", 40);
   const p = ID.test(id) ? await db.query.prospects.findFirst({ where: eq(prospects.id, id) }) : null;
-  if (!p || !mayWork(a, p.recruiterId)) return { error: "That prospect isn't yours." };
+  if (!p || !mayWork(a, p.recruiterId) || (a.assistant && p.enteredBy !== a.user.id)) return { error: "That prospect isn't yours." };
   const kind = TOUCH_KINDS[s(form, "kind", 10)] ? s(form, "kind", 10) : "note";
   const text = s(form, "summary", 1000);
   if (!text) return { error: "Write what happened." };

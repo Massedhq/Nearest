@@ -461,7 +461,7 @@ function team(): GuideSection[] {
     },
     {
       id: "pros", title: "Professionals", icon: "users", topics: [
-        { q: "How do I bring in a professional?", a: ["Professionals → Add a professional: name, service, city, email or phone, where you found them and notes. Tick Email them the sign-up link now to send it — replies come back to your email. They join free, set up their profile and submit it for review. You can also email the link later from the list, and log calls or notes on anyone.", "Your count at the top shows how many you've added and how many created their account."] },
+        { q: "How do I bring in a professional?", a: ["Professionals → Add a professional: name, service, city, email or phone, where you found them and notes. Tick Email them the sign-up link now to send it — replies come back to your email. They join free, set up their profile and submit it for review. You can also email the link later from the list, and log calls or notes on anyone.", "You only see the professionals you added yourself (never your owner's own list). Your count at the top shows how many you've added and how many created their account."] },
         { q: "Where should I recruit next?", a: ["Today and Vote map show Recruit next: the services students voted for in each city of your area, with how many votes (and this week's). \"None yet — recruit\" means no live professional offers that service there — that's where to look first. Open the live vote map to watch votes come in."] },
       ],
     },
