@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { and, eq } from "drizzle-orm";
 import { db, educators, educatorContracts, teamAssistants } from "@/db";
-import { fieldActor, mayWork, type FieldActor } from "@/lib/team";
+import { fieldActor, mayWork, ownerFirstName, type FieldActor } from "@/lib/team";
 import { tellOwnerTask, tellAssistants } from "@/lib/field-tasks";
 import { AGREEMENT_FIELDS, EDUCATOR_AGREEMENT_VERSION, EDUCATOR_AGREEMENT_TITLE, agreementText, type AgreementFields } from "@/lib/educator-agreement";
 import { logActivity } from "@/lib/log";
@@ -48,7 +48,7 @@ export async function saveEducator(_: FormState, form: FormData): Promise<FormSt
   await logActivity({ actorUserId: a.user.id, action: ex ? "field.educator_changed" : "field.educator_added", targetType: "educator", targetId: rowId!, after: { name: v.name, status, price: v.price } });
   if (status === "price" && ex?.status !== "price") await tellOwnerTask(a.ownerId, `Video price in: ${v.name}`, `${who(a)}: ${v.name} (${v.skill}) quoted ${v.price || "a price"} for a training video. Approve, counter or pass.`, "/admin/field/educators");
   refresh();
-  return { ok: status === "price" ? "Saved — sent to your owner." : "Saved." };
+  return { ok: status === "price" ? (a.assistant ? `Saved — sent to ${await ownerFirstName(a.ownerId)}.` : "Saved.") : "Saved." };
 }
 
 /** Owner: approve the price, counter (with a note back to the assistant), pass, or mark the video received. */
@@ -72,11 +72,11 @@ export async function sendAgreement(_: FormState, form: FormData): Promise<FormS
   const a = await actor();
   const e = ID.test(s(form, "id", 40)) ? await db.query.educators.findFirst({ where: eq(educators.id, s(form, "id", 40)) }) : null;
   if (!e || !mayWork(a, e.ownerId)) return { error: "Not yours." };
-  if (e.status !== "agreed") return { error: "Your owner needs to approve the price first." };
+  if (e.status !== "agreed") return { error: a.assistant ? `${await ownerFirstName(e.ownerId)} needs to approve the price first.` : "Approve the price first." };
   let signer: string, title: string;
   if (a.assistant) {
     const row = await db.query.teamAssistants.findFirst({ where: eq(teamAssistants.id, a.assistant.id) });
-    if (!row?.canSign || !row.legalName || !row.title) return { error: "Your owner hasn't allowed you to sign agreements yet." };
+    if (!row?.canSign || !row.legalName || !row.title) return { error: `${await ownerFirstName(e.ownerId)} hasn't allowed you to sign agreements yet.` };
     signer = row.legalName; title = row.title;
   } else { signer = "Nearest"; title = "Authorized representative"; }
   if (form.get("agree") !== "on") return { error: "Tick the box to sign for Nearest." };

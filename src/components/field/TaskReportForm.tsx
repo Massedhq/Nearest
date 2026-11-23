@@ -11,11 +11,11 @@ type State = { error?: string; ok?: string };
 const today = () => new Date().toLocaleDateString("sv-SE", { timeZone: "America/Chicago" });
 const now = () => new Date().toLocaleTimeString("en-GB", { timeZone: "America/Chicago", hour: "2-digit", minute: "2-digit" });
 
-export function TaskReportForm({ id, outcomes, how, needsCalls }: { id: string; outcomes: string[]; how: Record<string, string>; needsCalls: boolean }) {
+export function TaskReportForm({ id, outcomes, how, needsCalls, boss = "the owner" }: { id: string; outcomes: string[]; how: Record<string, string>; needsCalls: boolean; boss?: string }) {
   const [state, run, pending] = useActionState<State, FormData>(completeTask, {});
   const [rows, setRows] = useState<number[]>(needsCalls ? [0] : []);
   const [next, setNext] = useState(1);
-  if (state.ok) return <p className="okmsg" role="status">{state.ok} Your owner was told.</p>;
+  if (state.ok) return <p className="okmsg" role="status">{state.ok} {boss} was told.</p>;
   return (
     <form action={run} className="col" style={{ gap: 14 }}>
       <input type="hidden" name="id" value={id} />
@@ -41,7 +41,7 @@ export function TaskReportForm({ id, outcomes, how, needsCalls }: { id: string; 
         </div>
       ))}
       <button type="button" className="btn ghost sm" onClick={() => { setRows([...rows, next]); setNext(next + 1); }}>+ Add a call or visit</button>
-      <div className="field"><label>Summary for your owner</label><textarea name="summary" maxLength={3000} required placeholder="Called 6 places. 2 want cards, 1 pop-up possible in December. Call back Grace Church Monday." /></div>
+      <div className="field"><label>Summary for {boss}</label><textarea name="summary" maxLength={3000} required placeholder="Called 6 places. 2 want cards, 1 pop-up possible in December. Call back Grace Church Monday." /></div>
       <div className="field"><label>Cards to ask for (for the first place above, optional)</label><input name="cards" type="number" min={0} max={50} placeholder="10" /></div>
       {state.error && <p className="err" role="alert">{state.error}</p>}
       <button className="btn" type="submit" disabled={pending}>{pending ? "Sending…" : "Mark complete and send report"}</button>

@@ -54,3 +54,16 @@ export type FieldActor = NonNullable<Awaited<ReturnType<typeof fieldActor>>>;
 
 /** May this person work on something that belongs to `ownerId`? */
 export const mayWork = (a: FieldActor, ownerId: string | null | undefined) => a.scope === null || (!!ownerId && ownerId === a.scope);
+
+/** The owner's first name, used instead of "your owner" in everything an assistant reads (owner's rule, 2026-11-23). */
+export async function ownerFirstName(ownerId: string | null | undefined) {
+  if (!ownerId) return "Avy";
+  const { users } = await import("@/db");
+  const u = await db.query.users.findFirst({ where: eq(users.id, ownerId), columns: { firstName: true } });
+  return u?.firstName?.trim() || "the owner";
+}
+
+/** Swap "your owner" wording in fixed text (guides, training) for the owner's name. */
+export function withOwnerName(text: string, name: string) {
+  return text.replace(/\b([Yy])our owner's\b/g, `${name}'s`).replace(/\b[Yy]our owner\b/g, name).replace(/\b[Tt]he owner's\b/g, `${name}'s`).replace(/\b[Tt]he owner\b/g, name);
+}

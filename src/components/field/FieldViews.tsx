@@ -10,7 +10,7 @@ import {
   fieldPlaces, placeTimeline, upcoming, cardRequests, cardSupply, recruitNext, popups, adDraftsFor, placeOwnerId,
   TOUCH_KINDS, STEP_KINDS, POPUP_STATUS, AD_STATUS, DEFAULT_CARDS_PER_ORG,
 } from "@/lib/field";
-import { mayWork, type FieldActor } from "@/lib/team";
+import { mayWork, ownerFirstName, type FieldActor } from "@/lib/team";
 import { TRACKING_FIELDS, trackingSaved } from "@/lib/tracking";
 import { liveReports } from "@/lib/live/reports";
 import { SITE_URL } from "@/lib/public/site";
@@ -256,6 +256,7 @@ export async function OrgDetail({ actor, base, placeId }: { actor: FieldActor; b
 
 export async function PopupsView({ actor, base, editId }: { actor: FieldActor; base: string; editId?: string }) {
   const rows = await popups(actor.scope);
+  const boss = await ownerFirstName(actor.ownerId);
   const edit = rows.find((r) => r.id === editId) ?? null;
   const d = (iso: string) => new Date(iso).toLocaleDateString("sv-SE", { timeZone: "America/Chicago" });
   const t = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { timeZone: "America/Chicago", hour: "2-digit", minute: "2-digit" });
@@ -287,7 +288,7 @@ export async function PopupsView({ actor, base, editId }: { actor: FieldActor; b
             <F label="Our fee (what we charge other vendors, if any)"><input name="ourFee" maxLength={120} defaultValue={edit?.our_fee ?? ""} placeholder="None" /></F>
             <F label="What we bring"><input name="bring" maxLength={600} defaultValue={edit?.bring ?? ""} placeholder="Refreshments, cards, banner, sign-up tablet" /></F>
           </div>
-          <span className="xs muted">Anything that costs money goes to {actor.assistant ? "your owner" : "you"} — {actor.assistant ? "never agree to or pay a fee yourself" : "your assistant can't agree to or pay a fee"}.</span>
+          <span className="xs muted">Anything that costs money goes to {actor.assistant ? boss : "you"} — {actor.assistant ? "never agree to or pay a fee yourself" : "your assistant can't agree to or pay a fee"}.</span>
           <F label="Details for the public page"><textarea name="details" maxLength={1500} defaultValue={edit?.details ?? ""} placeholder="Beauty professionals: stop by our table to set up your free Nearest profile. Bring your phone and a photo of your work." /></F>
           <F label="Private notes"><textarea name="notes" maxLength={1500} defaultValue={edit?.notes ?? ""} placeholder="Set-up at 9:30, table provided, park in back." /></F>
         </ActionForm>
@@ -321,6 +322,7 @@ export async function PopupsView({ actor, base, editId }: { actor: FieldActor; b
 /* ───────────── Professionals ───────────── */
 
 export async function ProsView({ actor }: { actor: FieldActor }) {
+  const boss = await ownerFirstName(actor.ownerId);
   const { sql } = await import("drizzle-orm");
   const cats = await db.select({ name: categories.name }).from(categories).where(eq(categories.active, true)).orderBy(asc(categories.sort), asc(categories.name));
   // Assistants see ONLY the professionals they added themselves — never the owner's own prospects.
@@ -334,7 +336,7 @@ export async function ProsView({ actor }: { actor: FieldActor }) {
     <div className="col" style={{ gap: 18 }}>
       <section className="card" style={{ gap: 12 }}>
         <span className="eyebrow">Add a professional</span>
-        <span className="xs muted">They go into Outreach for {actor.assistant ? "your owner" : "you"}. Tick the box to email them the sign-up link — replies come back to {actor.user.email}. Joining is free; they set up their profile and submit it for review.</span>
+        <span className="xs muted">They go into Outreach for {actor.assistant ? boss : "you"}. Tick the box to email them the sign-up link — replies come back to {actor.user.email}. Joining is free; they set up their profile and submit it for review.</span>
         <ActionForm action={teamAddProspect} submitLabel="Add professional">
           <div className="grid2">
             <F label="Name"><input name="name" required maxLength={120} /></F>
@@ -375,6 +377,7 @@ export async function ProsView({ actor }: { actor: FieldActor }) {
 /* ───────────── Ads ───────────── */
 
 export async function AdsView({ actor, base, editId }: { actor: FieldActor; base: string; editId?: string }) {
+  const boss = await ownerFirstName(actor.ownerId);
   const [drafts, r, saved] = await Promise.all([adDraftsFor(actor.scope), liveReports(), trackingSaved()]);
   const { mainOwnerId } = await import("@/lib/partner");
   const mainTeam = actor.ownerId === (await mainOwnerId());
@@ -385,7 +388,7 @@ export async function AdsView({ actor, base, editId }: { actor: FieldActor; base
     <div className="col" style={{ gap: 18 }}>
       <section className="card" style={{ gap: 12 }} id="form">
         <span className="eyebrow">{edit ? `Edit — ${edit.name}` : "Prepare an ad campaign"}</span>
-        <span className="xs muted">{actor.assistant ? "Set everything up here, then Send for approval. The owner reviews it and launches it in the ad platform (that's where the card is)." : "Your assistant's drafts show below — approve, ask for changes, or mark launched once it's live in the ad platform."}</span>
+        <span className="xs muted">{actor.assistant ? `Set everything up here, then Send for approval. ${boss} reviews it and launches it in the ad platform (that's where the card is).` : "Your assistant's drafts show below — approve, ask for changes, or mark launched once it's live in the ad platform."}</span>
         <ActionForm action={saveAdDraft} submitLabel="Save draft">
           {edit && <input type="hidden" name="id" value={edit.id} />}
           <div className="grid2">
@@ -401,7 +404,7 @@ export async function AdsView({ actor, base, editId }: { actor: FieldActor; base
           </div>
           <F label="Who should see it (audience)"><textarea name="audience" maxLength={1000} defaultValue={edit?.audience ?? ""} placeholder="Ages 18–24, 15 miles around Frisco, interests: beauty, college…" /></F>
           <F label="Ad text"><textarea name="primaryText" maxLength={2000} defaultValue={edit?.primary_text ?? ""} /></F>
-          <F label="Notes for the owner"><textarea name="notes" maxLength={1000} defaultValue={edit?.notes ?? ""} /></F>
+          <F label={actor.assistant ? `Notes for ${boss}` : "Notes"}><textarea name="notes" maxLength={1000} defaultValue={edit?.notes ?? ""} /></F>
           <label className="check"><input type="checkbox" name="intent" value="submit" />Send for approval now</label>
         </ActionForm>
       </section>

@@ -349,3 +349,4 @@ html:has(.agree),html:has(.agree) body{background:#FFFFFF}
 html:has(.ws) .powered{background:#FFFFFF;border-top-color:#E6E1D8}
 html:has(.ws) .powered a{color:#6B665E}
 html:has(.ws) .powered a .b{color:#141414}
+.ws .tbl td.num{min-width:56px}

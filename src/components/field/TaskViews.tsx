@@ -5,7 +5,7 @@ import { ActionForm } from "@/components/ActionForm";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 import { TaskReportForm } from "./TaskReportForm";
 import type { FieldActor } from "@/lib/team";
-import { mayWork } from "@/lib/team";
+import { mayWork, ownerFirstName, withOwnerName } from "@/lib/team";
 import { tasksFor, taskById, reportsFor, minutesToday, planSettings, TASK_STATUS, OUTCOMES, HOW, centralToday, addDays, dayLabel, hourLabel, type TaskRow } from "@/lib/field-tasks";
 import { fieldPlaces, cardSupply, cardRequests } from "@/lib/field";
 import { LESSONS, lessonById } from "@/lib/training";
@@ -24,7 +24,7 @@ const F = ({ label, children }: { label: string; children: React.ReactNode }) =>
 const at = (d: string | Date) => new Date(d).toLocaleString("en-US", { timeZone: "America/Chicago", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 const KIND: Record<string, string> = { calls: "Calls", pros: "Professionals", popups: "Pop-ups", edu: "Video educators", ads: "Ads", training: "Training", general: "General" };
 const SOURCE: Record<string, string> = { owner: "From your owner", assistant: "Added by assistant", ai: "AI plan" };
-const statusTag = (s: string) => { const [k, l] = TASK_STATUS[s] ?? ["", s]; return <span className={`tag ${k === "ok" ? "ok" : k === "no" ? "bad" : k === "needs" || k === "done" ? "warn" : ""}`}>{l}</span>; };
+const statusTag = (s: string, boss?: string) => { const [k, l0] = TASK_STATUS[s] ?? ["", s]; const l = boss ? l0.replace("owner", boss) : l0; return <span className={`tag ${k === "ok" ? "ok" : k === "no" ? "bad" : k === "needs" || k === "done" ? "warn" : ""}`}>{l}</span>; };
 
 /* ───────────── Time worked ───────────── */
 
@@ -40,14 +40,14 @@ export function TimeBar({ minutes, goal, name }: { minutes: number; goal: number
 
 /* ───────────── Task list ───────────── */
 
-function TaskTable({ rows, base, owner }: { rows: TaskRow[]; base: string; owner: boolean }) {
+function TaskTable({ rows, base, owner, boss }: { rows: TaskRow[]; base: string; owner: boolean; boss?: string }) {
   if (!rows.length) return <span className="small muted">Nothing here.</span>;
   return (
     <table className="tbl"><thead><tr><th>Task</th><th>Due</th><th>Status</th>{owner && <th>From</th>}</tr></thead>
       <tbody>{rows.map((t) => (
         <tr key={t.id}><td><Link className="link b" href={`${base}/task/${t.id}`}>{t.title}</Link>{t.priority === "high" && <> <span className="tag warn">Priority</span></>}
           <div className="xs muted">{KIND[t.kind] ?? t.kind}{t.calls.length ? ` · ${t.calls.length} in report` : ""}{t.needsMsg && t.status === "needs" ? ` · “${t.needsMsg.slice(0, 80)}”` : ""}</div></td>
-          <td className="small">{dayLabel(t.dueDate)}{t.dueTime ? ` · ${t.dueTime}` : ""}</td><td>{statusTag(t.status)}</td>{owner && <td className="xs">{SOURCE[t.source] ?? t.source}</td>}</tr>
+          <td className="small">{dayLabel(t.dueDate)}{t.dueTime ? ` · ${t.dueTime}` : ""}</td><td>{statusTag(t.status, boss)}</td>{owner && <td className="xs">{SOURCE[t.source] ?? t.source}</td>}</tr>
       ))}</tbody></table>
   );
 }
@@ -57,6 +57,7 @@ export async function TodayTasks({ actor, base, userId }: { actor: FieldActor; b
   const day = centralToday();
   const [rows, s, mins] = await Promise.all([tasksFor(actor.scope, { from: day, to: day }), planSettings(actor.ownerId), minutesToday(userId ? [userId] : [])]);
   const late = await tasksFor(actor.scope, { to: addDays(day, -1), status: ["todo", "work", "back"] });
+  const boss = await ownerFirstName(actor.ownerId);
   const left = rows.filter((t) => !["done", "approved"].includes(t.status)).length;
   return (
     <section className="card" style={{ gap: 12 }}>
@@ -65,10 +66,10 @@ export async function TodayTasks({ actor, base, userId }: { actor: FieldActor; b
       {rows.length === 0 ? <span className="small muted">No tasks for today yet. Your plan arrives by {hourLabel(s.hour)} on weekdays.</span> : (
         <>
           <span className="small">{left === 0 ? "Everything for today is done." : `${left} of ${rows.length} left.`}</span>
-          <TaskTable rows={rows} base={base} owner={false} />
+          <TaskTable rows={rows} base={base} owner={false} boss={boss} />
         </>
       )}
-      {late.length > 0 && <><span className="eyebrow">Still open from earlier days</span><TaskTable rows={late} base={base} owner={false} /></>}
+      {late.length > 0 && <><span className="eyebrow">Still open from earlier days</span><TaskTable rows={late} base={base} owner={false} boss={boss} /></>}
     </section>
   );
 }
@@ -102,6 +103,7 @@ export async function TasksPage({ actor, base, day: dayIn }: { actor: FieldActor
   ]);
   const waiting = owner ? await tasksFor(actor.scope, { status: ["needs", "done"] }) : [];
   const owners = owner && actor.main ? (await db.execute(sql`select u.id, u.first_name as name from admin_members m join users u on u.id = m.user_id where m.role = 'OWNER' and m.active order by u.first_name`)).rows as { id: string; name: string | null }[] : [];
+  const boss = owner ? undefined : await ownerFirstName(actor.ownerId);
   const nav = (d: string, l: string) => <Link className="chip" href={`${base}/tasks?day=${d}`}>{l}</Link>;
   return (
     <div className="col" style={{ gap: 18 }}>
@@ -112,11 +114,11 @@ export async function TasksPage({ actor, base, day: dayIn }: { actor: FieldActor
       <section className="card" style={{ gap: 12 }}>
         <div className="row between" style={{ flexWrap: "wrap" }}><span className="eyebrow">{dayLabel(day)}</span>
           <div className="chips">{nav(addDays(day, -1), "← Day before")}{nav(centralToday(), "Today")}{nav(addDays(day, 1), "Next day →")}</div></div>
-        <TaskTable rows={rows} base={base} owner={owner} />
+        <TaskTable rows={rows} base={base} owner={owner} boss={boss} />
       </section>
       <section className="card" style={{ gap: 12 }}>
         <span className="eyebrow">{owner ? "Plan the day — add a task" : "Add your own task"}</span>
-        {!owner && <span className="xs muted">For follow-ups you set yourself. Your owner sees these too.</span>}
+        {!owner && <span className="xs muted">For follow-ups you set yourself. {boss} sees these too.</span>}
         <AddTaskForm actor={actor} owners={owners} />
       </section>
       {owner && (
@@ -131,7 +133,7 @@ export async function TasksPage({ actor, base, day: dayIn }: { actor: FieldActor
           )}
         </section>
       )}
-      <section className="card" style={{ gap: 10 }}><span className="eyebrow">Next two weeks</span><TaskTable rows={upcomingRows} base={base} owner={owner} /></section>
+      <section className="card" style={{ gap: 10 }}><span className="eyebrow">Next two weeks</span><TaskTable rows={upcomingRows} base={base} owner={owner} boss={boss} /></section>
     </div>
   );
 }
@@ -164,16 +166,18 @@ export async function TaskDetail({ actor, base, id }: { actor: FieldActor; base:
   const owner = !actor.assistant;
   const open = ["todo", "work", "back"].includes(t.status);
   const canEdit = owner || t.source === "assistant";
+  const boss = owner ? "you" : await ownerFirstName(t.ownerId);
+  const from = t.source === "owner" ? (owner ? "From you" : `From ${boss}`) : SOURCE[t.source];
   return (
     <div className="col" style={{ gap: 18 }}>
       <Link className="link xs" href={`${base}/tasks`}>← Tasks</Link>
       <section className="card" style={{ gap: 10 }}>
-        <div className="row between" style={{ flexWrap: "wrap" }}><span className="eyebrow">{dayLabel(t.dueDate)}{t.dueTime ? ` · ${t.dueTime}` : ""} · {KIND[t.kind]} · {SOURCE[t.source]}</span>{statusTag(t.status)}</div>
+        <div className="row between" style={{ flexWrap: "wrap" }}><span className="eyebrow">{dayLabel(t.dueDate)}{t.dueTime ? ` · ${t.dueTime}` : ""} · {KIND[t.kind]} · {from}</span>{statusTag(t.status, owner ? "you" : boss)}</div>
         <h2 className="disp h2">{t.title}</h2>
         {t.why && <p className="p small">{t.why}</p>}
         {t.steps.length > 0 && <ol className="small" style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6 }}>{t.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>}
-        {t.backNote && <div className="card warn"><p className="p small"><b>From your owner:</b> {t.backNote}</p></div>}
-        {t.status === "needs" && t.needsMsg && <div className="card warn"><p className="p small"><b>Sent to owner:</b> {t.needsMsg}</p></div>}
+        {t.backNote && <div className="card warn"><p className="p small"><b>{owner ? "Your note:" : `From ${boss}:`}</b> {t.backNote}</p></div>}
+        {t.status === "needs" && t.needsMsg && <div className="card warn"><p className="p small"><b>{owner ? "She needs you to:" : `Sent to ${boss}:`}</b> {t.needsMsg}</p></div>}
         <span className="xs muted">{t.startedAt ? `Started ${at(t.startedAt)}` : "Not started"}{t.doneAt ? ` · Finished ${at(t.doneAt)}` : ""}{t.approvedAt ? ` · Approved ${at(t.approvedAt)}` : ""}</span>
         <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
           {["todo", "back"].includes(t.status) && <form action={startTask}><input type="hidden" name="id" value={t.id} /><button className="btn sm">Start working on it</button></form>}
@@ -192,15 +196,15 @@ export async function TaskDetail({ actor, base, id }: { actor: FieldActor; base:
 
       {!owner && open && t.status !== "todo" && (
         <section className="card" style={{ gap: 12 }}>
-          <span className="eyebrow">Need your owner?</span>
-          <ActionForm action={sendToOwner} submitLabel="Send to owner" buttonClass="btn ghost sm"><input type="hidden" name="id" value={t.id} /><F label="What do they need to do?"><input name="msg" required maxLength={1000} placeholder="Grace Church wants to talk to an owner before the pop-up — can you call Pastor Lee?" /></F></ActionForm>
+          <span className="eyebrow">Need {boss}?</span>
+          <ActionForm action={sendToOwner} submitLabel={`Send to ${boss}`} buttonClass="btn ghost sm"><input type="hidden" name="id" value={t.id} /><F label="What do they need to do?"><input name="msg" required maxLength={1000} placeholder="Grace Church wants to talk to an owner before the pop-up — can you call Pastor Lee?" /></F></ActionForm>
         </section>
       )}
       {open && t.status !== "todo" && (
         <section className="card" style={{ gap: 12 }}>
           <span className="eyebrow">Mark complete — your report</span>
           <span className="xs muted">List every call, email, text or visit. New places are added to Organizations in your area automatically.</span>
-          <TaskReportForm id={t.id} outcomes={OUTCOMES} how={HOW} needsCalls={t.kind === "calls"} />
+          <TaskReportForm id={t.id} outcomes={OUTCOMES} how={HOW} needsCalls={t.kind === "calls"} boss={owner ? "the owner" : boss} />
         </section>
       )}
       {canEdit && open && (
@@ -278,15 +282,16 @@ export async function CardsView({ actor, base }: { actor: FieldActor; base: stri
   const [supply, places, requests] = await Promise.all([cardSupply(actor.ownerId), fieldPlaces(actor.scope), cardRequests(actor.scope)]);
   const given = (await db.execute(sql`select d.id, d.quantity, d.status, d.distributed_at as at, p.name as place, p.id as "placeId" from voucher_distributions d join card_places p on p.id = d.place_id
     join nearest_card_batches b on b.id = d.batch_id where b.distributor_id = ${actor.ownerId} and d.status <> 'cancelled' order by d.distributed_at desc limit 40`)).rows as { id: string; quantity: number; status: string; at: string; place: string; placeId: string }[];
+  const boss = await ownerFirstName(actor.ownerId);
   const STATUS: Record<string, string> = { planned: "Waiting for approval", assigned: "Approved — deliver", delivered: "Delivered", completed: "Completed" };
   return (
     <div className="col" style={{ gap: 18 }}>
-      <div className="kpis">{supply.length === 0 ? <div className="kpi"><span className="xs muted">Cards</span><b>None yet</b><span className="xs muted">Your owner hasn&apos;t published cards.</span></div> : supply.map((s) => (
+      <div className="kpis">{supply.length === 0 ? <div className="kpi"><span className="xs muted">Cards</span><b>None yet</b><span className="xs muted">{boss} hasn&apos;t published cards.</span></div> : supply.map((s) => (
         <div key={s.id} className="kpi"><span className="xs muted">{s.label}</span><b>{s.left}</b><span className="xs muted">left of {s.count}</span></div>
       ))}</div>
       <section className="card" style={{ gap: 12 }}>
         <span className="eyebrow">Ask for cards for an organization</span>
-        <span className="xs muted">Usually 10 per organization. {actor.assistant ? "Your owner approves before you deliver." : "Assigned right away."} Card numbers and codes are never shown here.</span>
+        <span className="xs muted">Usually 10 per organization. {actor.assistant ? `${boss} approves before you deliver.` : "Assigned right away."} Card numbers and codes are never shown here.</span>
         {places.length === 0 ? <span className="small muted">Add the organization first (Organizations), then ask for cards.</span> : (
           <ActionForm action={fieldRequestCards} submitLabel={actor.assistant ? "Send request" : "Assign cards"}>
             <div className="grid2">
@@ -324,6 +329,7 @@ export async function EducatorsView({ actor, base, editId, sendId }: { actor: Fi
   const contracts = rows.length ? await db.select().from(educatorContracts).where(inArray(educatorContracts.educatorId, rows.map((r) => r.id))).orderBy(desc(educatorContracts.createdAt)) : [];
   const edit = rows.find((r) => r.id === editId) ?? null;
   const send = rows.find((r) => r.id === sendId && r.status === "agreed") ?? null;
+  const boss = await ownerFirstName(actor.ownerId);
   const me = actor.assistant ? await db.query.teamAssistants.findFirst({ where: eq(teamAssistants.id, actor.assistant.id) }) : null;
   const signer = actor.assistant ? (me?.canSign && me.legalName && me.title ? `${me.legalName}, ${me.title}` : null) : "Nearest — Authorized representative";
   return (
@@ -332,7 +338,7 @@ export async function EducatorsView({ actor, base, editId, sendId }: { actor: Fi
         <section className="card" style={{ gap: 12 }} id="send">
           <span className="eyebrow">Send the agreement — {send.name}</span>
           <span className="xs muted">{EDUCATOR_AGREEMENT_TITLE}. Nearest&apos;s part is filled in. Fill the creator&apos;s part; they can correct it when they sign. NDA and full resale rights are included.</span>
-          {!signer ? <div className="card warn small">Your owner hasn&apos;t allowed you to sign agreements yet. Ask them to turn it on in My assistants.</div> : (
+          {!signer ? <div className="card warn small">{boss} hasn&apos;t allowed you to sign agreements yet. Ask {boss} to turn it on in My assistants.</div> : (
             <ActionForm action={sendAgreement} submitLabel="Sign for Nearest and send">
               <input type="hidden" name="id" value={send.id} />
               <div className="card small" style={{ gap: 4 }}><b>Nearest</b><span>{NEAREST_PARTY.name}, {NEAREST_PARTY.address}</span></div>
@@ -354,7 +360,7 @@ export async function EducatorsView({ actor, base, editId, sendId }: { actor: Fi
       )}
       <section className="card" style={{ gap: 12 }} id="form">
         <span className="eyebrow">{edit ? `Edit — ${edit.name}` : "Log a video educator"}</span>
-        <span className="xs muted">Creators who teach a skill well on Instagram, TikTok, Facebook or YouTube. Ask what they&apos;d charge for one step-by-step training video. When you have a price, set the status to Price — your owner approves, counters or passes.</span>
+        <span className="xs muted">Creators who teach a skill well on Instagram, TikTok, Facebook or YouTube. Ask what they&apos;d charge for one step-by-step training video. When you have a price, set the status to Price — {owner ? "you approve" : `${boss} approves`}, counters or passes.</span>
         <ActionForm action={saveEducator} submitLabel="Save">
           {edit && <input type="hidden" name="id" value={edit.id} />}
           <div className="grid2">
@@ -412,7 +418,9 @@ export async function EducatorsView({ actor, base, editId, sendId }: { actor: Fi
 
 /* ───────────── Training ───────────── */
 
-export async function TrainingView({ base, lessonId, userId, canTick }: { base: string; lessonId?: string; userId: string | null; canTick: boolean }) {
+export async function TrainingView({ base, lessonId, userId, canTick, ownerId }: { base: string; lessonId?: string; userId: string | null; canTick: boolean; ownerId: string }) {
+  const boss = await ownerFirstName(ownerId);
+  const say = (x: string) => withOwnerName(x, boss);
   const done = userId ? await db.select().from(fieldTraining).where(eq(fieldTraining.userId, userId)) : [];
   const has = (l: string, i: number) => done.some((d) => d.lesson === l && d.step === i);
   const lesson = lessonId ? lessonById(lessonId) : null;
@@ -422,13 +430,13 @@ export async function TrainingView({ base, lessonId, userId, canTick }: { base: 
         <Link className="link xs" href={`${base}/training`}>← All lessons</Link>
         <section className="card lesson" style={{ gap: 12 }}>
           <h2 className="disp h2">{lesson.title}</h2>
-          <p className="p small muted">{lesson.why}</p>
+          <p className="p small muted">{say(lesson.why)}</p>
           <ol>{lesson.steps.map((s, i) => (
             <li key={i} className="small">
               <form action={tickTraining} className="row" style={{ gap: 10, alignItems: "flex-start" }}>
                 <input type="hidden" name="lesson" value={lesson.id} /><input type="hidden" name="step" value={i} />
                 <button className={`tag ${has(lesson.id, i) ? "ok" : ""}`} style={{ cursor: "pointer", background: "none" }} aria-label={has(lesson.id, i) ? "Done — tap to undo" : "Mark done"} disabled={!canTick}>{has(lesson.id, i) ? "Done" : "Mark done"}</button>
-                <span>{s}</span>
+                <span>{say(s)}</span>
               </form>
             </li>
           ))}</ol>
@@ -440,10 +448,10 @@ export async function TrainingView({ base, lessonId, userId, canTick }: { base: 
   return (
     <section className="card" style={{ gap: 10 }}>
       <span className="eyebrow">Lessons</span>
-      <span className="xs muted">Step by step. Tap Mark done as you go — your owner sees your progress. Platform menus change; each lesson links the official help page too.</span>
+      <span className="xs muted">Step by step. Tap Mark done as you go — {boss} sees your progress. Platform menus change; each lesson links the official help page too.</span>
       <table className="tbl"><tbody>{LESSONS.map((l) => {
         const n = done.filter((d) => d.lesson === l.id).length;
-        return <tr key={l.id}><td><Link className="link b" href={`${base}/training/${l.id}`}>{l.title}</Link><div className="xs muted">{l.why}</div></td><td className="num small">{n}/{l.steps.length}</td><td>{n === l.steps.length ? <span className="tag ok">Done</span> : n ? <span className="tag warn">Started</span> : null}</td></tr>;
+        return <tr key={l.id}><td><Link className="link b" href={`${base}/training/${l.id}`}>{l.title}</Link><div className="xs muted">{say(l.why)}</div></td><td className="num small">{n}/{l.steps.length}</td><td>{n === l.steps.length ? <span className="tag ok">Done</span> : n ? <span className="tag warn">Started</span> : null}</td></tr>;
       })}</tbody></table>
     </section>
   );

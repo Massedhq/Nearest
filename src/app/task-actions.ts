@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { and, eq, sql } from "drizzle-orm";
 import { db, fieldTasks, fieldTaskCalls, fieldPlanSettings, fieldTraining, cardPlaces, fieldTouches, cities, voucherDistributions, teamAssistants } from "@/db";
-import { fieldActor, mayWork, type FieldActor } from "@/lib/team";
+import { fieldActor, mayWork, ownerFirstName, type FieldActor } from "@/lib/team";
 import { centralToday, OUTCOMES, HOW, tellOwnerTask, tellAssistants, addDays } from "@/lib/field-tasks";
 import { areaOwnerFor } from "@/lib/areas";
 import { placeOwnerId } from "@/lib/field";
@@ -46,7 +46,7 @@ export async function addTask(_: FormState, form: FormData): Promise<FormState> 
     repeat, kind: kinds.includes(s(form, "kind", 10)) ? s(form, "kind", 10) : "general", source: a.assistant ? "assistant" : "owner", createdBy: a.user.id,
   }).returning();
   await logActivity({ actorUserId: a.user.id, action: "field.task_added", targetType: "field_task", targetId: t.id, after: { title, due, repeat } });
-  if (!a.assistant && (repeat === "weekdays" || due <= addDays(centralToday(), 1))) await tellAssistants(ownerId, `New task: ${title}`, `${a.user.firstName ?? "Your owner"} added a task${repeat === "weekdays" ? " that repeats every weekday" : ` for ${due === centralToday() ? "today" : "tomorrow"}`}.`, "/outreach/tasks");
+  if (!a.assistant && (repeat === "weekdays" || due <= addDays(centralToday(), 1))) await tellAssistants(ownerId, `New task: ${title}`, `${a.user.firstName ?? "Avy"} added a task${repeat === "weekdays" ? " that repeats every weekday" : ` for ${due === centralToday() ? "today" : "tomorrow"}`}.`, "/outreach/tasks");
   refresh();
   return { ok: repeat === "weekdays" ? "Added — it repeats every weekday." : "Task added." };
 }
@@ -55,7 +55,7 @@ export async function editTask(_: FormState, form: FormData): Promise<FormState>
   const a = await actor();
   const t = await taskFor(a, s(form, "id", 40));
   if (!t) return { error: "That task isn't yours." };
-  if (a.assistant && t.source !== "assistant") return { error: "Only your owner can change this task. Add a note in your report instead." };
+  if (a.assistant && t.source !== "assistant") return { error: `Only ${await ownerFirstName(t.ownerId)} can change this task. Add a note in your report instead.` };
   const title = s(form, "title", 160);
   if (!title) return { error: "Write the task." };
   const steps = s(form, "steps", 3000).split("\n").map((x) => x.trim()).filter(Boolean).slice(0, 12);
@@ -89,7 +89,7 @@ export async function sendToOwner(_: FormState, form: FormData): Promise<FormSta
   const t = await taskFor(a, s(form, "id", 40));
   if (!t) return { error: "That task isn't yours." };
   const msg = s(form, "msg", 1000);
-  if (!msg) return { error: "Say what your owner needs to do." };
+  if (!msg) return { error: `Say what ${await ownerFirstName(t.ownerId)} needs to do.` };
   await db.update(fieldTasks).set({ status: "needs", needsMsg: msg, updatedAt: new Date() }).where(eq(fieldTasks.id, t.id));
   await logActivity({ actorUserId: a.user.id, action: "field.task_sent", targetType: "field_task", targetId: t.id, after: { msg } });
   await tellOwnerTask(t.ownerId, `${who(a)} sent you “${t.title}”`, msg, `/admin/field/task/${t.id}`);
@@ -106,7 +106,7 @@ export async function markHandled(form: FormData) {
   const note = s(form, "note", 600);
   await db.update(fieldTasks).set({ status: "work", backNote: note || t.backNote, needsMsg: null, updatedAt: new Date() }).where(eq(fieldTasks.id, t.id));
   await logActivity({ actorUserId: a.user.id, action: "field.task_handled", targetType: "field_task", targetId: t.id, after: { note } });
-  await tellAssistants(t.ownerId, `${a.user.firstName ?? "Your owner"} handled “${t.title}”`, note || "It's back with you to finish.", `/outreach/task/${t.id}`);
+  await tellAssistants(t.ownerId, `${a.user.firstName ?? "Avy"} handled “${t.title}”`, note || "It's back with you to finish.", `/outreach/task/${t.id}`);
   refresh();
 }
 
@@ -124,7 +124,7 @@ export async function completeTask(_: FormState, form: FormData): Promise<FormSt
   if (!t) return { error: "That task isn't yours." };
   if (["done", "approved"].includes(t.status)) return { error: "This task is already finished." };
   const summary = s(form, "summary", 3000);
-  if (!summary) return { error: "Write a short summary for your owner." };
+  if (!summary) return { error: `Write a short summary for ${await ownerFirstName(t.ownerId)}.` };
   const n = Math.min(20, Math.max(0, Number(s(form, "count", 3)) || 0));
   const calls: (typeof fieldTaskCalls.$inferInsert)[] = [];
   for (let i = 0; i < n; i++) {
@@ -179,7 +179,7 @@ export async function approveTask(form: FormData) {
   if (!t || t.status !== "done") return;
   await db.update(fieldTasks).set({ status: "approved", approvedAt: new Date(), updatedAt: new Date() }).where(eq(fieldTasks.id, t.id));
   await logActivity({ actorUserId: a.user.id, action: "field.task_approved", targetType: "field_task", targetId: t.id });
-  await tellAssistants(t.ownerId, `Approved: ${t.title}`, "Nice work — your owner approved this report.", `/outreach/task/${t.id}`);
+  await tellAssistants(t.ownerId, `Approved: ${t.title}`, `Nice work — ${a.user.firstName ?? "it was"} approved this report.`, `/outreach/task/${t.id}`);
   refresh();
 }
 
@@ -198,7 +198,7 @@ export async function sendBackTask(form: FormData) {
 /** Owner: AI plan settings + make a plan now. */
 export async function savePlanSettings(_: FormState, form: FormData): Promise<FormState> {
   const a = await actor();
-  if (a.assistant) return { error: "Only your owner can change this." };
+  if (a.assistant) return { error: `Only ${await ownerFirstName(a.ownerId)} can change this.` };
   const on = form.get("on") === "on";
   const hour = Math.min(10, Math.max(6, Number(s(form, "hour", 2)) || 7));
   const hours = Math.min(8, Math.max(2, Number(s(form, "hours", 2)) || 4));
@@ -210,7 +210,7 @@ export async function savePlanSettings(_: FormState, form: FormData): Promise<Fo
 
 export async function makePlanNow(_: FormState, form: FormData): Promise<FormState> {
   const a = await actor();
-  if (a.assistant) return { error: "Only your owner can do this." };
+  if (a.assistant) return { error: `Only ${await ownerFirstName(a.ownerId)} can do this.` };
   const day = s(form, "day", 10) === "tomorrow" ? addDays(centralToday(), 1) : centralToday();
   const { makePlan } = await import("@/lib/field-plan");
   const r = await makePlan(a.user.id, day, { actorId: a.user.id });

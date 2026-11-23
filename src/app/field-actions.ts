@@ -234,7 +234,7 @@ export async function savePopup(_: FormState, form: FormData): Promise<FormState
     status: ["planned", "confirmed"].includes(s(form, "status", 12)) ? s(form, "status", 12) : existing?.status ?? "planned",
   };
   const paid = (x: string | null) => !!x && !/^(free|\$?0(\.00)?|none|no)$/i.test(x.trim());
-  if (a.assistant && v.status === "confirmed" && existing?.status !== "confirmed" && (paid(v.spaceCost) || paid(v.vendorFee))) return { error: "This pop-up costs money — save it as Planned. Your owner confirms it." };
+  if (a.assistant && v.status === "confirmed" && existing?.status !== "confirmed" && (paid(v.spaceCost) || paid(v.vendorFee))) return { error: `This pop-up costs money — save it as Planned. ${await (await import("@/lib/team")).ownerFirstName(a.ownerId)} confirms it.` };
   if (existing) {
     await db.update(fieldPopups).set({ ...v, updatedAt: new Date() }).where(eq(fieldPopups.id, existing.id));
     await logActivity({ actorUserId: a.user.id, action: "field.popup_changed", targetType: "field_popup", targetId: existing.id, after: { name, at: start, status: v.status } });
@@ -344,7 +344,7 @@ export async function saveAdDraft(_: FormState, form: FormData): Promise<FormSta
   const id = s(form, "id", 40);
   const existing = ID.test(id) ? await db.query.adDrafts.findFirst({ where: eq(adDrafts.id, id) }) : null;
   if (id && (!existing || !mayWork(a, existing.ownerId))) return { error: "That ad isn't yours." };
-  if (existing && a.assistant && ["approved", "launched"].includes(existing.status)) return { error: "This ad is already approved — ask the owner to make changes." };
+  if (existing && a.assistant && ["approved", "launched"].includes(existing.status)) return { error: `This ad is already approved — ask ${await (await import("@/lib/team")).ownerFirstName(a.ownerId)} to make changes.` };
   const platform = ["facebook", "instagram", "tiktok", "google"].includes(s(form, "platform", 20)) ? s(form, "platform", 20) : "";
   const name = s(form, "name", 120);
   if (!platform) return { error: "Choose the platform." };
@@ -586,7 +586,7 @@ export async function createAssistantLogin(_: FormState, form: FormData): Promis
 async function emailLogin(to: string, name: string, password: string, owner: string | null) {
   const url = `${process.env.APP_URL || "https://usenearest.com"}/sign-in`;
   await sendEmail({ to, subject: "Your Nearest Field team login", eyebrow: "Nearest Field team", heading: `Welcome, ${name}!`,
-    lines: [`${owner ?? "Your owner"} set up your Nearest Field team login.`, `Email: ${to}`, `Password: ${password}`, "Sign in with the button below. You'll land on Today, where your tasks are. You can change your password anytime with Forgot password on the sign-in page."],
+    lines: [`${owner ?? "Avy"} set up your Nearest Field team login.`, `Email: ${to}`, `Password: ${password}`, "Sign in with the button below. You'll land on Today, where your tasks are. You can change your password anytime with Forgot password on the sign-in page."],
     button: { label: "Sign in", url } }).catch(() => undefined);
 }
 
