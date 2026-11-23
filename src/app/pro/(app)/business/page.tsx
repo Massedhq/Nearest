@@ -85,7 +85,6 @@ export default async function Business() {
           </>
         ) : <GoLiveCard profile={profile} />}
         <div className="col" style={{ gap: 0 }}>
-          {!partnerSide && !partner && apply && <Link className="item" href="/pro/become-partner"><Icon name="sparkle" /><span className="grow">Become a Nearest Partner</span><span className={`tag ${apply.eligible ? "ok" : ""}`}>{apply.pending ? "In review" : apply.eligible ? "You qualify" : `${Math.min(apply.completed, apply.min)} of ${apply.min} bookings`}</span><Icon name="right" size="s" /></Link>}
           {!partnerSide && LINKS.map(([icon, text, href]) => (
             <Link key={href} className="item" href={href}><Icon name={icon} /><span className="grow">{text}</span><Icon name="right" size="s" /></Link>
           ))}
@@ -94,6 +93,7 @@ export default async function Business() {
           <Link className="item" href="/pro/updates"><Icon name="bell" /><span className="grow">Updates</span>{updateCount > 0 && <span className="tag warn">{updateCount} to review</span>}<Icon name="right" size="s" /></Link>
           <Link className="item" href="/pro/account-status"><Icon name="shield" /><span className="grow">Account status</span>{fineCount > 0 && <span className="tag warn">{fineCount} fine{fineCount === 1 ? "" : "s"}</span>}{standing.suspendedUntil && <span className="tag bad">Suspended</span>}<Icon name="right" size="s" /></Link>
           {viewer.admin && <Link className="item" href="/workspace"><Icon name="switch" /><span className="grow">Switch workspace</span><Icon name="right" size="s" /></Link>}
+          {!partnerSide && !partner && apply && <Link className="item" href="/pro/become-partner"><Icon name="sparkle" /><span className="grow">Become a Nearest Partner</span><span className={`tag ${apply.eligible ? "ok" : ""}`}>{apply.pending ? "In review" : apply.eligible ? "You qualify" : `${Math.min(apply.completed, apply.min)} of ${apply.min} bookings`}</span><Icon name="right" size="s" /></Link>}
         </div>
         <DeleteMyAccount blocked={blocked} owner={Boolean(viewer.admin)} />
         <div className="card small">
