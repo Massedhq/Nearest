@@ -172,8 +172,8 @@ export async function TaskDetail({ actor, base, id }: { actor: FieldActor; base:
         <h2 className="disp h2">{t.title}</h2>
         {t.why && <p className="p small">{t.why}</p>}
         {t.steps.length > 0 && <ol className="small" style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6 }}>{t.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>}
-        {t.backNote && <div className="card warn small"><b>From your owner:</b> {t.backNote}</div>}
-        {t.status === "needs" && t.needsMsg && <div className="card warn small"><b>Sent to owner:</b> {t.needsMsg}</div>}
+        {t.backNote && <div className="card warn"><p className="p small"><b>From your owner:</b> {t.backNote}</p></div>}
+        {t.status === "needs" && t.needsMsg && <div className="card warn"><p className="p small"><b>Sent to owner:</b> {t.needsMsg}</p></div>}
         <span className="xs muted">{t.startedAt ? `Started ${at(t.startedAt)}` : "Not started"}{t.doneAt ? ` · Finished ${at(t.doneAt)}` : ""}{t.approvedAt ? ` · Approved ${at(t.approvedAt)}` : ""}</span>
         <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
           {["todo", "back"].includes(t.status) && <form action={startTask}><input type="hidden" name="id" value={t.id} /><button className="btn sm">Start working on it</button></form>}

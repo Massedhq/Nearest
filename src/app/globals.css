@@ -336,7 +336,16 @@ html:has(.agree),html:has(.agree) body{background:#FFFFFF}
 .ws .card{overflow-x:auto}
 .ws .row{flex-wrap:wrap}
 .ws .grid2,.ws .grid3{grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))}
-.ws p,.ws span,.ws td,.ws th,.ws label,.ws a,.ws b,.ws h1,.ws h2{overflow-wrap:anywhere}
+.ws p,.ws span,.ws label,.ws a,.ws b,.ws h1,.ws h2{overflow-wrap:anywhere}
+.ws .tbl th{white-space:nowrap}
+.ws .tbl td{overflow-wrap:normal;min-width:110px}
+.ws .tbl td.empty{min-width:0}
 .ws .eyebrow{letter-spacing:.08em;line-height:1.5}
 .ws .h1{font-size:30px}
 .ws .tbl{width:100%}
+/* white workspace: checkbox rows + footer match the white screen (2026-11-23) */
+.ws .check{background:#FFFFFF;border-color:#D9D3C8;color:#141414}
+.ws .check input{accent-color:#141414}
+html:has(.ws) .powered{background:#FFFFFF;border-top-color:#E6E1D8}
+html:has(.ws) .powered a{color:#6B665E}
+html:has(.ws) .powered a .b{color:#141414}

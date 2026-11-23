@@ -349,11 +349,11 @@ export async function ProsView({ actor }: { actor: FieldActor }) {
           <label className="check"><input type="checkbox" name="send" />Email them the sign-up link now</label>
         </ActionForm>
       </section>
-      {actor.assistant && <div className="card small">You&apos;ve added <b>{mine.length}</b> professionals — <b>{mine.filter((r) => ["registered", "profile_complete"].includes(r.status)).length}</b> have created their account.</div>}
+      {actor.assistant && <div className="card"><p className="p small">You&apos;ve added <b>{mine.length}</b> professional{mine.length === 1 ? "" : "s"} — <b>{mine.filter((r) => ["registered", "profile_complete"].includes(r.status)).length}</b> have created their account.</p></div>}
       <section className="card" style={{ gap: 10 }}>
         <span className="eyebrow">{actor.assistant ? "Professionals you added" : "Prospects"}</span>
         <table className="tbl"><thead><tr><th>Name</th><th>Service · city</th><th>Contact</th><th>Status</th><th>Added by</th><th /></tr></thead>
-          <tbody>{rows.length === 0 ? <tr><td className="empty" colSpan={6}>No prospects yet.</td></tr> : rows.map((r) => (
+          <tbody>{rows.length === 0 ? <tr><td className="empty" colSpan={6}>{actor.assistant ? "No professionals added yet." : "No prospects yet."}</td></tr> : rows.map((r) => (
             <tr key={r.id}><td className="b">{r.name}<div className="xs muted">{r.business ?? ""}{actor.scope === null && r.owner ? ` · ${r.owner}` : ""}</div></td>
               <td className="small">{[r.category, r.city].filter(Boolean).join(" · ")}</td>
               <td className="xs">{r.email ?? ""}{r.email && r.phone ? <br /> : null}{r.phone ?? ""}</td>

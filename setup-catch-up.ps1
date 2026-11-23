@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -m "Field team: training icon, live map Back button, own pros only, phone fit, menu, emailed logins"
+git commit -m "Field team: white checkboxes and footer, clean tables, training icon, live map Back, own pros only, menu"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""
