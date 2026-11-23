@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -m "Areas, Field team and owner assistants (organizations, drop-offs, cards, pop-ups, pros, ads, tracking)"
+git commit -m "Owner browse profile: no school, all markets"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

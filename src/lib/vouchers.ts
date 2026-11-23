@@ -154,7 +154,9 @@ export async function claimVote(userId: string): Promise<{ linked: boolean; vouc
     await db.update(studentVotes).set({ userId, linkedAt: new Date() }).where(and(eq(studentVotes.id, v.id), isNull(studentVotes.userId)));
   }
   const p = await db.query.studentProfiles.findFirst({ where: eq(studentProfiles.userId, userId) });
-  if (p) {
+  // Owners/staff testing the vote never get a school or interests copied onto their browse profile (2026-11-23).
+  const staff = !!(await db.execute(sql`select 1 from admin_members where user_id = ${userId} limit 1`)).rows.length;
+  if (p && !staff) {
     const set: Partial<typeof studentProfiles.$inferInsert> = {};
     if (!p.schoolId && v.schoolId) set.schoolId = v.schoolId;
     if (!(p.interests ?? []).length && v.categories.length) set.interests = v.categories;

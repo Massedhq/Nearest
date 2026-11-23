@@ -14,6 +14,12 @@ export async function requireStudent() {
       [profile] = await db.insert(studentProfiles).values({ userId: viewer.user.id, verificationStatus: "verified", verifiedAt: new Date(), onboardingCompletedAt: new Date() }).onConflictDoNothing().returning();
       profile ??= (await db.query.studentProfiles.findFirst({ where: eq(studentProfiles.userId, viewer.user.id) }))!;
     }
+    // Owners browse every market: their customer profile never carries a school (that would lock Explore to one
+    // market and show a "Coming soon to <city>" card). A school/interests picked up from a test vote is cleared (2026-11-23).
+    if (profile.schoolId || (profile.interests ?? []).length) {
+      await db.update(studentProfiles).set({ schoolId: null, interests: [] }).where(eq(studentProfiles.userId, viewer.user.id));
+      profile = { ...profile, schoolId: null, interests: [] };
+    }
     return { user: viewer.user, profile: { ...profile, verificationStatus: "verified" as const, reverifyBy: null } };
   }
   if (viewer.user?.accountType !== "student") redirect(await destinationFor(viewer));
