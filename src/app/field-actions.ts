@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   db, cities, cardPlaces, fieldContacts, fieldTouches, fieldSteps, fieldPopups, adDrafts, adSpend, platformSettings, prospects,
-  teamAssistants, users, voucherDistributions, voucherDistributionEvents, areaCities, areaZips,
+  teamAssistants, users, adminMembers, voucherDistributions, voucherDistributionEvents, areaCities, areaZips,
 } from "@/db";
 import { fieldActor, mayWork, type FieldActor, newTeamToken, TEAM_INVITE_DAYS, MAX_TEAM_ASSISTANTS } from "@/lib/team";
 import { placeOwnerId, STEP_KINDS, TOUCH_KINDS, DEFAULT_CARDS_PER_ORG } from "@/lib/field";
@@ -546,6 +546,8 @@ export async function createAssistantLogin(_: FormState, form: FormData): Promis
   if (!password) password = makePassword();
   const taken = await db.query.users.findFirst({ where: eq(users.email, email) });
   if (taken && taken.accountType !== "staff") return { error: "That email already has a student or professional account. Use a different email." };
+  // A shared inbox (e.g. info@usenearest.com) is fine — but never an owner's or staff member's own admin login (setting a password here would replace theirs).
+  if (taken && (await db.query.adminMembers.findFirst({ where: eq(adminMembers.userId, taken.id) }))) return { error: "That email is an owner or staff login. Use a different email." };
   const mine = await db.select().from(teamAssistants).where(and(eq(teamAssistants.ownerId, a.user.id), inArray(teamAssistants.status, ["invited", "active"])));
   if (mine.some((x) => x.email === email)) return { error: "You already added this email." };
   if (mine.length >= MAX_TEAM_ASSISTANTS) return { error: `You can have up to ${MAX_TEAM_ASSISTANTS} assistants. Remove one first.` };

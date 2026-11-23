@@ -27,7 +27,7 @@ export async function TeamView({ actor }: { actor: FieldActor }) {
         <ActionForm action={createAssistantLogin} submitLabel="Create her login">
           <div className="grid2">
             <div className="field"><label>Name she goes by</label><input name="name" required maxLength={80} placeholder="Nicky" /></div>
-            <div className="field"><label>Her email (she signs in with it)</label><input name="email" type="email" required maxLength={160} placeholder="nicky@usenearest.com" /></div>
+            <div className="field"><label>Her email (she signs in with it)</label><input name="email" type="email" required maxLength={160} placeholder="info@usenearest.com" /></div>
             <div className="field"><label>Password (10+ characters — or leave empty and one is made)</label><input name="password" type="text" autoComplete="new-password" minLength={10} maxLength={128} /></div>
             <div className="field"><label>Legal name (for signing agreements)</label><input name="legalName" maxLength={120} placeholder="Nicole Corbin" /></div>
             <div className="field"><label>Department / title</label><input name="title" maxLength={120} placeholder="Outreach &amp; Marketing Department" /></div>
