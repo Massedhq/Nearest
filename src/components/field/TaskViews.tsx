@@ -197,7 +197,7 @@ export async function TaskDetail({ actor, base, id }: { actor: FieldActor; base:
       {!owner && open && t.status !== "todo" && (
         <section className="card" style={{ gap: 12 }}>
           <span className="eyebrow">Need {boss}?</span>
-          <ActionForm action={sendToOwner} submitLabel={`Send to ${boss}`} buttonClass="btn ghost sm"><input type="hidden" name="id" value={t.id} /><F label="What do they need to do?"><input name="msg" required maxLength={1000} placeholder="Grace Church wants to talk to an owner before the pop-up — can you call Pastor Lee?" /></F></ActionForm>
+          <ActionForm action={sendToOwner} submitLabel={`Send to ${boss}`} buttonClass="btn ghost sm"><input type="hidden" name="id" value={t.id} /><F label="What do they need to do?"><input name="msg" required maxLength={1000} placeholder={`Grace Church wants to talk to ${boss} before the pop-up — can you call Pastor Lee?`} /></F></ActionForm>
         </section>
       )}
       {open && t.status !== "todo" && (
@@ -373,7 +373,7 @@ export async function EducatorsView({ actor, base, editId, sendId }: { actor: Fi
             <F label="Spoke on"><input name="spokeAt" maxLength={60} defaultValue={edit?.spokeAt ?? ""} placeholder="Nov 23, DM on Instagram" /></F>
             <F label="Their price"><input name="price" maxLength={120} defaultValue={edit?.price ?? ""} placeholder="$300 for a 20-minute video" /></F>
             <F label="Products they'd list"><select name="products" defaultValue={edit?.products ?? ""}><option value="">Not asked yet</option><option value="yes">Yes — will send a list</option><option value="no">No</option></select></F>
-            <F label="Status"><select name="status" defaultValue={edit && ["found", "talking", "price", "no"].includes(edit.status) ? edit.status : "found"}><option value="found">Found</option><option value="talking">Talking</option><option value="price">Price — send to owner</option><option value="no">Not interested</option></select></F>
+            <F label="Status"><select name="status" defaultValue={edit && ["found", "talking", "price", "no"].includes(edit.status) ? edit.status : "found"}><option value="found">Found</option><option value="talking">Talking</option><option value="price">{owner ? "Price" : `Price — send to ${boss}`}</option><option value="no">Not interested</option></select></F>
           </div>
           <F label="What you asked / what they said"><textarea name="asked" maxLength={600} defaultValue={edit?.asked ?? ""} /></F>
           <F label="Notes"><textarea name="notes" maxLength={1000} defaultValue={edit?.notes ?? ""} /></F>
@@ -384,14 +384,14 @@ export async function EducatorsView({ actor, base, editId, sendId }: { actor: Fi
         <span className="eyebrow">Video educators</span>
         {rows.length === 0 ? <span className="small muted">None yet.</span> : rows.map((e) => {
           const c = contracts.find((x) => x.educatorId === e.id && x.status !== "cancelled");
-          const [k, l] = EDU_STATUS[e.status] ?? ["", e.status];
+          const [k, l0] = EDU_STATUS[e.status] ?? ["", e.status]; const l = owner ? l0.replace("needs owner", "needs you") : l0.replace("owner", boss);
           return (
             <div key={e.id} className="col fsep" style={{ gap: 6, paddingBottom: 12 }}>
               <div className="row between" style={{ flexWrap: "wrap" }}><span className="b">{e.name} <span className="xs muted">· {e.platform}{e.handle ? ` ${e.handle}` : ""}</span></span><span className={`tag ${k}`}>{l}</span></div>
               <span className="small">{e.skill}{e.price ? ` · ${e.price}` : ""}{e.products === "yes" ? " · will list products" : ""}</span>
               {(e.phone || e.email) && <span className="xs muted">{[e.phone, e.email].filter(Boolean).join(" · ")}</span>}
               {e.asked && <span className="xs">{e.asked}</span>}
-              {e.ownerNote && <span className="xs"><b>Owner:</b> {e.ownerNote}</span>}
+              {e.ownerNote && <span className="xs"><b>{owner ? "Your note:" : `${boss}:`}</b> {e.ownerNote}</span>}
               {c && <span className="xs"><b>Agreement:</b> {c.status === "sent" ? `sent ${at(c.createdAt)} — waiting for their signature` : c.status === "signed" ? `signed by ${c.creatorName} ${at(c.creatorSignedAt!)} — waiting for the video` : `video uploaded ${at(c.uploadedAt!)}`} · signed for Nearest by {c.nearestSigner}</span>}
               {c?.videoUrl && owner && <a className="link xs" href={`/api/educator-video/${c.id}`} target="_blank" rel="noreferrer">Open the video{c.videoName ? ` (${c.videoName})` : ""}</a>}
               {c?.productList && <span className="xs" style={{ whiteSpace: "pre-wrap" }}><b>Products:</b> {c.productList}</span>}

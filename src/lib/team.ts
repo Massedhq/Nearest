@@ -65,5 +65,9 @@ export async function ownerFirstName(ownerId: string | null | undefined) {
 
 /** Swap "your owner" wording in fixed text (guides, training) for the owner's name. */
 export function withOwnerName(text: string, name: string) {
-  return text.replace(/\b([Yy])our owner's\b/g, `${name}'s`).replace(/\b[Yy]our owner\b/g, name).replace(/\b[Tt]he owner's\b/g, `${name}'s`).replace(/\b[Tt]he owner\b/g, name);
+  return text
+    .replace(/\b[Yy]our owner's\b/g, `${name}'s`).replace(/\b[Yy]our owner\b/g, name)
+    .replace(/\b[Tt]he owner's\b/g, `${name}'s`).replace(/\b[Tt]he owner\b/g, name)
+    .replace(/\b([Ss])end to owner\b/g, `$1end to ${name}`).replace(/\bNeeds owner OK\b/g, `Needs ${name}'s OK`).replace(/\banother owner's area\b/g, "someone else's area").replace(/\bSent to owner\b/g, `Sent to ${name}`)
+    .replace(/\bowner's team\b/g, `${name}'s team`).replace(/\b[Aa]n owner\b/g, name);
 }

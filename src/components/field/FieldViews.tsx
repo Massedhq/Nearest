@@ -230,7 +230,7 @@ export async function OrgDetail({ actor, base, placeId }: { actor: FieldActor; b
               </div>
             </ActionForm>
           )}
-          {actor.assistant && <span className="xs muted">Your request waits for the owner&apos;s approval.</span>}
+          {actor.assistant && <span className="xs muted">Your request waits for {await ownerFirstName(actor.ownerId)}&apos;s approval.</span>}
           {t.cards.length > 0 && <table className="tbl"><tbody>{t.cards.map((c) => (
             <tr key={c.id}><td className="num b">{c.quantity}</td><td className="small">{day(c.at)}</td>
               <td><span className={`tag ${c.status === "planned" ? "warn" : c.status === "cancelled" ? "bad" : "ok"}`}>{c.status === "planned" && c.requestedBy ? "Waiting for approval" : c.status === "cancelled" ? "Declined / canceled" : c.status === "assigned" ? "Approved" : c.status}</span></td>
@@ -301,7 +301,7 @@ export async function PopupsView({ actor, base, editId }: { actor: FieldActor; b
             <tr key={r.id} id={`p-${r.id}`}><td className="small b">{at(r.starts_at)}</td>
               <td><span className="b">{r.name}</span><div className="xs muted">{r.kind === "vendor" ? "Vendor at " : ""}{r.host_name ?? ""}{actor.scope === null && r.owner ? ` · ${r.owner}` : ""}</div>
                 {(r.space_cost || r.vendor_fee || r.our_fee || r.bring) && <div className="xs">{[r.space_cost && `Space ${r.space_cost}`, r.vendor_fee && `Vendor fee ${r.vendor_fee}`, r.our_fee && `Our fee ${r.our_fee}`, r.bring && `Bring: ${r.bring}`].filter(Boolean).join(" · ")}</div>}
-                {[r.space_cost, r.vendor_fee].some((x) => x && !/^(free|\$?0(\.00)?|none|no)$/i.test(x.trim())) && r.status === "planned" && <span className="tag warn">Needs owner OK — costs money</span>}</td>
+                {[r.space_cost, r.vendor_fee].some((x) => x && !/^(free|\$?0(\.00)?|none|no)$/i.test(x.trim())) && r.status === "planned" && <span className="tag warn">{actor.assistant ? `Needs ${boss}'s OK` : "Needs your OK"} — costs money</span>}</td>
               <td className="small">{r.street}, {r.city_name} {r.zip}</td>
               <td><span className={`tag ${r.status === "confirmed" ? "ok" : r.status === "cancelled" ? "bad" : ""}`}>{POPUP_STATUS[r.status]}</span>
                 {r.status === "confirmed" && <div><Link className="link xs" href={`/pop-ups/${r.id}`} target="_blank">Public page</Link> <CopyButton text={`${SITE_URL}/pop-ups/${r.id}`} label="Copy" /></div>}</td>
