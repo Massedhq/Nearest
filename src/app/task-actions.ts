@@ -150,7 +150,7 @@ export async function completeTask(_: FormState, form: FormData): Promise<FormSt
       if (city && (!owner || owner === t.ownerId)) {
         const { locationKey } = await import("@/lib/distribution");
         [place] = await db.insert(cardPlaces).values({ name: c.orgName, kind: "other", street: parts.street, state: parts.state, zip: parts.zip, cityId: city.id, address: `${parts.street}, ${parts.city}, ${parts.state} ${parts.zip}`,
-          contactName: c.person, contact: c.contact, locationKey: locationKey(c.orgName, parts.street, parts.zip), createdBy: a.user.id }).onConflictDoNothing().returning();
+          contactName: c.person, contact: c.contact, locationKey: locationKey(c.orgName, parts.street, parts.zip), createdBy: a.user.id, assignedTo: a.user.id, shared: true }).onConflictDoNothing().returning();
       }
     }
     if (place && mayWork(a, await placeOwnerId(place.id))) {

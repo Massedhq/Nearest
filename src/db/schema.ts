@@ -1616,6 +1616,11 @@ export const cardPlaces = pgTable("card_places", {
   locationKey: text("location_key"),
   createdBy: uuid("created_by").references(() => users.id),
   createdAt: ts("created_at").notNull().defaultNow(),
+  // Field team assignment (2026-11-23): only the assigned person works an organization; they can release it to a
+  // teammate or to anyone (open_to_claim). shared = the whole team can see it (the adder chooses when adding).
+  assignedTo: uuid("assigned_to").references(() => users.id),
+  openToClaim: boolean("open_to_claim").notNull().default(false),
+  shared: boolean("shared").notNull().default(true),
 }, (t) => [uniqueIndex("card_places_location_idx").on(t.locationKey)]);
 
 export const nearestCards = pgTable("nearest_cards", {
@@ -2099,6 +2104,36 @@ export const fieldTraining = pgTable("field_training", {
  * Video educators (2026-11-23): creators found on Instagram/TikTok/Facebook/YouTube to make paid step-by-step training
  * videos for Learn at Nearest. Status found → talking → price (needs owner) → agreed (owner approved) → contract → received.
  */
+/** Team meetings (2026-11-23): set up inside Nearest by anyone on an owner's team; video via Google Meet or Facebook only. */
+export const teamMeetings = pgTable("team_meetings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  ownerId: uuid("owner_id").notNull().references(() => users.id), // whose team
+  title: text("title").notNull(),
+  agenda: text("agenda"),
+  startsAt: ts("starts_at").notNull(),
+  minutes: integer("minutes").notNull().default(30),
+  how: text("how").notNull().default("video"), // video | in_person | phone
+  link: text("link"), // Google Meet or Facebook/Messenger link
+  place: text("place"), // in person: where; phone: number to call
+  attendees: jsonb("attendees").$type<string[]>().notNull().default([]), // user ids
+  status: text("status").notNull().default("planned"), // planned | cancelled | done
+  notes: text("notes"), // meeting notes, filled in after
+  createdBy: uuid("created_by").notNull().references(() => users.id),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+/** The Note Room (2026-11-23): one shared note board per owner's team. */
+export const teamNotes = pgTable("team_notes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  ownerId: uuid("owner_id").notNull().references(() => users.id),
+  authorId: uuid("author_id").notNull().references(() => users.id),
+  body: text("body").notNull(),
+  pinned: boolean("pinned").notNull().default(false),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  editedAt: ts("edited_at"),
+});
+
 export const educators = pgTable("educators", {
   id: uuid("id").primaryKey().defaultRandom(),
   ownerId: uuid("owner_id").notNull().references(() => users.id),

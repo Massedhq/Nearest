@@ -54,7 +54,21 @@ async function placeFor(a: FieldActor, placeId: string) {
   const place = await db.query.cardPlaces.findFirst({ where: eq(cardPlaces.id, placeId) });
   if (!place) return null;
   const ownerId = await placeOwnerId(place.id);
-  return mayWork(a, ownerId) ? { place, ownerId: ownerId! } : null;
+  if (!mayWork(a, ownerId)) return null;
+  if (a.assistant && !place.shared && place.createdBy !== a.user.id && place.assignedTo !== a.user.id) return null;
+  return { place, ownerId: ownerId! };
+}
+
+/**
+ * Only the person an organization is assigned to works it (2026-11-23) — the one who added it, until they release it.
+ * Returns an error to show, or null when this person may work it.
+ */
+async function workProblem(a: FieldActor, place: typeof cardPlaces.$inferSelect): Promise<string | null> {
+  if (place.openToClaim) return "This organization is open — tap Claim it first so nobody doubles up.";
+  const worker = place.assignedTo ?? place.createdBy;
+  if (!worker || worker === a.user.id) return null;
+  const w = await db.query.users.findFirst({ where: eq(users.id, worker), columns: { firstName: true } });
+  return `${w?.firstName ?? "Someone else"} is working this organization. Ask them to release it to you${a.assistant ? "" : ", or tap Take it over"}.`;
 }
 
 /* ───────────── Organizations ───────────── */
@@ -74,21 +88,27 @@ export async function fieldAddOrg(_: FormState, form: FormData): Promise<FormSta
   const [p] = await db.insert(cardPlaces).values({
     name, kind, street, state, zip, cityId: city.id, address: `${street}, ${city.name}, ${state} ${zip}`,
     contactName: s(form, "contactName", 100) || null, contact: s(form, "contact", 120) || null, locationKey: locationKey(name, street, zip.slice(0, 5)), createdBy: a.user.id,
+    assignedTo: a.user.id, shared: form.get("share") === "on",
   }).onConflictDoNothing().returning();
   if (!p) return { error: `${name} at ${street} is already listed — search for it below.` };
   if (s(form, "contactName", 100)) {
     const c = s(form, "contact", 120);
     await db.insert(fieldContacts).values({ placeId: p.id, name: s(form, "contactName", 100), title: s(form, "contactTitle", 80) || null, phone: c && !c.includes("@") ? c : null, email: c.includes("@") ? c : null, createdBy: a.user.id });
   }
-  await logActivity({ actorUserId: a.user.id, action: "field.org_added", targetType: "card_place", targetId: p.id, after: { name, kind, street, city: city.name, state, zip } });
+  await logActivity({ actorUserId: a.user.id, action: "field.org_added", targetType: "card_place", targetId: p.id, after: { name, kind, street, city: city.name, state, zip, shared: p.shared } });
+  if (p.shared) {
+    const { teamNotify } = await import("@/lib/team-room");
+    await teamNotify(a.ownerId, "all", a.user.id, `New organization — ${name}`, `${who(a)} added ${name} (${street}, ${city.name}) and is working it.`, `/org/${p.id}`, false);
+  }
   refresh();
-  return { ok: `${name} added. Open it to log calls, add people and book a meeting or drop-off.` };
+  return { ok: `${name} added${p.shared ? " and shared with the team" : " (only you can see it until you share it)"}. You're the one working it — open it to log calls, add people and book a meeting or drop-off.` };
 }
 
 export async function fieldAddContact(_: FormState, form: FormData): Promise<FormState> {
   const a = await actor();
   const f = await placeFor(a, s(form, "placeId", 40));
   if (!f) return { error: "That organization isn't in your area." };
+  const busy = await workProblem(a, f.place); if (busy) return { error: busy };
   const name = s(form, "name", 100), email = s(form, "email", 160).toLowerCase(), phone = s(form, "phone", 30);
   if (!name) return { error: "Enter the person's name." };
   if (email && !EMAIL.test(email)) return { error: "Check the email address." };
@@ -114,6 +134,7 @@ export async function fieldLogTouch(_: FormState, form: FormData): Promise<FormS
   } else {
     const f = await placeFor(a, s(form, "placeId", 40));
     if (!f) return { error: "That organization isn't in your area." };
+    const busy = await workProblem(a, f.place); if (busy) return { error: busy };
     await db.insert(fieldTouches).values({ placeId: f.place.id, contactId, kind, summary, at, createdBy: a.user.id });
   }
   await logActivity({ actorUserId: a.user.id, action: "field.touch", targetType: ID.test(popupId) ? "field_popup" : "card_place", targetId: ID.test(popupId) ? popupId : s(form, "placeId", 40), after: { kind, summary: summary.slice(0, 200) } });
@@ -125,6 +146,7 @@ export async function fieldAddStep(_: FormState, form: FormData): Promise<FormSt
   const a = await actor();
   const f = await placeFor(a, s(form, "placeId", 40));
   if (!f) return { error: "That organization isn't in your area." };
+  const busy = await workProblem(a, f.place); if (busy) return { error: busy };
   const kind = STEP_KINDS[s(form, "kind", 10)] ? s(form, "kind", 10) : "";
   if (!kind) return { error: "Choose in-person meeting, virtual meeting or drop-off." };
   const at = when(s(form, "date", 10), s(form, "time", 5));
@@ -149,6 +171,8 @@ export async function fieldStepStatus(form: FormData) {
   if (!ID.test(id) || !["done", "cancelled", "planned"].includes(status)) return;
   const st = await db.query.fieldSteps.findFirst({ where: eq(fieldSteps.id, id) });
   if (!st || !mayWork(a, st.ownerId)) return;
+  const sp = st.placeId ? await db.query.cardPlaces.findFirst({ where: eq(cardPlaces.id, st.placeId) }) : null;
+  if (sp && (await workProblem(a, sp))) return;
   await db.update(fieldSteps).set({ status, updatedAt: new Date() }).where(eq(fieldSteps.id, id));
   await logActivity({ actorUserId: a.user.id, action: "field.step_status", targetType: "field_step", targetId: id, before: { status: st.status }, after: { status } });
   refresh();
@@ -164,6 +188,7 @@ export async function fieldRequestCards(_: FormState, form: FormData): Promise<F
   const a = await actor();
   const f = await placeFor(a, s(form, "placeId", 40));
   if (!f) return { error: "That organization isn't in your area." };
+  const busy = await workProblem(a, f.place); if (busy) return { error: busy };
   const { cardSupply } = await import("@/lib/field");
   const supply = await cardSupply(f.ownerId);
   const pick = supply.find((x) => x.id === s(form, "batchId", 40)) ?? (supply.length === 1 ? supply[0] : null);

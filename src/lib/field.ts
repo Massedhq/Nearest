@@ -23,12 +23,21 @@ export const DEFAULT_CARDS_PER_ORG = 10;
 const scoped = (scope: string | null, col: ReturnType<typeof sql.raw> | string) => (scope ? sql`and ${typeof col === "string" ? sql.raw(col) : col} = ${scope}` : sql``);
 
 export type FieldPlace = { id: string; name: string; kind: string; street: string | null; city: string | null; state: string | null; zip: string | null;
-  ownerId: string | null; owner: string | null; touches: number; lastTouch: string | null; nextStep: string | null; cardsAsked: number; cardsAssigned: number };
+  ownerId: string | null; owner: string | null; touches: number; lastTouch: string | null; nextStep: string | null; cardsAsked: number; cardsAssigned: number;
+  worker: string | null; workerId: string | null; open: boolean; shared: boolean };
 
-export async function fieldPlaces(scope: string | null, q = ""): Promise<FieldPlace[]> {
+/** Who works an organization: the assignee (or whoever added it, for older rows); null = open for anyone to claim. */
+export const PLACE_WORKER = sql.raw(`case when p.open_to_claim then null else coalesce(p.assigned_to, p.created_by) end`);
+
+/**
+ * `viewer` = an assistant's user id: they see organizations shared with the team plus the ones they added or work.
+ * Owners (viewer null) see everything in their area.
+ */
+export async function fieldPlaces(scope: string | null, q = "", viewer: string | null = null): Promise<FieldPlace[]> {
   const like = q ? sql`and (p.name ilike ${"%" + q + "%"} or p.street ilike ${"%" + q + "%"} or c.name ilike ${"%" + q + "%"} or p.zip ilike ${q + "%"})` : sql``;
   return (await db.execute(sql`select * from (
       select p.id, p.name, p.kind, p.street, c.name as city, p.state, p.zip, ${PLACE_OWNER} as "ownerId",
+        ${PLACE_WORKER} as "workerId", p.open_to_claim as open, p.shared, p.created_by as "createdBy",
         (select count(*)::int from field_touches t where t.place_id = p.id) as touches,
         (select max(t.at) from field_touches t where t.place_id = p.id) as "lastTouch",
         (select min(s.starts_at) from field_steps s where s.place_id = p.id and s.status = 'planned' and s.starts_at > now() - interval '12 hours') as "nextStep",
@@ -36,7 +45,9 @@ export async function fieldPlaces(scope: string | null, q = ""): Promise<FieldPl
         coalesce((select sum(d.quantity) from voucher_distributions d where d.place_id = p.id and d.status in ('assigned','delivered','completed')), 0)::int as "cardsAssigned"
       from card_places p left join cities c on c.id = p.city_id where p.active ${like}) x
     left join lateral (select u.first_name as owner from users u where u.id = x."ownerId") o on true
+    left join lateral (select w.first_name as worker from users w where w.id = x."workerId") wk on true
     where true ${scope ? sql`and x."ownerId" = ${scope}` : sql``}
+      ${viewer ? sql`and (x.shared or x."createdBy" = ${viewer} or x."workerId" = ${viewer})` : sql``}
     order by coalesce(x."lastTouch", '1970-01-01') desc, x.name limit 400`)).rows as FieldPlace[];
 }
 

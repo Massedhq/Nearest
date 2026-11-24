@@ -279,7 +279,7 @@ export async function ReportsView({ actor, base }: { actor: FieldActor; base: st
 /* ───────────── Cards (assistant) ───────────── */
 
 export async function CardsView({ actor, base }: { actor: FieldActor; base: string }) {
-  const [supply, places, requests] = await Promise.all([cardSupply(actor.ownerId), fieldPlaces(actor.scope), cardRequests(actor.scope)]);
+  const [supply, places, requests] = await Promise.all([cardSupply(actor.ownerId), fieldPlaces(actor.scope, "", actor.assistant?.userId ?? null), cardRequests(actor.scope)]);
   const given = (await db.execute(sql`select d.id, d.quantity, d.status, d.distributed_at as at, p.name as place, p.id as "placeId" from voucher_distributions d join card_places p on p.id = d.place_id
     join nearest_card_batches b on b.id = d.batch_id where b.distributor_id = ${actor.ownerId} and d.status <> 'cancelled' order by d.distributed_at desc limit 40`)).rows as { id: string; quantity: number; status: string; at: string; place: string; placeId: string }[];
   const boss = await ownerFirstName(actor.ownerId);

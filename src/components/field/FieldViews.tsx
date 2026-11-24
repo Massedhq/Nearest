@@ -11,6 +11,7 @@ import {
   TOUCH_KINDS, STEP_KINDS, POPUP_STATUS, AD_STATUS, DEFAULT_CARDS_PER_ORG,
 } from "@/lib/field";
 import { mayWork, ownerFirstName, type FieldActor } from "@/lib/team";
+import { OrgAssignment } from "./TeamRoomViews";
 import { TRACKING_FIELDS, trackingSaved } from "@/lib/tracking";
 import { liveReports } from "@/lib/live/reports";
 import { SITE_URL } from "@/lib/public/site";
@@ -33,8 +34,8 @@ const KIND_TAG: Record<string, string> = { meeting: "Meeting", virtual: "Virtual
 
 export function FieldTabs({ base, at: on, owner }: { base: string; at: string; owner: boolean }) {
   const tabs = owner
-    ? [["", "Home"], ["/tasks", "Tasks"], ["/reports", "Reports"], ["/orgs", "Organizations"], ["/popups", "Pop-ups"], ["/pros", "Professionals"], ["/educators", "Video educators"], ["/ads", "Ads"], ["/map", "Vote map"], ["/team", "My assistants"]]
-    : [["", "Today"], ["/tasks", "Tasks"], ["/orgs", "Organizations"], ["/cards", "Cards"], ["/popups", "Pop-ups"], ["/pros", "Professionals"], ["/educators", "Video educators"], ["/ads", "Ads"], ["/map", "Vote map"], ["/training", "Training"], ["/guide", "How it works"]];
+    ? [["", "Home"], ["/tasks", "Tasks"], ["/reports", "Reports"], ["/meetings", "Meetings"], ["/notes", "Note Room"], ["/orgs", "Organizations"], ["/popups", "Pop-ups"], ["/pros", "Professionals"], ["/educators", "Video educators"], ["/ads", "Ads"], ["/map", "Vote map"], ["/team", "My assistants"]]
+    : [["", "Today"], ["/tasks", "Tasks"], ["/meetings", "Meetings"], ["/notes", "Note Room"], ["/orgs", "Organizations"], ["/cards", "Cards"], ["/popups", "Pop-ups"], ["/pros", "Professionals"], ["/educators", "Video educators"], ["/ads", "Ads"], ["/map", "Vote map"], ["/training", "Training"], ["/guide", "How it works"]];
   return (
     <details className="fmenu" key={`${base}${on}`}>
       <summary aria-label="Field team menu">
@@ -107,7 +108,8 @@ function RecruitNext({ rows, more }: { rows: Awaited<ReturnType<typeof recruitNe
 /* ───────────── Organizations ───────────── */
 
 export async function OrgsView({ actor, base, q }: { actor: FieldActor; base: string; q: string }) {
-  const rows = await fieldPlaces(actor.scope, q);
+  const rows = await fieldPlaces(actor.scope, q, actor.assistant?.userId ?? null);
+  const me = actor.assistant?.userId ?? actor.user.id;
   return (
     <div className="col" style={{ gap: 18 }}>
       <section className="card" style={{ gap: 12 }}>
@@ -125,16 +127,19 @@ export async function OrgsView({ actor, base, q }: { actor: FieldActor; base: st
             <F label="Their title (optional)"><input name="contactTitle" maxLength={80} placeholder="Program director" /></F>
             <F label="Their phone or email (optional)"><input name="contact" maxLength={120} /></F>
           </div>
+          <label className="check"><input type="checkbox" name="share" defaultChecked /> Share with the team now (they can see it; only you work it until you release it)</label>
         </ActionForm>
       </section>
       <section className="card" style={{ gap: 10 }}>
         <form className="row" style={{ gap: 8 }}><input name="q" defaultValue={q} placeholder="Search name, street, city or ZIP" className="fin" style={{ flex: 1, height: 40 }} /><button className="btn ghost sm" style={{ width: "auto" }}>Search</button></form>
-        <table className="tbl"><thead><tr><th>Organization</th><th>Address</th><th className="num">Touches</th><th>Last</th><th>Next</th><th className="num">Cards</th>{actor.scope === null && <th>Area</th>}</tr></thead>
-          <tbody>{rows.length === 0 ? <tr><td className="empty" colSpan={7}>No organizations yet.</td></tr> : rows.map((r) => (
+        <table className="tbl"><thead><tr><th>Organization</th><th>Address</th><th className="num">Touches</th><th>Last</th><th>Next</th><th className="num">Cards</th><th>Working it</th>{actor.scope === null && <th>Area</th>}</tr></thead>
+          <tbody>{rows.length === 0 ? <tr><td className="empty" colSpan={8}>No organizations yet.</td></tr> : rows.map((r) => (
             <tr key={r.id}><td><Link className="link b" href={`${base}/org/${r.id}`}>{r.name}</Link><div className="xs muted">{ORG_KINDS[r.kind] ?? r.kind}</div></td>
               <td className="small">{[r.street, r.city].filter(Boolean).join(", ")} {r.zip}</td><td className="num">{r.touches}</td>
               <td className="small">{r.lastTouch ? day(r.lastTouch) : "—"}</td><td className="small">{r.nextStep ? at(r.nextStep) : "—"}</td>
-              <td className="num">{r.cardsAssigned}{r.cardsAsked ? <div className="xs muted">+{r.cardsAsked} asked</div> : null}</td>{actor.scope === null && <td className="small">{r.owner ?? "—"}</td>}</tr>
+              <td className="num">{r.cardsAssigned}{r.cardsAsked ? <div className="xs muted">+{r.cardsAsked} asked</div> : null}</td>
+              <td className="small">{r.open ? <span className="tag warn">Open to claim</span> : r.workerId === me ? <span className="tag ok">You</span> : (r.worker ?? "—")}{!r.shared && <div className="xs muted">Not shared yet</div>}</td>
+              {actor.scope === null && <td className="small">{r.owner ?? "—"}</td>}</tr>
           ))}</tbody></table>
       </section>
     </div>
@@ -144,7 +149,8 @@ export async function OrgsView({ actor, base, q }: { actor: FieldActor; base: st
 export async function OrgDetail({ actor, base, placeId }: { actor: FieldActor; base: string; placeId: string }) {
   const place = /^[0-9a-f-]{36}$/.test(placeId) ? await db.query.cardPlaces.findFirst({ where: (p, { eq: e }) => e(p.id, placeId) }) : null;
   const ownerId = place ? await placeOwnerId(place.id) : null;
-  if (!place || !mayWork(actor, ownerId)) return <div className="card warn small">This organization isn&apos;t in your area. <Link className="link" href={`${base}/orgs`}>Back to organizations</Link></div>;
+  const viewerId = actor.assistant?.userId ?? null;
+  if (!place || !mayWork(actor, ownerId) || (viewerId && !place.shared && place.createdBy !== viewerId && place.assignedTo !== viewerId)) return <div className="card warn small">This organization isn&apos;t in your area. <Link className="link" href={`${base}/orgs`}>Back to organizations</Link></div>;
   const [t, supply] = await Promise.all([placeTimeline(place.id), cardSupply(ownerId!)]);
   const addr = place.address ?? [place.street, place.zip].filter(Boolean).join(" ");
   const contactOpts = t.contacts.map((c) => <option key={c.id} value={c.id}>{c.name}{c.title ? ` — ${c.title}` : ""}</option>);
@@ -155,6 +161,7 @@ export async function OrgDetail({ actor, base, placeId }: { actor: FieldActor; b
         <h2 className="disp h2" style={{ margin: 0 }}>{place.name}</h2>
         <span className="small muted">{ORG_KINDS[place.kind] ?? place.kind} · {addr} · <a className="link" target="_blank" rel="noreferrer" href={`https://maps.google.com/?q=${encodeURIComponent(addr)}`}>Map</a></span>
       </div>
+      <OrgAssignment actor={actor} place={place} ownerId={ownerId!} />
 
       <div className="grid2" style={{ alignItems: "start" }}>
         <section className="card" style={{ gap: 10 }}>
