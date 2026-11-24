@@ -12,6 +12,7 @@ import {
 } from "@/lib/field";
 import { mayWork, ownerFirstName, type FieldActor } from "@/lib/team";
 import { OrgAssignment } from "./TeamRoomViews";
+import { FieldMenu } from "./FieldMenu";
 import { TRACKING_FIELDS, trackingSaved } from "@/lib/tracking";
 import { liveReports } from "@/lib/live/reports";
 import { SITE_URL } from "@/lib/public/site";
@@ -37,15 +38,7 @@ export function FieldTabs({ base, at: on, owner }: { base: string; at: string; o
     ? [["", "Home"], ["/tasks", "Tasks"], ["/reports", "Reports"], ["/meetings", "Meetings"], ["/notes", "Note Room"], ["/orgs", "Organizations"], ["/popups", "Pop-ups"], ["/pros", "Professionals"], ["/educators", "Video educators"], ["/ads", "Ads"], ["/map", "Vote map"], ["/team", "My assistants"]]
     : [["", "Today"], ["/tasks", "Tasks"], ["/meetings", "Meetings"], ["/notes", "Note Room"], ["/orgs", "Organizations"], ["/cards", "Cards"], ["/popups", "Pop-ups"], ["/pros", "Professionals"], ["/educators", "Video educators"], ["/ads", "Ads"], ["/map", "Vote map"], ["/training", "Training"], ["/guide", "How it works"]];
   return (
-    <details className="fmenu" key={`${base}${on}`}>
-      <summary aria-label="Field team menu">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden><path d="M4 7h16M4 12h16M4 17h16" /></svg>
-        <span>{tabs.find(([p]) => p === on)?.[1] ?? "Menu"}</span>
-      </summary>
-      <nav aria-label="Field team">
-        {tabs.map(([p, l]) => <Link key={p} href={`${base}${p}`} className="ftab" aria-current={on === p ? "page" : undefined}>{l}</Link>)}
-      </nav>
-    </details>
+    <FieldMenu base={base} on={on} tabs={tabs as [string, string][]} />
   );
 }
 

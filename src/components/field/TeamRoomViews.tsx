@@ -152,10 +152,13 @@ export async function NotesView({ actor }: { actor: FieldActor }) {
   const me = meOf(actor);
   const owner = !actor.assistant;
   const members = await teamMembers(actor.ownerId);
-  const rows = await db.select().from(teamNotes).where(eq(teamNotes.ownerId, actor.ownerId)).orderBy(desc(teamNotes.pinned), desc(teamNotes.createdAt)).limit(200);
+  const rows = await db.select().from(teamNotes).where(eq(teamNotes.ownerId, actor.ownerId)).orderBy(desc(teamNotes.pinned), desc(teamNotes.createdAt)).limit(600);
   const ids = [...new Set(rows.map((r) => r.authorId))];
   const names = ids.length ? await db.select({ id: users.id, n: users.firstName }).from(users).where(inArray(users.id, ids)) : [];
   const nameOf = (id: string) => members.find((m) => m.userId === id)?.name ?? names.find((x) => x.id === id)?.n ?? "Someone";
+  const top = rows.filter((r) => !r.parentId);
+  const replies = new Map<string, typeof rows>();
+  for (const r of [...rows].reverse()) if (r.parentId) replies.set(r.parentId, [...(replies.get(r.parentId) ?? []), r]);
   return (
     <div className="col" style={{ gap: 18 }}>
       <section className="card" style={{ gap: 12 }}>
@@ -167,27 +170,22 @@ export async function NotesView({ actor }: { actor: FieldActor }) {
       </section>
       <section className="card" style={{ gap: 12 }}>
         <span className="eyebrow">Note Room</span>
-        {rows.length === 0 ? <span className="small muted">No notes yet — post the first one.</span> : rows.map((n) => (
-          <div key={n.id} className="col fsep" style={{ gap: 6, paddingBottom: 12 }}>
-            <div className="row between" style={{ flexWrap: "wrap" }}>
-              <span className="small b">{nameOf(n.authorId)}{n.authorId === me ? " (you)" : ""}</span>
-              <span className="xs muted">{n.pinned && <span className="tag warn" style={{ marginRight: 6 }}>Pinned</span>}{at(n.createdAt)}{n.editedAt ? " · edited" : ""}</span>
-            </div>
-            <p className="p small" style={{ whiteSpace: "pre-wrap" }}>{n.body}</p>
-            <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
-              <form action={pinNote}><input type="hidden" name="id" value={n.id} /><button className="link xs">{n.pinned ? "Unpin" : "Pin to top"}</button></form>
-              {(n.authorId === me || owner) && <form action={deleteNote}><input type="hidden" name="id" value={n.id} /><ConfirmSubmit label="Delete" ask="Delete this note for everyone?" /></form>}
-            </div>
-            {n.authorId === me && (
-              <details><summary className="link xs">Edit</summary>
-                <div style={{ marginTop: 8 }}>
-                  <ActionForm action={editNote} submitLabel="Save" buttonClass="btn ghost sm">
-                    <input type="hidden" name="id" value={n.id} />
-                    <F label="Note"><textarea name="body" maxLength={4000} defaultValue={n.body} /></F>
-                  </ActionForm>
-                </div>
-              </details>
+        {top.length === 0 ? <span className="small muted">No notes yet — post the first one.</span> : top.map((n) => (
+          <div key={n.id} id={`n-${n.id}`} className="col fsep" style={{ gap: 6, paddingBottom: 12 }}>
+            <NoteBody n={n} me={me} owner={owner} name={nameOf(n.authorId)} />
+            {(replies.get(n.id) ?? []).length > 0 && (
+              <div className="col" style={{ gap: 8, marginLeft: 14, paddingLeft: 12, borderLeft: "2px solid #E6E1D8" }}>
+                {(replies.get(n.id) ?? []).map((r) => <div key={r.id} className="col" style={{ gap: 4 }}><NoteBody n={r} me={me} owner={owner} name={nameOf(r.authorId)} reply /></div>)}
+              </div>
             )}
+            <details><summary className="link xs b">Reply{(replies.get(n.id) ?? []).length ? ` (${(replies.get(n.id) ?? []).length})` : ""}</summary>
+              <div style={{ marginTop: 8 }}>
+                <ActionForm action={postNote} submitLabel="Post reply" buttonClass="btn ghost sm">
+                  <input type="hidden" name="parentId" value={n.id} />
+                  <F label={`Reply to ${nameOf(n.authorId)}`}><textarea name="body" required maxLength={4000} rows={3} /></F>
+                </ActionForm>
+              </div>
+            </details>
           </div>
         ))}
       </section>
@@ -195,3 +193,29 @@ export async function NotesView({ actor }: { actor: FieldActor }) {
   );
 }
 
+
+function NoteBody({ n, me, owner, name, reply = false }: { n: typeof teamNotes.$inferSelect; me: string; owner: boolean; name: string; reply?: boolean }) {
+  return (
+    <>
+      <div className="row between" style={{ flexWrap: "wrap" }}>
+        <span className="small b">{name}{n.authorId === me ? " (you)" : ""}</span>
+        <span className="xs muted">{n.pinned && !reply && <span className="tag warn" style={{ marginRight: 6 }}>Pinned</span>}{at(n.createdAt)}{n.editedAt ? " · edited" : ""}</span>
+      </div>
+      <p className="p small" style={{ whiteSpace: "pre-wrap" }}>{n.body}</p>
+      <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+        {!reply && <form action={pinNote}><input type="hidden" name="id" value={n.id} /><button className="link xs">{n.pinned ? "Unpin" : "Pin to top"}</button></form>}
+        {(n.authorId === me || owner) && <form action={deleteNote}><input type="hidden" name="id" value={n.id} /><ConfirmSubmit label="Delete" ask={reply ? "Delete this reply?" : "Delete this note and its replies for everyone?"} /></form>}
+      </div>
+      {n.authorId === me && (
+        <details><summary className="link xs">Edit</summary>
+          <div style={{ marginTop: 8 }}>
+            <ActionForm action={editNote} submitLabel="Save" buttonClass="btn ghost sm">
+              <input type="hidden" name="id" value={n.id} />
+              <F label={reply ? "Reply" : "Note"}><textarea name="body" maxLength={4000} defaultValue={n.body} /></F>
+            </ActionForm>
+          </div>
+        </details>
+      )}
+    </>
+  );
+}

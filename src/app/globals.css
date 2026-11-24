@@ -350,3 +350,6 @@ html:has(.ws) .powered{background:#FFFFFF;border-top-color:#E6E1D8}
 html:has(.ws) .powered a{color:#6B665E}
 html:has(.ws) .powered a .b{color:#141414}
 .ws .tbl td.num{min-width:56px}
+/* field menu is a button now (closes on tap) */
+.fmenu-btn{display:inline-flex;align-items:center;gap:10px;height:44px;padding:0 16px 0 12px;border-radius:22px;border:1px solid #2F2F33;background:#0E0E10;color:#ECE8E1;font-weight:600;font-size:14px;cursor:pointer;font-family:inherit}
+.ws .fmenu-btn{background:#FFFFFF;border-color:#D9D3C8;color:#141414}

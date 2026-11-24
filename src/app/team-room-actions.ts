@@ -102,12 +102,19 @@ export async function saveMeetingNotes(_: FormState, form: FormData): Promise<Fo
 export async function postNote(_: FormState, form: FormData): Promise<FormState> {
   const a = await actor();
   const body = s(form, "body", 4000);
-  if (!body) return { error: "Write your note first." };
-  const [n] = await db.insert(teamNotes).values({ ownerId: a.ownerId, authorId: a.user.id, body }).returning();
-  await logActivity({ actorUserId: a.user.id, action: "field.note_posted", targetType: "team_note", targetId: n.id, after: { body: body.slice(0, 200) } });
-  await teamNotify(a.ownerId, "all", a.user.id, `New note from ${who(a)}`, body.slice(0, 280), "/notes", false);
+  if (!body) return { error: form.get("parentId") ? "Write your reply first." : "Write your note first." };
+  const parentId = s(form, "parentId", 40);
+  let parent: typeof teamNotes.$inferSelect | null = null;
+  if (parentId) {
+    parent = (await noteFor(a, parentId)) ?? null;
+    if (!parent) return { error: "That note isn't on your team." };
+    if (parent.parentId) parent = (await noteFor(a, parent.parentId)) ?? parent; // replies stay one level deep
+  }
+  const [n] = await db.insert(teamNotes).values({ ownerId: a.ownerId, authorId: a.user.id, body, parentId: parent?.id ?? null }).returning();
+  await logActivity({ actorUserId: a.user.id, action: parent ? "field.note_reply" : "field.note_posted", targetType: "team_note", targetId: n.id, after: { body: body.slice(0, 200), parentId: parent?.id ?? null } });
+  await teamNotify(a.ownerId, "all", a.user.id, parent ? `${who(a)} replied to a note` : `New note from ${who(a)}`, body.slice(0, 280), `/notes#n-${parent?.id ?? n.id}`, false);
   refresh();
-  return { ok: "Posted to the Note Room." };
+  return { ok: parent ? "Reply posted." : "Posted to the Note Room." };
 }
 
 async function noteFor(a: FieldActor, id: string) {
@@ -133,6 +140,7 @@ export async function deleteNote(form: FormData) {
   const a = await actor();
   const n = await noteFor(a, s(form, "id", 40));
   if (!n || (n.authorId !== a.user.id && a.assistant)) return;
+  await db.delete(teamNotes).where(eq(teamNotes.parentId, n.id)); // its replies go with it
   await db.delete(teamNotes).where(eq(teamNotes.id, n.id));
   await logActivity({ actorUserId: a.user.id, action: "field.note_deleted", targetType: "team_note", targetId: n.id, before: { body: n.body.slice(0, 300), author: n.authorId } });
   refresh();

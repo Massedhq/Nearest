@@ -2128,6 +2128,7 @@ export const teamNotes = pgTable("team_notes", {
   id: uuid("id").primaryKey().defaultRandom(),
   ownerId: uuid("owner_id").notNull().references(() => users.id),
   authorId: uuid("author_id").notNull().references(() => users.id),
+  parentId: uuid("parent_id"), // a reply → the note it answers (replies are one level deep)
   body: text("body").notNull(),
   pinned: boolean("pinned").notNull().default(false),
   createdAt: ts("created_at").notNull().defaultNow(),
