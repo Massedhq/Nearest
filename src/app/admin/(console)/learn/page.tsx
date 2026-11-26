@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AdminHead } from "@/components/AdminHead";
 import { LearnClassForm } from "@/components/LearnClassForm";
-import { requireAdmin } from "@/lib/admin";
+import { requireAdmin, isMainOwner } from "@/lib/admin";
 import { allClasses, LEARN_STATUS, learnPrice } from "@/lib/learn";
 
 export const metadata = { title: "Learn at Nearest" };
@@ -9,6 +9,7 @@ export const metadata = { title: "Learn at Nearest" };
 /** Owners: the Learn at Nearest class library (coming soon for professionals). */
 export default async function LearnAdmin() {
   const { user, role } = await requireAdmin();
+  const canEdit = role === "OWNER" && (await isMainOwner(user.id)); // other owners: view only
   const classes = await allClasses().catch(() => []);
   return (
     <>
@@ -39,8 +40,8 @@ export default async function LearnAdmin() {
           </div>
         </div>
         <div className="card" style={{ gap: 12 }}>
-          <span className="eyebrow">Add a class</span>
-          {role === "OWNER" ? <LearnClassForm userId={user.id} /> : <span className="small muted">Only owners can add classes.</span>}
+          <span className="eyebrow">{canEdit ? "Add a class" : "Classes"}</span>
+          {canEdit ? <LearnClassForm userId={user.id} /> : <span className="small muted">You can watch every class here. Only the main owner adds or changes classes.</span>}
         </div>
       </div>
     </>

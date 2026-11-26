@@ -8,5 +8,5 @@ export default async function FieldOrg({ params, searchParams }: { params: Promi
   const a = await ownerField();
   const { id } = await params;
   const { saved } = await searchParams;
-  return (<><FieldHead at="/orgs" title="Organization & cards" /><OrgDetail actor={a} base="/admin/field" placeId={id} saved={saved} /></>);
+  return (<><FieldHead at="/orgs" title="Organization & cards" simple={!a.main} /><OrgDetail actor={a} base="/admin/field" placeId={id} saved={saved} /></>);
 }

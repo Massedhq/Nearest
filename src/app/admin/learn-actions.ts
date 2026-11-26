@@ -10,8 +10,13 @@ import { LEARN_LIMITS, ownLearnUrl, publishProblems } from "@/lib/learn";
 type FormState = { error?: string; ok?: string };
 const s = (f: FormData, k: string, max = 200) => String(f.get(k) ?? "").trim().slice(0, max);
 
+/** Adding, editing, showing, hiding and deleting classes is the main owner's (2026-11-26); other owners view only. */
 async function owner() {
-  try { return (await requireAdmin({ owner: true })).user; } catch { return null; }
+  try {
+    const u = (await requireAdmin({ owner: true })).user;
+    const { isMainOwner } = await import("@/lib/admin");
+    return (await isMainOwner(u.id)) ? u : null;
+  } catch { return null; }
 }
 
 function cleanLink(v: string) {

@@ -13,11 +13,12 @@ export async function ownerField() {
   return a;
 }
 
-export function FieldHead({ at, title }: { at: string; title: string }) {
+/** `simple` = an owner on the simple menu (2026-11-26): no Field team menu, just the page. */
+export function FieldHead({ at, title, simple }: { at: string; title: string; simple?: boolean }) {
   return (
     <>
-      <AdminHead eyebrow="Professional Outreach · Field team" title={title} />
-      <FieldTabs base="/admin/field" at={at} owner />
+      <AdminHead eyebrow={simple ? "Professional Outreach" : "Professional Outreach · Field team"} title={title} />
+      {!simple && <FieldTabs base="/admin/field" at={at} owner />}
     </>
   );
 }

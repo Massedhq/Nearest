@@ -13,7 +13,8 @@ export const metadata = { title: "Command Center" };
 
 const count = async (q: Promise<{ n: number }[]>) => (await q)[0]?.n ?? 0;
 
-export default async function CommandCenter() {
+export default async function CommandCenter({ searchParams }: { searchParams: Promise<{ locked?: string }> }) {
+  const { locked } = await searchParams;
   const { user, role } = await requireAdmin();
   const isMain = await (await import("@/lib/admin")).isMainOwner(user.id); // Nearest's money shows to the main owner only
   await expireStaleInvites();
@@ -52,6 +53,7 @@ export default async function CommandCenter() {
   return (
     <>
       <AdminHead eyebrow={`Command center • ${today}`} title={`${hello}, ${user.firstName ?? "there"}`} />
+      {locked && <div className="card warn small">That page isn&apos;t on your menu yet. Ask Avy to add it for you.</div>}
       <div className="kpis">
         <div className="card" style={{ gap: 6 }}><span className="xs muted">First In</span><span className="stat">{founding} / {capacity}</span><span className="bar" style={{ display: "block", marginTop: 6 }}><i style={{ width: `${pct}%` }} /></span></div>
         <div className="card" style={{ gap: 6 }}><span className="xs muted">Professionals</span><span className="stat">{pros}</span></div>

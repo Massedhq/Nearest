@@ -348,8 +348,10 @@ export async function PopupsView({ actor, base, editId }: { actor: FieldActor; b
   const edit = rows.find((r) => r.id === editId) ?? null;
   const d = (iso: string) => new Date(iso).toLocaleDateString("sv-SE", { timeZone: "America/Chicago" });
   const t = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { timeZone: "America/Chicago", hour: "2-digit", minute: "2-digit" });
+  const { GoalsCard } = await import("./TaskViews");
   return (
     <div className="col" style={{ gap: 18 }}>
+      <GoalsCard only="popups" />
       <section className="card" style={{ gap: 12 }} id="form">
         <span className="eyebrow">{edit ? `Edit — ${edit.name}` : "Add a pop-up"}</span>
         <span className="xs muted">Our own pop-up (for example at a Boys & Girls Club) or someone else&apos;s event Nearest signed up for as a vendor. Professionals come by in person to sign up. When it&apos;s Confirmed, it gets a public event page.</span>

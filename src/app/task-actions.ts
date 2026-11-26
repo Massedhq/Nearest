@@ -218,14 +218,18 @@ export async function makePlanNow(_: FormState, form: FormData): Promise<FormSta
   return r.skipped ? { error: "That day already has an AI plan." } : { ok: `Plan made: ${r.made} tasks. Your assistant and you were sent a copy.` };
 }
 
-/** Time worked: the workspace pings once a minute while it's open and in front. */
+/**
+ * Time worked (2026-11-26, owner): the workspace pings once a minute while it's open and in front, but an open minute
+ * only counts once something is SAVED after it (bankWork). If field.idle_reset_minutes (60) pass with nothing saved,
+ * that open time is thrown out (moved to idle) and the clock starts over.
+ */
 export async function pingPresence() {
   const a = await fieldActor();
   if (!a?.assistant) return;
-  const day = centralToday();
-  await db.execute(sql`insert into field_presence (user_id, day, minutes, first_at, last_at) values (${a.user.id}, ${day}, 1, now(), now())
-    on conflict (user_id, day) do update set minutes = field_presence.minutes + 1, last_at = now() where field_presence.last_at < now() - interval '50 seconds'`);
+  const { recordPing } = await import("@/lib/field-goals");
+  await recordPing(a.user.id, centralToday());
 }
+
 
 export async function tickTraining(form: FormData) {
   const a = await actor();
@@ -234,7 +238,7 @@ export async function tickTraining(form: FormData) {
   if (!lesson || !Number.isInteger(step) || step < 0 || step >= lesson.steps.length) return;
   const done = await db.query.fieldTraining.findFirst({ where: and(eq(fieldTraining.userId, a.user.id), eq(fieldTraining.lesson, lesson.id), eq(fieldTraining.step, step)) });
   if (done) await db.delete(fieldTraining).where(and(eq(fieldTraining.userId, a.user.id), eq(fieldTraining.lesson, lesson.id), eq(fieldTraining.step, step)));
-  else await db.insert(fieldTraining).values({ userId: a.user.id, lesson: lesson.id, step }).onConflictDoNothing();
+  else { await db.insert(fieldTraining).values({ userId: a.user.id, lesson: lesson.id, step }).onConflictDoNothing(); const { bankWork } = await import("@/lib/field-goals"); await bankWork(a.user.id); }
   revalidatePath("/outreach/training", "layout");
 }
 

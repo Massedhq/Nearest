@@ -331,6 +331,12 @@ export async function savePopup(_: FormState, form: FormData): Promise<FormState
   if (!start || !end || end <= start) return { error: "Enter the date, start time and end time." };
   const src = s(form, "sourceUrl", 400);
   if (src && !/^https?:\/\//i.test(src)) return { error: "The event listing link should start with https://" };
+  // Monthly goal for all of Nearest (field.popups_per_month): a full month takes no new pop-ups from assistants.
+  if (!existing && a.assistant) {
+    const { popupMonthFull } = await import("@/lib/field-goals");
+    const m = await popupMonthFull(start);
+    if (m.full) return { error: `${m.month} already has its ${m.goal} pop-ups (${m.done} confirmed, ${m.planned} planned). No more are needed that month.` };
+  }
   // Whose pop-up: the area it's in, else the person working it.
   const ownerId = existing?.ownerId ?? (a.scope ?? (await areaOwnerFor(city.id, zip)) ?? a.ownerId);
   if (!mayWork(a, ownerId)) return { error: "That address is in another owner's area." };

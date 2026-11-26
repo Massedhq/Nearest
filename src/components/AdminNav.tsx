@@ -2,26 +2,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "./Icon";
+import { ALL_MENU_ITEMS, SECTIONS } from "@/lib/owner-menu-items";
 
-const NAV: [string, [string, string, string][]][] = [
-  ["Overview", [["Command Center", "home", "/admin"], ["First In", "sparkle", "/admin/founding"], ["Coverage", "map", "/admin/coverage"], ["Service coverage", "chart", "/admin/service-coverage"], ["Student demand", "users", "/admin/demand"], ["Nearest LIVE & Digital Rewards", "chart", "/admin/live"], ["Live vote map", "map", "/live?back=/admin"]]],
-  ["People", [["Students", "users", "/admin/students"], ["Schools", "school", "/admin/schools"], ["Professionals", "store", "/admin/professionals"], ["Verification Queue", "shield", "/admin/verification"], ["Enrollment holds", "flag", "/admin/enrollment-holds"], ["Launch campaign", "sparkle", "/admin/campaign"], ["Supporters", "users", "/admin/supporters"]]],
-  ["Operations", [["Bookings", "cal", "/admin/bookings"], ["Incident Review", "flag", "/admin/incidents"], ["Enforcement", "gavel", "/admin/enforcement"], ["Appeals", "file", "/admin/appeals"], ["Problem reports", "flag", "/admin/reports"], ["Find by photo", "camera", "/admin/photo-match"]]],
-  ["Professional Outreach", [["Outreach", "users", "/admin/outreach"], ["Field team", "pin", "/admin/field"], ["Organizations & cards", "pin", "/admin/field/orgs"], ["Areas", "map", "/admin/areas"], ["Outreach meetings", "cal", "/admin/meet"], ["Partner pages", "link", "/admin/partners"], ["Learn at Nearest", "school", "/admin/learn"], ["Notifications", "bell", "/admin/notifications"]]],
-  ["Business", [["Money", "wallet", "/admin/money"], ["Sales Track", "chart", "/admin/sales"], ["Marketing", "chart", "/admin/marketing"], ["Leaderboard", "star", "/admin/leaderboard"], ["Profile examples", "users", "/admin/examples"], ["Marketplace", "grid", "/admin/marketplace"], ["Pricing intelligence", "chart", "/admin/pricing"], ["Bundle Me", "grid", "/admin/bundles"], ["My card report", "chart", "/admin/my-vouchers"], ["Nearest Cards", "wallet", "/admin/cards"], ["Insurance interest", "shield", "/admin/insurance"]]],
-  ["Owner", [["Launch readiness", "check", "/admin/launch"], ["Rules & Settings", "gear", "/admin/settings"], ["Team & Activity Log", "log", "/admin/team"]]],
-  ["Help", [["How it works", "file", "/admin/guide"]]],
-];
-
-export function AdminNav({ isMain = false }: { isMain?: boolean }) {
+/**
+ * The admin menu. The main owner sees everything; staff see everything but the main owner's pages; other owners
+ * (Kisses, Lakeesha) see only `allowed` — their simple menu plus what the main owner added for them (2026-11-26).
+ */
+export function AdminNav({ isMain = false, allowed }: { isMain?: boolean; allowed?: string[] }) {
   const path = usePathname();
-  // Sales Board is the main owner's alone (also enforced on the server).
-  // Partner pages and Nearest Cards are the main owner's alone — hidden from every other admin.
-  // Live vote map (/live) is for every owner — the LIVE & Digital Rewards admin page stays main-owner only.
-  const MAIN_ONLY = ["/admin/partners", "/admin/cards", "/admin/money", "/admin/pricing", "/admin/live"]; // Nearest money: main owner only
-  const nav = isMain
-    ? NAV.map(([h, items]) => [h, h === "Business" ? [...items, ["Sales Board", "users", "/admin/sales-board"]] : items] as (typeof NAV)[number])
-    : NAV.map(([h, items]) => [h, (items as string[][]).filter((it) => !MAIN_ONLY.includes(it[2]))] as unknown as (typeof NAV)[number]);
+  const items = ALL_MENU_ITEMS.filter((it) => (isMain ? true : allowed ? allowed.includes(it.href) && !it.mainOnly : !it.mainOnly));
+  const nav = SECTIONS.map((h) => [h, items.filter((it) => it.section === h).map((it) => [it.label, it.icon, it.href])] as const).filter(([, list]) => list.length > 0);
   return (
     <>
       {nav.map(([head, items]) => (
@@ -31,7 +21,7 @@ export function AdminNav({ isMain = false }: { isMain?: boolean }) {
             const on = href === "/admin" ? path === "/admin" : path.startsWith(href) && !(href === "/admin/field" && (path.startsWith("/admin/field/orgs") || path.startsWith("/admin/field/org/")));
             return (
               <Link key={href} href={href} className={`nav${on ? " on" : ""}`} aria-current={on ? "page" : undefined}>
-                <Icon name={icon} />{label}
+                <Icon name={icon as Parameters<typeof Icon>[0]["name"]} />{label}
               </Link>
             );
           })}

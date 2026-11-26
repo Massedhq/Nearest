@@ -31,7 +31,16 @@ export default clerkMiddleware(async (auth, req) => {
   const path = req.nextUrl.pathname;
   if (isPublic(path)) return withRef(req, NextResponse.next());
   const { userId } = await auth();
-  if (userId) return withRef(req, NextResponse.next());
+  if (userId) {
+    // Admin pages check the path against the owner's menu (requireAdmin → owner-menu), so pass it along.
+    if (path.startsWith("/admin")) {
+      const headers = new Headers(req.headers);
+      headers.set("x-nearest-path", path);
+      return withRef(req, NextResponse.next({ request: { headers } }));
+    }
+    if (req.headers.has("x-nearest-path")) { const headers = new Headers(req.headers); headers.delete("x-nearest-path"); return withRef(req, NextResponse.next({ request: { headers } })); }
+    return withRef(req, NextResponse.next());
+  }
   if (path.startsWith("/api/")) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
   const signIn = path.startsWith("/admin") ? "/admin/sign-in" : path.startsWith("/pro") ? "/pro/sign-in" : "/sign-in";
   const url = new URL(signIn, req.url);

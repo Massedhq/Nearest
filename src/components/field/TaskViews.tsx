@@ -6,8 +6,9 @@ import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 import { TaskReportForm } from "./TaskReportForm";
 import type { FieldActor } from "@/lib/team";
 import { mayWork, ownerFirstName, withOwnerName } from "@/lib/team";
-import { tasksFor, taskById, reportsFor, minutesToday, planSettings, TASK_STATUS, OUTCOMES, HOW, centralToday, addDays, dayLabel, hourLabel, type TaskRow } from "@/lib/field-tasks";
+import { tasksFor, taskById, reportsFor, minutesToday, planSettings, type DayTime, TASK_STATUS, OUTCOMES, HOW, centralToday, addDays, dayLabel, hourLabel, type TaskRow } from "@/lib/field-tasks";
 import { fieldPlaces, cardSupply, cardRequests } from "@/lib/field";
+import { fieldGoals, type Goals } from "@/lib/field-goals";
 import { LESSONS, lessonById } from "@/lib/training";
 import { AGREEMENT_FIELDS, AGREEMENT_SECTIONS, EDUCATOR_AGREEMENT_TITLE, NEAREST_PARTY } from "@/lib/educator-agreement";
 import {
@@ -28,13 +29,42 @@ const statusTag = (s: string, boss?: string) => { const [k, l0] = TASK_STATUS[s]
 
 /* ───────────── Time worked ───────────── */
 
-export function TimeBar({ minutes, goal, name }: { minutes: number; goal: number; name?: string }) {
-  const pct = Math.min(100, Math.round((minutes / (goal * 60)) * 100));
+const hm = (m: number) => `${Math.floor(m / 60)}h ${m % 60}m`;
+
+/** Worked time only counts what was followed by something saved; open time with nothing done is shown apart. */
+export function TimeBar({ time, goal, name }: { time?: DayTime; goal: number; name?: string }) {
+  const t = time ?? { worked: 0, idle: 0, pending: 0 };
+  const pct = Math.min(100, Math.round((t.worked / (goal * 60)) * 100));
   return (
     <div className="col" style={{ gap: 6 }}>
-      <div className="row between"><span className="small b">{name ? `${name} · ` : ""}{Math.floor(minutes / 60)}h {minutes % 60}m worked today</span><span className="xs muted">Goal {goal} hours</span></div>
+      <div className="row between"><span className="small b">{name ? `${name} · ` : ""}{hm(t.worked)} worked today</span><span className="xs muted">Goal {goal} hours</span></div>
       <div className="meter" aria-hidden><span style={{ width: `${pct}%` }} /></div>
+      {(t.pending > 0 || t.idle > 0) && <span className="xs muted">
+        {t.pending > 0 ? `${t.pending} min open since the last thing saved — counts once something is saved.` : ""}
+        {t.pending > 0 && t.idle > 0 ? " " : ""}
+        {t.idle > 0 ? `${hm(t.idle)} open with nothing done (not counted).` : ""}</span>}
     </div>
+  );
+}
+
+/* ───────────── Goals (all of Nearest) ───────────── */
+
+/** This month's pop-ups and the video educators, for the whole company. Once a goal is met that work stops. */
+export async function GoalsCard({ goals, only }: { goals?: Goals; only?: "popups" | "educators" }) {
+  const g = goals ?? (await fieldGoals());
+  const pop = (
+    <div className="kpi"><span className="xs muted">Pop-ups in {g.month} (all of Nearest)</span><b>{g.popups.done} of {g.popups.goal}</b>
+      <span className="xs muted">{g.popups.met ? "Goal reached — no more pop-ups needed this month." : g.popups.full ? `${g.popups.planned} planned — confirm them to reach the goal. No new ones needed.` : `${g.popups.planned ? `${g.popups.planned} planned · ` : ""}${g.popups.goal - g.popups.done - g.popups.planned} more to find. Vendor events or our own both count.`}</span></div>
+  );
+  const edu = (
+    <div className="kpi"><span className="xs muted">Video educators (all of Nearest)</span><b>{g.educators.done} of {g.educators.goal}</b>
+      <span className="xs muted">{g.educators.met ? "Goal reached — no more educators needed." : `Counts when the agreement is signed and the video is uploaded.${g.educators.working ? ` ${g.educators.working} in progress.` : ""}`}</span></div>
+  );
+  return (
+    <section className="card" style={{ gap: 10 }}>
+      <span className="eyebrow">Goals</span>
+      <div className="kpis">{only !== "educators" && pop}{only !== "popups" && edu}</div>
+    </section>
   );
 }
 
@@ -60,9 +90,10 @@ export async function TodayTasks({ actor, base, userId }: { actor: FieldActor; b
   const boss = await ownerFirstName(actor.ownerId);
   const left = rows.filter((t) => !["done", "approved"].includes(t.status)).length;
   return (
+    <>
     <section className="card" style={{ gap: 12 }}>
       <div className="row between"><span className="eyebrow">Today · {dayLabel(day)}</span><Link className="link xs" href={`${base}/tasks`}>All tasks</Link></div>
-      <TimeBar minutes={(userId && mins.get(userId)) || 0} goal={s.hours} />
+      <TimeBar time={userId ? mins.get(userId) : undefined} goal={s.hours} />
       {rows.length === 0 ? <span className="small muted">No tasks for today yet. Your plan arrives by {hourLabel(s.hour)} on weekdays.</span> : (
         <>
           <span className="small">{left === 0 ? "Everything for today is done." : `${left} of ${rows.length} left.`}</span>
@@ -71,6 +102,8 @@ export async function TodayTasks({ actor, base, userId }: { actor: FieldActor; b
       )}
       {late.length > 0 && <><span className="eyebrow">Still open from earlier days</span><TaskTable rows={late} base={base} owner={false} boss={boss} /></>}
     </section>
+    <GoalsCard />
+    </>
   );
 }
 
@@ -249,13 +282,15 @@ export async function ReportsView({ actor, base }: { actor: FieldActor; base: st
   const mins = await minutesToday(helpers.map((h) => h.a.userId).filter((x): x is string => !!x));
   const week = (await db.execute(sql`select p.user_id, sum(p.minutes)::int as m from field_presence p where p.day >= ${addDays(centralToday(), -6)} group by p.user_id`)).rows as { user_id: string; m: number }[];
   const calls = rows.reduce((n, r) => n + r.calls.length, 0);
+  const goals = await fieldGoals();
   return (
     <div className="col" style={{ gap: 18 }}>
+      <GoalsCard goals={goals} />
       <section className="card" style={{ gap: 12 }}>
         <span className="eyebrow">Your assistants today</span>
         {helpers.length === 0 ? <span className="small muted">No active assistants. Add one under My assistants.</span> : helpers.map(({ a, owner }) => (
           <div key={a.id} className="col fsep" style={{ gap: 8, paddingBottom: 10 }}>
-            <TimeBar minutes={(a.userId && mins.get(a.userId)) || 0} goal={4} name={`${a.name}${actor.scope === null ? ` (${owner})` : ""}`} />
+            <TimeBar time={a.userId ? mins.get(a.userId) : undefined} goal={goals.minHours} name={`${a.name}${actor.scope === null ? ` (${owner})` : ""}`} />
             <div className="row between"><span className="xs muted">This week: {Math.round(((week.find((w) => w.user_id === a.userId)?.m) ?? 0) / 6) / 10} hours</span>
               <form action={viewAsAssistant}><input type="hidden" name="id" value={a.id} /><button className="link xs b">See {a.name.split(" ")[0]}&apos;s screen</button></form></div>
           </div>
@@ -332,8 +367,10 @@ export async function EducatorsView({ actor, base, editId, sendId }: { actor: Fi
   const boss = await ownerFirstName(actor.ownerId);
   const me = actor.assistant ? await db.query.teamAssistants.findFirst({ where: eq(teamAssistants.id, actor.assistant.id) }) : null;
   const signer = actor.assistant ? (me?.canSign && me.legalName && me.title ? `${me.legalName}, ${me.title}` : null) : "Nearest — Authorized representative";
+  const goals = await fieldGoals();
   return (
     <div className="col" style={{ gap: 18 }}>
+      <GoalsCard goals={goals} only="educators" />
       {send && (
         <section className="card" style={{ gap: 12 }} id="send">
           <span className="eyebrow">Send the agreement — {send.name}</span>
@@ -358,6 +395,7 @@ export async function EducatorsView({ actor, base, editId, sendId }: { actor: Fi
           <Link className="link xs" href={`${base}/educators`}>Cancel</Link>
         </section>
       )}
+      {goals.educators.met && !edit ? <section className="card small" id="form">All {goals.educators.goal} video educators are in — nobody new is needed. You can still finish the ones already in progress below.</section> : (
       <section className="card" style={{ gap: 12 }} id="form">
         <span className="eyebrow">{edit ? `Edit — ${edit.name}` : "Log a video educator"}</span>
         <span className="xs muted">Creators who teach a skill well on Instagram, TikTok, Facebook or YouTube. Ask what they&apos;d charge for one step-by-step training video. When you have a price, set the status to Price — {owner ? "you approve" : `${boss} approves`}, counters or passes.</span>
@@ -380,6 +418,7 @@ export async function EducatorsView({ actor, base, editId, sendId }: { actor: Fi
         </ActionForm>
         {edit && <Link className="link xs" href={`${base}/educators`}>Cancel editing</Link>}
       </section>
+      )}
       <section className="card" style={{ gap: 10 }}>
         <span className="eyebrow">Video educators</span>
         {rows.length === 0 ? <span className="small muted">None yet.</span> : rows.map((e) => {

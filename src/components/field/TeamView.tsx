@@ -18,6 +18,7 @@ export async function TeamView({ actor }: { actor: FieldActor }) {
   const recent = ids.length ? (await db.execute(sql`select l.action, l.created_at as at, l.after, u.first_name as who from activity_log l join users u on u.id = l.actor_user_id
     where l.actor_user_id in (${sql.join(ids.map((i) => sql`${i}`), sql`, `)}) order by l.created_at desc limit 40`)).rows as { action: string; at: string; after: Record<string, unknown> | null; who: string | null }[] : [];
   const mins = await minutesToday(ids);
+  const minHours = (await (await import("@/lib/field-goals")).fieldGoals()).minHours;
   const label = (a: string) => a.replace(/^field\./, "").replace(/^vouchers\./, "cards ").replace(/^live\./, "").replace(/_/g, " ");
   return (
     <div className="col" style={{ gap: 18 }}>
@@ -54,7 +55,7 @@ export async function TeamView({ actor }: { actor: FieldActor }) {
               <span className="b">{a.name} <span className="xs muted">· {a.email}{actor.scope === null ? ` · works for ${owner}` : ""}{a.legalName ? ` · ${a.legalName}` : ""}{a.title ? `, ${a.title}` : ""}</span></span>
               <span className={`tag ${a.status === "active" ? "ok" : "warn"}`}>{a.status === "active" ? "Active" : a.inviteExpiresAt.getTime() < Date.now() ? "Invitation expired" : "Invited"}</span>
             </div>
-            {a.status === "active" && <TimeBar minutes={(a.userId && mins.get(a.userId)) || 0} goal={4} />}
+            {a.status === "active" && <TimeBar time={a.userId ? mins.get(a.userId) : undefined} goal={minHours} />}
             <div className="row" style={{ gap: 14, flexWrap: "wrap" }}>
               {a.status === "active" && <form action={viewAsAssistant}><input type="hidden" name="id" value={a.id} /><button className="link xs b">See {a.name.split(" ")[0]}&apos;s screen</button></form>}
               {a.status === "invited" && <form action={resendTeamAssistant}><input type="hidden" name="id" value={a.id} /><button className="link xs">Send a new link</button></form>}

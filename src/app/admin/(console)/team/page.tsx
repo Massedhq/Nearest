@@ -5,6 +5,9 @@ import { requireAdmin, activityVisibleTo, isMainOwner } from "@/lib/admin";
 import { displayName, ownerAllowed } from "@/lib/viewer";
 import { ActionForm } from "@/components/ActionForm";
 import { restoreOwner, deleteActivity } from "@/app/admin/team-actions";
+import { saveOwnerMenu } from "@/app/admin/owner-menu-actions";
+import { extraMenu } from "@/lib/owner-menu";
+import { ALL_MENU_ITEMS, SIMPLE_MENU } from "@/lib/owner-menu-items";
 
 export const metadata = { title: "Team & Activity Log" };
 
@@ -32,6 +35,7 @@ export default async function Team() {
   return (
     <>
       <AdminHead eyebrow="Individual logins — never shared" title="Team & Activity Log" />
+      {main && <OwnerMenus members={members.filter((r) => r.m.role === "OWNER" && r.u.id !== user.id).map((r) => ({ id: r.u.id, name: displayName(r.u) || r.u.email || "Owner" }))} />}
       <div className="acols even">
         <div className="card" style={{ gap: 12 }}>
           <span className="eyebrow">Partners &amp; roles</span>
@@ -82,5 +86,35 @@ export default async function Team() {
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * Main owner: each other owner starts with the simple menu (only what they need to grow Nearest). Tick a page to add it
+ * to their menu; untick to take it off. Your own pages (money, Nearest Cards, partner pages…) can't be added.
+ */
+async function OwnerMenus({ members }: { members: { id: string; name: string }[] }) {
+  if (!members.length) return null;
+  const extras = await Promise.all(members.map((m) => extraMenu(m.id)));
+  const choices = ALL_MENU_ITEMS.filter((i) => !i.mainOnly && !SIMPLE_MENU.includes(i.href));
+  const simple = ALL_MENU_ITEMS.filter((i) => SIMPLE_MENU.includes(i.href)).map((i) => i.label).join(", ");
+  return (
+    <div className="card" style={{ gap: 12 }} id="their-menu">
+      <span className="eyebrow">Their menu</span>
+      <span className="xs muted">Every other owner always has the simple menu: {simple}. Tick a page to add it to their menu (it shows right away); untick to take it off. Pages not on their menu are blocked for them.</span>
+      {members.map((m, n) => (
+        <details key={m.id} className="fsep" style={{ paddingTop: 8 }}>
+          <summary className="b" style={{ cursor: "pointer" }}>{m.name} — {extras[n].length ? `${extras[n].length} extra page${extras[n].length > 1 ? "s" : ""}` : "simple menu only"}</summary>
+          <ActionForm action={saveOwnerMenu} submitLabel={`Save ${m.name.split(" ")[0]}'s menu`}>
+            <input type="hidden" name="userId" value={m.id} />
+            <div className="grid2" style={{ gap: 6 }}>
+              {choices.map((c) => (
+                <label key={c.href} className="check small"><input type="checkbox" name="href" value={c.href} defaultChecked={extras[n].includes(c.href)} /> {c.label} <span className="xs muted">({c.section})</span></label>
+              ))}
+            </div>
+          </ActionForm>
+        </details>
+      ))}
+    </div>
   );
 }

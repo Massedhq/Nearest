@@ -17,4 +17,6 @@ export async function logActivity(entry: {
     before: entry.before === undefined ? null : entry.before,
     after: entry.after === undefined ? null : entry.after,
   });
+  // Field team time (2026-11-26): a saved change turns the open time before it into worked time.
+  try { const { bankWork } = await import("./field-goals"); await bankWork(entry.actorUserId); } catch { /* never block the action */ }
 }

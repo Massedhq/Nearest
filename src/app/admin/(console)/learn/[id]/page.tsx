@@ -5,7 +5,7 @@ import { db, learnClasses } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
 import { LearnClassForm } from "@/components/LearnClassForm";
 import { LearnPlayer } from "@/components/LearnPlayer";
-import { requireAdmin } from "@/lib/admin";
+import { requireAdmin, isMainOwner } from "@/lib/admin";
 import { LEARN_STATUS, learnPrice, publishProblems } from "@/lib/learn";
 import { setLearnStatus, deleteLearnClass } from "@/app/admin/learn-actions";
 
@@ -18,7 +18,7 @@ export default async function LearnClass({ params, searchParams }: { params: Pro
   const c = await db.query.learnClasses.findFirst({ where: eq(learnClasses.id, id) });
   if (!c) notFound();
   const problems = publishProblems(c);
-  const isOwner = role === "OWNER";
+  const isOwner = role === "OWNER" && (await isMainOwner(user.id)); // other owners: view only (2026-11-26)
   const viewerName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email || "Nearest";
   return (
     <>
@@ -46,7 +46,7 @@ export default async function LearnClass({ params, searchParams }: { params: Pro
         </div>
         <div className="card" style={{ gap: 12 }}>
           <span className="eyebrow">Edit</span>
-          {isOwner ? <LearnClassForm userId={user.id} c={c} /> : <span className="small muted">Only owners can edit classes.</span>}
+          {isOwner ? <LearnClassForm userId={user.id} c={c} /> : <span className="small muted">You can watch this class. Only the main owner adds or changes classes.</span>}
         </div>
       </div>
     </>

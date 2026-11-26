@@ -8,6 +8,15 @@ export async function requireAdmin(opts: { owner?: boolean } = {}) {
   if (!viewer) redirect("/admin/sign-in");
   if (!viewer.admin || !viewer.user) redirect(await destinationFor(viewer));
   if (opts.owner && viewer.admin.role !== "OWNER") throw new Error("Only an owner can do this.");
+  // Simple menus (2026-11-26): other owners can only open admin pages on their menu.
+  if (viewer.admin.role === "OWNER") {
+    const { headers } = await import("next/headers");
+    const path = (await headers()).get("x-nearest-path");
+    if (path && path.startsWith("/admin") && path !== "/admin" && !(await isMainOwner(viewer.user.id))) {
+      const { menuFor, pathAllowed } = await import("./owner-menu");
+      if (!pathAllowed(path, await menuFor(viewer.user.id))) redirect("/admin?locked=1");
+    }
+  }
   return { user: viewer.user, role: viewer.admin.role, viewer };
 }
 

@@ -11,7 +11,7 @@ export const LESSONS: Lesson[] = [
     steps: [
       "Open Today every morning. Your plan is there by your owner's send time — do the tasks in order.",
       "Tap a task, then Start working on it. Your owner sees that you started.",
-      "Keep this page open while you work: your time worked is counted while the Field team page is open and in front.",
+      "Your time counts when you save real work — a logged call, a report, an organization, a meeting, a pop-up. An hour with the page open and nothing saved is thrown out.",
       "Finish every task with a report: each call or visit, who you talked to, their title, phone or email, the address, the outcome and the next step.",
       "If you need your owner to do something (pay, sign, show up, decide), use Send to owner with one clear sentence.",
       "Check Organizations and Upcoming before you call — never call the same place twice in one day.",

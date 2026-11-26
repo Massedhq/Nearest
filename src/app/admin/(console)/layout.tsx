@@ -13,6 +13,8 @@ export const metadata = { title: { default: "Admin", template: "%s · Nearest Ad
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, role } = await requireAdmin();
   const isMain = (await mainOwnerId()) === user.id;
+  // Other owners get their simple menu (+ pages the main owner added for them).
+  const allowed = !isMain && role === "OWNER" ? await (await import("@/lib/owner-menu")).menuFor(user.id) : undefined;
   // Notification bell: unread for this admin.
   const { db, adminNotifications } = await import("@/db");
   const { and, eq, isNull, sql } = await import("drizzle-orm");
@@ -25,7 +27,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Image src="/brand/nearest-monogram.png" alt="" width={44} height={44} />
           <div className="col g4"><span className="disp" style={{ fontSize: 20 }}>Nearest</span><span className="xs muted">Administration</span></div>
         </div>
-        <AdminNav isMain={isMain} />
+        <AdminNav isMain={isMain} allowed={allowed} />
         <div style={{ flex: 1 }} />
         <div style={{ position: "sticky", bottom: -22, background: "#050506", paddingBottom: 8, display: "flex", flexDirection: "column", gap: 6 }}>
           <Link className="nav" href="/workspace"><Icon name="switch" />Switch workspace</Link>

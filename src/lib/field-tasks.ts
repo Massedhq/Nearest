@@ -77,16 +77,30 @@ export async function tellAssistants(ownerId: string, title: string, body: strin
   }
 }
 
-/** Minutes worked today (from page pings) for each assistant user. */
+export type DayTime = { worked: number; idle: number; pending: number };
+
+/**
+ * Today's time per assistant (2026-11-26): worked = open time followed by something saved; idle = open time with
+ * nothing saved for field.idle_reset_minutes (thrown out); pending = open since the last save, counts once they save.
+ */
 export async function minutesToday(userIds: string[]) {
-  if (!userIds.length) return new Map<string, number>();
+  const out = new Map<string, DayTime>();
+  if (!userIds.length) return out;
   const rows = await db.select().from(fieldPresence).where(and(inArray(fieldPresence.userId, userIds), eq(fieldPresence.day, centralToday())));
-  return new Map(rows.map((r) => [r.userId, r.minutes]));
+  const { getSettings } = await import("./settings");
+  const reset = Math.max(15, Number((await getSettings())["field.idle_reset_minutes"] ?? 60));
+  for (const r of rows) {
+    const stale = !!r.pendingSince && r.pendingSince.getTime() < Date.now() - reset * 60_000;
+    out.set(r.userId, { worked: r.minutes, idle: r.idle + (stale ? r.pending : 0), pending: stale ? 0 : r.pending });
+  }
+  return out;
 }
 
 export async function planSettings(ownerId: string) {
   const s = await db.query.fieldPlanSettings.findFirst({ where: eq(fieldPlanSettings.ownerId, ownerId) });
-  return { on: s?.on ?? true, hour: s?.hour ?? 7, hours: s?.hours ?? 4, lastPlanDate: s?.lastPlanDate ?? null };
+  const { getSettings } = await import("./settings");
+  const min = Math.max(1, Number((await getSettings())["field.min_hours"] ?? 4)); // never plan less than the daily minimum
+  return { on: s?.on ?? true, hour: s?.hour ?? 7, hours: Math.max(s?.hours ?? 4, min), lastPlanDate: s?.lastPlanDate ?? null };
 }
 
 export const hourLabel = (h: number) => `${h % 12 || 12}:00 ${h < 12 ? "AM" : "PM"}`;

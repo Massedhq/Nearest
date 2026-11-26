@@ -37,6 +37,11 @@ export async function saveEducator(_: FormState, form: FormData): Promise<FormSt
     email: s(form, "email", 160).toLowerCase() || null, skill: s(form, "skill", 160), spokeAt: s(form, "spokeAt", 60) || null, asked: s(form, "asked", 600) || null, price: s(form, "price", 120) || null,
     products: s(form, "products", 40) || null, notes: s(form, "notes", 1000) || null,
   };
+  if (!ex) {
+    const { fieldGoals } = await import("@/lib/field-goals");
+    const g = (await fieldGoals()).educators;
+    if (g.met) return { error: `All ${g.goal} video educators are in — nobody new is needed.` };
+  }
   if (!v.name) return { error: "Enter their name or business." };
   if (!v.skill) return { error: "Enter what they teach." };
   if (v.email && !EMAIL.test(v.email)) return { error: "Check the email." };

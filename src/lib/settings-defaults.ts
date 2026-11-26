@@ -37,6 +37,10 @@ export const SETTINGS: Record<string, SettingDef> = {
   "growth.unfinished_registration_days": { label: "Days a professional has to accept the Terms or send their ID (and to use an invitation) before registration is put on hold", group: "Growth", type: "number", unit: "days", value: 30 },
   "growth.target_per_city": { label: "Target per city", group: "Growth", type: "number", value: 5 },
   "campaign.reward_credit_cents": { label: "Launch campaign reward — Nearest credit added when a student is approved", group: "Fees", type: "cents", value: 2000 },
+  "field.popups_per_month": { label: "Field team — pop-ups to set up each month for all of Nearest (vendor events we join + our own)", group: "Field team goals", type: "number", value: 4 },
+  "field.educators_total": { label: "Field team — video educators needed in all (counted when the agreement is signed AND the video is uploaded)", group: "Field team goals", type: "number", value: 4 },
+  "field.min_hours": { label: "Field team — hours of real work each assistant does a day (the daily plan is built to fill them)", group: "Field team goals", type: "number", unit: "hours", value: 4 },
+  "field.idle_reset_minutes": { label: "Field team — minutes with the workspace open and nothing saved before that time is thrown out", group: "Field team goals", type: "number", unit: "min", value: 60 },
   "meet.meeting_minutes": { label: "Outreach meetings — length of each meeting", group: "Outreach meetings", type: "number", unit: "min", value: 30 },
   "meet.travel_minutes": { label: "Outreach meetings — travel time needed after each meeting", group: "Outreach meetings", type: "number", unit: "min", value: 45 },
   "meet.first_time": { label: "Outreach meetings — first start time", group: "Outreach meetings", type: "time", value: "09:00" },
@@ -89,7 +93,7 @@ export const SETTINGS: Record<string, SettingDef> = {
  */
 export function mainOwnerOnlySetting(key: string) {
   const g = SETTINGS[key]?.group;
-  return g === "Fees" || g === "Partner shop" || key.startsWith("partner.") || key.startsWith("cards.") || key.startsWith("vouchers.") || key.startsWith("live.") || key === "growth.second_cohort_end" || key === "sub.termination_days";
+  return g === "Fees" || g === "Partner shop" || key.startsWith("partner.") || key.startsWith("cards.") || key.startsWith("vouchers.") || key.startsWith("live.") || key.startsWith("field.") || key === "growth.second_cohort_end" || key === "sub.termination_days";
 }
 
 export const STATUS_KEYS = [

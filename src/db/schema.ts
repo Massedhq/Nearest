@@ -2096,7 +2096,12 @@ export const fieldPlanSettings = pgTable("field_plan_settings", {
 export const fieldPresence = pgTable("field_presence", {
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   day: text("day").notNull(),
-  minutes: integer("minutes").notNull().default(0),
+  minutes: integer("minutes").notNull().default(0), // WORKED: only time followed by something saved (2026-11-26)
+  // Open time not counted yet: it moves into minutes when they save something, or into idle when
+  // field.idle_reset_minutes pass with nothing saved (the clock starts over).
+  pending: integer("pending").notNull().default(0),
+  pendingSince: timestamp("pending_since", { withTimezone: true }),
+  idle: integer("idle").notNull().default(0),
   firstAt: timestamp("first_at", { withTimezone: true }).notNull().defaultNow(),
   lastAt: timestamp("last_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex("field_presence_user_day").on(t.userId, t.day)]);
