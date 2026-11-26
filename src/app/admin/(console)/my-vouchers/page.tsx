@@ -2,7 +2,7 @@ import { AdminHead } from "@/components/AdminHead";
 import { requireAdmin, isMainOwner } from "@/lib/admin";
 import { VoucherDistributionView } from "@/components/VoucherDistributionView";
 
-export const metadata = { title: "My Voucher Distribution" };
+export const metadata = { title: "My card report" };
 export const dynamic = "force-dynamic";
 
 /**
@@ -14,7 +14,7 @@ export default async function MyVouchers() {
   if (role !== "OWNER") { const { notFound } = await import("next/navigation"); notFound(); }
   return (
     <>
-      <AdminHead eyebrow="Business" title="My Voucher Distribution" />
+      <AdminHead eyebrow="Business" title="My card report" />
       <VoucherDistributionView userId={user.id} own showTapLink={await isMainOwner(user.id)} />
     </>
   );

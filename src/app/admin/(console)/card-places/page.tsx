@@ -2,7 +2,7 @@ import { asc, eq } from "drizzle-orm";
 import { db, cities } from "@/db";
 import { AdminHead } from "@/components/AdminHead";
 import { ActionForm } from "@/components/ActionForm";
-import { requireAdmin } from "@/lib/admin";
+import { requireAdmin, isMainOwner } from "@/lib/admin";
 import { cardTotals, ensurePrintSeq, groupNumber } from "@/lib/nearest-cards";
 import { PLACE_KINDS, placesWithCounts, unassignedByBatch, cardsAtPlace, cardsInBatch, viewableBatches } from "@/lib/card-places";
 import { addCardPlace, setCardPlaceActive, assignCardsToPlace, setCardPlaceAddress } from "@/app/admin/card-place-actions";
@@ -21,8 +21,11 @@ const mono = { fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } as con
  * Making card batches stays the main owner's alone (Nearest Cards).
  */
 export default async function CardPlaces({ searchParams }: { searchParams: Promise<{ place?: string; given?: string; batch?: string; page?: string; show?: string }> }) {
-  const { role } = await requireAdmin();
+  const { role, user } = await requireAdmin();
   const isOwner = role === "OWNER";
+  // Organizations and their cards are one screen now (2026-11-25): Field team → Organizations & cards. This page is
+  // kept only for the OLDER individually numbered cards, for the main owner.
+  if (!(await isMainOwner(user.id))) { const { redirect } = await import("next/navigation"); redirect("/admin/field/orgs"); }
   const sp = await searchParams;
   const open = sp.place ?? "";
   const show = sp.show === "given" || sp.show === "not_given" ? sp.show : "all";

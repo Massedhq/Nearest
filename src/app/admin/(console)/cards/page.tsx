@@ -336,6 +336,7 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
       {/* Older system (before GRANTED): individually numbered cards. Kept for cards students already saved — closed by default. */}
       <details id="older-cards" className="card" style={{ gap: 14, marginTop: 8 }} open={Boolean(sp.batch)}>
         <summary style={{ cursor: "pointer" }}><span className="eyebrow">Older cards (before GRANTED)</span><span className="xs muted" style={{ display: "block" }}>The old individually numbered Nearest Cards. You don&apos;t need this for GRANTED — open it only to look after cards made before. Cards students already saved keep working.</span></summary>
+        <a className="link small" href="/admin/card-places">Card places for these older cards (give stacks by number) →</a>
         <div className="col" style={{ gap: 14, marginTop: 12 }}>
       <div className={`card${fund.available < fund.saved ? " warn" : " ok"}`} style={{ gap: 10 }}>
         <span className="eyebrow">Nearest Cards fund — what you can give back</span>

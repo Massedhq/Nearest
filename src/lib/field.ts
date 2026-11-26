@@ -63,14 +63,14 @@ export async function placeTimeline(placeId: string) {
       where t.place_id = ${placeId} order by t.at desc limit 200`),
     db.execute(sql`select s.*, u.first_name as by, o.first_name as owner, fc.name as contact from field_steps s left join users u on u.id = s.created_by left join users o on o.id = s.owner_id
       left join field_contacts fc on fc.id = s.contact_id where s.place_id = ${placeId} order by s.starts_at desc`),
-    db.execute(sql`select d.id, d.quantity, d.status, d.distributed_at as at, d.notes, d.requested_by as "requestedBy", d.approved_at as "approvedAt", u.first_name as by
+    db.execute(sql`select d.id, d.quantity, d.delivered, d.status, d.distributed_at as at, d.notes, d.requested_by as "requestedBy", d.approved_at as "approvedAt", u.first_name as by
       from voucher_distributions d left join users u on u.id = d.created_by where d.place_id = ${placeId} order by d.created_at desc`),
   ]);
   return {
     contacts: contacts.rows as { id: string; name: string; title: string | null; phone: string | null; email: string | null; notes: string | null }[],
     touches: touches.rows as { id: string; kind: string; summary: string; at: string; by: string | null; contact: string | null }[],
     steps: steps.rows as { id: string; kind: string; starts_at: string; meet_with: string | null; link: string | null; notes: string | null; status: string; by: string | null; owner: string | null; contact: string | null }[],
-    cards: cards.rows as { id: string; quantity: number; status: string; at: string; notes: string | null; requestedBy: string | null; approvedAt: string | null; by: string | null }[],
+    cards: cards.rows as { id: string; quantity: number; delivered: number | null; status: string; at: string; notes: string | null; requestedBy: string | null; approvedAt: string | null; by: string | null }[],
   };
 }
 

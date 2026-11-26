@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 /** Nearest LIVE — the real-time student voting map (Texas first). Owners only until Rules & Settings → live.public is on. */
 /** Only Field team pages may be the "Back" target (the map opens in the same window, so phones have a way back). */
-const BACKS = ["/outreach/map", "/admin/field/map", "/admin/live"];
+const BACKS = ["/outreach/map", "/admin/field/map", "/admin/live", "/admin"];
 
 export default async function LivePage({ searchParams }: { searchParams: Promise<{ back?: string }> }) {
   const { back } = await searchParams;
@@ -22,7 +22,7 @@ export default async function LivePage({ searchParams }: { searchParams: Promise
   return (
     <div style={{ background: "#050506" }}>
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "12px 16px 0" }}>
-        <Link href={backTo} className="btn ghost sm" style={{ width: "auto", display: "inline-flex" }}>← Back to Field team</Link>
+        <Link href={backTo} className="btn ghost sm" style={{ width: "auto", display: "inline-flex" }}>{backTo === "/admin" ? "← Back to Admin" : backTo === "/admin/live" ? "← Back" : "← Back to Field team"}</Link>
       </div>
       {map}
     </div>

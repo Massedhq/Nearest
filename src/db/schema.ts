@@ -1621,6 +1621,15 @@ export const cardPlaces = pgTable("card_places", {
   assignedTo: uuid("assigned_to").references(() => users.id),
   openToClaim: boolean("open_to_claim").notNull().default(false),
   shared: boolean("shared").notNull().default(true),
+  // One-screen organization record (2026-11-25): who we spoke to is contact_name/contact; plus the program manager, who
+  // takes the card drop-off, whether they want more info in person, and how many cards they asked for. notes = internal.
+  programManager: text("program_manager"),
+  programManagerContact: text("program_manager_contact"),
+  dropoffTo: text("dropoff_to"),
+  dropoffContact: text("dropoff_contact"),
+  spokeToTitle: text("spoke_to_title"),
+  wantsInfo: text("wants_info"), // yes | no | null
+  cardsWanted: integer("cards_wanted"),
 }, (t) => [uniqueIndex("card_places_location_idx").on(t.locationKey)]);
 
 export const nearestCards = pgTable("nearest_cards", {

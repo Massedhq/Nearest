@@ -5,7 +5,8 @@ import { ActionForm } from "@/components/ActionForm";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 import { CopyButton } from "@/components/CopyButton";
 import { AdLinks } from "@/components/AdLinks";
-import { ORG_KINDS } from "@/lib/distribution";
+import { ORG_KINDS, DIST_STATUS } from "@/lib/distribution";
+import { updateAssignment } from "@/app/admin/distribution-actions";
 import {
   fieldPlaces, placeTimeline, upcoming, cardRequests, cardSupply, recruitNext, popups, adDraftsFor, placeOwnerId,
   TOUCH_KINDS, STEP_KINDS, POPUP_STATUS, AD_STATUS, DEFAULT_CARDS_PER_ORG,
@@ -18,7 +19,7 @@ import { liveReports } from "@/lib/live/reports";
 import { SITE_URL } from "@/lib/public/site";
 import { money } from "@/lib/time";
 import {
-  fieldAddOrg, fieldAddContact, fieldLogTouch, fieldAddStep, fieldStepStatus, fieldRequestCards, decideCardRequest, savePopup, popupStatus,
+  fieldAddOrg, fieldSaveOrgInfo, fieldAddContact, fieldLogTouch, fieldAddStep, fieldStepStatus, fieldRequestCards, decideCardRequest, savePopup, popupStatus,
   teamAddProspect, teamSendLink, teamProspectNote, saveAdDraft, reviewAdDraft, fieldAddSpend, saveTrackingIds,
 } from "@/app/field-actions";
 
@@ -31,12 +32,16 @@ const at = (iso: string | Date) => new Date(iso).toLocaleString("en-US", { timeZ
 const day = (iso: string | Date) => new Date(iso).toLocaleDateString("en-US", { timeZone: "America/Chicago", month: "short", day: "numeric", year: "numeric" });
 const today = () => new Date().toLocaleDateString("sv-SE", { timeZone: "America/Chicago" });
 const F = ({ label, children }: { label: string; children: React.ReactNode }) => <div className="field"><label>{label}</label>{children}</div>;
+const Info = ({ label, v, c }: { label: string; v?: string | null; c?: string | null }) => (
+  <div className="col" style={{ gap: 2 }}><span className="xs muted">{label}</span><span className="small b">{v || "—"}</span>
+    {c && <span className="xs">{c.includes("@") ? <a className="link" href={`mailto:${c}`}>{c}</a> : <a className="link" href={`tel:${c}`}>{c}</a>}</span>}</div>
+);
 const KIND_TAG: Record<string, string> = { meeting: "Meeting", virtual: "Virtual", dropoff: "Drop-off", popup: "Pop-up" };
 
 export function FieldTabs({ base, at: on, owner }: { base: string; at: string; owner: boolean }) {
   const tabs = owner
-    ? [["", "Home"], ["/tasks", "Tasks"], ["/reports", "Reports"], ["/meetings", "Meetings"], ["/notes", "Note Room"], ["/orgs", "Organizations"], ["/popups", "Pop-ups"], ["/pros", "Professionals"], ["/educators", "Video educators"], ["/ads", "Ads"], ["/map", "Vote map"], ["/team", "My assistants"]]
-    : [["", "Today"], ["/tasks", "Tasks"], ["/meetings", "Meetings"], ["/notes", "Note Room"], ["/orgs", "Organizations"], ["/cards", "Cards"], ["/popups", "Pop-ups"], ["/pros", "Professionals"], ["/educators", "Video educators"], ["/ads", "Ads"], ["/map", "Vote map"], ["/training", "Training"], ["/guide", "How it works"]];
+    ? [["", "Home"], ["/tasks", "Tasks"], ["/reports", "Reports"], ["/meetings", "Meetings"], ["/notes", "Note Room"], ["/orgs", "Organizations & cards"], ["/popups", "Pop-ups"], ["/pros", "Professionals"], ["/educators", "Video educators"], ["/ads", "Ads"], ["/map", "Vote map"], ["/team", "My assistants"]]
+    : [["", "Today"], ["/tasks", "Tasks"], ["/meetings", "Meetings"], ["/notes", "Note Room"], ["/orgs", "Organizations & cards"], ["/popups", "Pop-ups"], ["/pros", "Professionals"], ["/educators", "Video educators"], ["/ads", "Ads"], ["/map", "Vote map"], ["/training", "Training"], ["/guide", "How it works"]];
   return (
     <FieldMenu base={base} on={on} tabs={tabs as [string, string][]} />
   );
@@ -101,14 +106,25 @@ function RecruitNext({ rows, more }: { rows: Awaited<ReturnType<typeof recruitNe
 /* ───────────── Organizations ───────────── */
 
 export async function OrgsView({ actor, base, q }: { actor: FieldActor; base: string; q: string }) {
-  const rows = await fieldPlaces(actor.scope, q, actor.assistant?.userId ?? null);
+  const [rows, supply] = await Promise.all([fieldPlaces(actor.scope, q, actor.assistant?.userId ?? null), cardSupply(actor.ownerId)]);
   const me = actor.assistant?.userId ?? actor.user.id;
+  const boss = actor.assistant ? await ownerFirstName(actor.ownerId) : null;
   return (
     <div className="col" style={{ gap: 18 }}>
+      <section className="card" style={{ gap: 8 }}>
+        <span className="eyebrow">{actor.assistant ? `${boss}'s cards` : "Your cards"}</span>
+        {supply.length === 0 ? <span className="small muted">No published cards yet.</span> : (
+          <div className="kpis">{supply.map((x) => <div key={x.id} className="kpi"><span className="stat">{x.left.toLocaleString()}</span><span className="xs muted">{x.label} left to give out (of {x.count.toLocaleString()})</span></div>)}</div>
+        )}
+        {!actor.assistant && <span className="xs muted">Numbers, students who activated, and delivery history: <Link className="link" href="/admin/my-vouchers">My card report</Link>.</span>}
+      </section>
+
       <section className="card" style={{ gap: 12 }}>
         <span className="eyebrow">Add an organization</span>
-        <span className="xs muted">Boys & Girls Clubs, schools, churches, YMCAs, community centers — anywhere cards can go. One row per location.</span>
-        <ActionForm action={fieldAddOrg} submitLabel="Add organization">
+        <span className="xs muted">Everything about the visit on one screen — the place, who you talked to, who gets the cards and when, and whether they want to meet. You can change any of it later on the organization&apos;s page.</span>
+        <ActionForm action={fieldAddOrg} submitLabel="Save organization">
+          <input type="hidden" name="base" value={base} />
+          <span className="small b">The organization</span>
           <div className="grid2">
             <F label="Name"><input name="name" required maxLength={120} placeholder="Boys & Girls Club — Frisco" /></F>
             <F label="Type"><select name="kind" defaultValue="boys_girls_club">{Object.entries(ORG_KINDS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></F>
@@ -116,13 +132,41 @@ export async function OrgsView({ actor, base, q }: { actor: FieldActor; base: st
             <F label="City"><input name="city" required maxLength={80} placeholder="Frisco" /></F>
             <F label="State"><input name="state" defaultValue="TX" maxLength={2} /></F>
             <F label="ZIP"><input name="zip" required inputMode="numeric" maxLength={10} placeholder="75035" /></F>
-            <F label="Person you talked to (optional)"><input name="contactName" maxLength={100} /></F>
-            <F label="Their title (optional)"><input name="contactTitle" maxLength={80} placeholder="Program director" /></F>
-            <F label="Their phone or email (optional)"><input name="contact" maxLength={120} /></F>
           </div>
+          <span className="small b fsep" style={{ paddingTop: 8 }}>Who you spoke to</span>
+          <div className="grid2">
+            <F label="Name"><input name="contactName" maxLength={100} /></F>
+            <F label="Their title"><input name="contactTitle" maxLength={80} placeholder="Front desk" /></F>
+            <F label="Phone or email"><input name="contact" maxLength={120} /></F>
+          </div>
+          <span className="small b fsep" style={{ paddingTop: 8 }}>Program manager</span>
+          <div className="grid2">
+            <F label="Name"><input name="programManager" maxLength={100} /></F>
+            <F label="Phone or email"><input name="programManagerContact" maxLength={120} /></F>
+          </div>
+          <span className="small b fsep" style={{ paddingTop: 8 }}>Cards</span>
+          <div className="grid2">
+            <F label="How many cards they want"><input name="cards" type="number" min={0} max={1000} placeholder={String(DEFAULT_CARDS_PER_ORG)} /></F>
+            <F label="Drop the cards off to"><input name="dropoffTo" maxLength={100} placeholder="Name" /></F>
+            <F label="Their phone or email"><input name="dropoffContact" maxLength={120} /></F>
+            <F label="Drop-off date"><input name="dropDate" type="date" /></F>
+            <F label="Drop-off time"><input name="dropTime" type="time" /></F>
+          </div>
+          <span className="xs muted">{actor.assistant ? `The cards wait for ${boss}'s OK before they're yours to drop off.` : "The cards are assigned to this organization as soon as you save."}</span>
+          <span className="small b fsep" style={{ paddingTop: 8 }}>Do they want more info in person?</span>
+          <div className="row" style={{ gap: 16, flexWrap: "wrap" }}>
+            <label className="check"><input type="radio" name="wantsInfo" value="yes" /> Yes</label>
+            <label className="check"><input type="radio" name="wantsInfo" value="no" /> No</label>
+          </div>
+          <div className="grid2">
+            <F label="Meet-up date (if yes)"><input name="meetDate" type="date" /></F>
+            <F label="Meet-up time (if yes)"><input name="meetTime" type="time" /></F>
+          </div>
+          <F label="Notes"><textarea name="notes" maxLength={2000} placeholder="Teen program meets Tues/Thurs after 4. Wants a flyer too." /></F>
           <label className="check"><input type="checkbox" name="share" defaultChecked /> Share with the team now (they can see it; only you work it until you release it)</label>
         </ActionForm>
       </section>
+
       <section className="card" style={{ gap: 10 }}>
         <form className="row" style={{ gap: 8 }}><input name="q" defaultValue={q} placeholder="Search name, street, city or ZIP" className="fin" style={{ flex: 1, height: 40 }} /><button className="btn ghost sm" style={{ width: "auto" }}>Search</button></form>
         <table className="tbl"><thead><tr><th>Organization</th><th>Address</th><th className="num">Touches</th><th>Last</th><th>Next</th><th className="num">Cards</th><th>Working it</th>{actor.scope === null && <th>Area</th>}</tr></thead>
@@ -139,7 +183,7 @@ export async function OrgsView({ actor, base, q }: { actor: FieldActor; base: st
   );
 }
 
-export async function OrgDetail({ actor, base, placeId }: { actor: FieldActor; base: string; placeId: string }) {
+export async function OrgDetail({ actor, base, placeId, saved }: { actor: FieldActor; base: string; placeId: string; saved?: string }) {
   const place = /^[0-9a-f-]{36}$/.test(placeId) ? await db.query.cardPlaces.findFirst({ where: (p, { eq: e }) => e(p.id, placeId) }) : null;
   const ownerId = place ? await placeOwnerId(place.id) : null;
   const viewerId = actor.assistant?.userId ?? null;
@@ -154,7 +198,37 @@ export async function OrgDetail({ actor, base, placeId }: { actor: FieldActor; b
         <h2 className="disp h2" style={{ margin: 0 }}>{place.name}</h2>
         <span className="small muted">{ORG_KINDS[place.kind] ?? place.kind} · {addr} · <a className="link" target="_blank" rel="noreferrer" href={`https://maps.google.com/?q=${encodeURIComponent(addr)}`}>Map</a></span>
       </div>
+      {saved && <div className="card ok small">{saved.slice(0, 400)}</div>}
       <OrgAssignment actor={actor} place={place} ownerId={ownerId!} />
+
+      <section className="card" style={{ gap: 10 }}>
+        <span className="eyebrow">About this organization</span>
+        <div className="grid2" style={{ gap: 10 }}>
+          <Info label="Who we spoke to" v={[place.contactName, place.spokeToTitle].filter(Boolean).join(" · ")} c={place.contact} />
+          <Info label="Program manager" v={place.programManager} c={place.programManagerContact} />
+          <Info label="Drop the cards off to" v={place.dropoffTo} c={place.dropoffContact} />
+          <Info label="Cards they want" v={place.cardsWanted ? String(place.cardsWanted) : null} />
+          <Info label="Want more info in person?" v={place.wantsInfo === "yes" ? "Yes — set the meet-up below" : place.wantsInfo === "no" ? "No" : null} />
+        </div>
+        {place.notes && <span className="small" style={{ whiteSpace: "pre-wrap" }}><span className="xs muted">Notes</span><br />{place.notes}</span>}
+        <details><summary className="link small">Edit these details</summary>
+          <ActionForm action={fieldSaveOrgInfo} submitLabel="Save details">
+            <input type="hidden" name="placeId" value={place.id} />
+            <div className="grid2">
+              <F label="Who we spoke to"><input name="contactName" maxLength={100} defaultValue={place.contactName ?? ""} /></F>
+              <F label="Their title"><input name="contactTitle" maxLength={80} defaultValue={place.spokeToTitle ?? ""} /></F>
+              <F label="Their phone or email"><input name="contact" maxLength={120} defaultValue={place.contact ?? ""} /></F>
+              <F label="Program manager"><input name="programManager" maxLength={100} defaultValue={place.programManager ?? ""} /></F>
+              <F label="Program manager phone or email"><input name="programManagerContact" maxLength={120} defaultValue={place.programManagerContact ?? ""} /></F>
+              <F label="Drop the cards off to"><input name="dropoffTo" maxLength={100} defaultValue={place.dropoffTo ?? ""} /></F>
+              <F label="Their phone or email"><input name="dropoffContact" maxLength={120} defaultValue={place.dropoffContact ?? ""} /></F>
+              <F label="Cards they want"><input name="cards" type="number" min={0} max={1000} defaultValue={place.cardsWanted ?? ""} /></F>
+              <F label="Want more info in person?"><select name="wantsInfo" defaultValue={place.wantsInfo ?? ""}><option value="">Not asked yet</option><option value="yes">Yes</option><option value="no">No</option></select></F>
+            </div>
+            <F label="Notes"><textarea name="notes" maxLength={2000} defaultValue={place.notes ?? ""} /></F>
+          </ActionForm>
+        </details>
+      </section>
 
       <div className="grid2" style={{ alignItems: "start" }}>
         <section className="card" style={{ gap: 10 }}>
@@ -195,7 +269,7 @@ export async function OrgDetail({ actor, base, placeId }: { actor: FieldActor; b
 
       <div className="grid2" style={{ alignItems: "start" }}>
         <section className="card" style={{ gap: 10 }}>
-          <span className="eyebrow">Book a meeting or drop-off</span>
+          <span className="eyebrow">Set a meet-up or drop-off</span>
           <ActionForm action={fieldAddStep} submitLabel="Book it">
             <input type="hidden" name="placeId" value={place.id} />
             <F label="Type"><select name="kind" defaultValue="dropoff">{Object.entries(STEP_KINDS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></F>
@@ -234,7 +308,21 @@ export async function OrgDetail({ actor, base, placeId }: { actor: FieldActor; b
           {t.cards.length > 0 && <table className="tbl"><tbody>{t.cards.map((c) => (
             <tr key={c.id}><td className="num b">{c.quantity}</td><td className="small">{day(c.at)}</td>
               <td><span className={`tag ${c.status === "planned" ? "warn" : c.status === "cancelled" ? "bad" : "ok"}`}>{c.status === "planned" && c.requestedBy ? "Waiting for approval" : c.status === "cancelled" ? "Declined / canceled" : c.status === "assigned" ? "Approved" : c.status}</span></td>
-              <td className="xs muted">{c.by}{c.notes ? ` · ${c.notes}` : ""}</td></tr>
+              <td className="xs muted">{c.by}{c.notes ? ` · ${c.notes}` : ""}{c.status !== "planned" && c.status !== "cancelled" ? ` · ${c.delivered ?? 0} delivered` : ""}
+                {!actor.assistant && c.status !== "planned" && c.status !== "cancelled" && (
+                  <details><summary className="link xs">Update delivery</summary>
+                    <ActionForm action={updateAssignment} submitLabel="Save" buttonClass="btn sm">
+                      <input type="hidden" name="id" value={c.id} />
+                      <div className="grid2">
+                        <F label="Cards assigned"><input name="quantity" type="number" min={1} defaultValue={c.quantity} /></F>
+                        <F label="Handed over so far"><input name="delivered" type="number" min={0} defaultValue={c.delivered ?? 0} /></F>
+                        <F label="Status"><select name="status" defaultValue={c.status}>{["assigned", "delivered", "completed"].map((k) => <option key={k} value={k}>{DIST_STATUS[k]}</option>)}</select></F>
+                        <F label="Date"><input name="date" type="date" defaultValue={new Date(c.at).toLocaleDateString("en-CA", { timeZone: "America/Chicago" })} /></F>
+                      </div>
+                      <input type="hidden" name="notes" value={c.notes ?? ""} />
+                    </ActionForm>
+                  </details>
+                )}</td></tr>
           ))}</tbody></table>}
         </section>
       </div>

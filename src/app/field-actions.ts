@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   db, cities, cardPlaces, fieldContacts, fieldTouches, fieldSteps, fieldPopups, adDrafts, adSpend, platformSettings, prospects,
@@ -73,6 +74,54 @@ async function workProblem(a: FieldActor, place: typeof cardPlaces.$inferSelect)
 
 /* ───────────── Organizations ───────────── */
 
+/** Contact text → phone or email. */
+const phoneOrEmail = (c: string) => ({ phone: c && !c.includes("@") ? c : null, email: c.includes("@") ? c.toLowerCase() : null });
+
+/**
+ * Cards for an organization from its area owner's published cards (GRANTED cards first). Owners assign right away;
+ * assistants ask and wait for approval. The inventory check is inside the insert.
+ */
+async function giveCards(a: FieldActor, place: typeof cardPlaces.$inferSelect, ownerId: string, qty: number, opts: { batchId?: string; date?: string; notes?: string | null }): Promise<FormState> {
+  const { cardSupply } = await import("@/lib/field");
+  const supply = await cardSupply(ownerId);
+  const pick = supply.find((x) => x.id === opts.batchId) ?? supply.find((x) => x.label === "GRANTED cards" && x.left >= qty) ?? supply.find((x) => x.left >= qty) ?? null;
+  if (!pick) return { error: supply.length ? `Only ${Math.max(...supply.map((x) => x.left))} cards are left.` : "There are no published cards for this area yet." };
+  if (!Number.isInteger(qty) || qty < 1 || qty > 1000) return { error: "Enter how many cards." };
+  const day = opts.date ?? "";
+  const at = /^\d{4}-\d{2}-\d{2}$/.test(day) ? new Date(`${day}T17:00:00Z`) : new Date();
+  const isRequest = !!a.assistant;
+  const status = isRequest ? "planned" : "assigned";
+  const notes = opts.notes || null;
+  const r = await db.execute(sql`insert into voucher_distributions (batch_id, place_id, quantity, delivered, status, distributed_at, notes, created_by, requested_by, approved_by, approved_at, updated_at)
+    select ${pick.id}, ${place.id}, ${qty}, 0, ${status}, ${at.toISOString()}, ${notes}, ${a.user.id}, ${isRequest ? a.user.id : null}, ${isRequest ? null : a.user.id}, ${isRequest ? null : new Date().toISOString()}, now()
+    where (select coalesce(sum(quantity), 0) from voucher_distributions where batch_id = ${pick.id} and status <> 'cancelled') + ${qty} <= ${pick.count}
+    returning id`);
+  const row = r.rows[0] as { id: string } | undefined;
+  if (!row) return { error: `Only ${pick.left} cards are left.` };
+  const after = { place: place.name, quantity: qty, status, date: at, notes, request: isRequest };
+  await db.insert(voucherDistributionEvents).values({ distributionId: row.id, actorId: a.user.id, action: isRequest ? "requested" : "created", after });
+  await logActivity({ actorUserId: a.user.id, action: isRequest ? "field.cards_requested" : "vouchers.assigned", targetType: "voucher_distribution", targetId: row.id, after });
+  await tellOwner(a, ownerId, `Card request — ${place.name}`, `${who(a)} asked for ${qty} cards for ${place.name}. Approve or decline it in Field team.`, "/admin/field#requests");
+  revalidatePath("/admin/my-vouchers"); revalidatePath("/admin/cards");
+  return { ok: isRequest ? `${qty} cards requested — waiting for approval.` : `${qty} cards assigned to ${place.name}.` };
+}
+
+/** A meeting or drop-off on an organization's calendar. */
+async function bookStep(a: FieldActor, place: typeof cardPlaces.$inferSelect, ownerId: string, v: { kind: string; at: Date; contactId?: string | null; meetWith?: string | null; link?: string | null; notes?: string | null }) {
+  const [row] = await db.insert(fieldSteps).values({
+    placeId: place.id, ownerId, kind: v.kind, startsAt: v.at, contactId: v.contactId ?? null, meetWith: v.meetWith || null, link: v.link || null, notes: v.notes || null, createdBy: a.user.id,
+  }).returning();
+  await logActivity({ actorUserId: a.user.id, action: "field.step_booked", targetType: "card_place", targetId: place.id, after: { id: row.id, kind: v.kind, at: v.at } });
+  const day = v.at.toLocaleString("en-US", { timeZone: "America/Chicago", weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  await tellOwner(a, ownerId, `${STEP_KINDS[v.kind]} booked — ${place.name}`, `${who(a)} booked a ${STEP_KINDS[v.kind].toLowerCase()} at ${place.name}${place.address ? `, ${place.address}` : ""} on ${day}.`, `/admin/field/org/${place.id}`);
+  return day;
+}
+
+/**
+ * Add an organization — everything on one screen (2026-11-25, owner): the place, who you spoke to, the program manager,
+ * who takes the drop-off, how many cards they want (assigned now by an owner, asked for by an assistant), whether they
+ * want more info in person (with the meet-up date and time), the drop-off date and notes. Opens the organization after.
+ */
 export async function fieldAddOrg(_: FormState, form: FormData): Promise<FormState> {
   const a = await actor();
   const name = s(form, "name", 120);
@@ -85,23 +134,79 @@ export async function fieldAddOrg(_: FormState, form: FormData): Promise<FormSta
   if (!city) return { error: "We couldn't find that city. Check the spelling (for example Frisco) and the state." };
   const owner = await areaOwnerFor(city.id, zip);
   if (a.scope && owner && owner !== a.scope) return { error: "That address is in another owner's area. Ask the main owner if it should be yours." };
+  const wantsInfo = ["yes", "no"].includes(s(form, "wantsInfo", 3)) ? s(form, "wantsInfo", 3) : null;
+  const qtyText = s(form, "cards", 6);
+  const qty = qtyText ? Number(qtyText) : 0;
+  if (qtyText && (!Number.isInteger(qty) || qty < 0 || qty > 1000)) return { error: "Enter how many cards they want (0–1,000)." };
+  const meet = wantsInfo === "yes" ? when(s(form, "meetDate", 10), s(form, "meetTime", 5)) : null;
+  if (wantsInfo === "yes" && (s(form, "meetDate", 10) || s(form, "meetTime", 5)) && !meet) return { error: "Enter both the meet-up date and time." };
+  if (meet && meet.getTime() < Date.now() - 86400000) return { error: "That meet-up date has passed." };
+  const drop = when(s(form, "dropDate", 10), s(form, "dropTime", 5));
+  if ((s(form, "dropDate", 10) || s(form, "dropTime", 5)) && !drop) return { error: "Enter both the drop-off date and time." };
+  if (drop && drop.getTime() < Date.now() - 86400000) return { error: "That drop-off date has passed." };
+
+  const spoke = s(form, "contactName", 100), spokeContact = s(form, "contact", 120), spokeTitle = s(form, "contactTitle", 80);
+  const pm = s(form, "programManager", 100), pmContact = s(form, "programManagerContact", 120);
+  const dropTo = s(form, "dropoffTo", 100), dropContact = s(form, "dropoffContact", 120);
   const [p] = await db.insert(cardPlaces).values({
     name, kind, street, state, zip, cityId: city.id, address: `${street}, ${city.name}, ${state} ${zip}`,
-    contactName: s(form, "contactName", 100) || null, contact: s(form, "contact", 120) || null, locationKey: locationKey(name, street, zip.slice(0, 5)), createdBy: a.user.id,
-    assignedTo: a.user.id, shared: form.get("share") === "on",
+    contactName: spoke || null, contact: spokeContact || null, spokeToTitle: spokeTitle || null,
+    programManager: pm || null, programManagerContact: pmContact || null, dropoffTo: dropTo || null, dropoffContact: dropContact || null,
+    wantsInfo, cardsWanted: qty || null, notes: s(form, "notes", 2000) || null,
+    locationKey: locationKey(name, street, zip.slice(0, 5)), createdBy: a.user.id, assignedTo: a.user.id, shared: form.get("share") === "on",
   }).onConflictDoNothing().returning();
-  if (!p) return { error: `${name} at ${street} is already listed — search for it below.` };
-  if (s(form, "contactName", 100)) {
-    const c = s(form, "contact", 120);
-    await db.insert(fieldContacts).values({ placeId: p.id, name: s(form, "contactName", 100), title: s(form, "contactTitle", 80) || null, phone: c && !c.includes("@") ? c : null, email: c.includes("@") ? c : null, createdBy: a.user.id });
+  if (!p) return { error: `${name} at ${street} is already listed — search for it on Organizations.` };
+
+  // The people become contacts, so meetings and calls can be logged "with" them.
+  const people: { name: string; title: string | null; c: string }[] = [];
+  if (spoke) people.push({ name: spoke, title: spokeTitle || null, c: spokeContact });
+  if (pm && pm.toLowerCase() !== spoke.toLowerCase()) people.push({ name: pm, title: "Program manager", c: pmContact });
+  if (dropTo && ![spoke, pm].map((x) => x.toLowerCase()).includes(dropTo.toLowerCase())) people.push({ name: dropTo, title: "Takes the card drop-off", c: dropContact });
+  const made = people.length ? await db.insert(fieldContacts).values(people.map((x) => ({ placeId: p.id, name: x.name, title: x.title, ...phoneOrEmail(x.c), createdBy: a.user.id }))).returning() : [];
+  const idOf = (n: string) => made.find((m) => m.name.toLowerCase() === n.toLowerCase())?.id ?? null;
+
+  await logActivity({ actorUserId: a.user.id, action: "field.org_added", targetType: "card_place", targetId: p.id, after: { name, kind, street, city: city.name, state, zip, shared: p.shared, cardsWanted: qty || null, wantsInfo } });
+  const ownerId = (await placeOwnerId(p.id)) ?? a.ownerId;
+  const done: string[] = [`${name} added`];
+  if (meet) done.push(`meet-up set for ${await bookStep(a, p, ownerId, { kind: "meeting", at: meet, contactId: idOf(pm || spoke), meetWith: pm || spoke || null, notes: "Wants more info in person." })}`);
+  if (drop) done.push(`drop-off set for ${await bookStep(a, p, ownerId, { kind: "dropoff", at: drop, contactId: idOf(dropTo || pm || spoke), meetWith: dropTo || pm || spoke || null, notes: qty ? `${qty} cards` : null })}`);
+  if (qty) {
+    const r = await giveCards(a, p, ownerId, qty, { date: s(form, "dropDate", 10), notes: dropTo ? `Drop off to ${dropTo}` : null });
+    done.push(r.ok ? r.ok.replace(/\.$/, "") : `cards not assigned yet: ${r.error}`);
   }
-  await logActivity({ actorUserId: a.user.id, action: "field.org_added", targetType: "card_place", targetId: p.id, after: { name, kind, street, city: city.name, state, zip, shared: p.shared } });
   if (p.shared) {
     const { teamNotify } = await import("@/lib/team-room");
     await teamNotify(a.ownerId, "all", a.user.id, `New organization — ${name}`, `${who(a)} added ${name} (${street}, ${city.name}) and is working it.`, `/org/${p.id}`, false);
   }
   refresh();
-  return { ok: `${name} added${p.shared ? " and shared with the team" : " (only you can see it until you share it)"}. You're the one working it — open it to log calls, add people and book a meeting or drop-off.` };
+  const base = s(form, "base", 40) === "/outreach" ? "/outreach" : "/admin/field";
+  redirect(`${base}/org/${p.id}?saved=${encodeURIComponent(done.join(" · ") + ".")}`);
+}
+
+/** Edit the organization's details (who we spoke to, program manager, drop-off person, more info, cards wanted, notes). */
+export async function fieldSaveOrgInfo(_: FormState, form: FormData): Promise<FormState> {
+  const a = await actor();
+  const f = await placeFor(a, s(form, "placeId", 40));
+  if (!f) return { error: "That organization isn't in your area." };
+  const busy = await workProblem(a, f.place); if (busy) return { error: busy };
+  const qtyText = s(form, "cards", 6), qty = qtyText ? Number(qtyText) : null;
+  if (qty !== null && (!Number.isInteger(qty) || qty < 0 || qty > 1000)) return { error: "Enter how many cards they want (0–1,000)." };
+  const v = {
+    contactName: s(form, "contactName", 100) || null, contact: s(form, "contact", 120) || null, spokeToTitle: s(form, "contactTitle", 80) || null,
+    programManager: s(form, "programManager", 100) || null, programManagerContact: s(form, "programManagerContact", 120) || null,
+    dropoffTo: s(form, "dropoffTo", 100) || null, dropoffContact: s(form, "dropoffContact", 120) || null,
+    wantsInfo: ["yes", "no"].includes(s(form, "wantsInfo", 3)) ? s(form, "wantsInfo", 3) : null, cardsWanted: qty || null, notes: s(form, "notes", 2000) || null,
+  };
+  const before = Object.fromEntries(Object.keys(v).map((k) => [k, (f.place as Record<string, unknown>)[k] ?? null]));
+  await db.update(cardPlaces).set(v).where(eq(cardPlaces.id, f.place.id));
+  // New names become contacts so they can be picked for calls and meetings.
+  const have = (await db.select({ name: fieldContacts.name }).from(fieldContacts).where(eq(fieldContacts.placeId, f.place.id))).map((x) => x.name.toLowerCase());
+  const add = ([[v.contactName, v.spokeToTitle, v.contact], [v.programManager, "Program manager", v.programManagerContact], [v.dropoffTo, "Takes the card drop-off", v.dropoffContact]] as const)
+    .filter(([n]) => n && !have.includes(n.toLowerCase())).filter(([n], i, arr) => arr.findIndex(([m]) => m!.toLowerCase() === n!.toLowerCase()) === i);
+  if (add.length) await db.insert(fieldContacts).values(add.map(([n, t, c]) => ({ placeId: f.place.id, name: n!, title: t ?? null, ...phoneOrEmail(c ?? ""), createdBy: a.user.id })));
+  await logActivity({ actorUserId: a.user.id, action: "field.org_details", targetType: "card_place", targetId: f.place.id, before, after: v });
+  refresh();
+  return { ok: "Saved." };
 }
 
 export async function fieldAddContact(_: FormState, form: FormData): Promise<FormState> {
@@ -155,12 +260,7 @@ export async function fieldAddStep(_: FormState, form: FormData): Promise<FormSt
   const link = s(form, "link", 400);
   if (kind === "virtual" && link && !/^https?:\/\//i.test(link)) return { error: "The meeting link should start with https://" };
   const contactId = ID.test(s(form, "contactId", 40)) ? s(form, "contactId", 40) : null;
-  const [row] = await db.insert(fieldSteps).values({
-    placeId: f.place.id, ownerId: f.ownerId, kind, startsAt: at, contactId, meetWith: s(form, "meetWith", 120) || null, link: link || null, notes: s(form, "notes", 1000) || null, createdBy: a.user.id,
-  }).returning();
-  await logActivity({ actorUserId: a.user.id, action: "field.step_booked", targetType: "card_place", targetId: f.place.id, after: { id: row.id, kind, at } });
-  const day = at.toLocaleString("en-US", { timeZone: "America/Chicago", weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-  await tellOwner(a, f.ownerId, `${STEP_KINDS[kind]} booked — ${f.place.name}`, `${who(a)} booked a ${STEP_KINDS[kind].toLowerCase()} at ${f.place.name}${f.place.address ? `, ${f.place.address}` : ""} on ${day}.`, `/admin/field/org/${f.place.id}`);
+  const day = await bookStep(a, f.place, f.ownerId, { kind, at, contactId, meetWith: s(form, "meetWith", 120) || null, link: link || null, notes: s(form, "notes", 1000) || null });
   refresh();
   return { ok: `${STEP_KINDS[kind]} saved for ${day}.` };
 }
@@ -189,29 +289,11 @@ export async function fieldRequestCards(_: FormState, form: FormData): Promise<F
   const f = await placeFor(a, s(form, "placeId", 40));
   if (!f) return { error: "That organization isn't in your area." };
   const busy = await workProblem(a, f.place); if (busy) return { error: busy };
-  const { cardSupply } = await import("@/lib/field");
-  const supply = await cardSupply(f.ownerId);
-  const pick = supply.find((x) => x.id === s(form, "batchId", 40)) ?? (supply.length === 1 ? supply[0] : null);
-  if (!pick) return { error: supply.length ? "Choose which cards." : "There are no published cards for this area yet." };
   const qty = Number(s(form, "quantity", 6) || DEFAULT_CARDS_PER_ORG);
   if (!Number.isInteger(qty) || qty < 1 || qty > 1000) return { error: "Enter how many cards." };
-  const day = s(form, "date", 10);
-  const at = /^\d{4}-\d{2}-\d{2}$/.test(day) ? new Date(`${day}T17:00:00Z`) : new Date();
-  const isRequest = !!a.assistant;
-  const status = isRequest ? "planned" : "assigned";
-  const notes = s(form, "notes", 300) || null;
-  const r = await db.execute(sql`insert into voucher_distributions (batch_id, place_id, quantity, delivered, status, distributed_at, notes, created_by, requested_by, approved_by, approved_at, updated_at)
-    select ${pick.id}, ${f.place.id}, ${qty}, 0, ${status}, ${at.toISOString()}, ${notes}, ${a.user.id}, ${isRequest ? a.user.id : null}, ${isRequest ? null : a.user.id}, ${isRequest ? null : new Date().toISOString()}, now()
-    where (select coalesce(sum(quantity), 0) from voucher_distributions where batch_id = ${pick.id} and status <> 'cancelled') + ${qty} <= ${pick.count}
-    returning id`);
-  const row = r.rows[0] as { id: string } | undefined;
-  if (!row) return { error: `Only ${pick.left} cards are left.` };
-  const after = { place: f.place.name, quantity: qty, status, date: at, notes, request: isRequest };
-  await db.insert(voucherDistributionEvents).values({ distributionId: row.id, actorId: a.user.id, action: isRequest ? "requested" : "created", after });
-  await logActivity({ actorUserId: a.user.id, action: isRequest ? "field.cards_requested" : "vouchers.assigned", targetType: "voucher_distribution", targetId: row.id, after });
-  await tellOwner(a, f.ownerId, `Card request — ${f.place.name}`, `${who(a)} asked for ${qty} cards for ${f.place.name}. Approve or decline it in Field team.`, "/admin/field#requests");
-  refresh(); revalidatePath("/admin/my-vouchers"); revalidatePath("/admin/cards");
-  return { ok: isRequest ? `${qty} cards requested — waiting for approval.` : `${qty} cards assigned to ${f.place.name}.` };
+  const r = await giveCards(a, f.place, f.ownerId, qty, { batchId: s(form, "batchId", 40), date: s(form, "date", 10), notes: s(form, "notes", 300) || null });
+  refresh();
+  return r;
 }
 
 /** Owner approves (→ Assigned) or declines (→ Canceled) an assistant's card request. Never an assistant. */

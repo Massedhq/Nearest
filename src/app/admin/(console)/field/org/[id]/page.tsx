@@ -4,8 +4,9 @@ import { ownerField, FieldHead } from "../../shell";
 export const metadata = { title: "Organization · Field team" };
 export const dynamic = "force-dynamic";
 
-export default async function FieldOrg({ params }: { params: Promise<{ id: string }> }) {
+export default async function FieldOrg({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string }> }) {
   const a = await ownerField();
   const { id } = await params;
-  return (<><FieldHead at="/orgs" title="Organization" /><OrgDetail actor={a} base="/admin/field" placeId={id} /></>);
+  const { saved } = await searchParams;
+  return (<><FieldHead at="/orgs" title="Organization & cards" /><OrgDetail actor={a} base="/admin/field" placeId={id} saved={saved} /></>);
 }

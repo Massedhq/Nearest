@@ -7,5 +7,5 @@ export const dynamic = "force-dynamic";
 export default async function FieldOrgs({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const a = await ownerField();
   const { q } = await searchParams;
-  return (<><FieldHead at="/orgs" title="Organizations" /><OrgsView actor={a} base="/admin/field" q={(q ?? "").slice(0, 80)} /></>);
+  return (<><FieldHead at="/orgs" title="Organizations & cards" /><OrgsView actor={a} base="/admin/field" q={(q ?? "").slice(0, 80)} /></>);
 }

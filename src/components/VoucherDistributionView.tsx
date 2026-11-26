@@ -1,16 +1,13 @@
-import { asc, eq, sql } from "drizzle-orm";
-import { db, cities } from "@/db";
 import { ActionForm } from "@/components/ActionForm";
 import { TapLinkCard } from "@/components/TapLinkCard";
 import { groupNumber, validThruLabel } from "@/lib/nearest-cards";
-import { distributorCampaigns, distributorVotes, orgPerformance, assignments, assignmentHistory, ORG_KINDS, DIST_STATUS, pct } from "@/lib/distribution";
-import { addOrganization, assignVouchers, updateAssignment, cancelAssignment } from "@/app/admin/distribution-actions";
+import { distributorCampaigns, distributorVotes, orgPerformance, assignments, assignmentHistory, DIST_STATUS, pct } from "@/lib/distribution";
+import { updateAssignment, cancelAssignment } from "@/app/admin/distribution-actions";
 import { fmtDate, money } from "@/lib/time";
 
 const field = { borderRadius: 10, border: "1px solid #2A2A2D", background: "#0E0E10", color: "#ECE8E1", padding: "0 10px", height: 40 } as const;
 const kind2 = (k: string) => (k === "cards" ? "GRANTED cards" : k === "free" ? "Free service" : "Discount");
 const kindName = (k: string) => (k === "cards" ? "GRANTED cards" : k === "free" ? "Free service" : "Discount");
-const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
 const day = (d: Date) => new Date(d).toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
 
 /**
@@ -19,13 +16,9 @@ const day = (d: Date) => new Date(d).toLocaleDateString("en-CA", { timeZone: "Am
  * owner's /admin/vouchers/d/[id]. Counts only — never a student's name or details.
  */
 export async function VoucherDistributionView({ userId, own, showTapLink = false }: { userId: string; own: boolean; showTapLink?: boolean }) {
-  const [camps, votes, orgs, rows, history, places, txCities] = await Promise.all([
+  const [camps, votes, orgs, rows, history] = await Promise.all([
     distributorCampaigns(userId), distributorVotes(userId), orgPerformance(userId), assignments(userId), assignmentHistory(userId),
-    db.execute(sql`select p.id, p.name, p.street, ci.name as city, coalesce(p.state, ci.state) as state from card_places p left join cities ci on ci.id = p.city_id
-      where p.active order by p.name, ci.name`),
-    db.select({ name: cities.name }).from(cities).where(eq(cities.state, "TX")).orderBy(asc(cities.name)),
   ]);
-  const placeList = places.rows as { id: string; name: string; street: string | null; city: string | null; state: string | null }[];
   const disc = camps.find((c) => c.kind === "discount"), free = camps.find((c) => c.kind === "free"), card = camps.find((c) => c.kind === "cards");
   const kinds = (["cards", "discount", "free"] as const).filter((k) => camps.some((c) => c.kind === k));
   const total = (k: "count" | "assigned" | "delivered" | "activated", kind?: string) => camps.filter((c) => !kind || c.kind === kind).reduce((n, c) => n + Number(c[k]), 0);
@@ -74,43 +67,8 @@ export async function VoucherDistributionView({ userId, own, showTapLink = false
         <span className="xs muted">Delivered = vouchers physically handed over. Activated = students who added the voucher to their account. Assigning vouchers doesn&apos;t mean they were delivered, and delivering them doesn&apos;t mean students activated them.</span>
       </div>
 
-      <div className="card" style={{ gap: 10 }} id="assign">
-        <span className="eyebrow">Assign vouchers to an organization</span>
-        <ActionForm action={assignVouchers} submitLabel="Save assignment" buttonClass="btn sm" className="col g8">
-          <div className="grid2" style={{ gap: 8 }}>
-            <select name="placeId" required defaultValue="" style={field} aria-label="Organization">
-              <option value="" disabled>Organization…</option>
-              {placeList.map((p) => <option key={p.id} value={p.id}>{p.name}{p.street ? ` — ${p.street}` : ""}{p.city ? `, ${p.city}` : ""}{p.state ? `, ${p.state}` : ""}</option>)}
-            </select>
-            <select name="batchId" required defaultValue="" style={field} aria-label="Voucher type">
-              <option value="" disabled>Voucher type…</option>
-              {camps.map((c) => <option key={c.id} value={c.id}>{kindName(c.kind)} ({c.count - c.assigned} left to assign)</option>)}
-            </select>
-            <input name="quantity" required inputMode="numeric" placeholder="Quantity" style={field} aria-label="Quantity" />
-            <select name="status" defaultValue="assigned" style={field} aria-label="Status">{["planned", "assigned", "delivered", "completed"].map((k) => <option key={k} value={k}>{DIST_STATUS[k]}</option>)}</select>
-            <input name="date" required type="date" defaultValue={today()} style={field} aria-label="Distribution date" />
-            <input name="delivered" inputMode="numeric" placeholder="Delivered so far (optional)" style={field} aria-label="Delivered" />
-          </div>
-          <input name="notes" maxLength={300} placeholder="Notes (optional)" style={field} aria-label="Notes" />
-          <span className="xs muted">Assigned, Delivered and Completed locations show up for students on the voucher vote (usenearest.com/card) so they can say where they got it. Planned ones don&apos;t yet. Going back to the same place later? Add a new assignment — each delivery is kept.</span>
-        </ActionForm>
-        <details>
-          <summary className="link small">Organization not in the list? Add it</summary>
-          <ActionForm action={addOrganization} submitLabel="Add organization" buttonClass="btn sm" className="col g8">
-            <div className="grid2" style={{ gap: 8, marginTop: 8 }}>
-              <input name="name" required maxLength={120} placeholder="Organization name" style={field} aria-label="Organization name" />
-              <select name="kind" defaultValue="school" style={field} aria-label="Organization type">{Object.entries(ORG_KINDS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
-              <input name="street" required maxLength={160} placeholder="Street address" style={field} aria-label="Street address" />
-              <input name="city" required list="dist-cities" autoComplete="off" placeholder="City" style={field} aria-label="City" />
-              <input name="state" required maxLength={2} defaultValue="TX" placeholder="State" style={field} aria-label="State" />
-              <input name="zip" required inputMode="numeric" maxLength={10} placeholder="ZIP code" style={field} aria-label="ZIP code" />
-              <input name="contactName" maxLength={100} placeholder="Contact name (optional)" style={field} aria-label="Contact name" />
-              <input name="contact" maxLength={120} placeholder="Contact phone or email (optional)" style={field} aria-label="Contact phone or email" />
-            </div>
-            <datalist id="dist-cities">{txCities.map((c) => <option key={c.name} value={c.name} />)}</datalist>
-            <span className="xs muted">Each location is listed once. A different branch (another address) is its own location.</span>
-          </ActionForm>
-        </details>
+      <div className="card" style={{ gap: 8 }} id="assign">
+        <span className="small">Add organizations and give them cards on one screen: <a className="link" href="/admin/field/orgs">Field team → Organizations &amp; cards</a>. Assigned, Delivered and Completed locations show up for students on the voucher vote (usenearest.com/card).</span>
       </div>
 
       <div className="card" style={{ gap: 10 }}>
