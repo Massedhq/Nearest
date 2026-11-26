@@ -39,7 +39,7 @@ npm run build
 Check "The build"
 Step "4/4  Saving to GitHub"
 git add -A
-git commit -m "Simple menus for Kisses and Lakeesha; field goals (4 pop-ups a month, 4 educators); time counts only real work"
+git commit -m "Areas: approved split fills itself, duplicate cities show once and move together"
 git push
 if ($LASTEXITCODE -eq 0) { Write-Host "  Pushed - Vercel is deploying it now." -ForegroundColor Green }
 Write-Host ""

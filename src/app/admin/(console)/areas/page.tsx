@@ -23,20 +23,28 @@ export default async function Areas({ searchParams }: { searchParams: Promise<{ 
   const owned = new Map(rows.map((r) => [r.cityId, r.ownerId]));
   const name = (id: string | null | undefined) => owners.find((o) => o.id === id)?.name ?? "—";
   const q = (sp.q ?? "").toLowerCase();
-  const list = t.cities.filter((c) => (!q || c.name.toLowerCase().includes(q) || c.counties.some((k) => k.toLowerCase().includes(q))) && (main || owned.get(c.id) === user.id || zips.some((z) => z.ownerId === user.id && z.cityId === c.id)));
+  // One row per city: some cities exist twice (older records); they share one area and are saved together.
+  const merged = new Map<string, (typeof t.cities)[number]>();
+  for (const c of t.cities) {
+    const k = c.name.toLowerCase();
+    const m = merged.get(k);
+    if (!m) merged.set(k, { ...c, counties: [...c.counties] });
+    else { for (const x of c.counties) if (!m.counties.includes(x)) m.counties.push(x); if (!owned.has(m.id) && owned.has(c.id)) merged.set(k, { ...m, id: c.id }); }
+  }
+  const list = [...merged.values()].filter((c) => (!q || c.name.toLowerCase().includes(q) || c.counties.some((k) => k.toLowerCase().includes(q))) && (main || owned.get(c.id) === user.id || zips.some((z) => z.ownerId === user.id && z.cityId === c.id)));
   const counts = owners.map((o) => ({ ...o, cities: rows.filter((r) => r.ownerId === o.id).length, zips: zips.filter((z) => z.ownerId === o.id).length }));
   const guess = (n: string) => owners.find((o) => o.name.toLowerCase().startsWith(n))?.id ?? "";
   return (
     <>
       <AdminHead eyebrow="Professional Outreach" title={main ? "Areas" : "My area"} />
       <div className="card" style={{ gap: 8 }}>
-        <span className="small">Each city belongs to one owner. The City of Dallas is split by ZIP code (North, South, East). A ZIP code always wins over its city. {main ? "Change any city below; changes take effect right away and are logged." : "Ask the main owner to change your area."}</span>
+        <span className="small">The split you approved is already in place — North (Collin, Denton, north Dallas County and northeast Tarrant/Wise) is {name(owners.find((o) => /^(avy|avr)/i.test(o.name))?.id)}, South is {name(owners.find((o) => /^(lak|kee)/i.test(o.name))?.id)}, East is {name(owners.find((o) => /^(kis|aub)/i.test(o.name))?.id)}. Nothing to set up. Each city belongs to one owner. The City of Dallas is split by ZIP code (North, South, East). A ZIP code always wins over its city. {main ? "Only change a city here when someone else should work it." : "Ask Avy to change your area."}</span>
         <div className="row" style={{ gap: 18, flexWrap: "wrap" }}>{counts.map((o) => <span key={o.id} className="small"><b>{o.name}</b>: {o.cities} cities, {o.zips} ZIP codes</span>)}</div>
       </div>
 
       {main && (
-        <div className="card" style={{ gap: 10 }}>
-          <span className="eyebrow">Starting split</span>
+        <details className="card" style={{ gap: 10 }}>
+          <summary className="small b" style={{ cursor: "pointer" }}>Start over with the original split</summary>
           <span className="xs muted">Sets every DFW city: North = Collin, Denton and north Dallas County; South = south Dallas County and Ellis; East = east Dallas County, Rockwall, Kaufman and Hunt. The West is split three ways — {SIDE_LABEL.westNorth} goes to North, {SIDE_LABEL.westCentral} to East, {SIDE_LABEL.westSouth} to South — and the City of Dallas by ZIP. This replaces every area row.</span>
           <ActionForm action={applyAreaSplit} submitLabel="Apply the starting split">
             <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
@@ -46,7 +54,7 @@ export default async function Areas({ searchParams }: { searchParams: Promise<{ 
               ))}
             </div>
           </ActionForm>
-        </div>
+        </details>
       )}
 
       <div className="card" style={{ gap: 10 }}>

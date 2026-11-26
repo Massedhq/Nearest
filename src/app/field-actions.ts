@@ -616,8 +616,11 @@ export async function setCityArea(form: FormData) {
   const cityId = Number(s(form, "cityId", 10)), ownerId = s(form, "ownerId", 40);
   if (!Number.isInteger(cityId) || cityId < 1) return;
   const before = await db.query.areaCities.findFirst({ where: eq(areaCities.cityId, cityId) });
-  if (!ownerId) await db.delete(areaCities).where(eq(areaCities.cityId, cityId));
-  else if (ID.test(ownerId)) await db.insert(areaCities).values({ cityId, ownerId, updatedBy: a.user.id }).onConflictDoUpdate({ target: areaCities.cityId, set: { ownerId, updatedBy: a.user.id, updatedAt: new Date() } });
+  const { sameNameCityIds } = await import("@/lib/areas");
+  for (const id of await sameNameCityIds(cityId)) { // every record of the same city moves together
+    if (!ownerId) await db.delete(areaCities).where(eq(areaCities.cityId, id));
+    else if (ID.test(ownerId)) await db.insert(areaCities).values({ cityId: id, ownerId, updatedBy: a.user.id }).onConflictDoUpdate({ target: areaCities.cityId, set: { ownerId, updatedBy: a.user.id, updatedAt: new Date() } });
+  }
   await logActivity({ actorUserId: a.user.id, action: "areas.city", targetType: "city", targetId: String(cityId), before: { ownerId: before?.ownerId ?? null }, after: { ownerId: ownerId || null } });
   refresh();
 }
