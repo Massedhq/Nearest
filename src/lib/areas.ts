@@ -65,13 +65,13 @@ export async function applyStartingSplit(who: { north: string; south: string; ea
   }
   const zipRows = (Object.entries(DALLAS_ZIPS) as ["north" | "south" | "east", string[]][])
     .flatMap(([side, zips]) => zips.map((zip) => ({ zip, ownerId: who[side], cityId: dallasId, updatedBy: actorId })));
-  await db.transaction(async (tx) => {
-    await tx.delete(areaCities);
-    await tx.delete(areaZips);
-    if (cityRows.length) await tx.insert(areaCities).values(cityRows);
-    if (zipRows.length) await tx.insert(areaZips).values(zipRows);
-    if (dallasIds.length) await tx.insert(areaCities).values(dallasIds.map((cityId) => ({ cityId, ownerId: who.north, updatedBy: actorId }))); // Dallas ZIPs not on the list → North
-  });
+  // No db.transaction here: Nearest's database driver (neon-http) can't run transactions — that's what made Areas
+  // crash and the old Apply button fail. Plain statements in order instead.
+  await db.delete(areaCities);
+  await db.delete(areaZips);
+  if (cityRows.length) await db.insert(areaCities).values(cityRows).onConflictDoNothing();
+  if (zipRows.length) await db.insert(areaZips).values(zipRows).onConflictDoNothing();
+  if (dallasIds.length) await db.insert(areaCities).values(dallasIds.map((cityId) => ({ cityId, ownerId: who.north, updatedBy: actorId }))).onConflictDoNothing(); // Dallas ZIPs not on the list → North
   return { cities: new Set(rows.map((r) => r.name)).size, zips: zipRows.length };
 }
 
@@ -92,38 +92,28 @@ export async function splitOwners() {
 }
 
 /**
- * Fill in the approved split once (2026-11-26, owner: it's already decided — nobody should have to set it up). Only
- * cities and Dallas ZIPs that have NO owner yet are filled; anything already set is never changed. A marker in
- * platform_settings ("areas.split_filled") makes it run once, so a city later set to "Nobody" stays that way.
+ * Put the approved split in place (2026-11-26, owner: it's already decided — nobody should have to set it up).
+ * Runs ONCE (marker platform_settings "areas.split_v2") and replaces every area row with the approved split, so any
+ * earlier wrong or half-finished assignments are corrected. After that, only changes the main owner makes count.
+ * Returns why it couldn't run, so the Areas page can say so instead of failing quietly.
  */
 let filled = false;
-export async function ensureAreas() {
-  if (filled) return false;
+export async function ensureAreas(): Promise<{ ok: boolean; problem?: string }> {
+  if (filled) return { ok: true };
   const { platformSettings } = await import("@/db");
-  const mark = await db.query.platformSettings.findFirst({ where: eq(platformSettings.key, "areas.split_filled") });
-  if (mark) { filled = true; return false; }
+  const mark = await db.query.platformSettings.findFirst({ where: eq(platformSettings.key, "areas.split_v2") });
+  if (mark) { filled = true; return { ok: true }; }
   const who = await splitOwners();
-  if (!who) return false;
-  const names = DFW_CITIES.map((c) => c.name);
-  const rows = await db.select({ id: cities.id, name: cities.name }).from(cities).where(and(eq(cities.state, "TX"), inArray(cities.name, names)));
-  const byName = new Map(DFW_CITIES.map((c) => [c.name, c.counties]));
-  const cityRows = rows.flatMap((r) => {
-    const side = r.name === "Dallas" ? "north" : startingSide(r.name, byName.get(r.name) ?? []);
-    return side ? [{ cityId: r.id, ownerId: sideOwner(side, who), updatedBy: who.north }] : [];
-  });
-  const dallasId = rows.find((r) => r.name === "Dallas")?.id ?? null;
-  const zipRows = (Object.entries(DALLAS_ZIPS) as ["north" | "south" | "east", string[]][])
-    .flatMap(([side, zips]) => zips.map((zip) => ({ zip, ownerId: who[side], cityId: dallasId, updatedBy: who.north })));
-  let added = 0;
-  await db.transaction(async (tx) => {
-    if (cityRows.length) added = (await tx.insert(areaCities).values(cityRows).onConflictDoNothing().returning({ id: areaCities.cityId })).length;
-    if (zipRows.length) await tx.insert(areaZips).values(zipRows).onConflictDoNothing();
-    await tx.insert(platformSettings).values({ key: "areas.split_filled", value: true }).onConflictDoNothing();
-  });
+  if (!who) {
+    const names = (await areaOwners()).map((o) => o.name).join(", ") || "none";
+    return { ok: false, problem: `The split needs Avy, Lakeesha and Kisses as active owners. Owners found: ${names}.` };
+  }
+  const r = await applyStartingSplit(who, who.north);
+  await db.insert(platformSettings).values({ key: "areas.split_v2", value: true }).onConflictDoNothing();
   filled = true;
   const { logActivity } = await import("./log");
-  await logActivity({ actorUserId: null, action: "areas.split_filled", targetType: "areas", targetId: "dfw", after: { ...who, citiesAdded: added, automatic: true } });
-  return true;
+  await logActivity({ actorUserId: null, action: "areas.split_applied", targetType: "areas", targetId: "dfw", after: { ...who, ...r, automatic: true } });
+  return { ok: true };
 }
 
 /** Every Texas city id with the same name (older duplicate records share one area). */
@@ -165,13 +155,13 @@ export function inArea(ownerId: string, cityCol: unknown, zipCol?: unknown) {
 
 /** Every area row with names, for Admin → Areas. */
 export async function areaMap() {
-  await ensureAreas();
+  const setup = await ensureAreas();
   const [cityRows, zipRows, owners] = await Promise.all([
     db.execute<{ cityId: number; city: string; ownerId: string }>(sql`select a.city_id as "cityId", c.name as city, a.owner_id as "ownerId" from area_cities a join cities c on c.id = a.city_id order by c.name`),
     db.select().from(areaZips).orderBy(areaZips.zip),
     areaOwners(),
   ]);
-  return { cities: cityRows.rows, zips: zipRows, owners };
+  return { cities: cityRows.rows, zips: zipRows, owners, setup };
 }
 
 /** The active owners (Avy, Kisses, Lakeesha…) with first names. */

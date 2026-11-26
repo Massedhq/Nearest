@@ -19,7 +19,7 @@ export default async function Areas({ searchParams }: { searchParams: Promise<{ 
   const { user, role } = await requireAdmin();
   if (role !== "OWNER") { const { notFound } = await import("next/navigation"); notFound(); }
   const main = await isMainOwner(user.id);
-  const [{ cities: rows, zips, owners }, t, sp] = await Promise.all([areaMap(), dfwTargets(), searchParams]);
+  const [{ cities: rows, zips, owners, setup }, t, sp] = await Promise.all([areaMap(), dfwTargets(), searchParams]);
   const owned = new Map(rows.map((r) => [r.cityId, r.ownerId]));
   const name = (id: string | null | undefined) => owners.find((o) => o.id === id)?.name ?? "—";
   const q = (sp.q ?? "").toLowerCase();
@@ -37,13 +37,14 @@ export default async function Areas({ searchParams }: { searchParams: Promise<{ 
   return (
     <>
       <AdminHead eyebrow="Professional Outreach" title={main ? "Areas" : "My area"} />
+      {!setup.ok && <div className="card warn small">The North / South / East split couldn&apos;t be put in place by itself. {setup.problem} Choose who has each side under &ldquo;Start over with the original split&rdquo; below and press Apply.</div>}
       <div className="card" style={{ gap: 8 }}>
         <span className="small">The split you approved is already in place — North (Collin, Denton, north Dallas County and northeast Tarrant/Wise) is {name(owners.find((o) => /^(avy|avr)/i.test(o.name))?.id)}, South is {name(owners.find((o) => /^(lak|kee)/i.test(o.name))?.id)}, East is {name(owners.find((o) => /^(kis|aub)/i.test(o.name))?.id)}. Nothing to set up. Each city belongs to one owner. The City of Dallas is split by ZIP code (North, South, East). A ZIP code always wins over its city. {main ? "Only change a city here when someone else should work it." : "Ask Avy to change your area."}</span>
         <div className="row" style={{ gap: 18, flexWrap: "wrap" }}>{counts.map((o) => <span key={o.id} className="small"><b>{o.name}</b>: {o.cities} cities, {o.zips} ZIP codes</span>)}</div>
       </div>
 
       {main && (
-        <details className="card" style={{ gap: 10 }}>
+        <details className="card" style={{ gap: 10 }} open={!setup.ok}>
           <summary className="small b" style={{ cursor: "pointer" }}>Start over with the original split</summary>
           <span className="xs muted">Sets every DFW city: North = Collin, Denton and north Dallas County; South = south Dallas County and Ellis; East = east Dallas County, Rockwall, Kaufman and Hunt. The West is split three ways — {SIDE_LABEL.westNorth} goes to North, {SIDE_LABEL.westCentral} to East, {SIDE_LABEL.westSouth} to South — and the City of Dallas by ZIP. This replaces every area row.</span>
           <ActionForm action={applyAreaSplit} submitLabel="Apply the starting split">
